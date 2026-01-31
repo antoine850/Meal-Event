@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Calendar, CheckCircle, Clock, TrendingUp, Users, XCircle } from 'lucide-react'
+import { Calendar, CheckCircle, Clock, TrendingUp, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -138,8 +138,8 @@ export function ReservationsTab() {
                 <XAxis dataKey='day' fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
-                  formatter={(value: number, name: string) => [
-                    name === 'reservations' ? `${value} réservations` : `${value} convives`,
+                  formatter={(value, name) => [
+                    name === 'reservations' ? `${value ?? 0} réservations` : `${value ?? 0} convives`,
                     name === 'reservations' ? 'Réservations' : 'Convives'
                   ]}
                 />
@@ -172,7 +172,7 @@ export function ReservationsTab() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [`${value} réservations`, '']} />
+                <Tooltip formatter={(value) => [`${value ?? 0} réservations`, '']} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -193,8 +193,8 @@ export function ReservationsTab() {
                 <XAxis dataKey='month' fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
-                  formatter={(value: number, name: string) => [
-                    name === 'reservations' ? `${value} réservations` : `${value.toLocaleString('fr-FR')} €`,
+                  formatter={(value, name) => [
+                    name === 'reservations' ? `${value ?? 0} réservations` : `${(value ?? 0).toLocaleString('fr-FR')} €`,
                     name === 'reservations' ? 'Réservations' : 'CA'
                   ]}
                 />

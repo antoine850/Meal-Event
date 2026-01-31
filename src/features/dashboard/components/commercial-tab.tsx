@@ -125,7 +125,7 @@ export function CommercialTab() {
                   tickFormatter={(value) => `${(value / 1000).toFixed(0)}k€`}
                 />
                 <Tooltip
-                  formatter={(value: number | string) => [`${Number(value).toLocaleString('fr-FR')} €`, '']}
+                  formatter={(value) => [`${Number(value ?? 0).toLocaleString('fr-FR')} €`, '']}
                   labelStyle={{ color: '#000' }}
                 />
                 <Legend />
@@ -161,7 +161,7 @@ export function CommercialTab() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number | string) => [`${Number(value).toLocaleString('fr-FR')} €`, 'CA']} />
+                <Tooltip formatter={(value) => [`${Number(value ?? 0).toLocaleString('fr-FR')} €`, 'CA']} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>

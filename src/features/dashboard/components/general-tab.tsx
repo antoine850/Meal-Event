@@ -113,7 +113,7 @@ export function GeneralTab() {
                   tickFormatter={(value) => `${(value / 1000).toFixed(0)}k€`}
                 />
                 <Tooltip
-                  formatter={(value: number) => [`${value.toLocaleString('fr-FR')} €`, '']}
+                  formatter={(value) => [`${(value ?? 0).toLocaleString('fr-FR')} €`, '']}
                   labelStyle={{ color: '#000' }}
                 />
                 <Legend />

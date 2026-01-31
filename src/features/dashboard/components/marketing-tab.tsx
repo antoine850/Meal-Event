@@ -44,7 +44,6 @@ const sourceColors: Record<string, string> = {
 export function MarketingTab() {
   const totalLeads = marketingBySource.reduce((acc, s) => acc + s.leads, 0)
   const totalBookings = marketingBySource.reduce((acc, s) => acc + s.bookings, 0)
-  const _totalRevenue = marketingBySource.reduce((acc, s) => acc + s.revenue, 0)
   const avgConversion = ((totalBookings / totalLeads) * 100).toFixed(1)
 
   const bestSource = marketingBySource.reduce((best, current) => 
