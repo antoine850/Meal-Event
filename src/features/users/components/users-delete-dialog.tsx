@@ -41,40 +41,40 @@ export function UsersDeleteDialog({
             className='me-1 inline-block stroke-destructive'
             size={18}
           />{' '}
-          Delete User
+          Supprimer l'utilisateur
         </span>
       }
       desc={
         <div className='space-y-4'>
           <p className='mb-2'>
-            Are you sure you want to delete{' '}
-            <span className='font-bold'>{currentRow.username}</span>?
+            Êtes-vous sûr de vouloir supprimer{' '}
+            <span className='font-bold'>{currentRow.username}</span> ?
             <br />
-            This action will permanently remove the user with the role of{' '}
+            Cette action supprimera définitivement l'utilisateur avec le rôle{' '}
             <span className='font-bold'>
               {currentRow.role.toUpperCase()}
             </span>{' '}
-            from the system. This cannot be undone.
+            du système. Cette action est irréversible.
           </p>
 
           <Label className='my-2'>
-            Username:
+            Nom d'utilisateur :
             <Input
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder='Enter username to confirm deletion.'
+              placeholder="Entrez le nom d'utilisateur pour confirmer."
             />
           </Label>
 
           <Alert variant='destructive'>
-            <AlertTitle>Warning!</AlertTitle>
+            <AlertTitle>Attention !</AlertTitle>
             <AlertDescription>
-              Please be careful, this operation can not be rolled back.
+              Soyez prudent, cette opération ne peut pas être annulée.
             </AlertDescription>
           </Alert>
         </div>
       }
-      confirmText='Delete'
+      confirmText='Supprimer'
       destructive
     />
   )

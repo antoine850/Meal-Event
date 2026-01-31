@@ -67,8 +67,9 @@ export function Chats() {
     <>
       {/* ===== Top Heading ===== */}
       <Header>
-        <Search />
+        <h1 className='text-2xl font-bold tracking-tight'>Messages</h1>
         <div className='ms-auto flex items-center space-x-4'>
+          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

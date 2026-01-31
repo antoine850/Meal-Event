@@ -85,8 +85,9 @@ export function Apps() {
     <>
       {/* ===== Top Heading ===== */}
       <Header>
-        <Search />
+        <h1 className='text-2xl font-bold tracking-tight'>Intégrations</h1>
         <div className='ms-auto flex items-center gap-4'>
+          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />
@@ -95,14 +96,9 @@ export function Apps() {
 
       {/* ===== Content ===== */}
       <Main fixed>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>
-            App Integrations
-          </h1>
-          <p className='text-muted-foreground'>
-            Here&apos;s a list of your apps for the integration!
-          </p>
-        </div>
+        <p className='text-muted-foreground'>
+          Liste des applications disponibles pour l&apos;intégration.
+        </p>
         <div className='my-4 flex items-end justify-between sm:my-0 sm:items-center'>
           <div className='flex flex-col gap-4 sm:my-4 sm:flex-row'>
             <Input

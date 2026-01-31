@@ -39,6 +39,7 @@ type SidebarData = {
   user: User
   teams: Team[]
   navGroups: NavGroup[]
+  footerGroups?: NavGroup[]
 }
 
 export type { SidebarData, NavGroup, NavItem, NavCollapsible, NavLink }

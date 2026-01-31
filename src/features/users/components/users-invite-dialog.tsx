@@ -29,9 +29,9 @@ import { roles } from '../data/data'
 const formSchema = z.object({
   email: z.email({
     error: (iss) =>
-      iss.input === '' ? 'Please enter an email to invite.' : undefined,
+      iss.input === '' ? 'Veuillez entrer un email.' : undefined,
   }),
-  role: z.string().min(1, 'Role is required.'),
+  role: z.string().min(1, 'Le rôle est requis.'),
   desc: z.string().optional(),
 })
 
@@ -68,11 +68,11 @@ export function UsersInviteDialog({
       <DialogContent className='sm:max-w-md'>
         <DialogHeader className='text-start'>
           <DialogTitle className='flex items-center gap-2'>
-            <MailPlus /> Invite User
+            <MailPlus /> Inviter un utilisateur
           </DialogTitle>
           <DialogDescription>
-            Invite new user to join your team by sending them an email
-            invitation. Assign a role to define their access level.
+            Invitez un nouvel utilisateur à rejoindre votre équipe en lui envoyant
+            une invitation par email. Assignez un rôle pour définir son niveau d'accès.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -107,7 +107,7 @@ export function UsersInviteDialog({
                   <SelectDropdown
                     defaultValue={field.value}
                     onValueChange={field.onChange}
-                    placeholder='Select a role'
+                    placeholder='Sélectionner un rôle'
                     items={roles.map(({ label, value }) => ({
                       label,
                       value,
@@ -122,11 +122,11 @@ export function UsersInviteDialog({
               name='desc'
               render={({ field }) => (
                 <FormItem className=''>
-                  <FormLabel>Description (optional)</FormLabel>
+                  <FormLabel>Description (optionnel)</FormLabel>
                   <FormControl>
                     <Textarea
                       className='resize-none'
-                      placeholder='Add a personal note to your invitation (optional)'
+                      placeholder='Ajoutez une note personnelle à votre invitation (optionnel)'
                       {...field}
                     />
                   </FormControl>
@@ -138,10 +138,10 @@ export function UsersInviteDialog({
         </Form>
         <DialogFooter className='gap-y-2'>
           <DialogClose asChild>
-            <Button variant='outline'>Cancel</Button>
+            <Button variant='outline'>Annuler</Button>
           </DialogClose>
           <Button type='submit' form='user-invite-form'>
-            Invite <Send />
+            Inviter <Send />
           </Button>
         </DialogFooter>
       </DialogContent>

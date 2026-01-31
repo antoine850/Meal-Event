@@ -26,12 +26,12 @@ export function DataTableBulkActions<TData>({
   const handleBulkStatusChange = (status: 'active' | 'inactive') => {
     const selectedUsers = selectedRows.map((row) => row.original as User)
     toast.promise(sleep(2000), {
-      loading: `${status === 'active' ? 'Activating' : 'Deactivating'} users...`,
+      loading: `${status === 'active' ? 'Activation' : 'Désactivation'} des utilisateurs...`,
       success: () => {
         table.resetRowSelection()
-        return `${status === 'active' ? 'Activated' : 'Deactivated'} ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`
+        return `${selectedUsers.length} utilisateur${selectedUsers.length > 1 ? 's' : ''} ${status === 'active' ? 'activé' : 'désactivé'}${selectedUsers.length > 1 ? 's' : ''}`
       },
-      error: `Error ${status === 'active' ? 'activating' : 'deactivating'} users`,
+      error: `Erreur lors de ${status === 'active' ? "l'activation" : 'la désactivation'} des utilisateurs`,
     })
     table.resetRowSelection()
   }
@@ -39,19 +39,19 @@ export function DataTableBulkActions<TData>({
   const handleBulkInvite = () => {
     const selectedUsers = selectedRows.map((row) => row.original as User)
     toast.promise(sleep(2000), {
-      loading: 'Inviting users...',
+      loading: 'Envoi des invitations...',
       success: () => {
         table.resetRowSelection()
-        return `Invited ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''}`
+        return `${selectedUsers.length} utilisateur${selectedUsers.length > 1 ? 's' : ''} invité${selectedUsers.length > 1 ? 's' : ''}`
       },
-      error: 'Error inviting users',
+      error: "Erreur lors de l'envoi des invitations",
     })
     table.resetRowSelection()
   }
 
   return (
     <>
-      <BulkActionsToolbar table={table} entityName='user'>
+      <BulkActionsToolbar table={table} entityName='utilisateur'>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -59,15 +59,15 @@ export function DataTableBulkActions<TData>({
               size='icon'
               onClick={handleBulkInvite}
               className='size-8'
-              aria-label='Invite selected users'
-              title='Invite selected users'
+              aria-label='Inviter les utilisateurs sélectionnés'
+              title='Inviter les utilisateurs sélectionnés'
             >
               <Mail />
-              <span className='sr-only'>Invite selected users</span>
+              <span className='sr-only'>Inviter les utilisateurs sélectionnés</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Invite selected users</p>
+            <p>Inviter les utilisateurs sélectionnés</p>
           </TooltipContent>
         </Tooltip>
 
@@ -78,15 +78,15 @@ export function DataTableBulkActions<TData>({
               size='icon'
               onClick={() => handleBulkStatusChange('active')}
               className='size-8'
-              aria-label='Activate selected users'
-              title='Activate selected users'
+              aria-label='Activer les utilisateurs sélectionnés'
+              title='Activer les utilisateurs sélectionnés'
             >
               <UserCheck />
-              <span className='sr-only'>Activate selected users</span>
+              <span className='sr-only'>Activer les utilisateurs sélectionnés</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Activate selected users</p>
+            <p>Activer les utilisateurs sélectionnés</p>
           </TooltipContent>
         </Tooltip>
 
@@ -97,15 +97,15 @@ export function DataTableBulkActions<TData>({
               size='icon'
               onClick={() => handleBulkStatusChange('inactive')}
               className='size-8'
-              aria-label='Deactivate selected users'
-              title='Deactivate selected users'
+              aria-label='Désactiver les utilisateurs sélectionnés'
+              title='Désactiver les utilisateurs sélectionnés'
             >
               <UserX />
-              <span className='sr-only'>Deactivate selected users</span>
+              <span className='sr-only'>Désactiver les utilisateurs sélectionnés</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Deactivate selected users</p>
+            <p>Désactiver les utilisateurs sélectionnés</p>
           </TooltipContent>
         </Tooltip>
 
@@ -116,15 +116,15 @@ export function DataTableBulkActions<TData>({
               size='icon'
               onClick={() => setShowDeleteConfirm(true)}
               className='size-8'
-              aria-label='Delete selected users'
-              title='Delete selected users'
+              aria-label='Supprimer les utilisateurs sélectionnés'
+              title='Supprimer les utilisateurs sélectionnés'
             >
               <Trash2 />
-              <span className='sr-only'>Delete selected users</span>
+              <span className='sr-only'>Supprimer les utilisateurs sélectionnés</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Delete selected users</p>
+            <p>Supprimer les utilisateurs sélectionnés</p>
           </TooltipContent>
         </Tooltip>
       </BulkActionsToolbar>

@@ -20,8 +20,9 @@ export function Users() {
   return (
     <UsersProvider>
       <Header fixed>
-        <Search />
+        <h1 className='text-2xl font-bold tracking-tight'>Utilisateurs</h1>
         <div className='ms-auto flex items-center space-x-4'>
+          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />
@@ -30,12 +31,9 @@ export function Users() {
 
       <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
         <div className='flex flex-wrap items-end justify-between gap-2'>
-          <div>
-            <h2 className='text-2xl font-bold tracking-tight'>User List</h2>
-            <p className='text-muted-foreground'>
-              Manage your users and their roles here.
-            </p>
-          </div>
+          <p className='text-muted-foreground'>
+            Gérez vos utilisateurs et leurs rôles ici.
+          </p>
           <UsersPrimaryButtons />
         </div>
         <UsersTable data={users} search={search} navigate={navigate} />

@@ -29,6 +29,9 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
       <SidebarFooter>
+        {sidebarData.footerGroups?.map((props) => (
+          <NavGroup key={props.title} {...props} />
+        ))}
         <NavUser user={sidebarData.user} />
       </SidebarFooter>
       <SidebarRail />
