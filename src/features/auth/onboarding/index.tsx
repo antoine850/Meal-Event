@@ -77,17 +77,18 @@ export function Onboarding() {
       if (!user) throw new Error('Utilisateur non connecté')
 
       // Create organization
-      const { data: organization, error: orgError } = await supabase
+      const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .insert({
           name: data.organizationName,
           slug: data.organizationSlug,
           email: user.email,
-        })
+        } as never)
         .select()
         .single()
 
       if (orgError) throw orgError
+      const organization = orgData as { id: string; name: string; slug: string }
 
       // Get default admin role
       const { data: adminRole } = await supabase
@@ -98,7 +99,7 @@ export function Onboarding() {
         .single()
 
       // If no role exists, create default roles
-      let roleId = adminRole?.id
+      let roleId = (adminRole as { id: string } | null)?.id
       if (!roleId) {
         const { data: newRole } = await supabase
           .from('roles')
@@ -107,10 +108,10 @@ export function Onboarding() {
             name: 'Administrateur',
             slug: 'admin',
             is_default: true,
-          })
+          } as never)
           .select()
           .single()
-        roleId = newRole?.id
+        roleId = (newRole as { id: string } | null)?.id
       }
 
       // Create user profile
@@ -124,7 +125,7 @@ export function Onboarding() {
           first_name: profileData.firstName,
           last_name: profileData.lastName,
           phone: profileData.phone || null,
-        })
+        } as never)
 
       if (userError) throw userError
 
@@ -133,7 +134,7 @@ export function Onboarding() {
         .from('settings')
         .insert({
           organization_id: organization.id,
-        })
+        } as never)
 
       setCurrentStep(3)
       toast.success('Organisation créée avec succès !')
