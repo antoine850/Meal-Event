@@ -18,7 +18,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ContentSection } from '../components/content-section'
 import { useStatuses, useDeleteStatus, type Status } from '../hooks/use-settings'
 import { StatusDialog } from './status-dialog'
 
@@ -134,10 +133,7 @@ export function StatusesSettings() {
   )
 
   return (
-    <ContentSection
-      title='Statuts'
-      desc='Gérez les statuts pour les contacts et les réservations.'
-    >
+    <div className='flex flex-1 flex-col w-full'>
       <Tabs defaultValue='contact' className='w-full'>
         <TabsList className='mb-4'>
           <TabsTrigger value='contact'>Contacts ({contactStatuses.length})</TabsTrigger>
@@ -157,6 +153,6 @@ export function StatusesSettings() {
         status={editingStatus}
         type={statusType}
       />
-    </ContentSection>
+    </div>
   )
 }

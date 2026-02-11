@@ -17,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ContentSection } from '../components/content-section'
 import { useRestaurants, useDeleteRestaurant, type Restaurant } from '../hooks/use-settings'
 import { RestaurantDialog } from './restaurant-dialog'
 
@@ -55,10 +54,7 @@ export function RestaurantsSettings() {
   }
 
   return (
-    <ContentSection
-      title='Restaurants'
-      desc='Gérez les restaurants de votre organisation.'
-    >
+    <div className='flex flex-1 flex-col w-full'>
       <div className='flex justify-end mb-4'>
         <Button onClick={handleCreate}>
           <Plus className='mr-2 h-4 w-4' />
@@ -72,8 +68,8 @@ export function RestaurantsSettings() {
             <TableRow>
               <TableHead>Couleur</TableHead>
               <TableHead>Nom</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Téléphone</TableHead>
+              <TableHead className='hidden md:table-cell'>Email</TableHead>
+              <TableHead className='hidden sm:table-cell'>Téléphone</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead className='w-[70px]'></TableHead>
             </TableRow>
@@ -95,8 +91,8 @@ export function RestaurantsSettings() {
                     />
                   </TableCell>
                   <TableCell className='font-medium'>{restaurant.name}</TableCell>
-                  <TableCell>{restaurant.email || '-'}</TableCell>
-                  <TableCell>{restaurant.phone || '-'}</TableCell>
+                  <TableCell className='hidden md:table-cell'>{restaurant.email || '-'}</TableCell>
+                  <TableCell className='hidden sm:table-cell'>{restaurant.phone || '-'}</TableCell>
                   <TableCell>
                     <Badge variant={restaurant.is_active ? 'default' : 'secondary'}>
                       {restaurant.is_active ? 'Actif' : 'Inactif'}
@@ -136,6 +132,6 @@ export function RestaurantsSettings() {
         onOpenChange={setIsDialogOpen}
         restaurant={editingRestaurant}
       />
-    </ContentSection>
+    </div>
   )
 }

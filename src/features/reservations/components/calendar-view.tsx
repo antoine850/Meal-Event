@@ -48,9 +48,15 @@ function ReservationCard({ reservation, onClick }: { reservation: Reservation, o
         onClick?.()
       }}
       className='rounded-md p-2 text-xs cursor-pointer hover:opacity-90 transition-opacity border-l-4 bg-card shadow-sm mb-1'
-      style={{ borderLeftColor: reservation.restaurant.color }}
+      style={{ borderLeftColor: reservation.statusColor || reservation.restaurant.color }}
     >
-      <div className='text-[10px] text-muted-foreground mb-0.5'>{reservation.restaurant.name.split(' ').slice(-1)[0]}</div>
+      <div className='flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5'>
+        <div 
+          className='w-2 h-2 rounded-full' 
+          style={{ backgroundColor: reservation.restaurant.color }}
+        />
+        <span>{reservation.restaurant.name.split(' ').slice(-1)[0]}</span>
+      </div>
       <div className='font-medium text-primary'>
         {reservation.startTime} - {reservation.endTime}
       </div>

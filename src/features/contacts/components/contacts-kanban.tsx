@@ -1,5 +1,4 @@
 import { Mail, Phone, Building2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
@@ -62,7 +61,10 @@ function KanbanColumn({ status, contacts }: { status: StatusCount, contacts: Con
   return (
     <div className='flex flex-col min-w-[280px] max-w-[280px] bg-muted/30 rounded-lg'>
       <div className='p-3 border-b'>
-        <div className={cn('h-1 w-full rounded-full mb-2', status.color)} />
+        <div 
+          className='h-1 w-full rounded-full mb-2' 
+          style={{ backgroundColor: status.color || '#6b7280' }}
+        />
         <div className='flex items-center justify-between'>
           <h3 className='font-medium text-sm'>{status.label}</h3>
           <Badge variant='secondary' className='text-xs'>{columnContacts.length}</Badge>

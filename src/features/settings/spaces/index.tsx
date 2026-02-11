@@ -17,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ContentSection } from '../components/content-section'
 import { useSpaces, useDeleteSpace, type Space } from '../hooks/use-settings'
 import { SpaceDialog } from './space-dialog'
 
@@ -55,10 +54,7 @@ export function SpacesSettings() {
   }
 
   return (
-    <ContentSection
-      title='Espaces'
-      desc='Gérez les espaces de vos restaurants (salles, terrasses, etc.).'
-    >
+    <div className='flex flex-1 flex-col w-full'>
       <div className='flex justify-end mb-4'>
         <Button onClick={handleCreate}>
           <Plus className='mr-2 h-4 w-4' />
@@ -71,8 +67,8 @@ export function SpacesSettings() {
           <TableHeader>
             <TableRow>
               <TableHead>Nom</TableHead>
-              <TableHead>Restaurant</TableHead>
-              <TableHead>Capacité</TableHead>
+              <TableHead className='hidden sm:table-cell'>Restaurant</TableHead>
+              <TableHead className='hidden md:table-cell'>Capacité</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead className='w-[70px]'></TableHead>
             </TableRow>
@@ -88,8 +84,8 @@ export function SpacesSettings() {
               spaces.map((space) => (
                 <TableRow key={space.id}>
                   <TableCell className='font-medium'>{space.name}</TableCell>
-                  <TableCell>{space.restaurant?.name || '-'}</TableCell>
-                  <TableCell>{space.capacity ? `${space.capacity} pers.` : '-'}</TableCell>
+                  <TableCell className='hidden sm:table-cell'>{space.restaurant?.name || '-'}</TableCell>
+                  <TableCell className='hidden md:table-cell'>{space.capacity ? `${space.capacity} pers.` : '-'}</TableCell>
                   <TableCell>
                     <Badge variant={space.is_active ? 'default' : 'secondary'}>
                       {space.is_active ? 'Actif' : 'Inactif'}
@@ -129,6 +125,6 @@ export function SpacesSettings() {
         onOpenChange={setIsDialogOpen}
         space={editingSpace}
       />
-    </ContentSection>
+    </div>
   )
 }

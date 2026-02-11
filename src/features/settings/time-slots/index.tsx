@@ -17,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ContentSection } from '../components/content-section'
 import { useTimeSlots, useDeleteTimeSlot, type TimeSlot } from '../hooks/use-settings'
 import { TimeSlotDialog } from './time-slot-dialog'
 
@@ -55,10 +54,7 @@ export function TimeSlotsSettings() {
   }
 
   return (
-    <ContentSection
-      title='Créneaux horaires'
-      desc='Gérez les créneaux horaires disponibles pour les réservations.'
-    >
+    <div className='flex flex-1 flex-col w-full'>
       <div className='flex justify-end mb-4'>
         <Button onClick={handleCreate}>
           <Plus className='mr-2 h-4 w-4' />
@@ -129,6 +125,6 @@ export function TimeSlotsSettings() {
         onOpenChange={setIsDialogOpen}
         timeSlot={editingTimeSlot}
       />
-    </ContentSection>
+    </div>
   )
 }
