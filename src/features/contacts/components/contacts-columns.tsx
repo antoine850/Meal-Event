@@ -1,5 +1,5 @@
 import { type ColumnDef } from '@tanstack/react-table'
-import { format, formatDistanceToNow } from 'date-fns'
+import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -7,9 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
-import { type Contact, contactStatuses } from '../data/contacts'
+import type { ContactWithRelations } from '../types'
 
-export const contactsColumns: ColumnDef<Contact>[] = [
+export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
   {
     id: 'select',
     header: ({ table }) => (
@@ -38,102 +38,22 @@ export const contactsColumns: ColumnDef<Contact>[] = [
     },
   },
   {
-    accessorKey: 'companyName',
+    accessorKey: 'first_name',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Contact' />
     ),
     cell: ({ row }) => (
       <div className='flex flex-col'>
-        <span className='font-medium'>{row.original.companyName}</span>
-        <span className='text-xs text-muted-foreground'>{row.original.contactName}</span>
+        <span className='font-medium'>
+          {row.original.first_name} {row.original.last_name || ''}
+        </span>
+        <span className='text-xs text-muted-foreground'>
+          {row.original.company?.name || '-'}
+        </span>
       </div>
     ),
     meta: {
       className: 'min-w-[180px]',
-    },
-  },
-  {
-    accessorKey: 'date',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Date' />
-    ),
-    cell: ({ row }) => (
-      <div className='flex flex-col'>
-        <span>{format(row.original.date, 'EEE d MMM yy', { locale: fr })}</span>
-        <span className='text-xs text-muted-foreground'>{row.original.time}</span>
-      </div>
-    ),
-    meta: {
-      className: 'min-w-[120px]',
-    },
-  },
-  {
-    accessorKey: 'espace',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Espace' />
-    ),
-    cell: ({ row }) => (
-      <span className='text-sm'>{row.original.espace}</span>
-    ),
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    },
-  },
-  {
-    accessorKey: 'occasion',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Occasion' />
-    ),
-    cell: ({ row }) => (
-      <div className='flex items-center gap-1'>
-        <span className='text-xs text-muted-foreground'>{row.original.guests}p</span>
-        <span className='text-sm'>{row.original.occasion}</span>
-      </div>
-    ),
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    },
-  },
-  {
-    accessorKey: 'devisHT',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Devis HT' />
-    ),
-    cell: ({ row }) => {
-      const value = row.original.devisHT
-      if (!value) return <span className='text-muted-foreground'>-</span>
-      return (
-        <Badge variant='outline' className='bg-yellow-50 text-yellow-700 border-yellow-200'>
-          {value.toLocaleString('fr-FR')} €
-        </Badge>
-      )
-    },
-  },
-  {
-    accessorKey: 'facturesHT',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Factures HT' />
-    ),
-    cell: ({ row }) => {
-      const value = row.original.facturesHT
-      if (!value) return <span className='text-muted-foreground'>-</span>
-      return (
-        <Badge variant='outline' className='bg-green-50 text-green-700 border-green-200'>
-          {value.toLocaleString('fr-FR')} €
-        </Badge>
-      )
-    },
-  },
-  {
-    accessorKey: 'assignee',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Assigné' />
-    ),
-    cell: ({ row }) => (
-      <span className='text-sm'>{row.original.assignee}</span>
-    ),
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
     },
   },
   {
@@ -142,10 +62,68 @@ export const contactsColumns: ColumnDef<Contact>[] = [
       <DataTableColumnHeader column={column} title='Email' />
     ),
     cell: ({ row }) => (
-      <div className='flex flex-col text-xs'>
-        <span className='truncate max-w-[150px]'>{row.original.restaurant}</span>
-        <span className='text-muted-foreground'>▶ {format(row.original.createdAt, 'dd/MM/yyyy HH:mm')}</span>
-      </div>
+      <span className='text-sm truncate max-w-[200px]'>
+        {row.original.email || '-'}
+      </span>
+    ),
+    meta: {
+      className: 'min-w-[180px]',
+    },
+  },
+  {
+    accessorKey: 'phone',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Téléphone' />
+    ),
+    cell: ({ row }) => (
+      <span className='text-sm'>{row.original.phone || row.original.mobile || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'job_title',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Fonction' />
+    ),
+    cell: ({ row }) => (
+      <span className='text-sm'>{row.original.job_title || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'assigned_to',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Assigné' />
+    ),
+    cell: ({ row }) => {
+      const user = row.original.assigned_user
+      if (!user) return <span className='text-muted-foreground'>-</span>
+      return (
+        <span className='text-sm'>
+          {user.first_name} {user.last_name}
+        </span>
+      )
+    },
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id))
+    },
+  },
+  {
+    accessorKey: 'source',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Source' />
+    ),
+    cell: ({ row }) => (
+      <span className='text-sm'>{row.original.source || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'created_at',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Créé le' />
+    ),
+    cell: ({ row }) => (
+      <span className='text-sm text-muted-foreground'>
+        {format(new Date(row.original.created_at), 'dd/MM/yyyy', { locale: fr })}
+      </span>
     ),
   },
   {
@@ -154,33 +132,19 @@ export const contactsColumns: ColumnDef<Contact>[] = [
       <DataTableColumnHeader column={column} title='Statut' />
     ),
     cell: ({ row }) => {
-      const status = contactStatuses.find(s => s.value === row.original.status)
+      const status = row.original.status
+      if (!status) return <span className='text-muted-foreground'>-</span>
       return (
         <Badge 
           variant='outline' 
-          className={cn('text-xs', status?.color.replace('bg-', 'border-'))}
+          className={cn('text-xs', status.color)}
         >
-          {status?.label}
+          {status.name}
         </Badge>
       )
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
-    },
-  },
-  {
-    accessorKey: 'relanceDate',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Relance à faire' />
-    ),
-    cell: ({ row }) => {
-      const relanceDate = row.original.relanceDate
-      if (!relanceDate) return <span className='text-muted-foreground'>-</span>
-      return (
-        <span className='text-sm text-orange-600'>
-          il y a {formatDistanceToNow(relanceDate, { locale: fr })}
-        </span>
-      )
+    filterFn: (row, _id, value) => {
+      return value.includes(row.original.status?.slug)
     },
   },
   {

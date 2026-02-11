@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { type Reservation, restaurants } from '../data/reservations'
+import type { Reservation } from '../types'
 
 type ViewMode = 'month' | 'week' | 'day'
 
@@ -417,10 +417,11 @@ export function CalendarView({ reservations, viewMode, onViewModeChange, onReser
         </div>
         <h2 className='hidden sm:block text-lg font-semibold capitalize'>{getTitle()}</h2>
         <div className='hidden sm:flex items-center gap-2 overflow-x-auto'>
-          {restaurants.map(r => (
-            <div key={r.id} className='flex items-center gap-1 text-xs shrink-0'>
-              <div className='w-2 h-2 sm:w-3 sm:h-3 rounded' style={{ backgroundColor: r.color }} />
-              <span className='hidden md:inline'>{r.name}</span>
+          {/* Restaurant legend - derived from reservations */}
+          {Array.from(new Map(reservations.map(r => [r.restaurant.id, r.restaurant])).values()).map(restaurant => (
+            <div key={restaurant.id} className='flex items-center gap-1 text-xs shrink-0'>
+              <div className='w-2 h-2 sm:w-3 sm:h-3 rounded' style={{ backgroundColor: restaurant.color }} />
+              <span className='hidden md:inline'>{restaurant.name}</span>
             </div>
           ))}
         </div>

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Calendar, CalendarDays, CalendarRange, Plus } from 'lucide-react'
+import { Calendar, CalendarDays, CalendarRange, Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -12,12 +12,18 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { CalendarView } from './components/calendar-view'
-import { reservations } from './data/reservations'
+import { useBookings } from './hooks/use-bookings'
+import { bookingToReservation } from './types'
 
 type ViewMode = 'month' | 'week' | 'day'
 
 export function Reservations() {
   const [viewMode, setViewMode] = useState<ViewMode>('month')
+  const { data: bookings = [], isLoading } = useBookings()
+
+  const reservations = useMemo(() => {
+    return bookings.map(bookingToReservation)
+  }, [bookings])
 
   const handleAddReservation = (date: Date) => {
     toast.info(`Nouvelle réservation`, {
@@ -29,6 +35,14 @@ export function Reservations() {
         },
       },
     })
+  }
+
+  if (isLoading) {
+    return (
+      <div className='flex h-full items-center justify-center'>
+        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      </div>
+    )
   }
 
   return (

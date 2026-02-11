@@ -1,59 +1,63 @@
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
-import { Calendar, Mail, MapPin, Users } from 'lucide-react'
+import { Mail, Phone, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { type Contact, contactStatuses } from '../data/contacts'
+import type { ContactWithRelations, StatusCount } from '../types'
 
 type ContactsKanbanProps = {
-  data: Contact[]
+  data: ContactWithRelations[]
+  statuses?: StatusCount[]
 }
 
-function KanbanCard({ contact }: { contact: Contact }) {
+function KanbanCard({ contact }: { contact: ContactWithRelations }) {
   return (
     <Card className='mb-3 cursor-pointer hover:shadow-md transition-shadow'>
       <CardHeader className='p-3 pb-2'>
         <div className='flex items-start justify-between gap-2'>
           <div className='flex-1 min-w-0'>
-            <h4 className='font-medium text-sm truncate'>{contact.companyName}</h4>
-            <p className='text-xs text-muted-foreground truncate'>{contact.contactName}</p>
+            <h4 className='font-medium text-sm truncate'>
+              {contact.first_name} {contact.last_name || ''}
+            </h4>
+            <p className='text-xs text-muted-foreground truncate'>
+              {contact.company?.name || '-'}
+            </p>
           </div>
-          {contact.devisHT && (
-            <Badge variant='outline' className='bg-yellow-50 text-yellow-700 border-yellow-200 text-xs shrink-0'>
-              {contact.devisHT.toLocaleString('fr-FR')} €
-            </Badge>
-          )}
         </div>
       </CardHeader>
       <CardContent className='p-3 pt-0 space-y-2'>
-        <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-          <Calendar className='h-3 w-3' />
-          <span>{format(contact.date, 'dd MMM yyyy', { locale: fr })} à {contact.time}</span>
-        </div>
-        <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-          <MapPin className='h-3 w-3' />
-          <span className='truncate'>{contact.espace}</span>
-        </div>
-        <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-          <Users className='h-3 w-3' />
-          <span>{contact.guests} personnes - {contact.occasion}</span>
-        </div>
-        <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-          <Mail className='h-3 w-3' />
-          <span className='truncate'>{contact.email}</span>
-        </div>
-        <div className='pt-2 border-t'>
-          <span className='text-xs text-muted-foreground'>Assigné: {contact.assignee}</span>
-        </div>
+        {contact.job_title && (
+          <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+            <Building2 className='h-3 w-3' />
+            <span className='truncate'>{contact.job_title}</span>
+          </div>
+        )}
+        {contact.email && (
+          <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+            <Mail className='h-3 w-3' />
+            <span className='truncate'>{contact.email}</span>
+          </div>
+        )}
+        {(contact.phone || contact.mobile) && (
+          <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+            <Phone className='h-3 w-3' />
+            <span>{contact.phone || contact.mobile}</span>
+          </div>
+        )}
+        {contact.assigned_user && (
+          <div className='pt-2 border-t'>
+            <span className='text-xs text-muted-foreground'>
+              Assigné: {contact.assigned_user.first_name} {contact.assigned_user.last_name}
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
 }
 
-function KanbanColumn({ status, contacts }: { status: typeof contactStatuses[number], contacts: Contact[] }) {
-  const columnContacts = contacts.filter(c => c.status === status.value)
+function KanbanColumn({ status, contacts }: { status: StatusCount, contacts: ContactWithRelations[] }) {
+  const columnContacts = contacts.filter(c => c.status?.slug === status.value)
   
   return (
     <div className='flex flex-col min-w-[280px] max-w-[280px] bg-muted/30 rounded-lg'>
@@ -80,11 +84,11 @@ function KanbanColumn({ status, contacts }: { status: typeof contactStatuses[num
   )
 }
 
-export function ContactsKanban({ data }: ContactsKanbanProps) {
+export function ContactsKanban({ data, statuses = [] }: ContactsKanbanProps) {
   return (
     <ScrollArea className='w-full'>
       <div className='flex gap-4 pb-4 min-h-[500px]'>
-        {contactStatuses.map((status) => (
+        {statuses.map((status) => (
           <KanbanColumn key={status.value} status={status} contacts={data} />
         ))}
       </div>

@@ -22,11 +22,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { type Contact, contactStatuses, espaces, occasions, commerciaux } from '../data/contacts'
+import type { ContactWithRelations } from '../types'
 import { contactsColumns as columns } from './contacts-columns'
 
 type ContactsTableProps = {
-  data: Contact[]
+  data: ContactWithRelations[]
   statusFilter?: string | null
 }
 
@@ -56,14 +56,16 @@ export function ContactsTable({ data, statusFilter }: ContactsTableProps) {
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     globalFilterFn: (row, _columnId, filterValue) => {
-      const companyName = String(row.getValue('companyName')).toLowerCase()
-      const contactName = String(row.original.contactName).toLowerCase()
-      const email = String(row.original.email).toLowerCase()
+      const firstName = String(row.original.first_name || '').toLowerCase()
+      const lastName = String(row.original.last_name || '').toLowerCase()
+      const email = String(row.original.email || '').toLowerCase()
+      const company = String(row.original.company?.name || '').toLowerCase()
       const searchValue = String(filterValue).toLowerCase()
 
-      return companyName.includes(searchValue) || 
-             contactName.includes(searchValue) || 
-             email.includes(searchValue)
+      return firstName.includes(searchValue) || 
+             lastName.includes(searchValue) || 
+             email.includes(searchValue) ||
+             company.includes(searchValue)
     },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -88,28 +90,7 @@ export function ContactsTable({ data, statusFilter }: ContactsTableProps) {
     }
   }
 
-  const filterOptions = [
-    {
-      columnId: 'status',
-      title: 'Statut',
-      options: contactStatuses.map(s => ({ label: s.label, value: s.value })),
-    },
-    {
-      columnId: 'espace',
-      title: 'Espace',
-      options: espaces.map(e => ({ label: e, value: e })),
-    },
-    {
-      columnId: 'occasion',
-      title: 'Occasion',
-      options: occasions.map(o => ({ label: o, value: o })),
-    },
-    {
-      columnId: 'assignee',
-      title: 'Assigné',
-      options: commerciaux.map(c => ({ label: c, value: c })),
-    },
-  ]
+  const filterOptions: { columnId: string; title: string; options: { label: string; value: string }[] }[] = []
 
   return (
     <div
