@@ -57,7 +57,7 @@ export function useContactStatuses() {
         .select('*')
         .eq('organization_id', orgId)
         .eq('type', 'contact')
-        .order('display_order', { ascending: true })
+        .order('position', { ascending: true })
 
       if (error) throw error
       return data as { id: string; name: string; slug: string; color: string; display_order: number }[]

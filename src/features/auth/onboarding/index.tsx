@@ -127,6 +127,27 @@ export function Onboarding() {
           organization_id: organization.id,
         } as never)
 
+      // Create default contact statuses
+      const defaultStatuses = [
+        { name: 'Nouveau', slug: 'nouveau', color: '#ef4444', type: 'contact', position: 1 },
+        { name: 'Qualification', slug: 'qualification', color: '#f97316', type: 'contact', position: 2 },
+        { name: 'Proposition', slug: 'proposition', color: '#eab308', type: 'contact', position: 3 },
+        { name: 'Négociation', slug: 'negociation', color: '#84cc16', type: 'contact', position: 4 },
+        { name: 'Confirmé / Fonction à faire', slug: 'confirme', color: '#22c55e', type: 'contact', position: 5 },
+        { name: 'Fonction envoyée', slug: 'fonction_envoyee', color: '#14b8a6', type: 'contact', position: 6 },
+        { name: 'A facturer', slug: 'a_facturer', color: '#3b82f6', type: 'contact', position: 7 },
+        { name: 'Attente paiement', slug: 'attente_paiement', color: '#8b5cf6', type: 'contact', position: 8 },
+        { name: 'Relance paiement', slug: 'relance_paiement', color: '#ec4899', type: 'contact', position: 9 },
+        // Booking statuses
+        { name: 'En attente', slug: 'pending', color: '#eab308', type: 'booking', position: 1 },
+        { name: 'Confirmée', slug: 'confirmed', color: '#22c55e', type: 'booking', position: 2 },
+        { name: 'Annulée', slug: 'cancelled', color: '#ef4444', type: 'booking', position: 3 },
+      ]
+
+      await supabase
+        .from('statuses')
+        .insert(defaultStatuses.map(s => ({ ...s, organization_id: organization.id })) as never)
+
       setCurrentStep(3)
       toast.success('Organisation créée avec succès !')
     } catch (error) {
