@@ -6,8 +6,6 @@ import {
   Bell,
   Palette,
   Settings,
-  Wrench,
-  UserCog,
   Users,
   Command,
   CalendarDays,
@@ -66,7 +64,6 @@ export const sidebarData: SidebarData = {
       items: [
         {
           title: 'Paramètres',
-          url: '/settings',
           icon: Settings,
           items: [
             {
