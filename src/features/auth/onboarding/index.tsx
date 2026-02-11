@@ -90,29 +90,20 @@ export function Onboarding() {
       if (orgError) throw orgError
       const organization = orgData as { id: string; name: string; slug: string }
 
-      // Get default admin role
-      const { data: adminRole } = await supabase
+      // Create admin role for this organization
+      const { data: newRole, error: roleError } = await supabase
         .from('roles')
-        .select('id')
-        .eq('organization_id', organization.id)
-        .eq('slug', 'admin')
+        .insert({
+          organization_id: organization.id,
+          name: 'Administrateur',
+          slug: 'admin',
+          is_default: true,
+        } as never)
+        .select()
         .single()
 
-      // If no role exists, create default roles
-      let roleId = (adminRole as { id: string } | null)?.id
-      if (!roleId) {
-        const { data: newRole } = await supabase
-          .from('roles')
-          .insert({
-            organization_id: organization.id,
-            name: 'Administrateur',
-            slug: 'admin',
-            is_default: true,
-          } as never)
-          .select()
-          .single()
-        roleId = (newRole as { id: string } | null)?.id
-      }
+      if (roleError) throw roleError
+      const roleId = (newRole as { id: string })?.id
 
       // Create user profile
       const { error: userError } = await supabase
