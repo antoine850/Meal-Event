@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Calendar, CalendarDays, CalendarRange, Loader2, Plus } from 'lucide-react'
+import { Calendar, CalendarDays, CalendarRange, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
@@ -12,6 +11,7 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { CalendarView } from './components/calendar-view'
+import { CreateBookingDialog } from './components/create-booking-dialog'
 import { useBookings } from './hooks/use-bookings'
 import { bookingToReservation } from './types'
 
@@ -69,14 +69,7 @@ export function Reservations() {
               <span className='hidden md:inline'>Journée</span>
             </ToggleGroupItem>
           </ToggleGroup>
-          <Button size='sm' className='hidden sm:flex'>
-            <Plus className='mr-2 h-4 w-4' />
-            <span className='hidden md:inline'>Nouvelle réservation</span>
-            <span className='md:hidden'>Nouveau</span>
-          </Button>
-          <Button size='icon' className='sm:hidden h-8 w-8'>
-            <Plus className='h-4 w-4' />
-          </Button>
+          <CreateBookingDialog />
           <Search />
           <ThemeSwitch />
           <ConfigDrawer />

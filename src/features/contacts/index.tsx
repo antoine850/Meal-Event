@@ -11,6 +11,7 @@ import { StatusCards } from './components/status-cards'
 import { ContactsTable } from './components/contacts-table'
 import { ContactsKanban } from './components/contacts-kanban'
 import { ContactsCards } from './components/contacts-cards'
+import { CreateContactDialog } from './components/create-contact-dialog'
 import { useContacts, useContactStatuses } from './hooks/use-contacts'
 
 type ViewMode = 'table' | 'kanban' | 'cards'
@@ -67,6 +68,7 @@ export function Contacts() {
               <LayoutGrid className='h-4 w-4' />
             </ToggleGroupItem>
           </ToggleGroup>
+          <CreateContactDialog />
           <Search />
           <ThemeSwitch />
           <ConfigDrawer />
