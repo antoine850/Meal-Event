@@ -4,13 +4,13 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { OrganizationSettings } from './organization'
+import { TimeSlotsSettings } from './index'
 
-export function Settings() {
+export function TimeSlotsPage() {
   return (
     <>
       <Header>
-        <h1 className='text-2xl font-bold tracking-tight'>Organisation</h1>
+        <h1 className='text-2xl font-bold tracking-tight'>Créneaux horaires</h1>
         <div className='ms-auto flex items-center space-x-4'>
           <Search />
           <ThemeSwitch />
@@ -20,7 +20,7 @@ export function Settings() {
       </Header>
 
       <Main className='flex flex-1 flex-col'>
-        <OrganizationSettings />
+        <TimeSlotsSettings />
       </Main>
     </>
   )

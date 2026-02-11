@@ -73,22 +73,22 @@ export const sidebarData: SidebarData = {
             },
             {
               title: 'Restaurants',
-              url: '/settings',
+              url: '/settings/restaurants',
               icon: Store,
             },
             {
               title: 'Espaces',
-              url: '/settings',
+              url: '/settings/spaces',
               icon: MapPin,
             },
             {
               title: 'Créneaux',
-              url: '/settings',
+              url: '/settings/time-slots',
               icon: Clock,
             },
             {
               title: 'Statuts',
-              url: '/settings',
+              url: '/settings/statuses',
               icon: Tags,
             },
             {

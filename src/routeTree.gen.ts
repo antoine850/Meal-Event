@@ -32,6 +32,10 @@ import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedContractsIndexRouteImport } from './routes/_authenticated/contracts/index'
 import { Route as AuthenticatedChatsIndexRouteImport } from './routes/_authenticated/chats/index'
 import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authenticated/apps/index'
+import { Route as AuthenticatedSettingsTimeSlotsRouteImport } from './routes/_authenticated/settings/time-slots'
+import { Route as AuthenticatedSettingsStatusesRouteImport } from './routes/_authenticated/settings/statuses'
+import { Route as AuthenticatedSettingsSpacesRouteImport } from './routes/_authenticated/settings/spaces'
+import { Route as AuthenticatedSettingsRestaurantsRouteImport } from './routes/_authenticated/settings/restaurants'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
@@ -156,6 +160,30 @@ const AuthenticatedAppsIndexRoute = AuthenticatedAppsIndexRouteImport.update({
   path: '/apps/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsTimeSlotsRoute =
+  AuthenticatedSettingsTimeSlotsRouteImport.update({
+    id: '/time-slots',
+    path: '/time-slots',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsStatusesRoute =
+  AuthenticatedSettingsStatusesRouteImport.update({
+    id: '/statuses',
+    path: '/statuses',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSpacesRoute =
+  AuthenticatedSettingsSpacesRouteImport.update({
+    id: '/spaces',
+    path: '/spaces',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsRestaurantsRoute =
+  AuthenticatedSettingsRestaurantsRouteImport.update({
+    id: '/restaurants',
+    path: '/restaurants',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsNotificationsRoute =
   AuthenticatedSettingsNotificationsRouteImport.update({
     id: '/notifications',
@@ -206,6 +234,10 @@ export interface FileRoutesByFullPath {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
+  '/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
+  '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
+  '/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/contracts': typeof AuthenticatedContractsIndexRoute
@@ -233,6 +265,10 @@ export interface FileRoutesByTo {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
+  '/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
+  '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
+  '/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/contracts': typeof AuthenticatedContractsIndexRoute
@@ -264,6 +300,10 @@ export interface FileRoutesById {
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
+  '/_authenticated/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
+  '/_authenticated/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
+  '/_authenticated/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
   '/_authenticated/apps/': typeof AuthenticatedAppsIndexRoute
   '/_authenticated/chats/': typeof AuthenticatedChatsIndexRoute
   '/_authenticated/contracts/': typeof AuthenticatedContractsIndexRoute
@@ -294,6 +334,10 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/settings/restaurants'
+    | '/settings/spaces'
+    | '/settings/statuses'
+    | '/settings/time-slots'
     | '/apps'
     | '/chats'
     | '/contracts'
@@ -321,6 +365,10 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/settings/restaurants'
+    | '/settings/spaces'
+    | '/settings/statuses'
+    | '/settings/time-slots'
     | '/apps'
     | '/chats'
     | '/contracts'
@@ -351,6 +399,10 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
+    | '/_authenticated/settings/restaurants'
+    | '/_authenticated/settings/spaces'
+    | '/_authenticated/settings/statuses'
+    | '/_authenticated/settings/time-slots'
     | '/_authenticated/apps/'
     | '/_authenticated/chats/'
     | '/_authenticated/contracts/'
@@ -534,6 +586,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings/time-slots': {
+      id: '/_authenticated/settings/time-slots'
+      path: '/time-slots'
+      fullPath: '/settings/time-slots'
+      preLoaderRoute: typeof AuthenticatedSettingsTimeSlotsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/statuses': {
+      id: '/_authenticated/settings/statuses'
+      path: '/statuses'
+      fullPath: '/settings/statuses'
+      preLoaderRoute: typeof AuthenticatedSettingsStatusesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/spaces': {
+      id: '/_authenticated/settings/spaces'
+      path: '/spaces'
+      fullPath: '/settings/spaces'
+      preLoaderRoute: typeof AuthenticatedSettingsSpacesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/restaurants': {
+      id: '/_authenticated/settings/restaurants'
+      path: '/restaurants'
+      fullPath: '/settings/restaurants'
+      preLoaderRoute: typeof AuthenticatedSettingsRestaurantsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/notifications': {
       id: '/_authenticated/settings/notifications'
       path: '/notifications'
@@ -599,6 +679,10 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
   AuthenticatedSettingsDisplayRoute: typeof AuthenticatedSettingsDisplayRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
+  AuthenticatedSettingsRestaurantsRoute: typeof AuthenticatedSettingsRestaurantsRoute
+  AuthenticatedSettingsSpacesRoute: typeof AuthenticatedSettingsSpacesRoute
+  AuthenticatedSettingsStatusesRoute: typeof AuthenticatedSettingsStatusesRoute
+  AuthenticatedSettingsTimeSlotsRoute: typeof AuthenticatedSettingsTimeSlotsRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
@@ -609,6 +693,11 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsDisplayRoute: AuthenticatedSettingsDisplayRoute,
     AuthenticatedSettingsNotificationsRoute:
       AuthenticatedSettingsNotificationsRoute,
+    AuthenticatedSettingsRestaurantsRoute:
+      AuthenticatedSettingsRestaurantsRoute,
+    AuthenticatedSettingsSpacesRoute: AuthenticatedSettingsSpacesRoute,
+    AuthenticatedSettingsStatusesRoute: AuthenticatedSettingsStatusesRoute,
+    AuthenticatedSettingsTimeSlotsRoute: AuthenticatedSettingsTimeSlotsRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   }
 
