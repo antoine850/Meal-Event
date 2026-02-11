@@ -1,10 +1,10 @@
-import { Router } from 'express'
+import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase.js'
 
 export const contactsRouter = Router()
 
 // GET /api/contacts
-contactsRouter.get('/', async (req, res) => {
+contactsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const organizationId = req.query.organization_id as string
     const statusId = req.query.status_id as string
@@ -35,7 +35,7 @@ contactsRouter.get('/', async (req, res) => {
 })
 
 // GET /api/contacts/:id
-contactsRouter.get('/:id', async (req, res) => {
+contactsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('contacts')
@@ -63,7 +63,7 @@ contactsRouter.get('/:id', async (req, res) => {
 })
 
 // POST /api/contacts
-contactsRouter.post('/', async (req, res) => {
+contactsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('contacts')
@@ -80,7 +80,7 @@ contactsRouter.post('/', async (req, res) => {
 })
 
 // PATCH /api/contacts/:id
-contactsRouter.patch('/:id', async (req, res) => {
+contactsRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('contacts')
@@ -98,7 +98,7 @@ contactsRouter.patch('/:id', async (req, res) => {
 })
 
 // DELETE /api/contacts/:id
-contactsRouter.delete('/:id', async (req, res) => {
+contactsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { error } = await supabase
       .from('contacts')
@@ -114,7 +114,7 @@ contactsRouter.delete('/:id', async (req, res) => {
 })
 
 // GET /api/contacts/stats - Get contact statistics
-contactsRouter.get('/stats/pipeline', async (req, res) => {
+contactsRouter.get('/stats/pipeline', async (req: Request, res: Response) => {
   try {
     const organizationId = req.query.organization_id as string
 

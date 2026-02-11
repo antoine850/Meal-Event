@@ -28,7 +28,7 @@ app.use('/api/webhooks', express.raw({ type: 'application/json' }))
 app.use(express.json())
 
 // Health check
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 

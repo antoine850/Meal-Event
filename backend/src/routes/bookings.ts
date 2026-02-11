@@ -1,10 +1,10 @@
-import { Router } from 'express'
+import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase.js'
 
 export const bookingsRouter = Router()
 
 // GET /api/bookings
-bookingsRouter.get('/', async (req, res) => {
+bookingsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const organizationId = req.query.organization_id as string
     const restaurantId = req.query.restaurant_id as string
@@ -44,7 +44,7 @@ bookingsRouter.get('/', async (req, res) => {
 })
 
 // GET /api/bookings/:id
-bookingsRouter.get('/:id', async (req, res) => {
+bookingsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('bookings')
@@ -78,7 +78,7 @@ bookingsRouter.get('/:id', async (req, res) => {
 })
 
 // POST /api/bookings
-bookingsRouter.post('/', async (req, res) => {
+bookingsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('bookings')
@@ -95,7 +95,7 @@ bookingsRouter.post('/', async (req, res) => {
 })
 
 // PATCH /api/bookings/:id
-bookingsRouter.patch('/:id', async (req, res) => {
+bookingsRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('bookings')
@@ -113,7 +113,7 @@ bookingsRouter.patch('/:id', async (req, res) => {
 })
 
 // DELETE /api/bookings/:id
-bookingsRouter.delete('/:id', async (req, res) => {
+bookingsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { error } = await supabase
       .from('bookings')
@@ -129,7 +129,7 @@ bookingsRouter.delete('/:id', async (req, res) => {
 })
 
 // POST /api/bookings/:id/products-services
-bookingsRouter.post('/:id/products-services', async (req, res) => {
+bookingsRouter.post('/:id/products-services', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('booking_products_services')
@@ -146,7 +146,7 @@ bookingsRouter.post('/:id/products-services', async (req, res) => {
 })
 
 // POST /api/bookings/:id/events
-bookingsRouter.post('/:id/events', async (req, res) => {
+bookingsRouter.post('/:id/events', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('booking_events')
