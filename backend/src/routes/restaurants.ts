@@ -1,10 +1,10 @@
-import { Router } from 'express'
+import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase.js'
 
 export const restaurantsRouter = Router()
 
 // GET /api/restaurants
-restaurantsRouter.get('/', async (req, res) => {
+restaurantsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const organizationId = req.query.organization_id as string
 
@@ -28,7 +28,7 @@ restaurantsRouter.get('/', async (req, res) => {
 })
 
 // GET /api/restaurants/:id
-restaurantsRouter.get('/:id', async (req, res) => {
+restaurantsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('restaurants')
@@ -52,7 +52,7 @@ restaurantsRouter.get('/:id', async (req, res) => {
 })
 
 // POST /api/restaurants
-restaurantsRouter.post('/', async (req, res) => {
+restaurantsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('restaurants')
@@ -69,7 +69,7 @@ restaurantsRouter.post('/', async (req, res) => {
 })
 
 // PATCH /api/restaurants/:id
-restaurantsRouter.patch('/:id', async (req, res) => {
+restaurantsRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('restaurants')
@@ -87,7 +87,7 @@ restaurantsRouter.patch('/:id', async (req, res) => {
 })
 
 // DELETE /api/restaurants/:id
-restaurantsRouter.delete('/:id', async (req, res) => {
+restaurantsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { error } = await supabase
       .from('restaurants')

@@ -1,0 +1,478 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+
+async function getCurrentOrganizationId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data } = await supabase
+    .from('users')
+    .select('organization_id')
+    .eq('id', user.id)
+    .single()
+
+  return (data as { organization_id: string } | null)?.organization_id || null
+}
+
+// ============================================
+// Organization
+// ============================================
+
+export type Organization = {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  address: string | null
+  phone: string | null
+  email: string | null
+  website: string | null
+  siret: string | null
+  tva_number: string | null
+  created_at: string
+  updated_at: string
+}
+
+export function useOrganization() {
+  return useQuery({
+    queryKey: ['organization'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', orgId)
+        .single()
+
+      if (error) throw error
+      return data as Organization
+    },
+  })
+}
+
+export function useUpdateOrganization() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (updates: Record<string, unknown>) => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('organizations')
+        .update(updates as never)
+        .eq('id', orgId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization'] })
+      queryClient.invalidateQueries({ queryKey: ['current-user'] })
+    },
+  })
+}
+
+// ============================================
+// Restaurants
+// ============================================
+
+export type Restaurant = {
+  id: string
+  organization_id: string
+  name: string
+  address: string | null
+  phone: string | null
+  email: string | null
+  color: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export function useRestaurants() {
+  return useQuery({
+    queryKey: ['settings-restaurants'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('restaurants')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      return data as Restaurant[]
+    },
+  })
+}
+
+export function useCreateRestaurant() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (restaurant: Partial<Restaurant>) => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('restaurants')
+        .insert({ ...restaurant, organization_id: orgId } as never)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-restaurants'] })
+      queryClient.invalidateQueries({ queryKey: ['restaurants'] })
+    },
+  })
+}
+
+export function useUpdateRestaurant() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Restaurant> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('restaurants')
+        .update(updates as never)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-restaurants'] })
+      queryClient.invalidateQueries({ queryKey: ['restaurants'] })
+    },
+  })
+}
+
+export function useDeleteRestaurant() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('restaurants')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-restaurants'] })
+      queryClient.invalidateQueries({ queryKey: ['restaurants'] })
+    },
+  })
+}
+
+// ============================================
+// Spaces
+// ============================================
+
+export type Space = {
+  id: string
+  organization_id: string
+  restaurant_id: string | null
+  name: string
+  capacity: number | null
+  description: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export function useSpaces() {
+  return useQuery({
+    queryKey: ['settings-spaces'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('spaces')
+        .select('*, restaurant:restaurants(id, name)')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      return data as (Space & { restaurant: { id: string; name: string } | null })[]
+    },
+  })
+}
+
+export function useCreateSpace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (space: Partial<Space>) => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('spaces')
+        .insert({ ...space, organization_id: orgId } as never)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-spaces'] })
+    },
+  })
+}
+
+export function useUpdateSpace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Space> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('spaces')
+        .update(updates as never)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-spaces'] })
+    },
+  })
+}
+
+export function useDeleteSpace() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('spaces')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-spaces'] })
+    },
+  })
+}
+
+// ============================================
+// Time Slots
+// ============================================
+
+export type TimeSlot = {
+  id: string
+  organization_id: string
+  name: string
+  start_time: string
+  end_time: string
+  is_active: boolean
+  created_at: string
+}
+
+export function useTimeSlots() {
+  return useQuery({
+    queryKey: ['settings-time-slots'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('time_slots')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('start_time', { ascending: true })
+
+      if (error) throw error
+      return data as TimeSlot[]
+    },
+  })
+}
+
+export function useCreateTimeSlot() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (timeSlot: Partial<TimeSlot>) => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('time_slots')
+        .insert({ ...timeSlot, organization_id: orgId } as never)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-time-slots'] })
+    },
+  })
+}
+
+export function useUpdateTimeSlot() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<TimeSlot> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('time_slots')
+        .update(updates as never)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-time-slots'] })
+    },
+  })
+}
+
+export function useDeleteTimeSlot() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('time_slots')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-time-slots'] })
+    },
+  })
+}
+
+// ============================================
+// Statuses
+// ============================================
+
+export type Status = {
+  id: string
+  organization_id: string
+  name: string
+  slug: string
+  color: string | null
+  type: 'contact' | 'booking'
+  position: number
+  is_default: boolean
+  created_at: string
+}
+
+export function useStatuses(type?: 'contact' | 'booking') {
+  return useQuery({
+    queryKey: ['settings-statuses', type],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      let query = supabase
+        .from('statuses')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('position', { ascending: true })
+
+      if (type) {
+        query = query.eq('type', type)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      return data as Status[]
+    },
+  })
+}
+
+export function useCreateStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (status: Partial<Status>) => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('statuses')
+        .insert({ ...status, organization_id: orgId } as never)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-statuses'] })
+      queryClient.invalidateQueries({ queryKey: ['contact-statuses'] })
+      queryClient.invalidateQueries({ queryKey: ['booking-statuses'] })
+    },
+  })
+}
+
+export function useUpdateStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Status> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('statuses')
+        .update(updates as never)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-statuses'] })
+      queryClient.invalidateQueries({ queryKey: ['contact-statuses'] })
+      queryClient.invalidateQueries({ queryKey: ['booking-statuses'] })
+    },
+  })
+}
+
+export function useDeleteStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('statuses')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings-statuses'] })
+      queryClient.invalidateQueries({ queryKey: ['contact-statuses'] })
+      queryClient.invalidateQueries({ queryKey: ['booking-statuses'] })
+    },
+  })
+}

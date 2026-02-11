@@ -1,10 +1,10 @@
-import { Router } from 'express'
+import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase.js'
 
 export const organizationsRouter = Router()
 
 // GET /api/organizations
-organizationsRouter.get('/', async (_req, res) => {
+organizationsRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('organizations')
@@ -20,7 +20,7 @@ organizationsRouter.get('/', async (_req, res) => {
 })
 
 // GET /api/organizations/:id
-organizationsRouter.get('/:id', async (req, res) => {
+organizationsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('organizations')
@@ -38,7 +38,7 @@ organizationsRouter.get('/:id', async (req, res) => {
 })
 
 // POST /api/organizations
-organizationsRouter.post('/', async (req, res) => {
+organizationsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('organizations')
@@ -55,7 +55,7 @@ organizationsRouter.post('/', async (req, res) => {
 })
 
 // PATCH /api/organizations/:id
-organizationsRouter.patch('/:id', async (req, res) => {
+organizationsRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('organizations')
@@ -73,7 +73,7 @@ organizationsRouter.patch('/:id', async (req, res) => {
 })
 
 // DELETE /api/organizations/:id
-organizationsRouter.delete('/:id', async (req, res) => {
+organizationsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { error } = await supabase
       .from('organizations')

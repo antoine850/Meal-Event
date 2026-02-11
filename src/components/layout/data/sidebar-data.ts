@@ -12,6 +12,11 @@ import {
   Command,
   CalendarDays,
   FileText,
+  Building2,
+  Store,
+  MapPin,
+  Clock,
+  Tags,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -61,18 +66,33 @@ export const sidebarData: SidebarData = {
       items: [
         {
           title: 'Paramètres',
+          url: '/settings',
           icon: Settings,
-          badge: 'Soon',
           items: [
             {
-              title: 'Profil',
+              title: 'Organisation',
               url: '/settings',
-              icon: UserCog,
+              icon: Building2,
             },
             {
-              title: 'Compte',
-              url: '/settings/account',
-              icon: Wrench,
+              title: 'Restaurants',
+              url: '/settings',
+              icon: Store,
+            },
+            {
+              title: 'Espaces',
+              url: '/settings',
+              icon: MapPin,
+            },
+            {
+              title: 'Créneaux',
+              url: '/settings',
+              icon: Clock,
+            },
+            {
+              title: 'Statuts',
+              url: '/settings',
+              icon: Tags,
             },
             {
               title: 'Apparence',

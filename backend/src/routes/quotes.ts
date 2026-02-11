@@ -1,10 +1,10 @@
-import { Router } from 'express'
+import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase.js'
 
 export const quotesRouter = Router()
 
 // GET /api/quotes
-quotesRouter.get('/', async (req, res) => {
+quotesRouter.get('/', async (req: Request, res: Response) => {
   try {
     const organizationId = req.query.organization_id as string
     const bookingId = req.query.booking_id as string
@@ -37,7 +37,7 @@ quotesRouter.get('/', async (req, res) => {
 })
 
 // GET /api/quotes/:id
-quotesRouter.get('/:id', async (req, res) => {
+quotesRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('quotes')
@@ -64,7 +64,7 @@ quotesRouter.get('/:id', async (req, res) => {
 })
 
 // POST /api/quotes
-quotesRouter.post('/', async (req, res) => {
+quotesRouter.post('/', async (req: Request, res: Response) => {
   try {
     // Generate quote number
     const { data: settings } = await supabase
@@ -92,7 +92,7 @@ quotesRouter.post('/', async (req, res) => {
 })
 
 // PATCH /api/quotes/:id
-quotesRouter.patch('/:id', async (req, res) => {
+quotesRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('quotes')
@@ -110,7 +110,7 @@ quotesRouter.patch('/:id', async (req, res) => {
 })
 
 // POST /api/quotes/:id/send - Send quote for signature
-quotesRouter.post('/:id/send', async (req, res) => {
+quotesRouter.post('/:id/send', async (req: Request, res: Response) => {
   try {
     const { signer_email, signer_name } = req.body
 
@@ -138,7 +138,7 @@ quotesRouter.post('/:id/send', async (req, res) => {
 })
 
 // POST /api/quotes/:id/sign - Sign quote
-quotesRouter.post('/:id/sign', async (req, res) => {
+quotesRouter.post('/:id/sign', async (req: Request, res: Response) => {
   try {
     const { signature_url } = req.body
 
@@ -162,7 +162,7 @@ quotesRouter.post('/:id/sign', async (req, res) => {
 })
 
 // POST /api/quotes/:id/items - Add item to quote
-quotesRouter.post('/:id/items', async (req, res) => {
+quotesRouter.post('/:id/items', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('quote_items')

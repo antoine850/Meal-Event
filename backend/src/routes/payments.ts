@@ -1,15 +1,13 @@
-import { Router } from 'express'
+import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
 import { supabase } from '../lib/supabase.js'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-})
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 export const paymentsRouter = Router()
 
 // GET /api/payments
-paymentsRouter.get('/', async (req, res) => {
+paymentsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const organizationId = req.query.organization_id as string
     const bookingId = req.query.booking_id as string
@@ -42,7 +40,7 @@ paymentsRouter.get('/', async (req, res) => {
 })
 
 // POST /api/payments - Create manual payment
-paymentsRouter.post('/', async (req, res) => {
+paymentsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('payments')
@@ -63,7 +61,7 @@ paymentsRouter.post('/', async (req, res) => {
 })
 
 // POST /api/payments/create-link - Create Stripe payment link
-paymentsRouter.post('/create-link', async (req, res) => {
+paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
   try {
     const { booking_id, quote_id, amount, link_type, percentage } = req.body
 
@@ -82,15 +80,16 @@ paymentsRouter.post('/create-link', async (req, res) => {
       return res.status(404).json({ error: 'Booking not found' })
     }
 
-    // Create Stripe payment link
-    const paymentLink = await stripe.paymentLinks.create({
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
       line_items: [
         {
           price_data: {
             currency: 'eur',
             product_data: {
               name: `${link_type === 'deposit' ? 'Acompte' : 'Paiement'} - ${booking.event_type}`,
-              description: `Réservation chez ${booking.restaurant?.name} le ${booking.event_date}`,
+              description: `Réservation chez ${(booking as { restaurant?: { name: string } }).restaurant?.name} le ${booking.event_date}`,
             },
             unit_amount: Math.round(amount * 100), // Stripe uses cents
           },
@@ -102,7 +101,11 @@ paymentsRouter.post('/create-link', async (req, res) => {
         quote_id: quote_id || '',
         link_type,
       },
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${booking_id}?payment=success`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${booking_id}?payment=cancelled`,
     })
+
+    const paymentLink = { url: session.url, id: session.id }
 
     // Save payment link to database
     const { data, error } = await supabase
@@ -128,7 +131,7 @@ paymentsRouter.post('/create-link', async (req, res) => {
 })
 
 // POST /api/payments/:id/remind - Send payment reminder
-paymentsRouter.post('/:id/remind', async (req, res) => {
+paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
   try {
     const { reminder_type, subject, message } = req.body
 
@@ -169,7 +172,7 @@ paymentsRouter.post('/:id/remind', async (req, res) => {
 })
 
 // POST /api/payments/receipts - Upload receipt
-paymentsRouter.post('/receipts', async (req, res) => {
+paymentsRouter.post('/receipts', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('receipts')
