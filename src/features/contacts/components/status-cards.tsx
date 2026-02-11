@@ -20,13 +20,16 @@ function StatusCard({ label, count, color, isActive, onClick }: StatusCardProps)
     <button
       onClick={onClick}
       className={cn(
-        'flex flex-col items-start rounded-lg border bg-card p-3 text-left transition-all hover:shadow-md flex-1',
-        isActive && 'ring-2 ring-primary'
+        'flex flex-col items-start rounded-lg border p-3 text-left transition-all hover:shadow-md flex-1 hover:opacity-90',
+        isActive && 'ring-2 ring-primary ring-offset-2'
       )}
+      style={{ 
+        backgroundColor: color || '#6b7280',
+        color: '#fff'
+      }}
     >
-      <div className={cn('h-1 w-full rounded-full mb-2', color)} />
-      <span className='text-2xl font-bold'>{count}</span>
-      <span className='text-xs text-muted-foreground truncate w-full'>{label}</span>
+      <span className='text-2xl font-bold drop-shadow-sm'>{count}</span>
+      <span className='text-xs opacity-90 truncate w-full'>{label}</span>
     </button>
   )
 }
@@ -58,7 +61,10 @@ export function StatusCards({ statuses, activeStatus, onStatusClick }: StatusCar
             <SelectValue>
               {activeStatus ? (
                 <div className='flex items-center gap-2'>
-                  <div className={cn('w-3 h-3 rounded-full', activeStatusData?.color)} />
+                  <div 
+                    className='w-3 h-3 rounded-full' 
+                    style={{ backgroundColor: activeStatusData?.color || '#6b7280' }}
+                  />
                   <span>{activeStatusData?.label} ({activeStatusData?.count})</span>
                 </div>
               ) : (
@@ -73,7 +79,10 @@ export function StatusCards({ statuses, activeStatus, onStatusClick }: StatusCar
             {statuses.map((status) => (
               <SelectItem key={status.value} value={status.value}>
                 <div className='flex items-center gap-2'>
-                  <div className={cn('w-3 h-3 rounded-full', status.color)} />
+                  <div 
+                    className='w-3 h-3 rounded-full' 
+                    style={{ backgroundColor: status.color || '#6b7280' }}
+                  />
                   <span>{status.label} ({status.count})</span>
                 </div>
               </SelectItem>
