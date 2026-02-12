@@ -22,7 +22,34 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+
+const RESTAURANT_COLORS = [
+  { value: '#ef4444', label: 'Rouge' },
+  { value: '#f97316', label: 'Orange' },
+  { value: '#f59e0b', label: 'Ambre' },
+  { value: '#eab308', label: 'Jaune' },
+  { value: '#84cc16', label: 'Lime' },
+  { value: '#22c55e', label: 'Vert' },
+  { value: '#10b981', label: 'Émeraude' },
+  { value: '#14b8a6', label: 'Turquoise' },
+  { value: '#06b6d4', label: 'Cyan' },
+  { value: '#0ea5e9', label: 'Bleu ciel' },
+  { value: '#3b82f6', label: 'Bleu' },
+  { value: '#6366f1', label: 'Indigo' },
+  { value: '#8b5cf6', label: 'Violet' },
+  { value: '#a855f7', label: 'Pourpre' },
+  { value: '#d946ef', label: 'Fuchsia' },
+  { value: '#ec4899', label: 'Rose' },
+]
+
 import { useCreateRestaurant, useUpdateRestaurant, type Restaurant } from '../hooks/use-settings'
 
 const restaurantSchema = z.object({
@@ -183,12 +210,38 @@ export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantD
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Couleur</FormLabel>
-                    <FormControl>
-                      <div className='flex gap-2'>
-                        <Input type='color' className='w-12 h-10 p-1' {...field} />
-                        <Input {...field} className='flex-1' />
-                      </div>
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder='Choisir une couleur'>
+                            {field.value && (
+                              <div className='flex items-center gap-2'>
+                                <div 
+                                  className='w-4 h-4 rounded-full border' 
+                                  style={{ backgroundColor: field.value }}
+                                />
+                                <span>
+                                  {RESTAURANT_COLORS.find(c => c.value === field.value)?.label || field.value}
+                                </span>
+                              </div>
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {RESTAURANT_COLORS.map((color) => (
+                          <SelectItem key={color.value} value={color.value}>
+                            <div className='flex items-center gap-2'>
+                              <div 
+                                className='w-4 h-4 rounded-full border' 
+                                style={{ backgroundColor: color.value }}
+                              />
+                              <span>{color.label}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
