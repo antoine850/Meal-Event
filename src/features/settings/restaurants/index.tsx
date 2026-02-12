@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Loader2, MoreHorizontal, Pencil, Plus, Trash2, Eye } from 'lucide-react'
 import { toast } from 'sonner'
+import { Link } from '@tanstack/react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -106,6 +107,12 @@ export function RestaurantsSettings() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align='end'>
+                        <DropdownMenuItem asChild>
+                          <Link to='/settings/restaurants/$id' params={{ id: restaurant.id }}>
+                            <Eye className='mr-2 h-4 w-4' />
+                            Voir les détails
+                          </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(restaurant)}>
                           <Pencil className='mr-2 h-4 w-4' />
                           Modifier
