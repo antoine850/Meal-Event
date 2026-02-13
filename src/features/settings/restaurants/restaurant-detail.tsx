@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { Link, useNavigate, useBlocker } from '@tanstack/react-router'
+import { Link, useBlocker } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -127,7 +127,6 @@ interface RestaurantDetailProps {
 
 export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
   const { mutate: updateRestaurant, isPending } = useUpdateRestaurant()
-  const navigate = useNavigate()
 
   const form = useForm<RestaurantDetailFormData>({
     resolver: zodResolver(restaurantDetailSchema),
@@ -239,27 +238,32 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
 
   // Block navigation if there are unsaved changes
   const { isDirty } = form.formState
+  const [allowNavigation] = useState(false)
   
-  useBlocker({
-    blockerFn: () => {
-      if (isDirty) {
-        toast.warning('Modifications non enregistrées', {
-          description: 'Voulez-vous vraiment quitter sans enregistrer ?',
-          action: {
-            label: 'Quitter',
-            onClick: () => navigate({ to: '/settings/restaurants' }),
-          },
-          cancel: {
-            label: 'Rester',
-            onClick: () => {},
-          },
-        })
-        return true
-      }
-      return false
-    },
-    condition: isDirty,
+  const blocker = useBlocker({
+    condition: isDirty && !allowNavigation,
   })
+
+  useEffect(() => {
+    if (blocker.status === 'blocked') {
+      toast.warning('Modifications non enregistrées', {
+        description: 'Voulez-vous vraiment quitter sans enregistrer ?',
+        action: {
+          label: 'Quitter',
+          onClick: () => {
+            blocker.proceed?.()
+          },
+        },
+        cancel: {
+          label: 'Rester',
+          onClick: () => {
+            blocker.reset?.()
+          },
+        },
+        duration: 10000,
+      })
+    }
+  }, [blocker.status, blocker])
 
   // Warn on browser close/refresh
   useEffect(() => {
