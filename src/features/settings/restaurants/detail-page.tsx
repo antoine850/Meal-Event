@@ -10,7 +10,7 @@ import { RestaurantDetail } from './restaurant-detail'
 import { useRestaurants } from '../hooks/use-settings'
 
 export function RestaurantDetailPage() {
-  const { id } = useParams({ from: '/_authenticated/settings/restaurants/$id' })
+  const { id } = useParams({ from: '/_authenticated/settings/restaurant/$id' })
   const { data: restaurants = [], isLoading } = useRestaurants()
   
   const restaurant = restaurants.find(r => r.id === id)

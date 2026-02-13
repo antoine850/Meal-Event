@@ -85,7 +85,11 @@ export function RestaurantsSettings() {
               </TableRow>
             ) : (
               restaurants.map((restaurant) => (
-                <TableRow key={restaurant.id}>
+                <TableRow 
+                  key={restaurant.id} 
+                  className='cursor-pointer hover:bg-muted/50'
+                  onClick={() => navigate({ to: '/settings/restaurant/$id', params: { id: restaurant.id } })}
+                >
                   <TableCell>
                     <div
                       className='w-6 h-6 rounded-full border'
@@ -100,7 +104,7 @@ export function RestaurantsSettings() {
                       {restaurant.is_active ? 'Actif' : 'Inactif'}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant='ghost' size='icon' className='h-8 w-8'>
@@ -108,7 +112,7 @@ export function RestaurantsSettings() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align='end'>
-                        <DropdownMenuItem onClick={() => navigate({ to: '/settings/restaurants/$id', params: { id: restaurant.id } })}>
+                        <DropdownMenuItem onClick={() => navigate({ to: '/settings/restaurant/$id', params: { id: restaurant.id } })}>
                           <Eye className='mr-2 h-4 w-4' />
                           Voir les détails
                         </DropdownMenuItem>

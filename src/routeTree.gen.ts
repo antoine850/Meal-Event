@@ -41,7 +41,7 @@ import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
-import { Route as AuthenticatedSettingsRestaurantsIdRouteImport } from './routes/_authenticated/settings/restaurants.$id'
+import { Route as AuthenticatedSettingsRestaurantIdRouteImport } from './routes/_authenticated/settings/restaurant.$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -215,11 +215,11 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedSettingsRestaurantsIdRoute =
-  AuthenticatedSettingsRestaurantsIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => AuthenticatedSettingsRestaurantsRoute,
+const AuthenticatedSettingsRestaurantIdRoute =
+  AuthenticatedSettingsRestaurantIdRouteImport.update({
+    id: '/restaurant/$id',
+    path: '/restaurant/$id',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -241,7 +241,7 @@ export interface FileRoutesByFullPath {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
-  '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRouteWithChildren
+  '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
   '/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
   '/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
@@ -253,7 +253,7 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
-  '/settings/restaurants/$id': typeof AuthenticatedSettingsRestaurantsIdRoute
+  '/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof authForgotPasswordRoute
@@ -273,7 +273,7 @@ export interface FileRoutesByTo {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
-  '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRouteWithChildren
+  '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
   '/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
   '/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
@@ -285,7 +285,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
-  '/settings/restaurants/$id': typeof AuthenticatedSettingsRestaurantsIdRoute
+  '/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -309,7 +309,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
-  '/_authenticated/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRouteWithChildren
+  '/_authenticated/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
   '/_authenticated/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/_authenticated/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
   '/_authenticated/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
@@ -321,7 +321,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
-  '/_authenticated/settings/restaurants/$id': typeof AuthenticatedSettingsRestaurantsIdRoute
+  '/_authenticated/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -356,7 +356,7 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/tasks'
     | '/users'
-    | '/settings/restaurants/$id'
+    | '/settings/restaurant/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
@@ -388,7 +388,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/users'
-    | '/settings/restaurants/$id'
+    | '/settings/restaurant/$id'
   id:
     | '__root__'
     | '/(auth)'
@@ -423,7 +423,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
-    | '/_authenticated/settings/restaurants/$id'
+    | '/_authenticated/settings/restaurant/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -662,12 +662,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/restaurants/$id': {
-      id: '/_authenticated/settings/restaurants/$id'
-      path: '/$id'
-      fullPath: '/settings/restaurants/$id'
-      preLoaderRoute: typeof AuthenticatedSettingsRestaurantsIdRouteImport
-      parentRoute: typeof AuthenticatedSettingsRestaurantsRoute
+    '/_authenticated/settings/restaurant/$id': {
+      id: '/_authenticated/settings/restaurant/$id'
+      path: '/restaurant/$id'
+      fullPath: '/settings/restaurant/$id'
+      preLoaderRoute: typeof AuthenticatedSettingsRestaurantIdRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
   }
 }
@@ -694,31 +694,17 @@ const authRouteRouteWithChildren = authRouteRoute._addFileChildren(
   authRouteRouteChildren,
 )
 
-interface AuthenticatedSettingsRestaurantsRouteChildren {
-  AuthenticatedSettingsRestaurantsIdRoute: typeof AuthenticatedSettingsRestaurantsIdRoute
-}
-
-const AuthenticatedSettingsRestaurantsRouteChildren: AuthenticatedSettingsRestaurantsRouteChildren =
-  {
-    AuthenticatedSettingsRestaurantsIdRoute:
-      AuthenticatedSettingsRestaurantsIdRoute,
-  }
-
-const AuthenticatedSettingsRestaurantsRouteWithChildren =
-  AuthenticatedSettingsRestaurantsRoute._addFileChildren(
-    AuthenticatedSettingsRestaurantsRouteChildren,
-  )
-
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
   AuthenticatedSettingsDisplayRoute: typeof AuthenticatedSettingsDisplayRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
-  AuthenticatedSettingsRestaurantsRoute: typeof AuthenticatedSettingsRestaurantsRouteWithChildren
+  AuthenticatedSettingsRestaurantsRoute: typeof AuthenticatedSettingsRestaurantsRoute
   AuthenticatedSettingsSpacesRoute: typeof AuthenticatedSettingsSpacesRoute
   AuthenticatedSettingsStatusesRoute: typeof AuthenticatedSettingsStatusesRoute
   AuthenticatedSettingsTimeSlotsRoute: typeof AuthenticatedSettingsTimeSlotsRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+  AuthenticatedSettingsRestaurantIdRoute: typeof AuthenticatedSettingsRestaurantIdRoute
 }
 
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
@@ -729,11 +715,13 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsNotificationsRoute:
       AuthenticatedSettingsNotificationsRoute,
     AuthenticatedSettingsRestaurantsRoute:
-      AuthenticatedSettingsRestaurantsRouteWithChildren,
+      AuthenticatedSettingsRestaurantsRoute,
     AuthenticatedSettingsSpacesRoute: AuthenticatedSettingsSpacesRoute,
     AuthenticatedSettingsStatusesRoute: AuthenticatedSettingsStatusesRoute,
     AuthenticatedSettingsTimeSlotsRoute: AuthenticatedSettingsTimeSlotsRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+    AuthenticatedSettingsRestaurantIdRoute:
+      AuthenticatedSettingsRestaurantIdRoute,
   }
 
 const AuthenticatedSettingsRouteRouteWithChildren =
