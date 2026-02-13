@@ -39,7 +39,7 @@ export function RestaurantDetailPage() {
   return (
     <>
       <Header>
-        <h1 className='text-2xl font-bold tracking-tight'>Détails du restaurant</h1>
+        <h1 className='hidden sm:block text-2xl font-bold tracking-tight'>Détails du restaurant</h1>
         <div className='ms-auto flex items-center space-x-4'>
           <Search />
           <ThemeSwitch />

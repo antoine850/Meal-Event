@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate, useBlocker } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -127,6 +127,7 @@ interface RestaurantDetailProps {
 
 export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
   const { mutate: updateRestaurant, isPending } = useUpdateRestaurant()
+  const navigate = useNavigate()
 
   const form = useForm<RestaurantDetailFormData>({
     resolver: zodResolver(restaurantDetailSchema),
@@ -236,6 +237,42 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
     })
   }, [restaurant, form])
 
+  // Block navigation if there are unsaved changes
+  const { isDirty } = form.formState
+  
+  useBlocker({
+    blockerFn: () => {
+      if (isDirty) {
+        toast.warning('Modifications non enregistrées', {
+          description: 'Voulez-vous vraiment quitter sans enregistrer ?',
+          action: {
+            label: 'Quitter',
+            onClick: () => navigate({ to: '/settings/restaurants' }),
+          },
+          cancel: {
+            label: 'Rester',
+            onClick: () => {},
+          },
+        })
+        return true
+      }
+      return false
+    },
+    condition: isDirty,
+  })
+
+  // Warn on browser close/refresh
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
+
   const onSubmit = (data: RestaurantDetailFormData) => {
     // Convert comma-separated strings to arrays for PostgreSQL
     const parseEmailList = (str: string | undefined): string[] | null => {
@@ -279,7 +316,7 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
             </div>
           </div>
         </div>
-        <Button type='submit' form='restaurant-form' disabled={isPending}>
+        <Button type='submit' form='restaurant-form' disabled={isPending} className='hidden sm:flex'>
           {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
           <Save className='mr-2 h-4 w-4' />
           Enregistrer
