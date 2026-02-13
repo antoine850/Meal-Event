@@ -99,6 +99,24 @@ const restaurantDetailSchema = z.object({
   sms_name: z.string().optional(),
   sms_signature: z.string().optional(),
   sms_signature_en: z.string().optional(),
+  // Billing fields
+  company_name: z.string().optional(),
+  legal_form: z.string().optional(),
+  siren: z.string().optional(),
+  rcs: z.string().optional(),
+  share_capital: z.string().optional(),
+  billing_email: z.string().optional(),
+  billing_phone: z.string().optional(),
+  billing_additional_text: z.string().optional(),
+  iban: z.string().optional(),
+  bic: z.string().optional(),
+  invoice_prefix: z.string().optional(),
+  invoice_chrono_format: z.string().optional(),
+  quote_validity_days: z.number().optional(),
+  invoice_due_days: z.number().optional(),
+  payment_balance_days: z.number().optional(),
+  quote_comments_fr: z.string().optional(),
+  quote_comments_en: z.string().optional(),
 })
 
 type RestaurantDetailFormData = z.infer<typeof restaurantDetailSchema>
@@ -143,6 +161,24 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       sms_name: '',
       sms_signature: '',
       sms_signature_en: '',
+      // Billing defaults
+      company_name: '',
+      legal_form: '',
+      siren: '',
+      rcs: '',
+      share_capital: '',
+      billing_email: '',
+      billing_phone: '',
+      billing_additional_text: '',
+      iban: '',
+      bic: '',
+      invoice_prefix: '',
+      invoice_chrono_format: 'YEAR-MONTH',
+      quote_validity_days: 7,
+      invoice_due_days: undefined,
+      payment_balance_days: undefined,
+      quote_comments_fr: '',
+      quote_comments_en: '',
     },
   })
 
@@ -179,6 +215,24 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       sms_name: (r.sms_name as string) || '',
       sms_signature: (r.sms_signature as string) || '',
       sms_signature_en: (r.sms_signature_en as string) || '',
+      // Billing fields
+      company_name: (r.company_name as string) || '',
+      legal_form: (r.legal_form as string) || '',
+      siren: (r.siren as string) || '',
+      rcs: (r.rcs as string) || '',
+      share_capital: (r.share_capital as string) || '',
+      billing_email: (r.billing_email as string) || '',
+      billing_phone: (r.billing_phone as string) || '',
+      billing_additional_text: (r.billing_additional_text as string) || '',
+      iban: (r.iban as string) || '',
+      bic: (r.bic as string) || '',
+      invoice_prefix: (r.invoice_prefix as string) || '',
+      invoice_chrono_format: (r.invoice_chrono_format as string) || 'YEAR-MONTH',
+      quote_validity_days: (r.quote_validity_days as number) ?? 7,
+      invoice_due_days: (r.invoice_due_days as number) ?? undefined,
+      payment_balance_days: (r.payment_balance_days as number) ?? undefined,
+      quote_comments_fr: (r.quote_comments_fr as string) || '',
+      quote_comments_en: (r.quote_comments_en as string) || '',
     })
   }, [restaurant, form])
 
@@ -814,6 +868,288 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                   </FormItem>
                 )}
               />
+            </CardContent>
+          </Card>
+
+          {/* Facturation */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Facturation</CardTitle>
+              <CardDescription>Informations légales et paramètres de facturation</CardDescription>
+            </CardHeader>
+            <CardContent className='space-y-4'>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  <FormField
+                    control={form.control}
+                    name='company_name'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Raison sociale</FormLabel>
+                        <FormControl>
+                          <Input placeholder='MAKE IT HAPPEN 2' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='legal_form'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Forme juridique</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder='Sélectionner' />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value='SAS'>SAS</SelectItem>
+                            <SelectItem value='SARL'>SARL</SelectItem>
+                            <SelectItem value='EURL'>EURL</SelectItem>
+                            <SelectItem value='SA'>SA</SelectItem>
+                            <SelectItem value='SCI'>SCI</SelectItem>
+                            <SelectItem value='EI'>EI</SelectItem>
+                            <SelectItem value='SASU'>SASU</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='siren'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SIREN</FormLabel>
+                        <FormControl>
+                          <Input placeholder='534 085 857 00041' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='rcs'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>RCS</FormLabel>
+                        <FormControl>
+                          <Input placeholder='534 085 857 Nanterre B' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='share_capital'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Capital social</FormLabel>
+                        <FormControl>
+                          <Input placeholder='3 992,00 euros' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='billing_email'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email facturation</FormLabel>
+                        <FormControl>
+                          <Input type='email' placeholder='facturation@example.com' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='billing_phone'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Téléphone facturation</FormLabel>
+                        <FormControl>
+                          <Input placeholder='+33 1 23 45 67 89' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='billing_additional_text'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Texte complémentaire</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder='Texte additionnel pour les factures...' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='iban'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IBAN</FormLabel>
+                        <FormControl>
+                          <Input placeholder='FR76 3000 4031 2000 0108 0479 516' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='bic'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>BIC</FormLabel>
+                        <FormControl>
+                          <Input placeholder='BNPAFRPPXXX' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              </div>
+              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <FormField
+                    control={form.control}
+                    name='invoice_prefix'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Préfixe</FormLabel>
+                        <FormControl>
+                          <Input placeholder='LAHAUT' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='invoice_chrono_format'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Format du chrono</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder='Sélectionner' />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value='YEAR-MONTH'>ANNÉE-MOIS</SelectItem>
+                            <SelectItem value='YEAR'>ANNÉE</SelectItem>
+                            <SelectItem value='MONTH-YEAR'>MOIS-ANNÉE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='quote_validity_days'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Échéance devis (jours)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type='number' 
+                            placeholder='7' 
+                            {...field}
+                            onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='invoice_due_days'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Échéance facture (jours)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type='number' 
+                            placeholder='30' 
+                            value={field.value ?? ''}
+                            onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='payment_balance_days'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Paiement du solde (jours)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type='number' 
+                            placeholder='15' 
+                            value={field.value ?? ''}
+                            onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              </div>
+              <div className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='quote_comments_fr'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Commentaires offre 🇫🇷</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder='Merci de noter que votre réservation sera définitivement confirmée...' 
+                            className='min-h-[80px]'
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='quote_comments_en'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Commentaires offre 🇺🇸</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder='Please note that your reservation will be confirmed...' 
+                            className='min-h-[80px]'
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              </div>
             </CardContent>
           </Card>
 
