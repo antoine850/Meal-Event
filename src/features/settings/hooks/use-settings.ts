@@ -183,8 +183,8 @@ export function useDeleteRestaurant() {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings-restaurants'] })
-      queryClient.invalidateQueries({ queryKey: ['restaurants'] })
+      queryClient.invalidateQueries({ queryKey: ['settings-restaurants'], refetchType: 'all' })
+      queryClient.invalidateQueries({ queryKey: ['restaurants'], refetchType: 'all' })
     },
   })
 }
