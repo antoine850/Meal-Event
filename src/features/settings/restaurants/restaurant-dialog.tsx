@@ -124,9 +124,12 @@ export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantD
     } else {
       createRestaurant(data, {
         onSuccess: (newRestaurant) => {
+          const restaurantId = (newRestaurant as { id: string }).id
           toast.success('Restaurant créé')
           onOpenChange(false)
-          navigate({ to: '/settings/restaurants/$id', params: { id: (newRestaurant as { id: string }).id } })
+          setTimeout(() => {
+            navigate({ to: '/settings/restaurants/$id', params: { id: restaurantId } })
+          }, 100)
         },
         onError: () => toast.error('Erreur lors de la création'),
       })
