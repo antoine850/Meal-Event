@@ -112,6 +112,16 @@ export function useRestaurants() {
   })
 }
 
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 100)
+}
+
 export function useCreateRestaurant() {
   const queryClient = useQueryClient()
 
@@ -120,9 +130,11 @@ export function useCreateRestaurant() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
+      const slug = generateSlug(restaurant.name || 'restaurant') + '-' + Date.now().toString(36)
+
       const { data, error } = await supabase
         .from('restaurants')
-        .insert({ ...restaurant, organization_id: orgId } as never)
+        .insert({ ...restaurant, organization_id: orgId, slug } as never)
         .select()
         .single()
 
