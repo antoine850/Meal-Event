@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Contact, Company } from '@/lib/supabase/types'
+import type { Contact } from '@/lib/supabase/types'
 
 export type ContactWithRelations = Contact & {
   company?: { id: string; name: string } | null

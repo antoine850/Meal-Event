@@ -5,11 +5,11 @@ async function getCurrentOrganizationId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data } = await supabase
+  const { data } = await (supabase
     .from('users')
     .select('organization_id')
     .eq('id', user.id)
-    .single()
+    .single() as any)
 
   return (data as { organization_id: string } | null)?.organization_id || null
 }
@@ -37,8 +37,8 @@ export function useCompanies() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
-      const { data, error } = await supabase
-        .from('companies' as any)
+      const { data, error } = await (supabase as any)
+        .from('companies')
         .select('*')
         .eq('organization_id', orgId)
         .order('name')
@@ -57,8 +57,8 @@ export function useCreateCompany() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
-      const { data, error } = await supabase
-        .from('companies' as any)
+      const { data, error } = await (supabase as any)
+        .from('companies')
         .insert([{ ...company, organization_id: orgId }])
         .select()
         .single()
@@ -77,8 +77,8 @@ export function useUpdateCompany() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Company> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('companies' as any)
+      const { data, error } = await (supabase as any)
+        .from('companies')
         .update(updates)
         .eq('id', id)
         .select()
@@ -98,7 +98,7 @@ export function useDeleteCompany() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('companies' as any).delete().eq('id', id)
+      const { error } = await (supabase as any).from('companies').delete().eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {

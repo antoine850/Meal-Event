@@ -366,7 +366,7 @@ export function ContactDetail({ contact }: ContactDetailProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {statuses.map((status) => (
+                          {statuses.map((status: any) => (
                             <SelectItem key={status.id} value={status.id}>
                               {status.name}
                             </SelectItem>
@@ -390,7 +390,7 @@ export function ContactDetail({ contact }: ContactDetailProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {users.map((user) => (
+                          {users.map((user: any) => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.first_name} {user.last_name}
                             </SelectItem>
@@ -417,7 +417,7 @@ export function ContactDetail({ contact }: ContactDetailProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {restaurants.map((r) => (
+                          {restaurants.map((r: any) => (
                             <SelectItem key={r.id} value={r.id}>
                               {r.name}
                             </SelectItem>

@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateContact, useContactStatuses } from '../hooks/use-contacts'
-import { useCompanies } from '../../companies/hooks/use-companies'
+import { CompanyCombobox } from './company-combobox'
 
 const contactSchema = z.object({
   first_name: z.string().min(1, 'Le prénom est requis'),
@@ -40,7 +40,7 @@ const contactSchema = z.object({
   email: z.string().email('Email invalide').optional().or(z.literal('')),
   phone: z.string().optional(),
   mobile: z.string().optional(),
-  company_id: z.string().optional(),
+  company_id: z.string().optional().nullable(),
   job_title: z.string().optional(),
   status_id: z.string().optional(),
   source: z.string().optional(),
@@ -73,8 +73,6 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
       notes: '',
     },
   })
-
-  const { data: companies = [] } = useCompanies()
 
   const onSubmit = (data: ContactFormData) => {
     createContact(
@@ -198,23 +196,14 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
                 control={form.control}
                 name='company_id'
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className='flex flex-col'>
                     <FormLabel>Société</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Sélectionner...' />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value='none'>Aucune</SelectItem>
-                        {companies.map((company) => (
-                          <SelectItem key={company.id} value={company.id}>
-                            {company.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <CompanyCombobox
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -248,14 +237,14 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {statuses.map((status) => (
+                        {statuses.map((status: any) => (
                           <SelectItem key={status.id} value={status.id}>
                             <div className='flex items-center gap-2'>
                               <div 
                                 className='w-2 h-2 rounded-full' 
-                                style={{ backgroundColor: status.color || undefined }} 
+                                style={{ backgroundColor: (status as any).color || undefined }} 
                               />
-                              {status.name}
+                              {(status as any).name}
                             </div>
                           </SelectItem>
                         ))}

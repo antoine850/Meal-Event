@@ -187,7 +187,7 @@ export function BookingDetail({ booking }: BookingDetailProps) {
   const { data: quotes = [] } = useQuotesByBooking(booking.id)
   const { data: payments = [] } = usePaymentsByBooking(booking.id)
   const { data: documents = [] } = useDocumentsByBooking(booking.id)
-  const { mutate: uploadDocument, isPending: isUploading } = useUploadDocument()
+  const { mutate: uploadDocument } = useUploadDocument()
   const { mutate: deleteDocument, isPending: isDeletingDocument } = useDeleteDocument()
 
   const bookingEvents = booking.booking_events || []
