@@ -47,9 +47,10 @@ interface SpaceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   space: (Space & { restaurant: { id: string; name: string } | null }) | null
+  defaultRestaurantId?: string
 }
 
-export function SpaceDialog({ open, onOpenChange, space }: SpaceDialogProps) {
+export function SpaceDialog({ open, onOpenChange, space, defaultRestaurantId }: SpaceDialogProps) {
   const { mutate: createSpace, isPending: isCreating } = useCreateSpace()
   const { mutate: updateSpace, isPending: isUpdating } = useUpdateSpace()
   const { data: restaurants = [] } = useRestaurants()
@@ -70,7 +71,7 @@ export function SpaceDialog({ open, onOpenChange, space }: SpaceDialogProps) {
     if (space) {
       form.reset({
         name: space.name,
-        restaurant_id: space.restaurant_id || '',
+        restaurant_id: space.restaurant_id || defaultRestaurantId || '',
         capacity: space.capacity || undefined,
         description: space.description || '',
         is_active: space.is_active,
@@ -78,13 +79,13 @@ export function SpaceDialog({ open, onOpenChange, space }: SpaceDialogProps) {
     } else {
       form.reset({
         name: '',
-        restaurant_id: '',
+        restaurant_id: defaultRestaurantId || '',
         capacity: undefined,
         description: '',
         is_active: true,
       })
     }
-  }, [space, form])
+  }, [space, form, defaultRestaurantId])
 
   const onSubmit = (data: SpaceFormData) => {
     const payload = {
@@ -143,30 +144,32 @@ export function SpaceDialog({ open, onOpenChange, space }: SpaceDialogProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name='restaurant_id'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Restaurant</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder='Sélectionner un restaurant...' />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {restaurants.map((restaurant) => (
-                        <SelectItem key={restaurant.id} value={restaurant.id}>
-                          {restaurant.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {!defaultRestaurantId && (
+              <FormField
+                control={form.control}
+                name='restaurant_id'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Restaurant</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder='Sélectionner un restaurant...' />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {restaurants.map((restaurant) => (
+                          <SelectItem key={restaurant.id} value={restaurant.id}>
+                            {restaurant.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

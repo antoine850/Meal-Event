@@ -55,9 +55,12 @@ import {
   useUpdateBooking,
   useDeleteBooking,
   useBookingStatuses,
+  useQuotesByBooking,
+  usePaymentsByBooking,
   type BookingWithRelations,
   type BookingEventRow,
 } from '../hooks/use-bookings'
+import { useDocumentsByBooking, useUploadDocument, useDeleteDocument } from '../hooks/use-documents'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
 
@@ -115,58 +118,57 @@ function BookingEventCard({ event, spaces }: { event: BookingEventRow; spaces: {
         <CardTitle className='text-base'>Sous-événement</CardTitle>
       </CardHeader>
       <CardContent className='space-y-4'>
-        <FieldDisplay label="Nom de l'événement" value={event.name || ''} />
+        <FieldDisplay value={event.name || ''} />
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay label='Date' value={event.event_date ? format(new Date(event.event_date), 'EEEE d MMMM yyyy', { locale: fr }) : ''} />
-          <FieldDisplay label='Espace' value={spaceName} />
+          <FieldDisplay value={event.event_date ? format(new Date(event.event_date), 'EEEE d MMMM yyyy', { locale: fr }) : ''} />
+          <FieldDisplay value={spaceName} />
         </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay label='Horaires' value={[event.start_time, event.end_time].filter(Boolean).join(' > ')} />
-          <FieldDisplay label='Pax' value={event.guests_count != null ? String(event.guests_count) : ''} />
+          <FieldDisplay value={[event.start_time, event.end_time].filter(Boolean).join(' > ')} />
+          <FieldDisplay value={event.guests_count != null ? String(event.guests_count) : ''} />
         </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay label='Date / Restaurant flexible' value={flexValue} />
-          <FieldDisplay label='Menu' value={menuValue} multiline />
+          <FieldDisplay value={flexValue} />
+          <FieldDisplay value={menuValue} multiline />
         </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay label='Boissons' value={event.menu_boissons || ''} />
-          <FieldDisplay label='Mise en place' value={event.mise_en_place || ''} />
+          <FieldDisplay value={event.menu_boissons || ''} />
+          <FieldDisplay value={event.mise_en_place || ''} />
         </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay label='Déroulé' value={event.deroulement || ''} />
-          <FieldDisplay label='Privatif ?' value={event.is_privatif ? 'Privatif' : 'Non privatif'} />
+          <FieldDisplay value={event.deroulement || ''} />
+          <FieldDisplay value={event.is_privatif ? 'Privatif' : 'Non privatif'} />
         </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay label='Horaires souhaités client' value={event.client_preferred_time || ''} />
-          <FieldDisplay label='Format souhaité' value={event.format_souhaite || ''} />
+          <FieldDisplay value={event.client_preferred_time || ''} />
+          <FieldDisplay value={event.format_souhaite || ''} />
         </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay label='Allergies et Régimes' value={event.allergies_regimes || ''} multiline />
-          <FieldDisplay label='Prestations souhaitées' value={event.prestations_souhaitees || ''} multiline />
+          <FieldDisplay value={event.allergies_regimes || ''} multiline />
+          <FieldDisplay value={event.prestations_souhaitees || ''} multiline />
         </div>
 
         <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay label='Budget client' value={event.budget_client != null ? `${event.budget_client.toLocaleString('fr-FR')} €` : ''} />
-          <FieldDisplay label='Date signature devis' value={event.date_signature_devis || ''} />
+          <FieldDisplay value={event.budget_client != null ? `${event.budget_client.toLocaleString('fr-FR')} €` : ''} />
+          <FieldDisplay value={event.date_signature_devis || ''} />
         </div>
 
-        <FieldDisplay label='Commentaires' value={commentairesValue} multiline />
+        <FieldDisplay value={commentairesValue} multiline />
       </CardContent>
     </Card>
   )
 }
 
-function FieldDisplay({ label, value, multiline = false }: { label: string; value: string; multiline?: boolean }) {
+function FieldDisplay({ value, multiline = false }: { value: string; multiline?: boolean }) {
   return (
     <div>
-      <span className='mb-1 block text-xs font-medium text-muted-foreground'>{label}</span>
       <div className={`rounded-md border bg-muted/20 px-3 py-2 text-sm whitespace-pre-wrap ${multiline ? 'min-h-[88px]' : 'min-h-[40px]'}`}>
         {value || '—'}
       </div>
@@ -182,6 +184,11 @@ export function BookingDetail({ booking }: BookingDetailProps) {
   const { data: statuses = [] } = useBookingStatuses()
   const { data: users = [] } = useOrganizationUsers()
   const { data: spaces = [] } = useSpaces()
+  const { data: quotes = [] } = useQuotesByBooking(booking.id)
+  const { data: payments = [] } = usePaymentsByBooking(booking.id)
+  const { data: documents = [] } = useDocumentsByBooking(booking.id)
+  const { mutate: uploadDocument, isPending: isUploading } = useUploadDocument()
+  const { mutate: deleteDocument, isPending: isDeletingDocument } = useDeleteDocument()
 
   const bookingEvents = booking.booking_events || []
   const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
@@ -611,21 +618,182 @@ export function BookingDetail({ booking }: BookingDetailProps) {
             </TabsContent>
 
             {/* ── Tab: Facturation ── */}
-            <TabsContent value='facturation' className='mt-4'>
+            <TabsContent value='facturation' className='mt-4 space-y-4'>
+              {/* Devis / Factures Section */}
               <Card>
-                <CardContent className='py-8 text-center text-muted-foreground'>
-                  <Receipt className='mx-auto h-8 w-8 mb-2 opacity-50' />
-                  La facturation sera disponible prochainement.
+                <CardHeader className='pb-3'>
+                  <div className='flex items-center justify-between'>
+                    <CardTitle className='text-base'>Devis / Factures</CardTitle>
+                    <Button size='sm' variant='outline'>
+                      + Offre
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {quotes.length > 0 ? (
+                    <div className='space-y-3'>
+                      {quotes.map(quote => (
+                        <div key={quote.id} className='border rounded-lg p-3 space-y-2'>
+                          <div className='flex items-center justify-between'>
+                            <div>
+                              <p className='font-medium text-sm'>Devis {quote.quote_number}</p>
+                              <p className='text-xs text-muted-foreground'>
+                                HT: {quote.total_ht?.toLocaleString('fr-FR')} € | TTC: {quote.total_ttc?.toLocaleString('fr-FR')} €
+                              </p>
+                            </div>
+                            <div className='flex gap-2'>
+                              <Button size='sm' variant='outline'>Devis</Button>
+                              <Button size='sm' variant='outline'>Factures ({quote.status})</Button>
+                              <Button size='sm' variant='outline'>Générer</Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className='py-6 text-center text-muted-foreground'>
+                      <p className='text-sm'>Aucun devis pour le moment.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Paiements / Cautions Section */}
+              <Card>
+                <CardHeader className='pb-3'>
+                  <div className='flex items-center justify-between'>
+                    <CardTitle className='text-base'>Paiements / Cautions</CardTitle>
+                    <Button size='sm' variant='outline'>
+                      + Paiement
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {payments.length > 0 ? (
+                    <div className='overflow-x-auto'>
+                      <table className='w-full text-sm'>
+                        <thead>
+                          <tr className='border-b'>
+                            <th className='text-left py-2 px-2 font-medium'>Statut</th>
+                            <th className='text-left py-2 px-2 font-medium'>Intitulé</th>
+                            <th className='text-left py-2 px-2 font-medium'>Montant</th>
+                            <th className='text-left py-2 px-2 font-medium'>Type de paiement</th>
+                            <th className='text-left py-2 px-2 font-medium'>Caution</th>
+                            <th className='text-left py-2 px-2 font-medium'>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {payments.map(payment => (
+                            <tr key={payment.id} className='border-b hover:bg-muted/50'>
+                              <td className='py-2 px-2'>
+                                <span className='text-xs px-2 py-1 rounded-full bg-muted'>
+                                  {payment.status}
+                                </span>
+                              </td>
+                              <td className='py-2 px-2 text-xs'>Paiement</td>
+                              <td className='py-2 px-2 font-medium'>{payment.amount?.toLocaleString('fr-FR')} €</td>
+                              <td className='py-2 px-2 text-xs'>{payment.payment_type}</td>
+                              <td className='py-2 px-2 text-xs'>—</td>
+                              <td className='py-2 px-2'>
+                                <Button size='sm' variant='ghost'>⋮</Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className='py-6 text-center text-muted-foreground'>
+                      <p className='text-sm'>Aucune donnée de paiement pour le moment.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
             {/* ── Tab: Fichiers ── */}
-            <TabsContent value='fichiers' className='mt-4'>
+            <TabsContent value='fichiers' className='mt-4 space-y-4'>
               <Card>
-                <CardContent className='py-8 text-center text-muted-foreground'>
-                  <FileText className='mx-auto h-8 w-8 mb-2 opacity-50' />
-                  La gestion des fichiers sera disponible prochainement.
+                <CardHeader className='pb-3'>
+                  <CardTitle className='text-base'>Fichiers</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className='space-y-4'>
+                    {/* Upload area */}
+                    <div className='border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors cursor-pointer' onClick={() => document.getElementById('file-input')?.click()}>
+                      <FileText className='mx-auto h-8 w-8 mb-2 text-muted-foreground' />
+                      <p className='text-sm font-medium'>Cliquez pour uploader des fichiers</p>
+                      <p className='text-xs text-muted-foreground'>ou glissez-déposez vos fichiers ici</p>
+                      <input
+                        id='file-input'
+                        type='file'
+                        multiple
+                        className='hidden'
+                        onChange={(e) => {
+                          const files = e.currentTarget.files
+                          if (files) {
+                            Array.from(files).forEach(file => {
+                              uploadDocument(
+                                { file, bookingId: booking.id },
+                                {
+                                  onSuccess: () => {
+                                    toast.success(`${file.name} uploadé avec succès`)
+                                  },
+                                  onError: (error) => {
+                                    console.error('Error uploading file:', error)
+                                    toast.error(`Erreur lors de l'upload de ${file.name}`)
+                                  },
+                                }
+                              )
+                            })
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Documents list */}
+                    {documents.length > 0 ? (
+                      <div className='space-y-2'>
+                        {documents.map(doc => (
+                          <div key={doc.id} className='flex items-center justify-between border rounded-lg p-3 hover:bg-muted/50'>
+                            <div className='flex items-center gap-3 flex-1 min-w-0'>
+                              <FileText className='h-5 w-5 text-muted-foreground flex-shrink-0' />
+                              <div className='min-w-0 flex-1'>
+                                <a href={doc.file_url} target='_blank' rel='noopener noreferrer' className='text-sm font-medium hover:underline truncate block'>
+                                  {doc.name}
+                                </a>
+                                <p className='text-xs text-muted-foreground'>
+                                  {doc.file_size ? `${(doc.file_size / 1024).toFixed(2)} KB` : ''} • {doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : ''}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              size='sm'
+                              variant='ghost'
+                              onClick={() => {
+                                deleteDocument(doc.id, {
+                                  onSuccess: () => {
+                                    toast.success('Fichier supprimé')
+                                  },
+                                  onError: (error) => {
+                                    console.error('Error deleting file:', error)
+                                    toast.error('Erreur lors de la suppression')
+                                  },
+                                })
+                              }}
+                              disabled={isDeletingDocument}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className='py-6 text-center text-muted-foreground'>
+                        <p className='text-sm'>Aucun fichier uploadé pour le moment.</p>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

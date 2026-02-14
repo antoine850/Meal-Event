@@ -123,7 +123,7 @@ export function ImageUpload({
             alt='Uploaded'
             className={cn(
               'rounded-lg border bg-muted/50',
-              aspectRatio === 'square' && 'aspect-square w-32 object-contain',
+              aspectRatio === 'square' && 'aspect-square w-full object-contain',
               aspectRatio === 'video' && 'aspect-video w-full object-cover',
               aspectRatio === 'auto' && 'h-40 w-full object-cover'
             )}
@@ -148,7 +148,7 @@ export function ImageUpload({
             'border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors',
             isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50',
             isUploading && 'pointer-events-none opacity-50',
-            aspectRatio === 'square' && 'w-32 aspect-square flex items-center justify-center'
+            aspectRatio === 'square' && 'w-full aspect-square flex items-center justify-center'
           )}
         >
           <input

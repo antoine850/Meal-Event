@@ -1,12 +1,26 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowLeft, Loader2, Save } from 'lucide-react'
+import { ArrowLeft, Loader2, Save, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Link, useBlocker } from '@tanstack/react-router'
+import { Link, useBlocker, useNavigate, useSearch } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Form,
   FormControl,
@@ -28,7 +42,8 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { ImageUpload } from '@/components/ui/image-upload'
-import { useUpdateRestaurant, type Restaurant } from '../hooks/use-settings'
+import { useUpdateRestaurant, useSpaces, useDeleteSpace, type Restaurant, type Space } from '../hooks/use-settings'
+import { SpaceDialog } from '../spaces/space-dialog'
 
 const RESTAURANT_COLORS = [
   { value: '#ef4444', label: 'Rouge' },
@@ -71,7 +86,7 @@ const CURRENCIES = [
 const restaurantDetailSchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
   email: z.string().email('Email invalide').optional().or(z.literal('')),
-  phone: z.string().optional(),
+  phone: z.string().regex(/^\+?[0-9\s\-()]{7,20}$/, 'Numéro de téléphone invalide').optional().or(z.literal('')),
   address: z.string().optional(),
   city: z.string().optional(),
   postal_code: z.string().optional(),
@@ -87,15 +102,26 @@ const restaurantDetailSchema = z.object({
   website: z.string().optional(),
   instagram: z.string().optional(),
   facebook: z.string().optional(),
-  notification_emails: z.string().optional(),
-  recap_emails: z.string().optional(),
-  cc_export_emails: z.string().optional(),
+  notification_emails: z.string().optional().refine(val => {
+    if (!val) return true;
+    const emails = val.split(',').map(e => e.trim()).filter(e => e.length > 0);
+    return emails.every(e => z.string().email().safeParse(e).success);
+  }, { message: 'Une ou plusieurs adresses email sont invalides' }),
+  recap_emails: z.string().optional().refine(val => {
+    if (!val) return true;
+    const emails = val.split(',').map(e => e.trim()).filter(e => e.length > 0);
+    return emails.every(e => z.string().email().safeParse(e).success);
+  }, { message: 'Une ou plusieurs adresses email sont invalides' }),
+  cc_export_emails: z.string().optional().refine(val => {
+    if (!val) return true;
+    const emails = val.split(',').map(e => e.trim()).filter(e => e.length > 0);
+    return emails.every(e => z.string().email().safeParse(e).success);
+  }, { message: 'Une ou plusieurs adresses email sont invalides' }),
   event_reminder_enabled: z.boolean().optional(),
   email_signature_enabled: z.boolean().optional(),
   email_signature_text: z.string().optional(),
   email_tracking_enabled: z.boolean().optional(),
   client_portal_background_url: z.string().optional(),
-  vat_accommodation_enabled: z.boolean().optional(),
   sms_name: z.string().optional(),
   sms_signature: z.string().optional(),
   sms_signature_en: z.string().optional(),
@@ -105,18 +131,19 @@ const restaurantDetailSchema = z.object({
   siren: z.string().optional(),
   rcs: z.string().optional(),
   share_capital: z.string().optional(),
-  billing_email: z.string().optional(),
-  billing_phone: z.string().optional(),
+  billing_email: z.string().email('Email invalide').optional().or(z.literal('')),
+  billing_phone: z.string().regex(/^\+?[0-9\s\-()]{7,20}$/, 'Numéro de téléphone invalide').optional().or(z.literal('')),
+  billing_address: z.string().optional(),
+  billing_postal_code: z.string().optional(),
+  billing_city: z.string().optional(),
+  billing_country: z.string().optional(),
   billing_additional_text: z.string().optional(),
   iban: z.string().optional(),
   bic: z.string().optional(),
   invoice_prefix: z.string().optional(),
-  invoice_chrono_format: z.string().optional(),
   quote_validity_days: z.number().optional(),
   invoice_due_days: z.number().optional(),
   payment_balance_days: z.number().optional(),
-  quote_comments_fr: z.string().optional(),
-  quote_comments_en: z.string().optional(),
 })
 
 type RestaurantDetailFormData = z.infer<typeof restaurantDetailSchema>
@@ -127,6 +154,37 @@ interface RestaurantDetailProps {
 
 export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
   const { mutate: updateRestaurant, isPending } = useUpdateRestaurant()
+  const { data: allSpaces = [] } = useSpaces()
+  const { mutate: deleteSpace } = useDeleteSpace()
+  const restaurantSpaces = allSpaces.filter(s => s.restaurant_id === restaurant.id)
+  const [editingSpace, setEditingSpace] = useState<(Space & { restaurant: { id: string; name: string } | null }) | null>(null)
+  const [isSpaceDialogOpen, setIsSpaceDialogOpen] = useState(false)
+  const [spaceToDelete, setSpaceToDelete] = useState<string | null>(null)
+
+  // Tab persistence
+  const navigate = useNavigate()
+  const search = useSearch({ from: '/_authenticated/settings/restaurant/$id' }) as any
+  const currentTab = search.tab || 'general'
+
+  const handleTabChange = (value: string) => {
+    navigate({
+      to: '/settings/restaurant/$id',
+      params: { id: restaurant.id },
+      search: (prev: any) => ({ ...prev, tab: value }),
+      replace: true,
+    })
+  }
+
+  const handleDeleteSpace = () => {
+    if (!spaceToDelete) return
+    deleteSpace(spaceToDelete, {
+      onSuccess: () => {
+        toast.success('Espace supprimé')
+        setSpaceToDelete(null)
+      },
+      onError: () => toast.error('Erreur lors de la suppression'),
+    })
+  }
 
   const formValues = useMemo(() => {
     const r = restaurant as Record<string, unknown>
@@ -157,7 +215,6 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       email_signature_text: (r.email_signature_text as string) || '',
       email_tracking_enabled: (r.email_tracking_enabled as boolean) ?? true,
       client_portal_background_url: (r.client_portal_background_url as string) || '',
-      vat_accommodation_enabled: (r.vat_accommodation_enabled as boolean) ?? false,
       sms_name: (r.sms_name as string) || '',
       sms_signature: (r.sms_signature as string) || '',
       sms_signature_en: (r.sms_signature_en as string) || '',
@@ -168,16 +225,17 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       share_capital: (r.share_capital as string) || '',
       billing_email: (r.billing_email as string) || '',
       billing_phone: (r.billing_phone as string) || '',
+      billing_address: (r.billing_address as string) || '',
+      billing_postal_code: (r.billing_postal_code as string) || '',
+      billing_city: (r.billing_city as string) || '',
+      billing_country: (r.billing_country as string) || 'France',
       billing_additional_text: (r.billing_additional_text as string) || '',
       iban: (r.iban as string) || '',
       bic: (r.bic as string) || '',
       invoice_prefix: (r.invoice_prefix as string) || '',
-      invoice_chrono_format: (r.invoice_chrono_format as string) || 'YEAR-MONTH',
       quote_validity_days: (r.quote_validity_days as number) ?? 7,
       invoice_due_days: (r.invoice_due_days as number) ?? undefined,
       payment_balance_days: (r.payment_balance_days as number) ?? undefined,
-      quote_comments_fr: (r.quote_comments_fr as string) || '',
-      quote_comments_en: (r.quote_comments_en as string) || '',
     }
   }, [restaurant])
 
@@ -277,8 +335,17 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
 
       <Form {...form}>
         <form id='restaurant-form' onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
-          {/* Informations générales */}
-          <Card>
+          <Tabs value={currentTab} onValueChange={handleTabChange} className='w-full'>
+            <TabsList className='grid w-full grid-cols-3'>
+              <TabsTrigger value='general'>Général</TabsTrigger>
+              <TabsTrigger value='facturation'>Facturation</TabsTrigger>
+              <TabsTrigger value='espaces'>Espaces</TabsTrigger>
+            </TabsList>
+
+            {/* TAB: Général */}
+            <TabsContent value='general' className='space-y-6'>
+              {/* Informations générales */}
+              <Card>
             <CardHeader>
               <CardTitle>Informations générales</CardTitle>
               <CardDescription>Les informations de base de l'établissement</CardDescription>
@@ -305,15 +372,17 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                     <FormItem>
                       <FormLabel>Logo</FormLabel>
                       <FormControl>
-                        <ImageUpload
-                          value={field.value}
-                          onChange={field.onChange}
-                          folder='logos'
-                          placeholder='Cliquez pour ajouter un logo'
-                          maxSizeMB={0.5}
-                          maxWidthOrHeight={512}
-                          aspectRatio='square'
-                        />
+                        <div className='max-w-[100px]'>
+                          <ImageUpload
+                            value={field.value}
+                            onChange={field.onChange}
+                            folder='logos'
+                            placeholder='Logo'
+                            maxSizeMB={0.5}
+                            maxWidthOrHeight={128}
+                            aspectRatio='square'
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -483,13 +552,35 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
 
               <Separator />
 
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
                 <FormField
                   control={form.control}
                   name='language'
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Langue</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder='Langue' />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {LANGUAGES.map((l) => (
+                            <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='translation_language'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Langue de traduction</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -574,44 +665,6 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                       <FormLabel>Facebook</FormLabel>
                       <FormControl>
                         <Input placeholder='facebook.com/restaurant' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Informations légales */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Informations légales</CardTitle>
-              <CardDescription>SIRET et numéro de TVA</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='siret'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SIRET</FormLabel>
-                      <FormControl>
-                        <Input placeholder='123 456 789 00012' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='tva_number'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Numéro de TVA</FormLabel>
-                      <FormControl>
-                        <Input placeholder='FR12345678901' {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -813,21 +866,21 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
             </CardContent>
           </Card>
 
-          {/* Affichage */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Affichage</CardTitle>
-              <CardDescription>Options d'affichage et portail client</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <FormField
-                control={form.control}
-                name='client_portal_background_url'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fond espace client</FormLabel>
-                    <FormControl>
-                      <ImageUpload
+              {/* Affichage */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Affichage</CardTitle>
+                  <CardDescription>Options d'affichage et portail client</CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='client_portal_background_url'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fond espace client</FormLabel>
+                        <FormControl>
+                          <ImageUpload
                         value={field.value}
                         onChange={field.onChange}
                         folder='backgrounds'
@@ -840,32 +893,56 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name='vat_accommodation_enabled'
-                render={({ field }) => (
-                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
-                    <div>
-                      <FormLabel className='text-sm'>TVA Hébergement</FormLabel>
-                      <FormDescription className='text-xs'>
-                        Activer la TVA hébergement
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
             </CardContent>
           </Card>
+            </TabsContent>
 
-          {/* Facturation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Facturation</CardTitle>
-              <CardDescription>Informations légales et paramètres de facturation</CardDescription>
-            </CardHeader>
+            {/* TAB: Facturation */}
+            <TabsContent value='facturation' className='space-y-6'>
+              {/* Informations légales */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informations légales</CardTitle>
+                  <CardDescription>SIRET et numéro de TVA</CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                    <FormField
+                      control={form.control}
+                      name='siret'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SIRET</FormLabel>
+                          <FormControl>
+                            <Input placeholder='123 456 789 00012' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='tva_number'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Numéro de TVA</FormLabel>
+                          <FormControl>
+                            <Input placeholder='FR12345678901' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Facturation */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Facturation</CardTitle>
+                  <CardDescription>Paramètres de facturation</CardDescription>
+                </CardHeader>
             <CardContent className='space-y-4'>
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <FormField
@@ -972,6 +1049,83 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                       </FormItem>
                     )}
                   />
+              </div>
+
+              <Separator />
+
+              <div className='space-y-4'>
+                <h4 className='font-medium'>Adresse de facturation</h4>
+                <FormField
+                  control={form.control}
+                  name='billing_address'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Adresse</FormLabel>
+                      <FormControl>
+                        <Input placeholder='123 Rue de la Paix' {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                  <FormField
+                    control={form.control}
+                    name='billing_postal_code'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Code postal</FormLabel>
+                        <FormControl>
+                          <Input placeholder='75001' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='billing_city'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ville</FormLabel>
+                        <FormControl>
+                          <Input placeholder='Paris' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='billing_country'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pays</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder='Pays' />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value='France'>France</SelectItem>
+                            <SelectItem value='Belgique'>Belgique</SelectItem>
+                            <SelectItem value='Suisse'>Suisse</SelectItem>
+                            <SelectItem value='Luxembourg'>Luxembourg</SelectItem>
+                            <SelectItem value='Canada'>Canada</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <FormField
                     control={form.control}
                     name='billing_additional_text'
@@ -1022,28 +1176,6 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                         <FormControl>
                           <Input placeholder='LAHAUT' {...field} />
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='invoice_chrono_format'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Format du chrono</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder='Sélectionner' />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value='YEAR-MONTH'>ANNÉE-MOIS</SelectItem>
-                            <SelectItem value='YEAR'>ANNÉE</SelectItem>
-                            <SelectItem value='MONTH-YEAR'>MOIS-ANNÉE</SelectItem>
-                          </SelectContent>
-                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1103,55 +1235,131 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                     )}
                   />
               </div>
-              <div className='space-y-4'>
-                  <FormField
-                    control={form.control}
-                    name='quote_comments_fr'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Commentaires offre 🇫🇷</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder='Merci de noter que votre réservation sera définitivement confirmée...' 
-                            className='min-h-[80px]'
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='quote_comments_en'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Commentaires offre 🇺🇸</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder='Please note that your reservation will be confirmed...' 
-                            className='min-h-[80px]'
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-              </div>
             </CardContent>
           </Card>
 
-          {/* Bouton de sauvegarde en bas */}
-          <div className='flex justify-end'>
-            <Button type='submit' disabled={isPending || !form.formState.isDirty} size='lg'>
-              {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-              <Save className='mr-2 h-4 w-4' />
-              Enregistrer les modifications
-            </Button>
-          </div>
+              {/* Bouton de sauvegarde en bas */}
+              <div className='flex justify-end'>
+                <Button type='submit' disabled={isPending || !form.formState.isDirty} size='lg'>
+                  {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                  <Save className='mr-2 h-4 w-4' />
+                  Enregistrer les modifications
+                </Button>
+              </div>
+            </TabsContent>
+
+            {/* TAB: Espaces */}
+            <TabsContent value='espaces' className='space-y-6'>
+              <Card>
+                <CardHeader className='flex flex-row items-center justify-between'>
+                  <div>
+                    <CardTitle>Espaces</CardTitle>
+                    <CardDescription>Espaces liés à ce restaurant</CardDescription>
+                  </div>
+                  <Button 
+                    type='button' 
+                    size='sm' 
+                    onClick={() => {
+                      setEditingSpace(null)
+                      setIsSpaceDialogOpen(true)
+                    }}
+                  >
+                    <Plus className='mr-2 h-4 w-4' />
+                    Ajouter
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className='rounded-md border'>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nom</TableHead>
+                          <TableHead className='hidden md:table-cell'>Capacité</TableHead>
+                          <TableHead>Statut</TableHead>
+                          <TableHead className='w-[70px]'></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {restaurantSpaces.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className='text-center text-muted-foreground py-8'>
+                              Aucun espace configuré
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          restaurantSpaces.map((space) => (
+                            <TableRow key={space.id}>
+                              <TableCell className='font-medium'>{space.name}</TableCell>
+                              <TableCell className='hidden md:table-cell'>{space.capacity ? `${space.capacity} pers.` : '-'}</TableCell>
+                              <TableCell>
+                                <Badge variant={space.is_active ? 'default' : 'secondary'}>
+                                  {space.is_active ? 'Actif' : 'Inactif'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant='ghost' size='icon' className='h-8 w-8'>
+                                      <MoreHorizontal className='h-4 w-4' />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align='end'>
+                                    <DropdownMenuItem onClick={() => {
+                                      setEditingSpace(space as any)
+                                      setIsSpaceDialogOpen(true)
+                                    }}>
+                                      <Pencil className='mr-2 h-4 w-4' />
+                                      Modifier
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className='text-destructive'
+                                      onClick={() => setSpaceToDelete(space.id)}
+                                    >
+                                      <Trash2 className='mr-2 h-4 w-4' />
+                                      Supprimer
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </form>
       </Form>
+
+      <SpaceDialog
+        open={isSpaceDialogOpen}
+        onOpenChange={setIsSpaceDialogOpen}
+        space={editingSpace}
+        defaultRestaurantId={restaurant.id}
+      />
+
+      <AlertDialog open={!!spaceToDelete} onOpenChange={(open) => !open && setSpaceToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer l'espace</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer cet espace ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSpace}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

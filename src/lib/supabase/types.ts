@@ -1039,6 +1039,53 @@ export interface Database {
           created_at?: string
         }
       }
+      documents: {
+        Row: {
+          id: string
+          organization_id: string | null
+          booking_id: string | null
+          name: string
+          file_type: string | null
+          file_size: number | null
+          file_path: string
+          file_url: string
+          uploaded_by: string | null
+          description: string | null
+          tags: string[] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id?: string | null
+          booking_id?: string | null
+          name: string
+          file_type?: string | null
+          file_size?: number | null
+          file_path: string
+          file_url: string
+          uploaded_by?: string | null
+          description?: string | null
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string | null
+          booking_id?: string | null
+          name?: string
+          file_type?: string | null
+          file_size?: number | null
+          file_path?: string
+          file_url?: string
+          uploaded_by?: string | null
+          description?: string | null
+          tags?: string[] | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       settings: {
         Row: {
           id: string
@@ -1142,6 +1189,7 @@ export type Payment = Tables<'payments'>
 export type PaymentLink = Tables<'payment_links'>
 export type PaymentReminder = Tables<'payment_reminders'>
 export type Receipt = Tables<'receipts'>
+export type Document = Tables<'documents'>
 export type Settings = Tables<'settings'>
 
 // Extended types with relations

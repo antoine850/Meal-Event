@@ -86,11 +86,53 @@ export type Restaurant = {
   organization_id: string
   name: string
   address: string | null
+  city: string | null
+  postal_code: string | null
+  country: string | null
   phone: string | null
   email: string | null
   color: string | null
+  logo_url: string | null
   is_active: boolean
+  language: string | null
+  translation_language: string | null
+  currency: string | null
+  siret: string | null
+  tva_number: string | null
+  website: string | null
+  instagram: string | null
+  facebook: string | null
+  notification_emails: string[] | null
+  recap_emails: string[] | null
+  cc_export_emails: string[] | null
+  event_reminder_enabled: boolean
+  email_signature_enabled: boolean
+  email_signature_text: string | null
+  email_tracking_enabled: boolean
+  client_portal_background_url: string | null
+  sms_name: string | null
+  sms_signature: string | null
+  sms_signature_en: string | null
+  company_name: string | null
+  legal_form: string | null
+  siren: string | null
+  rcs: string | null
+  share_capital: string | null
+  billing_email: string | null
+  billing_phone: string | null
+  billing_address: string | null
+  billing_postal_code: string | null
+  billing_city: string | null
+  billing_country: string | null
+  billing_additional_text: string | null
+  iban: string | null
+  bic: string | null
+  invoice_prefix: string | null
+  quote_validity_days: number
+  invoice_due_days: number | null
+  payment_balance_days: number | null
   created_at: string
+  updated_at: string
 }
 
 export function useRestaurants() {

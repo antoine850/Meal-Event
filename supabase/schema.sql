@@ -445,6 +445,25 @@ CREATE TABLE receipts (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Documents (Fichiers uploadés)
+CREATE TABLE documents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
+  -- File details
+  name VARCHAR(255) NOT NULL,
+  file_type VARCHAR(50), -- 'pdf', 'image', 'document', etc.
+  file_size INTEGER, -- en bytes
+  file_path TEXT NOT NULL, -- chemin dans le storage Supabase
+  file_url TEXT NOT NULL, -- URL publique du fichier
+  -- Metadata
+  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  description TEXT,
+  tags TEXT[], -- tags pour catégoriser les documents
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================
 -- PARAMÈTRES
 -- ============================================
@@ -515,6 +534,11 @@ CREATE INDEX idx_quotes_status ON quotes(status);
 CREATE INDEX idx_payments_organization ON payments(organization_id);
 CREATE INDEX idx_payments_booking ON payments(booking_id);
 CREATE INDEX idx_payments_status ON payments(status);
+
+-- Documents
+CREATE INDEX idx_documents_organization ON documents(organization_id);
+CREATE INDEX idx_documents_booking ON documents(booking_id);
+CREATE INDEX idx_documents_uploaded_by ON documents(uploaded_by);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -612,4 +636,5 @@ CREATE TRIGGER update_contacts_updated_at BEFORE UPDATE ON contacts FOR EACH ROW
 CREATE TRIGGER update_bookings_updated_at BEFORE UPDATE ON bookings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_quotes_updated_at BEFORE UPDATE ON quotes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_settings_updated_at BEFORE UPDATE ON settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

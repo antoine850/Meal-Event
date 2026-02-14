@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { Quote, Payment } from '@/lib/supabase/types'
 
 export type BookingEventRow = {
   id: string
@@ -223,7 +224,7 @@ export function useCreateBooking() {
       const { error: eventError } = await supabase
         .from('booking_events')
         .insert({
-          booking_id: bookingData.id,
+          booking_id: (bookingData as any).id,
           name: 'Événement principal',
           event_date: booking.event_date,
           start_time: booking.start_time || null,
@@ -284,5 +285,37 @@ export function useDeleteBooking() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
     },
+  })
+}
+
+export function useQuotesByBooking(bookingId: string) {
+  return useQuery<Quote[]>({
+    queryKey: ['quotes', bookingId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('booking_id', bookingId)
+
+      if (error) throw error
+      return (data as Quote[]) || []
+    },
+    enabled: !!bookingId,
+  })
+}
+
+export function usePaymentsByBooking(bookingId: string) {
+  return useQuery<Payment[]>({
+    queryKey: ['payments', bookingId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('booking_id', bookingId)
+
+      if (error) throw error
+      return (data as Payment[]) || []
+    },
+    enabled: !!bookingId,
   })
 }
