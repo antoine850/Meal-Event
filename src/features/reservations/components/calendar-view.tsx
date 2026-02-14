@@ -55,7 +55,7 @@ function ReservationCard({ reservation }: { reservation: Reservation, onClick?: 
       <Tooltip>
         <TooltipTrigger asChild>
           <Link
-            to='/reservations/booking/$id'
+            to='/evenements/booking/$id'
             params={{ id: reservation.id }}
             onClick={(e) => e.stopPropagation()}
             className='block rounded-md p-2 text-xs cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all border-l-4 bg-card shadow-sm mb-1'
@@ -301,7 +301,7 @@ function WeekView({ currentDate, reservations }: {
                   .map(reservation => (
                     <Link
                       key={reservation.id}
-                      to='/reservations/booking/$id'
+                      to='/evenements/booking/$id'
                       params={{ id: reservation.id }}
                       className='block p-2 rounded border bg-card hover:shadow-md hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer'
                       style={{ borderLeftColor: reservation.restaurant.color, borderLeftWidth: 3 }}
@@ -355,7 +355,7 @@ function DayView({ currentDate, reservations }: {
                   .map(reservation => (
                     <Link
                       key={reservation.id}
-                      to='/reservations/booking/$id'
+                      to='/evenements/booking/$id'
                       params={{ id: reservation.id }}
                       className='block p-2 rounded text-white cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/30 transition-all'
                       style={{ backgroundColor: reservation.restaurant.color }}
@@ -383,7 +383,7 @@ function DayView({ currentDate, reservations }: {
             {dayReservations.map(reservation => (
               <Link
                 key={reservation.id}
-                to='/reservations/booking/$id'
+                to='/evenements/booking/$id'
                 params={{ id: reservation.id }}
                 className='block p-3 rounded-lg border hover:shadow-md hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer'
                 style={{ borderLeftColor: reservation.restaurant.color, borderLeftWidth: 4 }}

@@ -3,8 +3,6 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ExternalLink } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
-import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
@@ -113,7 +111,7 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
     cell: () => null,
     enableHiding: true,
     filterFn: (row, _id, value) => {
-      return value.includes((row.original as Record<string, unknown>).restaurant_id)
+      return value.includes(row.original.restaurant_id)
     },
     meta: {
       className: 'hidden',
@@ -140,31 +138,10 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
     ),
   },
   {
-    accessorKey: 'status',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Statut' />
-    ),
-    cell: ({ row }) => {
-      const status = row.original.status
-      if (!status) return <span className='text-muted-foreground'>-</span>
-      return (
-        <Badge 
-          variant='outline' 
-          className={cn('text-xs', status.color)}
-        >
-          {status.name}
-        </Badge>
-      )
-    },
-    filterFn: (row, _id, value) => {
-      return value.includes(row.original.status?.slug)
-    },
-  },
-  {
     id: 'actions',
     cell: ({ row }) => (
       <Button variant='ghost' size='icon' className='h-8 w-8' asChild>
-        <Link to='/tasks/contact/$id' params={{ id: row.original.id }}>
+        <Link to='/contacts/contact/$id' params={{ id: row.original.id }}>
           <ExternalLink className='h-4 w-4' />
         </Link>
       </Button>

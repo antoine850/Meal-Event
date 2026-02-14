@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useCreateContact, useContactStatuses } from '../hooks/use-contacts'
+import { useCreateContact } from '../hooks/use-contacts'
 import { CompanyCombobox } from './company-combobox'
 
 const contactSchema = z.object({
@@ -42,7 +42,6 @@ const contactSchema = z.object({
   mobile: z.string().optional(),
   company_id: z.string().optional().nullable(),
   job_title: z.string().optional(),
-  status_id: z.string().optional(),
   source: z.string().optional(),
   notes: z.string().optional(),
 })
@@ -56,7 +55,6 @@ type CreateContactDialogProps = {
 export function CreateContactDialog({ iconOnly = false }: CreateContactDialogProps) {
   const [open, setOpen] = useState(false)
   const { mutate: createContact, isPending } = useCreateContact()
-  const { data: statuses = [] } = useContactStatuses()
 
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -68,7 +66,6 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
       mobile: '',
       company_id: '',
       job_title: '',
-      status_id: '',
       source: '',
       notes: '',
     },
@@ -84,7 +81,6 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
         mobile: data.mobile || null,
         company_id: data.company_id || null,
         job_title: data.job_title || null,
-        status_id: data.status_id || null,
         source: data.source || null,
         notes: data.notes || null,
       },
@@ -223,63 +219,31 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
               />
             </div>
 
-            <div className='grid grid-cols-2 gap-4'>
-              <FormField
-                control={form.control}
-                name='status_id'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Statut</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Sélectionner...' />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {statuses.map((status: any) => (
-                          <SelectItem key={status.id} value={status.id}>
-                            <div className='flex items-center gap-2'>
-                              <div 
-                                className='w-2 h-2 rounded-full' 
-                                style={{ backgroundColor: (status as any).color || undefined }} 
-                              />
-                              {(status as any).name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='source'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Source</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Sélectionner...' />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value='website'>Site web</SelectItem>
-                        <SelectItem value='phone'>Téléphone</SelectItem>
-                        <SelectItem value='email'>Email</SelectItem>
-                        <SelectItem value='referral'>Recommandation</SelectItem>
-                        <SelectItem value='event'>Événement</SelectItem>
-                        <SelectItem value='other'>Autre</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name='source'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Source</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder='Sélectionner...' />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value='website'>Site web</SelectItem>
+                      <SelectItem value='phone'>Téléphone</SelectItem>
+                      <SelectItem value='email'>Email</SelectItem>
+                      <SelectItem value='referral'>Recommandation</SelectItem>
+                      <SelectItem value='event'>Événement</SelectItem>
+                      <SelectItem value='other'>Autre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

@@ -4,7 +4,6 @@ import type { Contact } from '@/lib/supabase/types'
 
 export type ContactWithRelations = Contact & {
   company?: { id: string; name: string } | null
-  status?: { id: string; name: string; color: string; slug: string } | null
   assigned_user?: { id: string; first_name: string; last_name: string } | null
   restaurant?: { id: string; name: string } | null
 }
@@ -34,7 +33,6 @@ export function useContacts() {
         .select(`
           *,
           company:companies(id, name),
-          status:statuses(id, name, color, slug),
           assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name),
           restaurant:restaurants(id, name)
         `)
@@ -47,25 +45,6 @@ export function useContacts() {
   })
 }
 
-export function useContactStatuses() {
-  return useQuery({
-    queryKey: ['contact-statuses'],
-    queryFn: async () => {
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) throw new Error('No organization found')
-
-      const { data, error } = await supabase
-        .from('statuses')
-        .select('*')
-        .eq('organization_id', orgId)
-        .eq('type', 'contact')
-        .order('position', { ascending: true })
-
-      if (error) throw error
-      return data as { id: string; name: string; slug: string; color: string; display_order: number }[]
-    },
-  })
-}
 
 export function useRestaurantsList() {
   return useQuery({
@@ -158,7 +137,6 @@ export function useContact(id: string) {
         .select(`
           *,
           company:companies(id, name),
-          status:statuses(id, name, color, slug),
           assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name),
           restaurant:restaurants(id, name)
         `)

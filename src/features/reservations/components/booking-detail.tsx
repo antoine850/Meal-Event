@@ -1,29 +1,29 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState, forwardRef, useImperativeHandle } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useBlocker, useNavigate, Link } from '@tanstack/react-router'
+import { useNavigate, Link, useBlocker } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
-  CalendarIcon,
   ExternalLink,
   FileText,
   History,
-  Loader2,
   Mail,
   Phone,
-  Receipt,
-  Save,
-  Trash2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Form,
   FormControl,
@@ -41,17 +41,6 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
-import {
   useUpdateBooking,
   useDeleteBooking,
   useBookingStatuses,
@@ -67,120 +56,256 @@ import { useSpaces } from '@/features/settings/hooks/use-settings'
 const bookingDetailSchema = z.object({
   contact_id: z.string().min(1, 'Le contact est requis'),
   restaurant_id: z.string().min(1, 'Le restaurant est requis'),
-  occasion: z.string().optional(),
-  option: z.string().optional(),
-  relance: z.string().optional(),
-  source: z.string().optional(),
   status_id: z.string().optional(),
   assigned_to: z.string().optional(),
-  total_amount: z.number().optional(),
-  deposit_amount: z.number().optional(),
+  occasion: z.string().optional(),
+  option: z.string().optional(),
+  relance: z.string().optional().nullable(),
+  source: z.string().optional(),
   is_table_blocked: z.boolean().optional(),
   has_extra_provider: z.boolean().optional(),
-  internal_notes: z.string().optional(),
-  client_notes: z.string().optional(),
-  special_requests: z.string().optional(),
 })
 
 type BookingDetailFormData = z.infer<typeof bookingDetailSchema>
 
 type BookingDetailProps = {
   booking: BookingWithRelations
+  activeTab?: string
+  onTabChange?: (tab: string) => void
 }
 
-// ─── Sub-event card ───────────────────────────────────────────────
-function BookingEventCard({ event, spaces }: { event: BookingEventRow; spaces: { id: string; name: string }[] }) {
-  const spaceName = event.space?.name || spaces.find(s => s.id === event.space_id)?.name || ''
-  const flexValue = [
-    event.is_date_flexible ? 'Date flexible' : 'Date non-flexible',
-    event.is_restaurant_flexible ? 'Restaurant flexible' : 'Restaurant non-flexible',
-  ].join(' • ')
+// ─── Editable sub-event card ─────────────────────────────────────
+function BookingEventCard({ event, spaces, onDirtyChange }: { event: BookingEventRow; spaces: { id: string; name: string }[]; onDirtyChange?: (isDirty: boolean) => void }) {
+  const [form, setForm] = useState<Record<string, unknown>>({})
+  const [_dirty, setDirty] = useState(false)
 
-  const menuValue = [
-    event.menu_aperitif ? `APERITIF\n${event.menu_aperitif}` : null,
-    event.menu_entree ? `ENTREE\n${event.menu_entree}` : null,
-    event.menu_plat ? `PLAT\n${event.menu_plat}` : null,
-    event.menu_dessert ? `DESSERT\n${event.menu_dessert}` : null,
-    event.menu_boissons ? `BOISSONS\n${event.menu_boissons}` : null,
-  ].filter(Boolean).join('\n\n')
+  useEffect(() => {
+    setForm({
+      name: event.name || '',
+      event_date: event.event_date || '',
+      start_time: event.start_time || '',
+      end_time: event.end_time || '',
+      guests_count: event.guests_count ?? '',
+      space_id: event.space_id || '',
+      occasion: event.occasion || '',
+      is_date_flexible: event.is_date_flexible || false,
+      is_restaurant_flexible: event.is_restaurant_flexible || false,
+      client_preferred_time: event.client_preferred_time || '',
+      menu_aperitif: event.menu_aperitif || '',
+      menu_entree: event.menu_entree || '',
+      menu_plat: event.menu_plat || '',
+      menu_dessert: event.menu_dessert || '',
+      menu_boissons: event.menu_boissons || '',
+      mise_en_place: event.mise_en_place || '',
+      deroulement: event.deroulement || '',
+      is_privatif: event.is_privatif || false,
+      allergies_regimes: event.allergies_regimes || '',
+      prestations_souhaitees: event.prestations_souhaitees || '',
+      budget_client: event.budget_client ?? '',
+      format_souhaite: event.format_souhaite || '',
+      contact_sur_place_nom: event.contact_sur_place_nom || '',
+      contact_sur_place_tel: event.contact_sur_place_tel || '',
+      contact_sur_place_societe: event.contact_sur_place_societe || '',
+      instructions_speciales: event.instructions_speciales || '',
+      commentaires: event.commentaires || '',
+      date_signature_devis: event.date_signature_devis || '',
+    })
+    setDirty(false)
+  }, [event])
 
-  const commentairesValue = [
-    event.commentaires,
-    event.contact_sur_place_nom ? `Contact sur place : ${event.contact_sur_place_nom}` : null,
-    event.contact_sur_place_tel ? `Tél : ${event.contact_sur_place_tel}` : null,
-    event.contact_sur_place_societe ? `Société : ${event.contact_sur_place_societe}` : null,
-    event.instructions_speciales,
-  ].filter(Boolean).join('\n')
+  const update = (key: string, value: unknown) => {
+    setForm(prev => ({ ...prev, [key]: value }))
+    setDirty(true)
+    onDirtyChange?.(true)
+  }
+
+  const inputCls = 'flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+  const textareaCls = 'flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none min-h-[60px]'
 
   return (
     <Card>
-      <CardHeader className='pb-2'>
-        <CardTitle className='text-base'>Sous-événement</CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-4'>
-        <FieldDisplay value={event.name || ''} />
-
-        <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay value={event.event_date ? format(new Date(event.event_date), 'EEEE d MMMM yyyy', { locale: fr }) : ''} />
-          <FieldDisplay value={spaceName} />
+      <CardContent className='space-y-3 pt-2'>
+        {/* Nom */}
+        <div>
+          <label className='text-xs font-medium'>Nom</label>
+          <input className={inputCls} value={form.name as string || ''} onChange={e => update('name', e.target.value)} />
         </div>
 
-        <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay value={[event.start_time, event.end_time].filter(Boolean).join(' > ')} />
-          <FieldDisplay value={event.guests_count != null ? String(event.guests_count) : ''} />
+        {/* Date / Espace */}
+        <div className='grid gap-3 md:grid-cols-2'>
+          <div>
+            <label className='text-xs font-medium'>Date</label>
+            <input type='date' className={inputCls} value={form.event_date as string || ''} onChange={e => update('event_date', e.target.value)} />
+          </div>
+          <div>
+            <label className='text-xs font-medium'>Espace</label>
+            <select className={inputCls} value={form.space_id as string || ''} onChange={e => update('space_id', e.target.value)}>
+              <option value=''>—</option>
+              {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
         </div>
 
-        <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay value={flexValue} />
-          <FieldDisplay value={menuValue} multiline />
+        {/* Horaires / Personnes */}
+        <div className='grid gap-3 md:grid-cols-3'>
+          <div>
+            <label className='text-xs font-medium'>Début</label>
+            <input type='time' className={inputCls} value={form.start_time as string || ''} onChange={e => update('start_time', e.target.value)} />
+          </div>
+          <div>
+            <label className='text-xs font-medium'>Fin</label>
+            <input type='time' className={inputCls} value={form.end_time as string || ''} onChange={e => update('end_time', e.target.value)} />
+          </div>
+          <div>
+            <label className='text-xs font-medium'>Personnes</label>
+            <input type='number' className={inputCls} value={form.guests_count as string || ''} onChange={e => update('guests_count', e.target.value)} />
+          </div>
         </div>
 
-        <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay value={event.menu_boissons || ''} />
-          <FieldDisplay value={event.mise_en_place || ''} />
+        {/* Occasion / Heure préférée */}
+        <div className='grid gap-3 md:grid-cols-2'>
+          <div>
+            <label className='text-xs font-medium'>Occasion</label>
+            <input className={inputCls} value={form.occasion as string || ''} onChange={e => update('occasion', e.target.value)} />
+          </div>
+          <div>
+            <label className='text-xs font-medium'>Heure préférée client</label>
+            <input className={inputCls} value={form.client_preferred_time as string || ''} onChange={e => update('client_preferred_time', e.target.value)} />
+          </div>
         </div>
 
-        <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay value={event.deroulement || ''} />
-          <FieldDisplay value={event.is_privatif ? 'Privatif' : 'Non privatif'} />
+        {/* Flexibilité / Privatif */}
+        <div className='flex gap-6'>
+          <label className='flex items-center gap-2 text-xs'>
+            <Switch checked={form.is_date_flexible as boolean || false} onCheckedChange={v => update('is_date_flexible', v)} />
+            Date flexible
+          </label>
+          <label className='flex items-center gap-2 text-xs'>
+            <Switch checked={form.is_restaurant_flexible as boolean || false} onCheckedChange={v => update('is_restaurant_flexible', v)} />
+            Restaurant flexible
+          </label>
+          <label className='flex items-center gap-2 text-xs'>
+            <Switch checked={form.is_privatif as boolean || false} onCheckedChange={v => update('is_privatif', v)} />
+            Privatif
+          </label>
         </div>
 
-        <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay value={event.client_preferred_time || ''} />
-          <FieldDisplay value={event.format_souhaite || ''} />
+        <Separator />
+
+        {/* Menu */}
+        <div className='space-y-2'>
+          <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>Menu</p>
+          <div className='grid gap-3 md:grid-cols-2'>
+            <div>
+              <label className='text-xs font-medium'>Apéritif</label>
+              <textarea className={textareaCls} value={form.menu_aperitif as string || ''} onChange={e => update('menu_aperitif', e.target.value)} />
+            </div>
+            <div>
+              <label className='text-xs font-medium'>Entrée</label>
+              <textarea className={textareaCls} value={form.menu_entree as string || ''} onChange={e => update('menu_entree', e.target.value)} />
+            </div>
+            <div>
+              <label className='text-xs font-medium'>Plat</label>
+              <textarea className={textareaCls} value={form.menu_plat as string || ''} onChange={e => update('menu_plat', e.target.value)} />
+            </div>
+            <div>
+              <label className='text-xs font-medium'>Dessert</label>
+              <textarea className={textareaCls} value={form.menu_dessert as string || ''} onChange={e => update('menu_dessert', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className='text-xs font-medium'>Boissons</label>
+            <textarea className={textareaCls} value={form.menu_boissons as string || ''} onChange={e => update('menu_boissons', e.target.value)} />
+          </div>
         </div>
 
-        <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay value={event.allergies_regimes || ''} multiline />
-          <FieldDisplay value={event.prestations_souhaitees || ''} multiline />
+        <Separator />
+
+        {/* Mise en place / Déroulé */}
+        <div className='grid gap-3 md:grid-cols-2'>
+          <div>
+            <label className='text-xs font-medium'>Mise en place</label>
+            <textarea className={textareaCls} value={form.mise_en_place as string || ''} onChange={e => update('mise_en_place', e.target.value)} />
+          </div>
+          <div>
+            <label className='text-xs font-medium'>Déroulé</label>
+            <textarea className={textareaCls} value={form.deroulement as string || ''} onChange={e => update('deroulement', e.target.value)} />
+          </div>
         </div>
 
-        <div className='grid gap-4 md:grid-cols-2'>
-          <FieldDisplay value={event.budget_client != null ? `${event.budget_client.toLocaleString('fr-FR')} €` : ''} />
-          <FieldDisplay value={event.date_signature_devis || ''} />
+        {/* Allergies / Prestations */}
+        <div className='grid gap-3 md:grid-cols-2'>
+          <div>
+            <label className='text-xs font-medium'>Allergies / Régimes</label>
+            <textarea className={textareaCls} value={form.allergies_regimes as string || ''} onChange={e => update('allergies_regimes', e.target.value)} />
+          </div>
+          <div>
+            <label className='text-xs font-medium'>Prestations souhaitées</label>
+            <textarea className={textareaCls} value={form.prestations_souhaitees as string || ''} onChange={e => update('prestations_souhaitees', e.target.value)} />
+          </div>
         </div>
 
-        <FieldDisplay value={commentairesValue} multiline />
+        {/* Budget / Format */}
+        <div className='grid gap-3 md:grid-cols-2'>
+          <div>
+            <label className='text-xs font-medium'>Budget client (€)</label>
+            <input type='number' step='0.01' className={inputCls} value={form.budget_client as string || ''} onChange={e => update('budget_client', e.target.value)} />
+          </div>
+          <div>
+            <label className='text-xs font-medium'>Format souhaité</label>
+            <input className={inputCls} value={form.format_souhaite as string || ''} onChange={e => update('format_souhaite', e.target.value)} />
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Contact sur place */}
+        <div className='space-y-2'>
+          <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>Contact sur place</p>
+          <div className='grid gap-3 md:grid-cols-3'>
+            <div>
+              <label className='text-xs font-medium'>Nom</label>
+              <input className={inputCls} value={form.contact_sur_place_nom as string || ''} onChange={e => update('contact_sur_place_nom', e.target.value)} />
+            </div>
+            <div>
+              <label className='text-xs font-medium'>Téléphone</label>
+              <input className={inputCls} value={form.contact_sur_place_tel as string || ''} onChange={e => update('contact_sur_place_tel', e.target.value)} />
+            </div>
+            <div>
+              <label className='text-xs font-medium'>Société</label>
+              <input className={inputCls} value={form.contact_sur_place_societe as string || ''} onChange={e => update('contact_sur_place_societe', e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Instructions / Commentaires / Date signature */}
+        <div>
+          <label className='text-xs font-medium'>Instructions spéciales</label>
+          <textarea className={textareaCls} value={form.instructions_speciales as string || ''} onChange={e => update('instructions_speciales', e.target.value)} />
+        </div>
+        <div>
+          <label className='text-xs font-medium'>Commentaires</label>
+          <textarea className={textareaCls} value={form.commentaires as string || ''} onChange={e => update('commentaires', e.target.value)} />
+        </div>
+        <div className='max-w-xs'>
+          <label className='text-xs font-medium'>Date signature devis</label>
+          <input type='date' className={inputCls} value={form.date_signature_devis as string || ''} onChange={e => update('date_signature_devis', e.target.value)} />
+        </div>
       </CardContent>
     </Card>
   )
 }
 
-function FieldDisplay({ value, multiline = false }: { value: string; multiline?: boolean }) {
-  return (
-    <div>
-      <div className={`rounded-md border bg-muted/20 px-3 py-2 text-sm whitespace-pre-wrap ${multiline ? 'min-h-[88px]' : 'min-h-[40px]'}`}>
-        {value || '—'}
-      </div>
-    </div>
-  )
-}
-
 // ─── Main component ───────────────────────────────────────────────
-export function BookingDetail({ booking }: BookingDetailProps) {
+export const BookingDetail = forwardRef<
+  { submitForm: () => void; deleteBooking: () => void; getIsDirty: () => boolean },
+  BookingDetailProps & { onDirtyChange?: (isDirty: boolean) => void }
+>(function BookingDetail({ booking, activeTab = 'evenementiel', onDirtyChange }, ref) {
   const navigate = useNavigate()
-  const { mutate: updateBooking, isPending } = useUpdateBooking()
-  const { mutate: deleteBooking, isPending: isDeleting } = useDeleteBooking()
+  const { mutate: updateBooking } = useUpdateBooking()
+  const { mutate: deleteBookingMutation } = useDeleteBooking()
   const { data: statuses = [] } = useBookingStatuses()
   const { data: users = [] } = useOrganizationUsers()
   const { data: spaces = [] } = useSpaces()
@@ -196,25 +321,25 @@ export function BookingDetail({ booking }: BookingDetailProps) {
   const formValues = useMemo(() => ({
     contact_id: booking.contact_id || '',
     restaurant_id: booking.restaurant_id || '',
+    status_id: booking.status_id || '',
+    assigned_to: booking.assigned_to || '',
     occasion: booking.occasion || '',
     option: booking.option || '',
     relance: booking.relance || '',
     source: booking.source || '',
-    status_id: booking.status_id || '',
-    assigned_to: booking.assigned_to || '',
-    total_amount: booking.total_amount || 0,
-    deposit_amount: booking.deposit_amount || 0,
     is_table_blocked: booking.is_table_blocked || false,
     has_extra_provider: booking.has_extra_provider || false,
-    internal_notes: booking.internal_notes || '',
-    client_notes: booking.client_notes || '',
-    special_requests: booking.special_requests || '',
   }), [booking])
 
   const form = useForm<BookingDetailFormData>({
     resolver: zodResolver(bookingDetailSchema),
     values: formValues,
   })
+
+  // Notify parent when form dirty state changes
+  useEffect(() => {
+    onDirtyChange?.(form.formState.isDirty)
+  }, [form.formState.isDirty, onDirtyChange])
 
   const blocker = useBlocker({
     condition: form.formState.isDirty,
@@ -254,24 +379,20 @@ export function BookingDetail({ booking }: BookingDetailProps) {
         id: booking.id,
         contact_id: data.contact_id,
         restaurant_id: data.restaurant_id,
+        status_id: data.status_id || null,
+        assigned_to: data.assigned_to || null,
         occasion: data.occasion || null,
         option: data.option || null,
         relance: data.relance || null,
         source: data.source || null,
-        status_id: data.status_id || null,
-        assigned_to: data.assigned_to || null,
-        total_amount: data.total_amount || 0,
-        deposit_amount: data.deposit_amount || 0,
         is_table_blocked: data.is_table_blocked || false,
         has_extra_provider: data.has_extra_provider || false,
-        internal_notes: data.internal_notes || null,
-        client_notes: data.client_notes || null,
-        special_requests: data.special_requests || null,
       } as never,
       {
         onSuccess: () => {
           toast.success('Événement mis à jour')
-          form.reset(data)
+          form.reset(data, { keepValues: true })
+          onDirtyChange?.(false)
         },
         onError: () => toast.error('Erreur lors de la mise à jour'),
       }
@@ -279,14 +400,21 @@ export function BookingDetail({ booking }: BookingDetailProps) {
   }
 
   const handleDelete = () => {
-    deleteBooking(booking.id, {
+    deleteBookingMutation(booking.id, {
       onSuccess: () => {
         toast.success('Événement supprimé')
-        navigate({ to: '/reservations' })
+        navigate({ to: '/evenements' })
       },
       onError: () => toast.error('Erreur lors de la suppression'),
     })
   }
+
+  // Expose submitForm, deleteBooking, and getIsDirty methods via ref
+  useImperativeHandle(ref, () => ({
+    submitForm: () => form.handleSubmit(onSubmit)(),
+    deleteBooking: () => handleDelete(),
+    getIsDirty: () => form.formState.isDirty,
+  }), [form, onSubmit])
 
   const sourceOptions = [
     'Google Ads',
@@ -310,13 +438,68 @@ export function BookingDetail({ booking }: BookingDetailProps) {
           <div className='space-y-4'>
             {/* Restaurant badge + dates */}
             <Card>
-              <CardContent className='pt-4 space-y-3'>
-                {/* Restaurant name */}
-                <div className='flex items-center gap-2'>
-                  {booking.restaurant?.color && (
-                    <div className='h-3 w-3 rounded-full shrink-0' style={{ backgroundColor: booking.restaurant.color }} />
-                  )}
-                  <span className='font-semibold text-lg'>{booking.restaurant?.name || '—'}</span>
+              <CardContent className='pt-2 space-y-3'>
+                {/* Restaurant name + Actions */}
+                <div className='flex items-center justify-between gap-2'>
+                  <div className='flex items-center gap-2'>
+                    {booking.restaurant?.color && (
+                      <div className='h-3 w-3 rounded-full shrink-0' style={{ backgroundColor: booking.restaurant.color }} />
+                    )}
+                    <span className='font-semibold text-lg'>{booking.restaurant?.name || '—'}</span>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size='sm' className='gap-1'>
+                        Actions
+                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 14l-7 7m0 0l-7-7m7 7V3' />
+                        </svg>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align='end' className='w-56'>
+                      <DropdownMenuItem>
+                        <Mail className='mr-2 h-4 w-4' />
+                        Envoyer un email
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <History className='mr-2 h-4 w-4' />
+                        Voir l'historique des emails
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <ExternalLink className='mr-2 h-4 w-4' />
+                        Ouvrir l'espace client
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <FileText className='mr-2 h-4 w-4' />
+                        Ouvrir le récapitulatif événement(s)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z' />
+                        </svg>
+                        Dupliquer l'événement
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' />
+                        </svg>
+                        Désactiver la demande d'avis
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' />
+                        </svg>
+                        Transformer en multi-événements
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
+                        </svg>
+                        Masquer l'événementiel
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Created / Updated */}
@@ -338,7 +521,7 @@ export function BookingDetail({ booking }: BookingDetailProps) {
 
             {/* Contact info */}
             <Card>
-              <CardContent className='pt-4 space-y-2'>
+              <CardContent className='pt-2 space-y-2'>
                 {booking.contact?.company?.name && (
                   <div className='text-xs text-muted-foreground'>{booking.contact.company.name}</div>
                 )}
@@ -361,7 +544,7 @@ export function BookingDetail({ booking }: BookingDetailProps) {
                 )}
                 {booking.contact_id && (
                   <Button variant='link' size='sm' asChild className='px-0 h-auto text-xs'>
-                    <Link to='/tasks/contact/$id' params={{ id: booking.contact_id }}>
+                    <Link to='/contacts/contact/$id' params={{ id: booking.contact_id }}>
                       Voir la fiche contact <ExternalLink className='ml-1 h-3 w-3' />
                     </Link>
                   </Button>
@@ -371,7 +554,7 @@ export function BookingDetail({ booking }: BookingDetailProps) {
 
             {/* Sidebar form fields */}
             <Card>
-              <CardContent className='pt-4 space-y-3'>
+              <CardContent className='pt-2 space-y-3'>
                 {/* Statut */}
                 <FormField
                   control={form.control}
@@ -401,6 +584,23 @@ export function BookingDetail({ booking }: BookingDetailProps) {
                           {booking.status.name} ({formatDistanceToNow(new Date(booking.updated_at), { locale: fr, addSuffix: true })})
                         </div>
                       )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Separator />
+
+                {/* Relance */}
+                <FormField
+                  control={form.control}
+                  name='relance'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className='text-xs'>Relance</FormLabel>
+                      <FormControl>
+                        <Input type='date' className='h-8 text-sm' value={field.value || ''} onChange={field.onChange} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -470,23 +670,6 @@ export function BookingDetail({ booking }: BookingDetailProps) {
 
                 <Separator />
 
-                {/* Relance */}
-                <FormField
-                  control={form.control}
-                  name='relance'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className='text-xs'>Relance</FormLabel>
-                      <FormControl>
-                        <Input type='date' className='h-8 text-sm' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Separator />
-
                 {/* Source */}
                 <FormField
                   control={form.control}
@@ -543,82 +726,31 @@ export function BookingDetail({ booking }: BookingDetailProps) {
               </CardContent>
             </Card>
 
-            {/* Actions */}
-            <div className='flex flex-col gap-2'>
-              <Button type='submit' form='booking-form' disabled={isPending || !form.formState.isDirty} className='w-full'>
-                {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-                <Save className='mr-2 h-4 w-4' />
-                Enregistrer
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant='outline' className='w-full text-destructive'>
-                    <Trash2 className='mr-2 h-4 w-4' />
-                    Supprimer
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{"Supprimer l'événement ?"}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Cette action est irréversible.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-                      {isDeleting && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-                      Supprimer
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
           </div>
 
-          {/* ═══════ RIGHT CONTENT — TABS ═══════ */}
-          <Tabs defaultValue='evenementiel' className='flex-1'>
-            <TabsList>
-              <TabsTrigger value='evenementiel' className='gap-1.5'>
-                <CalendarIcon className='h-4 w-4' />
-                Événementiel
-                <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{bookingEvents.length}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value='facturation' className='gap-1.5'>
-                <Receipt className='h-4 w-4' />
-                Facturation
-                <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>0</Badge>
-              </TabsTrigger>
-              <TabsTrigger value='fichiers' className='gap-1.5'>
-                <FileText className='h-4 w-4' />
-                Fichiers
-                <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>0</Badge>
-              </TabsTrigger>
-              <TabsTrigger value='historique' className='gap-1.5'>
-                <History className='h-4 w-4' />
-                Historique
-                <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>0</Badge>
-              </TabsTrigger>
-            </TabsList>
-
+          {/* ═══════ RIGHT CONTENT — TAB CONTENT ═══════ */}
+          <div className='flex-1'>
             {/* ── Tab: Événementiel ── */}
-            <TabsContent value='evenementiel' className='mt-4 space-y-4'>
-              {/* Sub-events — the real event details */}
-              {bookingEvents.map(event => (
-                <BookingEventCard key={event.id} event={event} spaces={spaces} />
-              ))}
+            {activeTab === 'evenementiel' && (
+              <div className='space-y-4'>
+                {/* Sub-events — the real event details */}
+                {bookingEvents.map(event => (
+                  <BookingEventCard key={event.id} event={event} spaces={spaces} onDirtyChange={onDirtyChange} />
+                ))}
 
-              {bookingEvents.length === 0 && (
-                <Card>
-                  <CardContent className='py-8 text-center text-muted-foreground'>
-                    Aucun sous-événement pour le moment.
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+                {bookingEvents.length === 0 && (
+                  <Card>
+                    <CardContent className='py-8 text-center text-muted-foreground'>
+                      Aucun sous-événement pour le moment.
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
 
             {/* ── Tab: Facturation ── */}
-            <TabsContent value='facturation' className='mt-4 space-y-4'>
+            {activeTab === 'facturation' && (
+              <div className='space-y-4'>
               {/* Devis / Factures Section */}
               <Card>
                 <CardHeader className='pb-3'>
@@ -709,10 +841,12 @@ export function BookingDetail({ booking }: BookingDetailProps) {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+              </div>
+            )}
 
             {/* ── Tab: Fichiers ── */}
-            <TabsContent value='fichiers' className='mt-4 space-y-4'>
+            {activeTab === 'fichiers' && (
+              <div className='space-y-4'>
               <Card>
                 <CardHeader className='pb-3'>
                   <CardTitle className='text-base'>Fichiers</CardTitle>
@@ -796,21 +930,24 @@ export function BookingDetail({ booking }: BookingDetailProps) {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
+              </div>
+            )}
 
             {/* ── Tab: Historique ── */}
-            <TabsContent value='historique' className='mt-4'>
-              <Card>
-                <CardContent className='py-8 text-center text-muted-foreground'>
-                  <History className='mx-auto h-8 w-8 mb-2 opacity-50' />
-                  {"L'historique sera disponible prochainement."}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+            {activeTab === 'historique' && (
+              <div>
+                <Card>
+                  <CardContent className='py-8 text-center text-muted-foreground'>
+                    <History className='mx-auto h-8 w-8 mb-2 opacity-50' />
+                    {"L'historique sera disponible prochainement."}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
 
         </div>
       </form>
     </Form>
   )
-}
+})

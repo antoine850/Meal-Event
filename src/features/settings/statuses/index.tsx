@@ -17,19 +17,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useStatuses, useDeleteStatus, type Status } from '../hooks/use-settings'
 import { StatusDialog } from './status-dialog'
 
 export function StatusesSettings() {
-  const { data: contactStatuses = [], isLoading: isLoadingContacts } = useStatuses('contact')
   const { data: bookingStatuses = [], isLoading: isLoadingBookings } = useStatuses('booking')
   const { mutate: deleteStatus } = useDeleteStatus()
   const [editingStatus, setEditingStatus] = useState<Status | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [statusType, setStatusType] = useState<'contact' | 'booking'>('contact')
+  const [statusType] = useState<'booking'>('booking')
 
-  const isLoading = isLoadingContacts || isLoadingBookings
+  const isLoading = isLoadingBookings
 
   const handleDelete = (id: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce statut ?')) {
@@ -42,13 +40,11 @@ export function StatusesSettings() {
 
   const handleEdit = (status: Status) => {
     setEditingStatus(status)
-    setStatusType(status.type)
     setIsDialogOpen(true)
   }
 
-  const handleCreate = (type: 'contact' | 'booking') => {
+  const handleCreate = () => {
     setEditingStatus(null)
-    setStatusType(type)
     setIsDialogOpen(true)
   }
 
@@ -60,10 +56,10 @@ export function StatusesSettings() {
     )
   }
 
-  const StatusTable = ({ statuses, type }: { statuses: Status[]; type: 'contact' | 'booking' }) => (
+  const StatusTable = ({ statuses }: { statuses: Status[] }) => (
     <>
       <div className='flex justify-end mb-4'>
-        <Button onClick={() => handleCreate(type)}>
+        <Button onClick={() => handleCreate()}>
           <Plus className='mr-2 h-4 w-4' />
           Ajouter un statut
         </Button>
@@ -134,18 +130,7 @@ export function StatusesSettings() {
 
   return (
     <div className='flex flex-1 flex-col w-full'>
-      <Tabs defaultValue='contact' className='w-full'>
-        <TabsList className='mb-4'>
-          <TabsTrigger value='contact'>Contacts ({contactStatuses.length})</TabsTrigger>
-          <TabsTrigger value='booking'>Événements ({bookingStatuses.length})</TabsTrigger>
-        </TabsList>
-        <TabsContent value='contact'>
-          <StatusTable statuses={contactStatuses} type='contact' />
-        </TabsContent>
-        <TabsContent value='booking'>
-          <StatusTable statuses={bookingStatuses} type='booking' />
-        </TabsContent>
-      </Tabs>
+      <StatusTable statuses={bookingStatuses} />
 
       <StatusDialog
         open={isDialogOpen}

@@ -38,7 +38,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import type { Contact } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import type { ContactWithRelations } from '../types'
@@ -46,7 +45,6 @@ import { CompanyCombobox } from './company-combobox'
 import {
   useUpdateContact,
   useDeleteContact,
-  useContactStatuses,
   useOrganizationUsers,
   useRestaurantsList,
 } from '../hooks/use-contacts'
@@ -61,7 +59,6 @@ const contactDetailSchema = z.object({
   mobile: z.string().optional(),
   job_title: z.string().optional(),
   company_id: z.string().nullable().optional(),
-  status_id: z.string().optional(),
   assigned_to: z.string().optional(),
   restaurant_id: z.string().optional(),
   source: z.string().optional(),
@@ -81,7 +78,6 @@ export function ContactDetail({ contact }: ContactDetailProps) {
   const { mutate: updateContact, isPending } = useUpdateContact()
   const { data: bookings = [], isLoading: isLoadingBookings } = useBookingsByContact(contact.id)
   const { mutate: deleteContact, isPending: isDeleting } = useDeleteContact()
-  const { data: statuses = [] } = useContactStatuses()
   const { data: users = [] } = useOrganizationUsers()
   const { data: restaurants = [] } = useRestaurantsList()
 
@@ -93,9 +89,8 @@ export function ContactDetail({ contact }: ContactDetailProps) {
     mobile: contact.mobile || '',
     job_title: contact.job_title || '',
     company_id: contact.company_id || null,
-    status_id: contact.status_id || '',
     assigned_to: contact.assigned_to || '',
-    restaurant_id: (contact as Record<string, unknown>).restaurant_id as string || '',
+    restaurant_id: contact.restaurant_id || '',
     source: contact.source || '',
     address: contact.address || '',
     city: contact.city || '',
@@ -152,7 +147,6 @@ export function ContactDetail({ contact }: ContactDetailProps) {
           mobile: data.mobile || null,
           job_title: data.job_title || null,
           company_id: data.company_id || null,
-          status_id: data.status_id || null,
           assigned_to: data.assigned_to || null,
           source: data.source || null,
           address: data.address || null,
@@ -161,7 +155,7 @@ export function ContactDetail({ contact }: ContactDetailProps) {
           notes: data.notes || null,
         },
         restaurant_id: data.restaurant_id || null,
-      } as Partial<Contact> & { id: string; restaurant_id?: string | null },
+      },
       {
         onSuccess: () => {
           toast.success('Contact mis à jour')
@@ -352,56 +346,30 @@ export function ContactDetail({ contact }: ContactDetailProps) {
                 )}
               />
 
-              <div className='grid grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='status_id'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Statut</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Sélectionner...' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {statuses.map((status: any) => (
-                            <SelectItem key={status.id} value={status.id}>
-                              {status.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='assigned_to'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Commercial</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Sélectionner...' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {users.map((user: any) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.first_name} {user.last_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name='assigned_to'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Commercial</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder='Sélectionner...' />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {users.map((user: any) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.first_name} {user.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className='grid grid-cols-2 gap-4'>
                 <FormField
@@ -554,60 +522,59 @@ export function ContactDetail({ contact }: ContactDetailProps) {
               </p>
             ) : (
               <div className='divide-y rounded-md border'>
-                {bookings.map((booking) => (
-                  <Link
-                    key={booking.id}
-                    to='/reservations'
-                    className='flex items-center justify-between gap-4 px-4 py-3 hover:bg-muted/50 transition-colors'
-                  >
-                    <div className='flex items-center gap-4 min-w-0'>
-                      <div className='flex flex-col'>
-                        <span className='text-sm font-medium'>
-                          {format(new Date(booking.event_date), 'dd MMMM yyyy', { locale: fr })}
-                        </span>
-                        <span className='text-xs text-muted-foreground'>
-                          {booking.start_time || ''}{booking.end_time ? ` - ${booking.end_time}` : ''}
-                        </span>
-                      </div>
-                      {booking.restaurant && (
-                        <div className='flex items-center gap-1.5'>
-                          {booking.restaurant.color && (
-                            <div
-                              className='h-2 w-2 rounded-full shrink-0'
-                              style={{ backgroundColor: booking.restaurant.color }}
-                            />
-                          )}
-                          <span className='text-sm text-muted-foreground truncate'>
-                            {booking.restaurant.name}
+                {bookings.map((booking) => {
+                  const firstEvent = booking.booking_events?.[0]
+                  return (
+                    <Link
+                      key={booking.id}
+                      to='/evenements/booking/$id'
+                      params={{ id: booking.id }}
+                      className='flex items-center justify-between gap-4 px-4 py-3 hover:bg-muted/50 transition-colors'
+                    >
+                      <div className='flex items-center gap-4 min-w-0'>
+                        <div className='flex flex-col'>
+                          <span className='text-sm font-medium'>
+                            {format(new Date(firstEvent?.event_date || booking.event_date), 'dd MMMM yyyy', { locale: fr })}
+                          </span>
+                          <span className='text-xs text-muted-foreground'>
+                            {firstEvent?.start_time || ''}{firstEvent?.end_time ? ` - ${firstEvent.end_time}` : ''}
                           </span>
                         </div>
-                      )}
-                      {booking.event_type && (
-                        <span className='text-xs text-muted-foreground hidden sm:inline'>
-                          {booking.event_type}
-                        </span>
-                      )}
-                      {booking.guests_count && (
-                        <span className='text-xs text-muted-foreground'>
-                          {booking.guests_count} pers.
-                        </span>
-                      )}
-                    </div>
-                    <div className='flex items-center gap-3 shrink-0'>
-                      {booking.total_amount > 0 && (
-                        <span className='text-sm font-medium'>
-                          {booking.total_amount.toLocaleString('fr-FR')} €
-                        </span>
-                      )}
-                      {booking.status && (
-                        <Badge variant='outline' className={cn('text-xs', booking.status.color)}>
-                          {booking.status.name}
-                        </Badge>
-                      )}
-                      <ExternalLink className='h-4 w-4 text-muted-foreground' />
-                    </div>
-                  </Link>
-                ))}
+                        {booking.restaurant && (
+                          <div className='flex items-center gap-1.5'>
+                            {booking.restaurant.color && (
+                              <div
+                                className='h-2 w-2 rounded-full shrink-0'
+                                style={{ backgroundColor: booking.restaurant.color }}
+                              />
+                            )}
+                            <span className='text-sm text-muted-foreground truncate'>
+                              {booking.restaurant.name}
+                            </span>
+                          </div>
+                        )}
+                        {firstEvent?.occasion && (
+                          <span className='text-xs text-muted-foreground hidden sm:inline'>
+                            {firstEvent.occasion}
+                          </span>
+                        )}
+                        {firstEvent?.guests_count && (
+                          <span className='text-xs text-muted-foreground'>
+                            {firstEvent.guests_count} pers.
+                          </span>
+                        )}
+                      </div>
+                      <div className='flex items-center gap-3 shrink-0'>
+                        {booking.status && (
+                          <Badge variant='outline' className={cn('text-xs', booking.status.color)}>
+                            {booking.status.name}
+                          </Badge>
+                        )}
+                        <ExternalLink className='h-4 w-4 text-muted-foreground' />
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
             )}
           </CardContent>

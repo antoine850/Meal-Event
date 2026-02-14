@@ -4,7 +4,6 @@ import {
   Contact,
   HelpCircle,
   Bell,
-  Palette,
   Settings,
   Users,
   Command,
@@ -14,6 +13,7 @@ import {
   Store,
   Tags,
   Building,
+  ShoppingCart,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -41,7 +41,7 @@ export const sidebarData: SidebarData = {
         },
         {
           title: 'Contacts',
-          url: '/tasks',
+          url: '/contacts',
           icon: Contact,
         },
         {
@@ -51,7 +51,7 @@ export const sidebarData: SidebarData = {
         },
         {
           title: 'Événements',
-          url: '/reservations',
+          url: '/evenements',
           icon: CalendarDays,
         },
         {
@@ -86,9 +86,9 @@ export const sidebarData: SidebarData = {
               icon: Tags,
             },
             {
-              title: 'Apparence',
-              url: '/settings/appearance',
-              icon: Palette,
+              title: 'Produits & Services',
+              url: '/settings/products',
+              icon: ShoppingCart,
             },
             {
               title: 'Notifications',

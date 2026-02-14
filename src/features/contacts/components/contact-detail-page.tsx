@@ -10,7 +10,7 @@ import { ContactDetail } from './contact-detail'
 import { useContact } from '../hooks/use-contacts'
 
 export function ContactDetailPage() {
-  const { id } = useParams({ from: '/_authenticated/tasks/contact/$id' })
+  const { id } = useParams({ from: '/_authenticated/contacts/contact/$id' })
   const { data: contact, isLoading } = useContact(id)
 
   if (isLoading) {

@@ -433,8 +433,8 @@ export interface Database {
           id: string
           organization_id: string | null
           company_id: string | null
-          status_id: string | null
           assigned_to: string | null
+          restaurant_id: string | null
           first_name: string
           last_name: string | null
           email: string | null
@@ -453,8 +453,8 @@ export interface Database {
           id?: string
           organization_id?: string | null
           company_id?: string | null
-          status_id?: string | null
           assigned_to?: string | null
+          restaurant_id?: string | null
           first_name: string
           last_name?: string | null
           email?: string | null
@@ -473,8 +473,8 @@ export interface Database {
           id?: string
           organization_id?: string | null
           company_id?: string | null
-          status_id?: string | null
           assigned_to?: string | null
+          restaurant_id?: string | null
           first_name?: string
           last_name?: string | null
           email?: string | null

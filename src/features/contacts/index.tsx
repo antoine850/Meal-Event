@@ -2,10 +2,9 @@ import { useMemo, useCallback, useState } from 'react'
 import { type DateRange } from 'react-day-picker'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { Cross2Icon } from '@radix-ui/react-icons'
-import { Kanban, LayoutGrid, Loader2, Table2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { DateFilter, FacetedFilter } from '@/components/data-table'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
@@ -13,22 +12,16 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { StatusCards } from './components/status-cards'
 import { ContactsTable } from './components/contacts-table'
-import { ContactsKanban } from './components/contacts-kanban'
-import { ContactsCards } from './components/contacts-cards'
 import { CreateContactDialog } from './components/create-contact-dialog'
-import { useContacts, useContactStatuses, useOrganizationUsers, useRestaurantsList } from './hooks/use-contacts'
+import { useContacts, useOrganizationUsers, useRestaurantsList } from './hooks/use-contacts'
 import { useCompanies } from '../companies/hooks/use-companies'
 
-type ViewMode = 'table' | 'kanban' | 'cards'
 
 export function Contacts() {
-  const search = useSearch({ from: '/_authenticated/tasks/' })
-  const navigate = useNavigate({ from: '/tasks' })
+  const search = useSearch({ from: '/_authenticated/contacts/' })
+  const navigate = useNavigate({ from: '/contacts' })
 
-  const activeStatus = search.status || null
-  const viewMode = (search.view || 'table') as ViewMode
   const dateRange: DateRange | undefined = search.from
     ? { from: new Date(search.from), to: search.to ? new Date(search.to) : undefined }
     : undefined
@@ -49,15 +42,7 @@ export function Contacts() {
     [navigate]
   )
 
-  const setActiveStatus = useCallback(
-    (status: string | null) => setSearch({ status: status || undefined }),
-    [setSearch]
-  )
 
-  const setViewMode = useCallback(
-    (mode: ViewMode) => setSearch({ view: mode === 'table' ? undefined : mode }),
-    [setSearch]
-  )
 
   const setDateRange = useCallback(
     (range: DateRange | undefined) => {
@@ -80,7 +65,6 @@ export function Contacts() {
       setSelectedCommercials(new Set())
       setSelectedRestaurants(new Set())
       setSelectedCompanies(new Set())
-      setSelectedStatuses(new Set())
       setSelectedSources(new Set())
       navigate({
         search: {},
@@ -95,11 +79,9 @@ export function Contacts() {
   const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
   const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(new Set())
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set())
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set())
 
   const { data: contacts = [], isLoading: isLoadingContacts } = useContacts()
-  const { data: statuses = [], isLoading: isLoadingStatuses } = useContactStatuses()
   const { data: users = [] } = useOrganizationUsers()
   const { data: restaurants = [] } = useRestaurantsList()
   const { data: companies = [] } = useCompanies()
@@ -109,23 +91,12 @@ export function Contacts() {
     return Array.from(sources).sort().map(s => ({ label: s, value: s }))
   }, [contacts])
 
-  const hasActiveFilters = !!(search.q || search.status || search.from || search.to || selectedCommercials.size || selectedRestaurants.size || selectedStatuses.size || selectedSources.size)
+  const hasActiveFilters = !!(search.q || search.from || search.to || selectedCommercials.size || selectedRestaurants.size || selectedSources.size)
 
-  const statusCounts = useMemo(() => {
-    return statuses.map(status => ({
-      value: status.slug,
-      label: status.name,
-      color: status.color || 'bg-gray-500',
-      count: contacts.filter(c => c.status?.slug === status.slug).length,
-    }))
-  }, [statuses, contacts])
 
   const filteredContacts = useMemo(() => {
     let result = contacts
     
-    if (activeStatus) {
-      result = result.filter(c => c.status?.slug === activeStatus)
-    }
     
     if (dateRange?.from) {
       const fromDate = new Date(dateRange.from)
@@ -155,7 +126,7 @@ export function Contacts() {
 
     if (selectedRestaurants.size > 0) {
       result = result.filter((c: any) => {
-        const rid = (c as Record<string, unknown>).restaurant_id as string | null
+        const rid = c.restaurant_id as string | null
         return rid && selectedRestaurants.has(rid)
       })
     }
@@ -164,18 +135,15 @@ export function Contacts() {
       result = result.filter((c: any) => c.company_id && selectedCompanies.has(c.company_id))
     }
 
-    if (selectedStatuses.size > 0) {
-      result = result.filter((c: any) => c.status?.slug && selectedStatuses.has(c.status.slug))
-    }
 
     if (selectedSources.size > 0) {
       result = result.filter((c: any) => c.source && selectedSources.has(c.source))
     }
     
     return result
-  }, [activeStatus, contacts, dateRange, searchValue, selectedCommercials, selectedRestaurants, selectedStatuses, selectedSources])
+  }, [contacts, dateRange, searchValue, selectedCommercials, selectedRestaurants, selectedSources])
 
-  const isLoading = isLoadingContacts || isLoadingStatuses
+  const isLoading = isLoadingContacts
 
   if (isLoading) {
     return (
@@ -198,11 +166,6 @@ export function Contacts() {
       </Header>
 
       <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
-        <StatusCards 
-          statuses={statusCounts} 
-          activeStatus={activeStatus}
-          onStatusClick={setActiveStatus}
-        />
 
         <div className='flex flex-wrap items-center gap-2'>
           <Input
@@ -239,12 +202,6 @@ export function Contacts() {
               onSelectionChange={setSelectedCompanies}
             />
             <FacetedFilter
-              title='Statut'
-              options={statuses.map(s => ({ label: s.name, value: s.slug }))}
-              selected={selectedStatuses}
-              onSelectionChange={setSelectedStatuses}
-            />
-            <FacetedFilter
               title='Source'
               options={sourceOptions}
               selected={selectedSources}
@@ -261,35 +218,12 @@ export function Contacts() {
               <Cross2Icon className='ms-2 h-4 w-4' />
             </Button>
           )}
-          <div className='ml-auto flex items-center gap-2'>
-            <ToggleGroup 
-              type='single' 
-              value={viewMode} 
-              onValueChange={(value) => value && setViewMode(value as ViewMode)}
-            >
-              <ToggleGroupItem value='table' aria-label='Vue tableau' className='px-2'>
-                <Table2 className='h-4 w-4' />
-              </ToggleGroupItem>
-              <ToggleGroupItem value='kanban' aria-label='Vue kanban' className='px-2'>
-                <Kanban className='h-4 w-4' />
-              </ToggleGroupItem>
-              <ToggleGroupItem value='cards' aria-label='Vue cartes' className='px-2'>
-                <LayoutGrid className='h-4 w-4' />
-              </ToggleGroupItem>
-            </ToggleGroup>
+          <div className='ml-auto'>
             <CreateContactDialog iconOnly />
           </div>
         </div>
         
-        {viewMode === 'table' && (
-          <ContactsTable data={filteredContacts} />
-        )}
-        {viewMode === 'kanban' && (
-          <ContactsKanban data={filteredContacts} statuses={statusCounts} />
-        )}
-        {viewMode === 'cards' && (
-          <ContactsCards data={filteredContacts} />
-        )}
+        <ContactsTable data={filteredContacts} />
       </Main>
     </>
   )

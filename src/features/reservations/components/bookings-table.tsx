@@ -83,7 +83,7 @@ export function BookingsTable({ data }: BookingsTableProps) {
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
                   className='cursor-pointer'
-                  onClick={() => navigate({ to: '/reservations/booking/$id', params: { id: row.original.id } })}
+                  onClick={() => navigate({ to: '/evenements/booking/$id', params: { id: row.original.id } })}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

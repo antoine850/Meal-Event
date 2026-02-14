@@ -30,11 +30,14 @@ import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedReservationsIndexRouteImport } from './routes/_authenticated/reservations/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
+import { Route as AuthenticatedEvenementsIndexRouteImport } from './routes/_authenticated/evenements/index'
 import { Route as AuthenticatedContractsIndexRouteImport } from './routes/_authenticated/contracts/index'
+import { Route as AuthenticatedContactsIndexRouteImport } from './routes/_authenticated/contacts/index'
 import { Route as AuthenticatedChatsIndexRouteImport } from './routes/_authenticated/chats/index'
 import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authenticated/apps/index'
 import { Route as AuthenticatedSettingsStatusesRouteImport } from './routes/_authenticated/settings/statuses'
 import { Route as AuthenticatedSettingsRestaurantsRouteImport } from './routes/_authenticated/settings/restaurants'
+import { Route as AuthenticatedSettingsProductsRouteImport } from './routes/_authenticated/settings/products'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
@@ -43,6 +46,8 @@ import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenti
 import { Route as AuthenticatedTasksContactIdRouteImport } from './routes/_authenticated/tasks/contact.$id'
 import { Route as AuthenticatedSettingsRestaurantIdRouteImport } from './routes/_authenticated/settings/restaurant.$id'
 import { Route as AuthenticatedReservationsBookingIdRouteImport } from './routes/_authenticated/reservations/booking.$id'
+import { Route as AuthenticatedEvenementsBookingIdRouteImport } from './routes/_authenticated/evenements/booking.$id'
+import { Route as AuthenticatedContactsContactIdRouteImport } from './routes/_authenticated/contacts/contact.$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -151,10 +156,22 @@ const AuthenticatedHelpCenterIndexRoute =
     path: '/help-center/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedEvenementsIndexRoute =
+  AuthenticatedEvenementsIndexRouteImport.update({
+    id: '/evenements/',
+    path: '/evenements/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedContractsIndexRoute =
   AuthenticatedContractsIndexRouteImport.update({
     id: '/contracts/',
     path: '/contracts/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedContactsIndexRoute =
+  AuthenticatedContactsIndexRouteImport.update({
+    id: '/contacts/',
+    path: '/contacts/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedChatsIndexRoute = AuthenticatedChatsIndexRouteImport.update({
@@ -177,6 +194,12 @@ const AuthenticatedSettingsRestaurantsRoute =
   AuthenticatedSettingsRestaurantsRouteImport.update({
     id: '/restaurants',
     path: '/restaurants',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsProductsRoute =
+  AuthenticatedSettingsProductsRouteImport.update({
+    id: '/products',
+    path: '/products',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsNotificationsRoute =
@@ -227,6 +250,18 @@ const AuthenticatedReservationsBookingIdRoute =
     path: '/reservations/booking/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedEvenementsBookingIdRoute =
+  AuthenticatedEvenementsBookingIdRouteImport.update({
+    id: '/evenements/booking/$id',
+    path: '/evenements/booking/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedContactsContactIdRoute =
+  AuthenticatedContactsContactIdRouteImport.update({
+    id: '/contacts/contact/$id',
+    path: '/contacts/contact/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
@@ -248,16 +283,21 @@ export interface FileRoutesByFullPath {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/products': typeof AuthenticatedSettingsProductsRoute
   '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
   '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
+  '/contacts': typeof AuthenticatedContactsIndexRoute
   '/contracts': typeof AuthenticatedContractsIndexRoute
+  '/evenements': typeof AuthenticatedEvenementsIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/reservations': typeof AuthenticatedReservationsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/contacts/contact/$id': typeof AuthenticatedContactsContactIdRoute
+  '/evenements/booking/$id': typeof AuthenticatedEvenementsBookingIdRoute
   '/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
   '/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
   '/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
@@ -281,16 +321,21 @@ export interface FileRoutesByTo {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/products': typeof AuthenticatedSettingsProductsRoute
   '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
   '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
+  '/contacts': typeof AuthenticatedContactsIndexRoute
   '/contracts': typeof AuthenticatedContractsIndexRoute
+  '/evenements': typeof AuthenticatedEvenementsIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/reservations': typeof AuthenticatedReservationsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/contacts/contact/$id': typeof AuthenticatedContactsContactIdRoute
+  '/evenements/booking/$id': typeof AuthenticatedEvenementsBookingIdRoute
   '/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
   '/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
   '/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
@@ -318,16 +363,21 @@ export interface FileRoutesById {
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/settings/products': typeof AuthenticatedSettingsProductsRoute
   '/_authenticated/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
   '/_authenticated/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
   '/_authenticated/apps/': typeof AuthenticatedAppsIndexRoute
   '/_authenticated/chats/': typeof AuthenticatedChatsIndexRoute
+  '/_authenticated/contacts/': typeof AuthenticatedContactsIndexRoute
   '/_authenticated/contracts/': typeof AuthenticatedContractsIndexRoute
+  '/_authenticated/evenements/': typeof AuthenticatedEvenementsIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/reservations/': typeof AuthenticatedReservationsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
+  '/_authenticated/contacts/contact/$id': typeof AuthenticatedContactsContactIdRoute
+  '/_authenticated/evenements/booking/$id': typeof AuthenticatedEvenementsBookingIdRoute
   '/_authenticated/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
   '/_authenticated/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
   '/_authenticated/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
@@ -354,16 +404,21 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/settings/products'
     | '/settings/restaurants'
     | '/settings/statuses'
     | '/apps'
     | '/chats'
+    | '/contacts'
     | '/contracts'
+    | '/evenements'
     | '/help-center'
     | '/reservations'
     | '/settings/'
     | '/tasks'
     | '/users'
+    | '/contacts/contact/$id'
+    | '/evenements/booking/$id'
     | '/reservations/booking/$id'
     | '/settings/restaurant/$id'
     | '/tasks/contact/$id'
@@ -387,16 +442,21 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/settings/products'
     | '/settings/restaurants'
     | '/settings/statuses'
     | '/apps'
     | '/chats'
+    | '/contacts'
     | '/contracts'
+    | '/evenements'
     | '/help-center'
     | '/reservations'
     | '/settings'
     | '/tasks'
     | '/users'
+    | '/contacts/contact/$id'
+    | '/evenements/booking/$id'
     | '/reservations/booking/$id'
     | '/settings/restaurant/$id'
     | '/tasks/contact/$id'
@@ -423,16 +483,21 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
+    | '/_authenticated/settings/products'
     | '/_authenticated/settings/restaurants'
     | '/_authenticated/settings/statuses'
     | '/_authenticated/apps/'
     | '/_authenticated/chats/'
+    | '/_authenticated/contacts/'
     | '/_authenticated/contracts/'
+    | '/_authenticated/evenements/'
     | '/_authenticated/help-center/'
     | '/_authenticated/reservations/'
     | '/_authenticated/settings/'
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
+    | '/_authenticated/contacts/contact/$id'
+    | '/_authenticated/evenements/booking/$id'
     | '/_authenticated/reservations/booking/$id'
     | '/_authenticated/settings/restaurant/$id'
     | '/_authenticated/tasks/contact/$id'
@@ -597,11 +662,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpCenterIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/evenements/': {
+      id: '/_authenticated/evenements/'
+      path: '/evenements'
+      fullPath: '/evenements'
+      preLoaderRoute: typeof AuthenticatedEvenementsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contracts/': {
       id: '/_authenticated/contracts/'
       path: '/contracts'
       fullPath: '/contracts'
       preLoaderRoute: typeof AuthenticatedContractsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/contacts/': {
+      id: '/_authenticated/contacts/'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof AuthenticatedContactsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/chats/': {
@@ -630,6 +709,13 @@ declare module '@tanstack/react-router' {
       path: '/restaurants'
       fullPath: '/settings/restaurants'
       preLoaderRoute: typeof AuthenticatedSettingsRestaurantsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/products': {
+      id: '/_authenticated/settings/products'
+      path: '/products'
+      fullPath: '/settings/products'
+      preLoaderRoute: typeof AuthenticatedSettingsProductsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/notifications': {
@@ -688,6 +774,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReservationsBookingIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/evenements/booking/$id': {
+      id: '/_authenticated/evenements/booking/$id'
+      path: '/evenements/booking/$id'
+      fullPath: '/evenements/booking/$id'
+      preLoaderRoute: typeof AuthenticatedEvenementsBookingIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/contacts/contact/$id': {
+      id: '/_authenticated/contacts/contact/$id'
+      path: '/contacts/contact/$id'
+      fullPath: '/contacts/contact/$id'
+      preLoaderRoute: typeof AuthenticatedContactsContactIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -718,6 +818,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
   AuthenticatedSettingsDisplayRoute: typeof AuthenticatedSettingsDisplayRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
+  AuthenticatedSettingsProductsRoute: typeof AuthenticatedSettingsProductsRoute
   AuthenticatedSettingsRestaurantsRoute: typeof AuthenticatedSettingsRestaurantsRoute
   AuthenticatedSettingsStatusesRoute: typeof AuthenticatedSettingsStatusesRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
@@ -731,6 +832,7 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsDisplayRoute: AuthenticatedSettingsDisplayRoute,
     AuthenticatedSettingsNotificationsRoute:
       AuthenticatedSettingsNotificationsRoute,
+    AuthenticatedSettingsProductsRoute: AuthenticatedSettingsProductsRoute,
     AuthenticatedSettingsRestaurantsRoute:
       AuthenticatedSettingsRestaurantsRoute,
     AuthenticatedSettingsStatusesRoute: AuthenticatedSettingsStatusesRoute,
@@ -751,11 +853,15 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
+  AuthenticatedContactsIndexRoute: typeof AuthenticatedContactsIndexRoute
   AuthenticatedContractsIndexRoute: typeof AuthenticatedContractsIndexRoute
+  AuthenticatedEvenementsIndexRoute: typeof AuthenticatedEvenementsIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
   AuthenticatedReservationsIndexRoute: typeof AuthenticatedReservationsIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
+  AuthenticatedContactsContactIdRoute: typeof AuthenticatedContactsContactIdRoute
+  AuthenticatedEvenementsBookingIdRoute: typeof AuthenticatedEvenementsBookingIdRoute
   AuthenticatedReservationsBookingIdRoute: typeof AuthenticatedReservationsBookingIdRoute
   AuthenticatedTasksContactIdRoute: typeof AuthenticatedTasksContactIdRoute
 }
@@ -767,11 +873,15 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
+  AuthenticatedContactsIndexRoute: AuthenticatedContactsIndexRoute,
   AuthenticatedContractsIndexRoute: AuthenticatedContractsIndexRoute,
+  AuthenticatedEvenementsIndexRoute: AuthenticatedEvenementsIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
   AuthenticatedReservationsIndexRoute: AuthenticatedReservationsIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
+  AuthenticatedContactsContactIdRoute: AuthenticatedContactsContactIdRoute,
+  AuthenticatedEvenementsBookingIdRoute: AuthenticatedEvenementsBookingIdRoute,
   AuthenticatedReservationsBookingIdRoute:
     AuthenticatedReservationsBookingIdRoute,
   AuthenticatedTasksContactIdRoute: AuthenticatedTasksContactIdRoute,

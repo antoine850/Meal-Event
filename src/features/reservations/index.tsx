@@ -24,8 +24,8 @@ type MainView = 'calendar' | 'list'
 type CalendarMode = 'month' | 'week' | 'day'
 
 export function Reservations() {
-  const search = useSearch({ from: '/_authenticated/reservations/' })
-  const navigate = useNavigate({ from: '/reservations' })
+  const search = useSearch({ from: '/_authenticated/evenements/' })
+  const navigate = useNavigate({ from: '/evenements' })
 
   // Derive state from URL search params
   const mainView = (search.view || 'calendar') as MainView

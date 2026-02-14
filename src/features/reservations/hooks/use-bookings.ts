@@ -103,8 +103,8 @@ export function useBookings() {
           restaurant:restaurants(id, name, color),
           contact:contacts(id, first_name, last_name, email, phone),
           status:statuses(id, name, color, slug),
-          space:spaces(id, name),
-          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
+          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name),
+          booking_events(*)
         `)
         .eq('organization_id', orgId)
         .order('event_date', { ascending: true })
@@ -119,6 +119,9 @@ export function useBooking(id: string) {
   return useQuery({
     queryKey: ['bookings', id],
     queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
       const { data, error } = await supabase
         .from('bookings')
         .select(`
@@ -126,11 +129,11 @@ export function useBooking(id: string) {
           restaurant:restaurants(id, name, color),
           contact:contacts(id, first_name, last_name, email, phone, company:companies(id, name)),
           status:statuses(id, name, color, slug),
-          space:spaces(id, name),
           assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name),
           booking_events(*, space:spaces(id, name))
         `)
         .eq('id', id)
+        .eq('organization_id', orgId)
         .single()
 
       if (error) throw error
@@ -150,8 +153,8 @@ export function useBookingsByContact(contactId: string) {
           *,
           restaurant:restaurants(id, name, color),
           status:statuses(id, name, color, slug),
-          space:spaces(id, name),
-          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
+          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name),
+          booking_events(*)
         `)
         .eq('contact_id', contactId)
         .order('event_date', { ascending: false })
@@ -175,10 +178,10 @@ export function useBookingStatuses() {
         .select('*')
         .eq('organization_id', orgId)
         .eq('type', 'booking')
-        .order('display_order', { ascending: true })
+        .order('position', { ascending: true })
 
       if (error) throw error
-      return data as { id: string; name: string; slug: string; color: string; display_order: number }[]
+      return data as { id: string; name: string; slug: string; color: string; position: number }[]
     },
   })
 }
@@ -277,6 +280,45 @@ export function useDeleteBooking() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('bookings')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+    },
+  })
+}
+
+export function useUpdateBookingEvent() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<BookingEventRow> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('booking_events')
+        .update(updates as never)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+    },
+  })
+}
+
+export function useDeleteBookingEvent() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('booking_events')
         .delete()
         .eq('id', id)
 
