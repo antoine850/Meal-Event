@@ -156,14 +156,15 @@ export function ProductsPage() {
                                   {product.margin > 0 && <span className='text-xs text-green-600'>Marge {product.margin}%</span>}
                                 </div>
                               </div>
-                              <div className='flex gap-1 ml-auto mr-2'>
+                              <div className='flex flex-wrap gap-1 ml-auto mr-2'>
                                 {product.product_restaurants?.map(pr => (
-                                  <div
-                                    key={pr.restaurant_id}
-                                    className='h-2.5 w-2.5 rounded-full'
-                                    style={{ backgroundColor: pr.restaurant?.color || '#ccc' }}
-                                    title={pr.restaurant?.name}
-                                  />
+                                  <Badge key={pr.restaurant_id} variant='secondary' className='text-[10px]'>
+                                    <div
+                                      className='h-1.5 w-1.5 rounded-full mr-1'
+                                      style={{ backgroundColor: pr.restaurant?.color || '#ccc' }}
+                                    />
+                                    {pr.restaurant?.name}
+                                  </Badge>
                                 ))}
                               </div>
                             </div>
@@ -224,12 +225,13 @@ export function ProductsPage() {
                           <span className='text-xs font-medium'>Total HT: {totalHt.toFixed(2)}€</span>
                           <div className='flex gap-1 ml-2'>
                             {pkg.package_restaurants?.map(pr => (
-                              <div
-                                key={pr.restaurant_id}
-                                className='h-2.5 w-2.5 rounded-full'
-                                style={{ backgroundColor: pr.restaurant?.color || '#ccc' }}
-                                title={pr.restaurant?.name}
-                              />
+                              <Badge key={pr.restaurant_id} variant='secondary' className='text-[10px]'>
+                                <div
+                                  className='h-1.5 w-1.5 rounded-full mr-1'
+                                  style={{ backgroundColor: pr.restaurant?.color || '#ccc' }}
+                                />
+                                {pr.restaurant?.name}
+                              </Badge>
                             ))}
                           </div>
                         </div>
