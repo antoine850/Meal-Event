@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowLeft, Loader2, Save, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Save, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Link, useBlocker, useNavigate, useSearch } from '@tanstack/react-router'
+import { useBlocker, useNavigate, useSearch } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -308,39 +308,22 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <div className='flex items-center gap-4'>
-          <Button variant='ghost' size='icon' asChild>
-            <Link to='/settings/restaurants'>
-              <ArrowLeft className='h-4 w-4' />
-            </Link>
-          </Button>
-          <div className='flex items-center gap-3'>
-            <div 
-              className='w-10 h-10 rounded-full border-2' 
-              style={{ backgroundColor: restaurant.color || '#3b82f6' }}
-            />
-            <div>
-              <h1 className='text-2xl font-bold'>{restaurant.name}</h1>
-              <p className='text-sm text-muted-foreground'>{restaurant.email}</p>
-            </div>
-          </div>
-        </div>
-        <Button type='submit' form='restaurant-form' disabled={isPending || !form.formState.isDirty} className='hidden sm:flex'>
-          {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-          <Save className='mr-2 h-4 w-4' />
-          Enregistrer
-        </Button>
-      </div>
-
       <Form {...form}>
         <form id='restaurant-form' onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
           <Tabs value={currentTab} onValueChange={handleTabChange} className='w-full'>
-            <TabsList className='grid w-full grid-cols-3'>
-              <TabsTrigger value='general'>Général</TabsTrigger>
-              <TabsTrigger value='facturation'>Facturation</TabsTrigger>
-              <TabsTrigger value='espaces'>Espaces</TabsTrigger>
-            </TabsList>
+            <div className='flex items-center justify-between gap-4 mb-6'>
+              <TabsList className='grid grid-cols-3 w-[300px] sm:w-[400px]'>
+                <TabsTrigger value='general'>Général</TabsTrigger>
+                <TabsTrigger value='facturation'>Facturation</TabsTrigger>
+                <TabsTrigger value='espaces'>Espaces</TabsTrigger>
+              </TabsList>
+              
+              <Button type='submit' disabled={isPending || !form.formState.isDirty} className='hidden sm:flex'>
+                {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                <Save className='mr-2 h-4 w-4' />
+                Enregistrer
+              </Button>
+            </div>
 
             {/* TAB: Général */}
             <TabsContent value='general' className='space-y-6'>

@@ -1,5 +1,5 @@
-import { useParams } from '@tanstack/react-router'
-import { Loader2 } from 'lucide-react'
+import { useParams, Link } from '@tanstack/react-router'
+import { Loader2, ArrowLeft } from 'lucide-react'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -8,6 +8,7 @@ import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { RestaurantDetail } from './restaurant-detail'
 import { useRestaurants } from '../hooks/use-settings'
+import { Button } from '@/components/ui/button'
 
 export function RestaurantDetailPage() {
   const { id } = useParams({ from: '/_authenticated/settings/restaurant/$id' })
@@ -39,7 +40,20 @@ export function RestaurantDetailPage() {
   return (
     <>
       <Header>
-        <h1 className='hidden sm:block text-2xl font-bold tracking-tight'>Détails du restaurant</h1>
+        <div className='flex items-center gap-4'>
+          <Button variant='ghost' size='icon' asChild className='-ml-2'>
+            <Link to='/settings/restaurants'>
+              <ArrowLeft className='h-4 w-4' />
+            </Link>
+          </Button>
+          <div className='flex items-center gap-3'>
+            <div 
+              className='w-8 h-8 rounded-full border-2' 
+              style={{ backgroundColor: restaurant.color || '#3b82f6' }}
+            />
+            <h1 className='text-xl font-bold tracking-tight'>{restaurant.name}</h1>
+          </div>
+        </div>
         <div className='ms-auto flex items-center space-x-4'>
           <Search />
           <ThemeSwitch />
