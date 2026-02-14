@@ -218,6 +218,10 @@ CREATE TABLE bookings (
   time_slot_id UUID REFERENCES time_slots(id) ON DELETE SET NULL,
   -- Booking details
   event_type VARCHAR(100), -- "Anniversaire", "Mariage", "Séminaire", etc.
+  occasion VARCHAR(255), -- "Diner d'équipe - Société ORANGE"
+  option VARCHAR(255), -- "Option 1", "Option commerciale", etc.
+  relance VARCHAR(255), -- Informations de relance commerciale
+  source VARCHAR(100), -- "Google Ads", "Bouche à oreille", etc.
   event_date DATE NOT NULL,
   start_time TIME,
   end_time TIME,

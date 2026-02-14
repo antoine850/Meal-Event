@@ -137,7 +137,7 @@ export function StatusesSettings() {
       <Tabs defaultValue='contact' className='w-full'>
         <TabsList className='mb-4'>
           <TabsTrigger value='contact'>Contacts ({contactStatuses.length})</TabsTrigger>
-          <TabsTrigger value='booking'>Réservations ({bookingStatuses.length})</TabsTrigger>
+          <TabsTrigger value='booking'>Événements ({bookingStatuses.length})</TabsTrigger>
         </TabsList>
         <TabsContent value='contact'>
           <StatusTable statuses={contactStatuses} type='contact' />

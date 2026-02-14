@@ -61,7 +61,7 @@ export function CommercialTab() {
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <CardTitle className='text-sm font-medium'>
-              Réservations traitées
+              Événements traités
             </CardTitle>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
@@ -80,7 +80,7 @@ export function CommercialTab() {
           <CardContent>
             <div className='text-2xl font-bold'>{avgConversion}%</div>
             <p className='text-xs text-muted-foreground'>
-              Leads → Réservations confirmées
+              Leads → Événements confirmés
             </p>
           </CardContent>
         </Card>
@@ -194,7 +194,7 @@ export function CommercialTab() {
                           {commercial.name}
                         </p>
                         <p className='text-xs text-muted-foreground'>
-                          {commercial.bookings} réservations • {commercial.conversionRate}% conversion
+                          {commercial.bookings} événements • {commercial.conversionRate}% conversion
                         </p>
                       </div>
                       <div className='text-right'>

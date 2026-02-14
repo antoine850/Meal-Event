@@ -3,7 +3,6 @@ import { type Table } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DataTableFacetedFilter } from './faceted-filter'
-import { DataTableViewOptions } from './view-options'
 
 type DataTableToolbarProps<TData> = {
   table: Table<TData>
@@ -18,6 +17,11 @@ type DataTableToolbarProps<TData> = {
       icon?: React.ComponentType<{ className?: string }>
     }[]
   }[]
+  actionButton?: React.ReactNode
+  dateFilter?: React.ReactNode
+  viewSelector?: React.ReactNode
+  onSearchChange?: (value: string) => void
+  onResetFilters?: () => void
 }
 
 export function DataTableToolbar<TData>({
@@ -25,6 +29,11 @@ export function DataTableToolbar<TData>({
   searchPlaceholder = 'Filter...',
   searchKey,
   filters = [],
+  actionButton,
+  dateFilter,
+  viewSelector,
+  onSearchChange,
+  onResetFilters,
 }: DataTableToolbarProps<TData>) {
   const isFiltered =
     table.getState().columnFilters.length > 0 || table.getState().globalFilter
@@ -47,11 +56,15 @@ export function DataTableToolbar<TData>({
           <Input
             placeholder={searchPlaceholder}
             value={table.getState().globalFilter ?? ''}
-            onChange={(event) => table.setGlobalFilter(event.target.value)}
+            onChange={(event) => {
+              table.setGlobalFilter(event.target.value)
+              onSearchChange?.(event.target.value)
+            }}
             className='h-8 w-full sm:w-[200px] lg:w-[250px]'
           />
         )}
         <div className='flex flex-wrap gap-2'>
+          {dateFilter}
           {filters.map((filter) => {
             const column = table.getColumn(filter.columnId)
             if (!column) return null
@@ -71,6 +84,7 @@ export function DataTableToolbar<TData>({
             onClick={() => {
               table.resetColumnFilters()
               table.setGlobalFilter('')
+              onResetFilters?.()
             }}
             className='h-8 px-2 lg:px-3'
           >
@@ -78,9 +92,12 @@ export function DataTableToolbar<TData>({
             <Cross2Icon className='ms-2 h-4 w-4' />
           </Button>
         )}
-        <div className='ml-auto'>
-          <DataTableViewOptions table={table} />
-        </div>
+        {(viewSelector || actionButton) && (
+          <div className='ml-auto flex items-center gap-2'>
+            {viewSelector}
+            {actionButton}
+          </div>
+        )}
       </div>
     </div>
   )

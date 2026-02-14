@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -128,63 +128,9 @@ interface RestaurantDetailProps {
 export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
   const { mutate: updateRestaurant, isPending } = useUpdateRestaurant()
 
-  const form = useForm<RestaurantDetailFormData>({
-    resolver: zodResolver(restaurantDetailSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      phone: '',
-      address: '',
-      city: '',
-      postal_code: '',
-      country: 'France',
-      color: '#3b82f6',
-      logo_url: '',
-      is_active: true,
-      language: 'fr',
-      translation_language: '',
-      currency: 'EUR',
-      siret: '',
-      tva_number: '',
-      website: '',
-      instagram: '',
-      facebook: '',
-      notification_emails: '',
-      recap_emails: '',
-      cc_export_emails: '',
-      event_reminder_enabled: false,
-      email_signature_enabled: true,
-      email_signature_text: '',
-      email_tracking_enabled: true,
-      client_portal_background_url: '',
-      vat_accommodation_enabled: false,
-      sms_name: '',
-      sms_signature: '',
-      sms_signature_en: '',
-      // Billing defaults
-      company_name: '',
-      legal_form: '',
-      siren: '',
-      rcs: '',
-      share_capital: '',
-      billing_email: '',
-      billing_phone: '',
-      billing_additional_text: '',
-      iban: '',
-      bic: '',
-      invoice_prefix: '',
-      invoice_chrono_format: 'YEAR-MONTH',
-      quote_validity_days: 7,
-      invoice_due_days: undefined,
-      payment_balance_days: undefined,
-      quote_comments_fr: '',
-      quote_comments_en: '',
-    },
-  })
-
-  useEffect(() => {
+  const formValues = useMemo(() => {
     const r = restaurant as Record<string, unknown>
-    form.reset({
+    return {
       name: restaurant.name,
       email: restaurant.email || '',
       phone: restaurant.phone || '',
@@ -215,7 +161,6 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       sms_name: (r.sms_name as string) || '',
       sms_signature: (r.sms_signature as string) || '',
       sms_signature_en: (r.sms_signature_en as string) || '',
-      // Billing fields
       company_name: (r.company_name as string) || '',
       legal_form: (r.legal_form as string) || '',
       siren: (r.siren as string) || '',
@@ -233,15 +178,18 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       payment_balance_days: (r.payment_balance_days as number) ?? undefined,
       quote_comments_fr: (r.quote_comments_fr as string) || '',
       quote_comments_en: (r.quote_comments_en as string) || '',
-    })
-  }, [restaurant, form])
+    }
+  }, [restaurant])
+
+  const form = useForm<RestaurantDetailFormData>({
+    resolver: zodResolver(restaurantDetailSchema),
+    values: formValues,
+  })
 
   // Block navigation if there are unsaved changes
-  const { isDirty } = form.formState
-  const [allowNavigation] = useState(false)
-  
+  // Read isDirty via a getter so useBlocker always sees the latest value
   const blocker = useBlocker({
-    condition: isDirty && !allowNavigation,
+    condition: form.formState.isDirty,
   })
 
   useEffect(() => {
@@ -268,14 +216,14 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
   // Warn on browser close/refresh
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
+      if (form.formState.isDirty) {
         e.preventDefault()
         e.returnValue = ''
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [isDirty])
+  }, [form.formState.isDirty])
 
   const onSubmit = (data: RestaurantDetailFormData) => {
     // Convert comma-separated strings to arrays for PostgreSQL
@@ -320,7 +268,7 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
             </div>
           </div>
         </div>
-        <Button type='submit' form='restaurant-form' disabled={isPending} className='hidden sm:flex'>
+        <Button type='submit' form='restaurant-form' disabled={isPending || !form.formState.isDirty} className='hidden sm:flex'>
           {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
           <Save className='mr-2 h-4 w-4' />
           Enregistrer
@@ -1196,7 +1144,7 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
 
           {/* Bouton de sauvegarde en bas */}
           <div className='flex justify-end'>
-            <Button type='submit' disabled={isPending} size='lg'>
+            <Button type='submit' disabled={isPending || !form.formState.isDirty} size='lg'>
               {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
               <Save className='mr-2 h-4 w-4' />
               Enregistrer les modifications

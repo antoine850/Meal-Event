@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import {
   type SortingState,
   type VisibilityState,
@@ -18,14 +19,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination } from '@/components/data-table'
-import type { ContactWithRelations } from '../types'
-import { contactsColumns as columns } from './contacts-columns'
+import type { BookingWithRelations } from '../hooks/use-bookings'
+import { bookingsColumns as columns } from './bookings-columns'
 
-type ContactsTableProps = {
-  data: ContactWithRelations[]
+type BookingsTableProps = {
+  data: BookingWithRelations[]
 }
 
-export function ContactsTable({ data }: ContactsTableProps) {
+export function BookingsTable({ data }: BookingsTableProps) {
+  const navigate = useNavigate()
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -54,25 +56,23 @@ export function ContactsTable({ data }: ContactsTableProps) {
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead
-                      key={header.id}
-                      colSpan={header.colSpan}
-                      className={cn(
-                        header.column.columnDef.meta?.className,
-                        header.column.columnDef.meta?.thClassName
-                      )}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    className={cn(
+                      header.column.columnDef.meta?.className,
+                      header.column.columnDef.meta?.thClassName
+                    )}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
@@ -82,6 +82,8 @@ export function ContactsTable({ data }: ContactsTableProps) {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
+                  className='cursor-pointer'
+                  onClick={() => navigate({ to: '/reservations/booking/$id', params: { id: row.original.id } })}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
@@ -105,7 +107,7 @@ export function ContactsTable({ data }: ContactsTableProps) {
                   colSpan={columns.length}
                   className='h-24 text-center'
                 >
-                  Aucun résultat.
+                  Aucun événement.
                 </TableCell>
               </TableRow>
             )}

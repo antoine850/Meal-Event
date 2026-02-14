@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -45,7 +45,7 @@ import { useContacts } from '@/features/contacts/hooks/use-contacts'
 
 const bookingSchema = z.object({
   contact_id: z.string().min(1, 'Le contact est requis'),
-  restaurant_id: z.string().optional(),
+  restaurant_id: z.string().min(1, 'Le restaurant est requis'),
   event_date: z.date({ message: 'La date est requise' }),
   start_time: z.string().min(1, "L'heure de début est requise"),
   end_time: z.string().optional(),
@@ -59,10 +59,16 @@ type BookingFormData = z.infer<typeof bookingSchema>
 
 interface CreateBookingDialogProps {
   defaultDate?: Date
+  defaultContactId?: string
+  iconOnly?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function CreateBookingDialog({ defaultDate }: CreateBookingDialogProps) {
-  const [open, setOpen] = useState(false)
+export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, open: controlledOpen, onOpenChange }: CreateBookingDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen ?? internalOpen
+  const setOpen = onOpenChange ?? setInternalOpen
   const { mutate: createBooking, isPending } = useCreateBooking()
   const { data: contacts = [] } = useContacts()
   const { data: statuses = [] } = useBookingStatuses()
@@ -71,7 +77,7 @@ export function CreateBookingDialog({ defaultDate }: CreateBookingDialogProps) {
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
-      contact_id: '',
+      contact_id: defaultContactId || '',
       restaurant_id: '',
       event_date: defaultDate || new Date(),
       start_time: '12:00',
@@ -83,11 +89,17 @@ export function CreateBookingDialog({ defaultDate }: CreateBookingDialogProps) {
     },
   })
 
+  useEffect(() => {
+    if (defaultDate) {
+      form.setValue('event_date', defaultDate)
+    }
+  }, [defaultDate, form])
+
   const onSubmit = (data: BookingFormData) => {
     createBooking(
       {
         contact_id: data.contact_id,
-        restaurant_id: data.restaurant_id || null,
+        restaurant_id: data.restaurant_id,
         event_date: format(data.event_date, 'yyyy-MM-dd'),
         start_time: data.start_time,
         end_time: data.end_time || null,
@@ -100,13 +112,13 @@ export function CreateBookingDialog({ defaultDate }: CreateBookingDialogProps) {
       },
       {
         onSuccess: () => {
-          toast.success('Réservation créée avec succès')
+          toast.success('Événement créé avec succès')
           setOpen(false)
           form.reset()
         },
         onError: (error) => {
           console.error('Error creating booking:', error)
-          toast.error('Erreur lors de la création de la réservation')
+          toast.error('Erreur lors de la création de l\'événement')
         },
       }
     )
@@ -127,17 +139,24 @@ export function CreateBookingDialog({ defaultDate }: CreateBookingDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size='sm'>
-          <Plus className='mr-2 h-4 w-4' />
-          <span className='hidden md:inline'>Nouvelle réservation</span>
-          <span className='md:hidden'>Nouveau</span>
-        </Button>
+        {iconOnly ? (
+          <Button size='sm' variant='outline'>
+            <Plus className='mr-2 h-4 w-4' />
+            Ajouter
+          </Button>
+        ) : (
+          <Button size='sm'>
+            <Plus className='mr-2 h-4 w-4' />
+            <span className='hidden md:inline'>Nouvel événement</span>
+            <span className='md:hidden'>Nouveau</span>
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className='sm:max-w-[550px]'>
         <DialogHeader>
-          <DialogTitle>Nouvelle réservation</DialogTitle>
+          <DialogTitle>Nouvel événement</DialogTitle>
           <DialogDescription>
-            Créez une nouvelle réservation liée à un contact.
+            Créez un nouvel événement lié à un contact.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -264,7 +283,7 @@ export function CreateBookingDialog({ defaultDate }: CreateBookingDialogProps) {
                 name='restaurant_id'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Restaurant</FormLabel>
+                    <FormLabel>Restaurant *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -357,7 +376,7 @@ export function CreateBookingDialog({ defaultDate }: CreateBookingDialogProps) {
                   <FormLabel>Notes internes</FormLabel>
                   <FormControl>
                     <Textarea 
-                      placeholder='Notes sur la réservation...' 
+                      placeholder={"Notes sur l'événement..."} 
                       className='resize-none' 
                       rows={3}
                       {...field} 
@@ -374,7 +393,7 @@ export function CreateBookingDialog({ defaultDate }: CreateBookingDialogProps) {
               </Button>
               <Button type='submit' disabled={isPending}>
                 {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-                Créer la réservation
+                Créer l'événement
               </Button>
             </DialogFooter>
           </form>

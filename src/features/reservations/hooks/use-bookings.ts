@@ -1,6 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
+export type BookingEventRow = {
+  id: string
+  booking_id: string | null
+  space_id: string | null
+  name: string
+  event_date: string
+  start_time: string | null
+  end_time: string | null
+  guests_count: number | null
+  occasion: string | null
+  is_date_flexible: boolean
+  is_restaurant_flexible: boolean
+  client_preferred_time: string | null
+  menu_aperitif: string | null
+  menu_entree: string | null
+  menu_plat: string | null
+  menu_dessert: string | null
+  menu_boissons: string | null
+  menu_details: unknown | null
+  mise_en_place: string | null
+  deroulement: string | null
+  is_privatif: boolean
+  allergies_regimes: string | null
+  prestations_souhaitees: string | null
+  budget_client: number | null
+  format_souhaite: string | null
+  contact_sur_place_nom: string | null
+  contact_sur_place_tel: string | null
+  contact_sur_place_societe: string | null
+  instructions_speciales: string | null
+  commentaires: string | null
+  date_signature_devis: string | null
+  created_at: string
+  updated_at: string
+  space?: { id: string; name: string } | null
+}
+
 export type BookingWithRelations = {
   id: string
   organization_id: string | null
@@ -11,21 +48,31 @@ export type BookingWithRelations = {
   space_id: string | null
   time_slot_id: string | null
   event_type: string | null
+  occasion: string | null
+  option: string | null
+  relance: string | null
+  source: string | null
   event_date: string
   start_time: string | null
   end_time: string | null
   guests_count: number | null
   total_amount: number
   deposit_amount: number
+  deposit_percentage: number
+  is_table_blocked: boolean
+  has_extra_provider: boolean
   internal_notes: string | null
   client_notes: string | null
+  special_requests: string | null
+  notion_url: string | null
   created_at: string
   updated_at: string
   restaurant?: { id: string; name: string; color: string | null } | null
-  contact?: { id: string; first_name: string; last_name: string | null; email: string | null; phone: string | null } | null
+  contact?: { id: string; first_name: string; last_name: string | null; email: string | null; phone: string | null; company?: { id: string; name: string } | null } | null
   status?: { id: string; name: string; color: string; slug: string } | null
   space?: { id: string; name: string } | null
   assigned_user?: { id: string; first_name: string; last_name: string } | null
+  booking_events?: BookingEventRow[]
 }
 
 async function getCurrentOrganizationId(): Promise<string | null> {
@@ -64,6 +111,54 @@ export function useBookings() {
       if (error) throw error
       return data as BookingWithRelations[]
     },
+  })
+}
+
+export function useBooking(id: string) {
+  return useQuery({
+    queryKey: ['bookings', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          restaurant:restaurants(id, name, color),
+          contact:contacts(id, first_name, last_name, email, phone, company:companies(id, name)),
+          status:statuses(id, name, color, slug),
+          space:spaces(id, name),
+          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name),
+          booking_events(*, space:spaces(id, name))
+        `)
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+      return data as BookingWithRelations
+    },
+    enabled: !!id,
+  })
+}
+
+export function useBookingsByContact(contactId: string) {
+  return useQuery({
+    queryKey: ['bookings', 'contact', contactId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          restaurant:restaurants(id, name, color),
+          status:statuses(id, name, color, slug),
+          space:spaces(id, name),
+          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
+        `)
+        .eq('contact_id', contactId)
+        .order('event_date', { ascending: false })
+
+      if (error) throw error
+      return data as BookingWithRelations[]
+    },
+    enabled: !!contactId,
   })
 }
 
@@ -114,14 +209,38 @@ export function useCreateBooking() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
-      const { data, error } = await supabase
+      // 1. Créer le booking
+      const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
         .insert({ ...booking, organization_id: orgId } as never)
         .select()
         .single()
 
-      if (error) throw error
-      return data
+      if (bookingError) throw bookingError
+      if (!bookingData) throw new Error('Booking creation failed')
+
+      // 2. Créer automatiquement un sous-événement par défaut
+      const { error: eventError } = await supabase
+        .from('booking_events')
+        .insert({
+          booking_id: bookingData.id,
+          name: 'Événement principal',
+          event_date: booking.event_date,
+          start_time: booking.start_time || null,
+          end_time: booking.end_time || null,
+          guests_count: booking.guests_count || null,
+          space_id: booking.space_id || null,
+          is_date_flexible: false,
+          is_restaurant_flexible: false,
+          is_privatif: false,
+        } as never)
+
+      if (eventError) {
+        console.error('Error creating default booking event:', eventError)
+        // On ne throw pas l'erreur pour ne pas bloquer la création du booking
+      }
+
+      return bookingData
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] })

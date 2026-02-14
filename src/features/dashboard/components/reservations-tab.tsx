@@ -81,7 +81,7 @@ export function ReservationsTab() {
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Réservations</CardTitle>
+            <CardTitle className='text-sm font-medium'>Total Événements</CardTitle>
             <Calendar className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
@@ -130,7 +130,7 @@ export function ReservationsTab() {
         {/* Reservations by Day */}
         <Card className='lg:col-span-4'>
           <CardHeader>
-            <CardTitle className='text-base'>Réservations par jour de la semaine</CardTitle>
+            <CardTitle className='text-base'>Événements par jour de la semaine</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width='100%' height={250}>
@@ -139,8 +139,8 @@ export function ReservationsTab() {
                 <YAxis fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
                   formatter={(value, name) => [
-                    name === 'reservations' ? `${value ?? 0} réservations` : `${value ?? 0} convives`,
-                    name === 'reservations' ? 'Réservations' : 'Convives'
+                    name === 'reservations' ? `${value ?? 0} événements` : `${value ?? 0} convives`,
+                    name === 'reservations' ? 'Événements' : 'Convives'
                   ]}
                 />
                 <Bar dataKey='reservations' fill='#3b82f6' radius={[4, 4, 0, 0]} />
@@ -172,7 +172,7 @@ export function ReservationsTab() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => [`${value ?? 0} réservations`, '']} />
+                <Tooltip formatter={(value) => [`${value ?? 0} événements`, '']} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -194,8 +194,8 @@ export function ReservationsTab() {
                 <YAxis fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
                   formatter={(value, name) => [
-                    name === 'reservations' ? `${value ?? 0} réservations` : `${(value ?? 0).toLocaleString('fr-FR')} €`,
-                    name === 'reservations' ? 'Réservations' : 'CA'
+                    name === 'reservations' ? `${value ?? 0} événements` : `${(value ?? 0).toLocaleString('fr-FR')} €`,
+                    name === 'reservations' ? 'Événements' : 'CA'
                   ]}
                 />
                 <Line type='monotone' dataKey='reservations' stroke='#3b82f6' strokeWidth={2} dot={false} />
@@ -208,7 +208,7 @@ export function ReservationsTab() {
         {/* Upcoming Reservations */}
         <Card>
           <CardHeader>
-            <CardTitle className='text-base'>Prochaines réservations</CardTitle>
+            <CardTitle className='text-base'>Prochains événements</CardTitle>
           </CardHeader>
           <CardContent className='space-y-3'>
             {upcomingReservations.map((reservation) => (

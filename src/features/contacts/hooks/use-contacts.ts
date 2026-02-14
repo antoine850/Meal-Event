@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Contact } from '@/lib/supabase/types'
+import type { Contact, Company } from '@/lib/supabase/types'
 
 export type ContactWithRelations = Contact & {
   company?: { id: string; name: string } | null
   status?: { id: string; name: string; color: string; slug: string } | null
   assigned_user?: { id: string; first_name: string; last_name: string } | null
+  restaurant?: { id: string; name: string } | null
 }
 
 async function getCurrentOrganizationId(): Promise<string | null> {
@@ -34,7 +35,8 @@ export function useContacts() {
           *,
           company:companies(id, name),
           status:statuses(id, name, color, slug),
-          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
+          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name),
+          restaurant:restaurants(id, name)
         `)
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
@@ -61,6 +63,44 @@ export function useContactStatuses() {
 
       if (error) throw error
       return data as { id: string; name: string; slug: string; color: string; display_order: number }[]
+    },
+  })
+}
+
+export function useRestaurantsList() {
+  return useQuery({
+    queryKey: ['restaurants-list'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('restaurants')
+        .select('id, name')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      return data as { id: string; name: string }[]
+    },
+  })
+}
+
+export function useOrganizationUsers() {
+  return useQuery({
+    queryKey: ['organization-users'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, first_name, last_name')
+        .eq('organization_id', orgId)
+        .order('first_name', { ascending: true })
+
+      if (error) throw error
+      return data as { id: string; first_name: string; last_name: string }[]
     },
   })
 }
@@ -105,6 +145,71 @@ export function useUpdateContact() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
+    },
+  })
+}
+
+export function useContact(id: string) {
+  return useQuery({
+    queryKey: ['contact', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select(`
+          *,
+          company:companies(id, name),
+          status:statuses(id, name, color, slug),
+          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name),
+          restaurant:restaurants(id, name)
+        `)
+        .eq('id', id)
+        .single()
+
+      if (error) throw error
+      return data as ContactWithRelations
+    },
+    enabled: !!id,
+  })
+}
+
+export function useCompanies() {
+  return useQuery({
+    queryKey: ['companies'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+
+      if (error) throw error
+      return data as Company[]
+    },
+  })
+}
+
+export function useCreateCompany() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (company: Partial<Company>) => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const { data, error } = await supabase
+        .from('companies')
+        .insert({ ...company, organization_id: orgId } as never)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data as Company
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] })
     },
   })
 }

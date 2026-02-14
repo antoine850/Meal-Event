@@ -71,14 +71,14 @@ export function MarketingTab() {
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <CardTitle className='text-sm font-medium'>
-              Réservations
+              Événements
             </CardTitle>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{totalBookings}</div>
             <p className='text-xs text-muted-foreground'>
-              Leads convertis en réservations
+              Leads convertis en événements
             </p>
           </CardContent>
         </Card>
@@ -148,7 +148,7 @@ export function MarketingTab() {
 
         <Card className='col-span-1 lg:col-span-3'>
           <CardHeader>
-            <CardTitle>Leads vs Réservations</CardTitle>
+            <CardTitle>Leads vs Événements</CardTitle>
             <CardDescription>Comparaison par source d'acquisition</CardDescription>
           </CardHeader>
           <CardContent className='ps-2'>
@@ -167,7 +167,7 @@ export function MarketingTab() {
                 <Tooltip />
                 <Legend />
                 <Bar dataKey='leads' fill='#94a3b8' name='Leads' radius={[0, 4, 4, 0]} />
-                <Bar dataKey='bookings' fill='#3b82f6' name='Réservations' radius={[0, 4, 4, 0]} />
+                <Bar dataKey='bookings' fill='#3b82f6' name='Événements' radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -200,7 +200,7 @@ export function MarketingTab() {
                           {source.source}
                         </p>
                         <p className='text-xs text-muted-foreground'>
-                          {source.leads} leads • {source.bookings} réservations • {source.conversionRate}% conversion
+                          {source.leads} leads • {source.bookings} événements • {source.conversionRate}% conversion
                         </p>
                       </div>
                       <div className='text-right'>

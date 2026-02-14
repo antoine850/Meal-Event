@@ -24,7 +24,7 @@ const tabs = [
   { value: 'general', label: 'Vue d\'ensemble' },
   { value: 'commercial', label: 'Commercial' },
   { value: 'marketing', label: 'Marketing' },
-  { value: 'reservations', label: 'Réservations' },
+  { value: 'reservations', label: 'Événements' },
 ]
 
 export function Dashboard() {

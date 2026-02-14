@@ -46,7 +46,7 @@ export const sidebarData: SidebarData = {
           icon: Contact,
         },
         {
-          title: 'Réservations',
+          title: 'Événements',
           url: '/reservations',
           icon: CalendarDays,
         },

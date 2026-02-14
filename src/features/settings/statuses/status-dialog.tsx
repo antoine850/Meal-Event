@@ -118,7 +118,7 @@ export function StatusDialog({ open, onOpenChange, status, type }: StatusDialogP
           <DialogDescription>
             {status
               ? 'Modifiez les informations du statut.'
-              : `Ajoutez un nouveau statut pour les ${type === 'contact' ? 'contacts' : 'réservations'}.`}
+              : `Ajoutez un nouveau statut pour les ${type === 'contact' ? 'contacts' : 'événements'}.`}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

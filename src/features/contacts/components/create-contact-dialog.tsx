@@ -47,7 +47,11 @@ const contactSchema = z.object({
 
 type ContactFormData = z.infer<typeof contactSchema>
 
-export function CreateContactDialog() {
+type CreateContactDialogProps = {
+  iconOnly?: boolean
+}
+
+export function CreateContactDialog({ iconOnly = false }: CreateContactDialogProps) {
   const [open, setOpen] = useState(false)
   const { mutate: createContact, isPending } = useCreateContact()
   const { data: statuses = [] } = useContactStatuses()
@@ -98,8 +102,8 @@ export function CreateContactDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size='sm'>
-          <Plus className='mr-2 h-4 w-4' />
-          Nouveau contact
+          <Plus className={iconOnly ? 'h-4 w-4' : 'mr-2 h-4 w-4'} />
+          {!iconOnly && 'Nouveau contact'}
         </Button>
       </DialogTrigger>
       <DialogContent className='sm:max-w-[500px]'>

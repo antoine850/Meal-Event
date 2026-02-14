@@ -47,7 +47,7 @@ export function GeneralTab() {
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <CardTitle className='text-sm font-medium'>
-              Réservations
+              Événements
             </CardTitle>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
@@ -129,7 +129,7 @@ export function GeneralTab() {
         <Card className='col-span-1 lg:col-span-3'>
           <CardHeader>
             <CardTitle>Performance par restaurant</CardTitle>
-            <CardDescription>CA, réservations et panier moyen</CardDescription>
+            <CardDescription>CA, événements et panier moyen</CardDescription>
           </CardHeader>
           <CardContent>
             <div className='space-y-4'>
@@ -146,7 +146,7 @@ export function GeneralTab() {
                         {restaurant.name}
                       </p>
                       <p className='text-xs text-muted-foreground'>
-                        {restaurant.bookings} réservations • Ø {restaurant.avgTicket.toLocaleString('fr-FR')} €
+                        {restaurant.bookings} événements • Ø {restaurant.avgTicket.toLocaleString('fr-FR')} €
                       </p>
                     </div>
                     <div className='font-medium text-green-600'>
@@ -163,8 +163,8 @@ export function GeneralTab() {
       {/* Recent Bookings */}
       <Card>
         <CardHeader>
-          <CardTitle>Dernières réservations</CardTitle>
-          <CardDescription>Les 5 dernières réservations enregistrées</CardDescription>
+          <CardTitle>Derniers événements</CardTitle>
+          <CardDescription>Les 5 derniers événements enregistrés</CardDescription>
         </CardHeader>
         <CardContent>
           <div className='space-y-4'>

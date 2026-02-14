@@ -507,6 +507,10 @@ export interface Database {
           space_id: string | null
           time_slot_id: string | null
           event_type: string | null
+          occasion: string | null
+          option: string | null
+          relance: string | null
+          source: string | null
           event_date: string
           start_time: string | null
           end_time: string | null
@@ -533,6 +537,10 @@ export interface Database {
           space_id?: string | null
           time_slot_id?: string | null
           event_type?: string | null
+          occasion?: string | null
+          option?: string | null
+          relance?: string | null
+          source?: string | null
           event_date: string
           start_time?: string | null
           end_time?: string | null
@@ -559,6 +567,10 @@ export interface Database {
           space_id?: string | null
           time_slot_id?: string | null
           event_type?: string | null
+          occasion?: string | null
+          option?: string | null
+          relance?: string | null
+          source?: string | null
           event_date?: string
           start_time?: string | null
           end_time?: string | null

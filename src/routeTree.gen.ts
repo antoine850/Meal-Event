@@ -41,7 +41,9 @@ import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedTasksContactIdRouteImport } from './routes/_authenticated/tasks/contact.$id'
 import { Route as AuthenticatedSettingsRestaurantIdRouteImport } from './routes/_authenticated/settings/restaurant.$id'
+import { Route as AuthenticatedReservationsBookingIdRouteImport } from './routes/_authenticated/reservations/booking.$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -215,11 +217,23 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedTasksContactIdRoute =
+  AuthenticatedTasksContactIdRouteImport.update({
+    id: '/tasks/contact/$id',
+    path: '/tasks/contact/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsRestaurantIdRoute =
   AuthenticatedSettingsRestaurantIdRouteImport.update({
     id: '/restaurant/$id',
     path: '/restaurant/$id',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedReservationsBookingIdRoute =
+  AuthenticatedReservationsBookingIdRouteImport.update({
+    id: '/reservations/booking/$id',
+    path: '/reservations/booking/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -253,7 +267,9 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
   '/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
+  '/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof authForgotPasswordRoute
@@ -285,7 +301,9 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
   '/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
+  '/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -321,7 +339,9 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
+  '/_authenticated/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
   '/_authenticated/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
+  '/_authenticated/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -356,7 +376,9 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/tasks'
     | '/users'
+    | '/reservations/booking/$id'
     | '/settings/restaurant/$id'
+    | '/tasks/contact/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
@@ -388,7 +410,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/users'
+    | '/reservations/booking/$id'
     | '/settings/restaurant/$id'
+    | '/tasks/contact/$id'
   id:
     | '__root__'
     | '/(auth)'
@@ -423,7 +447,9 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
+    | '/_authenticated/reservations/booking/$id'
     | '/_authenticated/settings/restaurant/$id'
+    | '/_authenticated/tasks/contact/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -662,12 +688,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/tasks/contact/$id': {
+      id: '/_authenticated/tasks/contact/$id'
+      path: '/tasks/contact/$id'
+      fullPath: '/tasks/contact/$id'
+      preLoaderRoute: typeof AuthenticatedTasksContactIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings/restaurant/$id': {
       id: '/_authenticated/settings/restaurant/$id'
       path: '/restaurant/$id'
       fullPath: '/settings/restaurant/$id'
       preLoaderRoute: typeof AuthenticatedSettingsRestaurantIdRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/reservations/booking/$id': {
+      id: '/_authenticated/reservations/booking/$id'
+      path: '/reservations/booking/$id'
+      fullPath: '/reservations/booking/$id'
+      preLoaderRoute: typeof AuthenticatedReservationsBookingIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
@@ -740,6 +780,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedReservationsIndexRoute: typeof AuthenticatedReservationsIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
+  AuthenticatedReservationsBookingIdRoute: typeof AuthenticatedReservationsBookingIdRoute
+  AuthenticatedTasksContactIdRoute: typeof AuthenticatedTasksContactIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -753,6 +795,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedReservationsIndexRoute: AuthenticatedReservationsIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
+  AuthenticatedReservationsBookingIdRoute:
+    AuthenticatedReservationsBookingIdRoute,
+  AuthenticatedTasksContactIdRoute: AuthenticatedTasksContactIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

@@ -16,8 +16,10 @@ import {
   subDays,
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Users } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { Calendar, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Euro, Phone, Mail, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -28,6 +30,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { Reservation } from '../types'
 
 type ViewMode = 'month' | 'week' | 'day'
@@ -40,32 +49,84 @@ type CalendarViewProps = {
   onAddReservation?: (date: Date) => void
 }
 
-function ReservationCard({ reservation, onClick }: { reservation: Reservation, onClick?: () => void }) {
+function ReservationCard({ reservation }: { reservation: Reservation, onClick?: () => void }) {
   return (
-    <div 
-      onClick={(e) => {
-        e.stopPropagation()
-        onClick?.()
-      }}
-      className='rounded-md p-2 text-xs cursor-pointer hover:opacity-90 transition-opacity border-l-4 bg-card shadow-sm mb-1'
-      style={{ borderLeftColor: reservation.statusColor || reservation.restaurant.color }}
-    >
-      <div className='flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5'>
-        <div 
-          className='w-2 h-2 rounded-full' 
-          style={{ backgroundColor: reservation.restaurant.color }}
-        />
-        <span>{reservation.restaurant.name.split(' ').slice(-1)[0]}</span>
-      </div>
-      <div className='font-medium text-primary'>
-        {reservation.startTime} - {reservation.endTime}
-      </div>
-      <div className='font-semibold truncate'>{reservation.clientName}</div>
-      <div className='flex items-center gap-1 text-muted-foreground'>
-        <Users className='h-3 w-3' />
-        <span>{reservation.guests}</span>
-      </div>
-    </div>
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            to='/reservations/booking/$id'
+            params={{ id: reservation.id }}
+            onClick={(e) => e.stopPropagation()}
+            className='block rounded-md p-2 text-xs cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all border-l-4 bg-card shadow-sm mb-1'
+            style={{ borderLeftColor: reservation.statusColor || reservation.restaurant.color }}
+          >
+            <div className='flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5'>
+              <div 
+                className='w-2 h-2 rounded-full' 
+                style={{ backgroundColor: reservation.restaurant.color }}
+              />
+              <span>{reservation.restaurant.name.split(' ').slice(-1)[0]}</span>
+            </div>
+            <div className='font-medium text-primary'>
+              {reservation.startTime} - {reservation.endTime}
+            </div>
+            <div className='font-semibold truncate'>{reservation.clientName}</div>
+            <div className='flex items-center gap-1 text-muted-foreground'>
+              <Users className='h-3 w-3' />
+              <span>{reservation.guests}</span>
+            </div>
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side='right' align='start' className='max-w-[280px] p-0'>
+          <div className='p-3 space-y-2'>
+            <div className='flex items-center justify-between gap-2'>
+              <span className='font-semibold text-sm'>{reservation.clientName}</span>
+              <Badge variant='outline' className={cn('text-[10px] shrink-0', reservation.statusColor)}>
+                {reservation.status}
+              </Badge>
+            </div>
+            <div className='text-xs text-muted-foreground space-y-1'>
+              <div className='flex items-center gap-1.5'>
+                <div className='w-2 h-2 rounded-full shrink-0' style={{ backgroundColor: reservation.restaurant.color }} />
+                {reservation.restaurant.name}
+              </div>
+              {reservation.eventType && (
+                <div>{reservation.eventType}</div>
+              )}
+              <div className='flex items-center gap-1.5'>
+                <Users className='h-3 w-3 shrink-0' />
+                {reservation.guests} personnes
+              </div>
+              {reservation.clientEmail && (
+                <div className='flex items-center gap-1.5'>
+                  <Mail className='h-3 w-3 shrink-0' />
+                  {reservation.clientEmail}
+                </div>
+              )}
+              {reservation.clientPhone && (
+                <div className='flex items-center gap-1.5'>
+                  <Phone className='h-3 w-3 shrink-0' />
+                  {reservation.clientPhone}
+                </div>
+              )}
+              {reservation.amountHT > 0 && (
+                <div className='flex items-center gap-1.5'>
+                  <Euro className='h-3 w-3 shrink-0' />
+                  {reservation.amountHT.toLocaleString('fr-FR')} € HT
+                </div>
+              )}
+              {reservation.notes && (
+                <div className='pt-1 border-t text-[11px] line-clamp-2'>{reservation.notes}</div>
+              )}
+            </div>
+            <div className='text-[10px] text-primary font-medium pt-1'>
+              Cliquer pour ouvrir la fiche →
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -182,7 +243,7 @@ function MonthView({ currentDate, reservations, onReservationClick, onAddReserva
   )
 }
 
-function WeekView({ currentDate, reservations, onReservationClick }: { 
+function WeekView({ currentDate, reservations }: { 
   currentDate: Date
   reservations: Reservation[]
   onReservationClick?: (reservation: Reservation) => void 
@@ -238,20 +299,21 @@ function WeekView({ currentDate, reservations, onReservationClick }: {
                 {dayReservations
                   .sort((a, b) => a.startTime.localeCompare(b.startTime))
                   .map(reservation => (
-                    <div 
-                      key={reservation.id} 
-                      onClick={() => onReservationClick?.(reservation)}
-                      className='p-2 rounded border bg-card hover:shadow-md transition-shadow cursor-pointer'
+                    <Link
+                      key={reservation.id}
+                      to='/reservations/booking/$id'
+                      params={{ id: reservation.id }}
+                      className='block p-2 rounded border bg-card hover:shadow-md hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer'
                       style={{ borderLeftColor: reservation.restaurant.color, borderLeftWidth: 3 }}
                     >
                       <div className='text-xs font-medium'>{reservation.startTime} - {reservation.endTime}</div>
                       <div className='text-sm font-medium truncate'>{reservation.clientName}</div>
                       <div className='text-xs text-muted-foreground'>{reservation.guests} pers. • {reservation.eventType}</div>
-                    </div>
+                    </Link>
                   ))}
                 {dayReservations.length === 0 && (
                   <div className='text-xs text-muted-foreground text-center py-4'>
-                    Aucune réservation
+                    Aucun événement
                   </div>
                 )}
               </div>
@@ -263,7 +325,7 @@ function WeekView({ currentDate, reservations, onReservationClick }: {
   )
 }
 
-function DayView({ currentDate, reservations, onReservationClick }: { 
+function DayView({ currentDate, reservations }: { 
   currentDate: Date
   reservations: Reservation[]
   onReservationClick?: (reservation: Reservation) => void 
@@ -291,10 +353,11 @@ function DayView({ currentDate, reservations, onReservationClick }: {
                 {dayReservations
                   .filter(r => parseInt(r.startTime.split(':')[0]) === hour)
                   .map(reservation => (
-                    <div 
+                    <Link
                       key={reservation.id}
-                      onClick={() => onReservationClick?.(reservation)}
-                      className='p-2 rounded text-white cursor-pointer hover:opacity-80 transition-opacity'
+                      to='/reservations/booking/$id'
+                      params={{ id: reservation.id }}
+                      className='block p-2 rounded text-white cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/30 transition-all'
                       style={{ backgroundColor: reservation.restaurant.color }}
                     >
                       <div className='text-xs font-medium'>
@@ -304,7 +367,7 @@ function DayView({ currentDate, reservations, onReservationClick }: {
                       <div className='text-xs opacity-90'>
                         {reservation.guests} pers. • {reservation.eventType}
                       </div>
-                    </div>
+                    </Link>
                   ))}
               </div>
             </div>
@@ -314,14 +377,15 @@ function DayView({ currentDate, reservations, onReservationClick }: {
 
       {/* Reservations List */}
       <Card className='p-4 lg:order-1'>
-        <h3 className='font-medium mb-4'>Réservations du jour ({dayReservations.length})</h3>
+        <h3 className='font-medium mb-4'>Événements du jour ({dayReservations.length})</h3>
         <ScrollArea className='h-[500px]'>
           <div className='space-y-3'>
             {dayReservations.map(reservation => (
-              <div 
+              <Link
                 key={reservation.id}
-                onClick={() => onReservationClick?.(reservation)}
-                className='p-3 rounded-lg border hover:shadow-md transition-shadow cursor-pointer'
+                to='/reservations/booking/$id'
+                params={{ id: reservation.id }}
+                className='block p-3 rounded-lg border hover:shadow-md hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer'
                 style={{ borderLeftColor: reservation.restaurant.color, borderLeftWidth: 4 }}
               >
                 <div className='flex items-start justify-between'>
@@ -341,11 +405,11 @@ function DayView({ currentDate, reservations, onReservationClick }: {
                   <span className='text-muted-foreground'>{reservation.eventType}</span>
                   <span className='ml-auto font-medium'>{reservation.amountHT.toLocaleString('fr-FR')} € HT</span>
                 </div>
-              </div>
+              </Link>
             ))}
             {dayReservations.length === 0 && (
               <div className='text-center py-8 text-muted-foreground'>
-                Aucune réservation pour cette journée
+                Aucun événement pour cette journée
               </div>
             )}
           </div>
@@ -422,14 +486,38 @@ export function CalendarView({ reservations, viewMode, onViewModeChange, onReser
           </Button>
         </div>
         <h2 className='hidden sm:block text-lg font-semibold capitalize'>{getTitle()}</h2>
-        <div className='hidden sm:flex items-center gap-2 overflow-x-auto'>
-          {/* Restaurant legend - derived from reservations */}
-          {Array.from(new Map(reservations.map(r => [r.restaurant.id, r.restaurant])).values()).map(restaurant => (
-            <div key={restaurant.id} className='flex items-center gap-1 text-xs shrink-0'>
-              <div className='w-2 h-2 sm:w-3 sm:h-3 rounded' style={{ backgroundColor: restaurant.color }} />
-              <span className='hidden md:inline'>{restaurant.name}</span>
-            </div>
-          ))}
+        <div className='hidden sm:flex items-center gap-3'>
+          {/* Restaurant legend */}
+          <div className='flex items-center gap-2 overflow-x-auto'>
+            {Array.from(new Map(reservations.map(r => [r.restaurant.id, r.restaurant])).values()).map(restaurant => (
+              <div key={restaurant.id} className='flex items-center gap-1 text-xs shrink-0'>
+                <div className='w-2 h-2 sm:w-3 sm:h-3 rounded' style={{ backgroundColor: restaurant.color }} />
+                <span className='hidden md:inline'>{restaurant.name}</span>
+              </div>
+            ))}
+          </div>
+          {/* Calendar mode selector - Desktop */}
+          {onViewModeChange && (
+            <ToggleGroup
+              type='single'
+              value={viewMode}
+              onValueChange={(value) => value && onViewModeChange(value as ViewMode)}
+              className='border rounded-md'
+            >
+              <ToggleGroupItem value='day' aria-label='1 jour' className='px-2 gap-1 text-xs h-8'>
+                <Calendar className='h-3.5 w-3.5' />
+                1 jour
+              </ToggleGroupItem>
+              <ToggleGroupItem value='week' aria-label='7 jours' className='px-2 gap-1 text-xs h-8'>
+                <CalendarDays className='h-3.5 w-3.5' />
+                7 jours
+              </ToggleGroupItem>
+              <ToggleGroupItem value='month' aria-label='30 jours' className='px-2 gap-1 text-xs h-8'>
+                <CalendarRange className='h-3.5 w-3.5' />
+                30 jours
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
         </div>
       </div>
 

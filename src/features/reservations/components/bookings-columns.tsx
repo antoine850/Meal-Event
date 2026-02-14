@@ -2,15 +2,14 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ExternalLink } from 'lucide-react'
-import { Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
-import type { ContactWithRelations } from '../types'
+import type { BookingWithRelations } from '../hooks/use-bookings'
 
-export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
+export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
   {
     id: 'select',
     header: ({ table }) => (
@@ -34,60 +33,85 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
     ),
     enableSorting: false,
     enableHiding: false,
-    meta: {
-      className: 'w-12',
-    },
+    meta: { className: 'w-12' },
   },
   {
-    accessorKey: 'first_name',
+    accessorKey: 'event_date',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Contact' />
+      <DataTableColumnHeader column={column} title='Date' />
     ),
     cell: ({ row }) => (
       <div className='flex flex-col'>
         <span className='font-medium'>
-          {row.original.first_name} {row.original.last_name || ''}
+          {format(new Date(row.original.event_date), 'dd/MM/yyyy', { locale: fr })}
         </span>
         <span className='text-xs text-muted-foreground'>
-          {row.original.company?.name || '-'}
+          {row.original.start_time || ''}{row.original.end_time ? ` - ${row.original.end_time}` : ''}
         </span>
       </div>
     ),
-    meta: {
-      className: 'min-w-[180px]',
+  },
+  {
+    accessorKey: 'contact',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Contact' />
+    ),
+    cell: ({ row }) => {
+      const contact = row.original.contact
+      if (!contact) return <span className='text-muted-foreground'>-</span>
+      return (
+        <div className='flex flex-col'>
+          <span className='font-medium'>
+            {contact.first_name} {contact.last_name || ''}
+          </span>
+          {contact.email && (
+            <span className='text-xs text-muted-foreground'>{contact.email}</span>
+          )}
+        </div>
+      )
     },
   },
   {
-    accessorKey: 'email',
+    accessorKey: 'event_type',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Email' />
+      <DataTableColumnHeader column={column} title='Type' />
     ),
     cell: ({ row }) => (
-      <span className='text-sm truncate max-w-[200px]'>
-        {row.original.email || '-'}
-      </span>
+      <span className='text-sm'>{row.original.event_type || '-'}</span>
     ),
-    meta: {
-      className: 'min-w-[180px]',
+  },
+  {
+    accessorKey: 'guests_count',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Couverts' />
+    ),
+    cell: ({ row }) => (
+      <span className='text-sm'>{row.original.guests_count || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'restaurant_id',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Restaurant' />
+    ),
+    cell: ({ row }) => {
+      const restaurant = row.original.restaurant
+      if (!restaurant) return <span className='text-muted-foreground'>-</span>
+      return (
+        <div className='flex items-center gap-2'>
+          {restaurant.color && (
+            <div
+              className='h-2 w-2 rounded-full'
+              style={{ backgroundColor: restaurant.color }}
+            />
+          )}
+          <span className='text-sm'>{restaurant.name}</span>
+        </div>
+      )
     },
-  },
-  {
-    accessorKey: 'phone',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Téléphone' />
-    ),
-    cell: ({ row }) => (
-      <span className='text-sm'>{row.original.phone || row.original.mobile || '-'}</span>
-    ),
-  },
-  {
-    accessorKey: 'job_title',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Fonction' />
-    ),
-    cell: ({ row }) => (
-      <span className='text-sm'>{row.original.job_title || '-'}</span>
-    ),
+    filterFn: (row, _id, value) => {
+      return value.includes(row.original.restaurant_id)
+    },
   },
   {
     accessorKey: 'assigned_to',
@@ -108,34 +132,13 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
     },
   },
   {
-    accessorKey: 'restaurant_id',
-    header: () => null,
-    cell: () => null,
-    enableHiding: true,
-    filterFn: (row, _id, value) => {
-      return value.includes((row.original as Record<string, unknown>).restaurant_id)
-    },
-    meta: {
-      className: 'hidden',
-    },
-  },
-  {
-    accessorKey: 'source',
+    accessorKey: 'total_amount',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Source' />
+      <DataTableColumnHeader column={column} title='Montant' />
     ),
     cell: ({ row }) => (
-      <span className='text-sm'>{row.original.source || '-'}</span>
-    ),
-  },
-  {
-    accessorKey: 'created_at',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Créé le' />
-    ),
-    cell: ({ row }) => (
-      <span className='text-sm text-muted-foreground'>
-        {format(new Date(row.original.created_at), 'dd/MM/yyyy', { locale: fr })}
+      <span className='text-sm font-medium'>
+        {row.original.total_amount ? `${row.original.total_amount.toLocaleString('fr-FR')} €` : '-'}
       </span>
     ),
   },
@@ -148,8 +151,8 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
       const status = row.original.status
       if (!status) return <span className='text-muted-foreground'>-</span>
       return (
-        <Badge 
-          variant='outline' 
+        <Badge
+          variant='outline'
           className={cn('text-xs', status.color)}
         >
           {status.name}
@@ -162,15 +165,11 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
   },
   {
     id: 'actions',
-    cell: ({ row }) => (
-      <Button variant='ghost' size='icon' className='h-8 w-8' asChild>
-        <Link to='/tasks/contact/$id' params={{ id: row.original.id }}>
-          <ExternalLink className='h-4 w-4' />
-        </Link>
+    cell: () => (
+      <Button variant='ghost' size='icon' className='h-8 w-8'>
+        <ExternalLink className='h-4 w-4' />
       </Button>
     ),
-    meta: {
-      className: 'w-12',
-    },
+    meta: { className: 'w-12' },
   },
 ]
