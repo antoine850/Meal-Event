@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateContact, useContactStatuses } from '../hooks/use-contacts'
+import { useCompanies } from '../../companies/hooks/use-companies'
 
 const contactSchema = z.object({
   first_name: z.string().min(1, 'Le prénom est requis'),
@@ -39,6 +40,7 @@ const contactSchema = z.object({
   email: z.string().email('Email invalide').optional().or(z.literal('')),
   phone: z.string().optional(),
   mobile: z.string().optional(),
+  company_id: z.string().optional(),
   job_title: z.string().optional(),
   status_id: z.string().optional(),
   source: z.string().optional(),
@@ -64,12 +66,15 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
       email: '',
       phone: '',
       mobile: '',
+      company_id: '',
       job_title: '',
       status_id: '',
       source: '',
       notes: '',
     },
   })
+
+  const { data: companies = [] } = useCompanies()
 
   const onSubmit = (data: ContactFormData) => {
     createContact(
@@ -79,6 +84,7 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
         email: data.email || null,
         phone: data.phone || null,
         mobile: data.mobile || null,
+        company_id: data.company_id || null,
         job_title: data.job_title || null,
         status_id: data.status_id || null,
         source: data.source || null,
@@ -90,7 +96,7 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
           setOpen(false)
           form.reset()
         },
-        onError: (error) => {
+        onError: (error: any) => {
           console.error('Error creating contact:', error)
           toast.error('Erreur lors de la création du contact')
         },
@@ -187,19 +193,46 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name='job_title'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fonction</FormLabel>
-                  <FormControl>
-                    <Input placeholder='Directeur commercial' {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className='grid grid-cols-2 gap-4'>
+              <FormField
+                control={form.control}
+                name='company_id'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Société</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder='Sélectionner...' />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value='none'>Aucune</SelectItem>
+                        {companies.map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='job_title'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fonction</FormLabel>
+                    <FormControl>
+                      <Input placeholder='Directeur commercial' {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <div className='grid grid-cols-2 gap-4'>
               <FormField
@@ -220,7 +253,7 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
                             <div className='flex items-center gap-2'>
                               <div 
                                 className='w-2 h-2 rounded-full' 
-                                style={{ backgroundColor: status.color }} 
+                                style={{ backgroundColor: status.color || undefined }} 
                               />
                               {status.name}
                             </div>

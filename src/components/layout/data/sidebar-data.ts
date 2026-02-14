@@ -12,9 +12,8 @@ import {
   FileText,
   Building2,
   Store,
-  MapPin,
-  Clock,
   Tags,
+  Building,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -46,6 +45,11 @@ export const sidebarData: SidebarData = {
           icon: Contact,
         },
         {
+          title: 'Sociétés',
+          url: '/companies',
+          icon: Building,
+        },
+        {
           title: 'Événements',
           url: '/reservations',
           icon: CalendarDays,
@@ -75,16 +79,6 @@ export const sidebarData: SidebarData = {
               title: 'Restaurants',
               url: '/settings/restaurants',
               icon: Store,
-            },
-            {
-              title: 'Espaces',
-              url: '/settings/spaces',
-              icon: MapPin,
-            },
-            {
-              title: 'Créneaux',
-              url: '/settings/time-slots',
-              icon: Clock,
             },
             {
               title: 'Statuts',

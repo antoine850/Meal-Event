@@ -100,7 +100,7 @@ export function RestaurantsSettings() {
                   <TableCell className='hidden md:table-cell'>{restaurant.email || '-'}</TableCell>
                   <TableCell className='hidden sm:table-cell'>{restaurant.phone || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={restaurant.is_active ? 'default' : 'secondary'}>
+                    <Badge variant={restaurant.is_active ? 'success' : 'secondary'}>
                       {restaurant.is_active ? 'Actif' : 'Inactif'}
                     </Badge>
                   </TableCell>

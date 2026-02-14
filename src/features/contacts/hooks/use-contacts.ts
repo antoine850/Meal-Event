@@ -172,48 +172,6 @@ export function useContact(id: string) {
   })
 }
 
-export function useCompanies() {
-  return useQuery({
-    queryKey: ['companies'],
-    queryFn: async () => {
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) throw new Error('No organization found')
-
-      const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('organization_id', orgId)
-        .order('name', { ascending: true })
-
-      if (error) throw error
-      return data as Company[]
-    },
-  })
-}
-
-export function useCreateCompany() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (company: Partial<Company>) => {
-      const orgId = await getCurrentOrganizationId()
-      if (!orgId) throw new Error('No organization found')
-
-      const { data, error } = await supabase
-        .from('companies')
-        .insert({ ...company, organization_id: orgId } as never)
-        .select()
-        .single()
-
-      if (error) throw error
-      return data as Company
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['companies'] })
-    },
-  })
-}
-
 export function useDeleteContact() {
   const queryClient = useQueryClient()
 

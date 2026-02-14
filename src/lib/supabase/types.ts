@@ -386,16 +386,14 @@ export interface Database {
           id: string
           organization_id: string | null
           name: string
+          phone: string | null
+          billing_address: string | null
+          billing_postal_code: string | null
+          billing_city: string | null
+          billing_country: string | null
+          billing_email: string | null
           siret: string | null
           tva_number: string | null
-          address: string | null
-          city: string | null
-          postal_code: string | null
-          country: string
-          phone: string | null
-          email: string | null
-          website: string | null
-          notes: string | null
           created_at: string
           updated_at: string
         }
@@ -403,16 +401,14 @@ export interface Database {
           id?: string
           organization_id?: string | null
           name: string
+          phone?: string | null
+          billing_address?: string | null
+          billing_postal_code?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_email?: string | null
           siret?: string | null
           tva_number?: string | null
-          address?: string | null
-          city?: string | null
-          postal_code?: string | null
-          country?: string
-          phone?: string | null
-          email?: string | null
-          website?: string | null
-          notes?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -420,16 +416,14 @@ export interface Database {
           id?: string
           organization_id?: string | null
           name?: string
+          phone?: string | null
+          billing_address?: string | null
+          billing_postal_code?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_email?: string | null
           siret?: string | null
           tva_number?: string | null
-          address?: string | null
-          city?: string | null
-          postal_code?: string | null
-          country?: string
-          phone?: string | null
-          email?: string | null
-          website?: string | null
-          notes?: string | null
           created_at?: string
           updated_at?: string
         }

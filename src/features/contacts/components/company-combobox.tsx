@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useCompanies, useCreateCompany } from '../hooks/use-contacts'
+import { useCompanies, useCreateCompany } from '../../companies/hooks/use-companies'
 
 type CompanyComboboxProps = {
   value?: string | null

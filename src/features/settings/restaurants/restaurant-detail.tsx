@@ -43,7 +43,7 @@ import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { ImageUpload } from '@/components/ui/image-upload'
 import { useUpdateRestaurant, useSpaces, useDeleteSpace, type Restaurant, type Space } from '../hooks/use-settings'
-import { SpaceDialog } from '../spaces/space-dialog'
+import { SpaceDialog } from './components/space-dialog'
 
 const RESTAURANT_COLORS = [
   { value: '#ef4444', label: 'Rouge' },
@@ -1275,7 +1275,7 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                               <TableCell className='font-medium'>{space.name}</TableCell>
                               <TableCell className='hidden md:table-cell'>{space.capacity ? `${space.capacity} pers.` : '-'}</TableCell>
                               <TableCell>
-                                <Badge variant={space.is_active ? 'default' : 'secondary'}>
+                                <Badge variant={space.is_active ? 'success' : 'secondary'}>
                                   {space.is_active ? 'Actif' : 'Inactif'}
                                 </Badge>
                               </TableCell>

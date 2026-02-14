@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedCompaniesRouteImport } from './routes/_authenticated/companies'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
@@ -32,9 +33,7 @@ import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedContractsIndexRouteImport } from './routes/_authenticated/contracts/index'
 import { Route as AuthenticatedChatsIndexRouteImport } from './routes/_authenticated/chats/index'
 import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authenticated/apps/index'
-import { Route as AuthenticatedSettingsTimeSlotsRouteImport } from './routes/_authenticated/settings/time-slots'
 import { Route as AuthenticatedSettingsStatusesRouteImport } from './routes/_authenticated/settings/statuses'
-import { Route as AuthenticatedSettingsSpacesRouteImport } from './routes/_authenticated/settings/spaces'
 import { Route as AuthenticatedSettingsRestaurantsRouteImport } from './routes/_authenticated/settings/restaurants'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
@@ -56,6 +55,11 @@ const authRouteRoute = authRouteRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCompaniesRoute = AuthenticatedCompaniesRouteImport.update({
+  id: '/companies',
+  path: '/companies',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const errors503Route = errors503RouteImport.update({
@@ -163,22 +167,10 @@ const AuthenticatedAppsIndexRoute = AuthenticatedAppsIndexRouteImport.update({
   path: '/apps/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSettingsTimeSlotsRoute =
-  AuthenticatedSettingsTimeSlotsRouteImport.update({
-    id: '/time-slots',
-    path: '/time-slots',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
 const AuthenticatedSettingsStatusesRoute =
   AuthenticatedSettingsStatusesRouteImport.update({
     id: '/statuses',
     path: '/statuses',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
-const AuthenticatedSettingsSpacesRoute =
-  AuthenticatedSettingsSpacesRouteImport.update({
-    id: '/spaces',
-    path: '/spaces',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsRestaurantsRoute =
@@ -249,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/companies': typeof AuthenticatedCompaniesRoute
   '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -256,9 +249,7 @@ export interface FileRoutesByFullPath {
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
-  '/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
-  '/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/contracts': typeof AuthenticatedContractsIndexRoute
@@ -283,6 +274,7 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/companies': typeof AuthenticatedCompaniesRoute
   '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -290,9 +282,7 @@ export interface FileRoutesByTo {
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
-  '/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
-  '/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/contracts': typeof AuthenticatedContractsIndexRoute
@@ -321,6 +311,7 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
+  '/_authenticated/companies': typeof AuthenticatedCompaniesRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -328,9 +319,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
-  '/_authenticated/settings/spaces': typeof AuthenticatedSettingsSpacesRoute
   '/_authenticated/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
-  '/_authenticated/settings/time-slots': typeof AuthenticatedSettingsTimeSlotsRoute
   '/_authenticated/apps/': typeof AuthenticatedAppsIndexRoute
   '/_authenticated/chats/': typeof AuthenticatedChatsIndexRoute
   '/_authenticated/contracts/': typeof AuthenticatedContractsIndexRoute
@@ -358,6 +347,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/companies'
     | '/'
     | '/errors/$error'
     | '/settings/account'
@@ -365,9 +355,7 @@ export interface FileRouteTypes {
     | '/settings/display'
     | '/settings/notifications'
     | '/settings/restaurants'
-    | '/settings/spaces'
     | '/settings/statuses'
-    | '/settings/time-slots'
     | '/apps'
     | '/chats'
     | '/contracts'
@@ -392,6 +380,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/companies'
     | '/'
     | '/errors/$error'
     | '/settings/account'
@@ -399,9 +388,7 @@ export interface FileRouteTypes {
     | '/settings/display'
     | '/settings/notifications'
     | '/settings/restaurants'
-    | '/settings/spaces'
     | '/settings/statuses'
-    | '/settings/time-slots'
     | '/apps'
     | '/chats'
     | '/contracts'
@@ -429,6 +416,7 @@ export interface FileRouteTypes {
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
+    | '/_authenticated/companies'
     | '/_authenticated/'
     | '/_authenticated/errors/$error'
     | '/_authenticated/settings/account'
@@ -436,9 +424,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/restaurants'
-    | '/_authenticated/settings/spaces'
     | '/_authenticated/settings/statuses'
-    | '/_authenticated/settings/time-slots'
     | '/_authenticated/apps/'
     | '/_authenticated/chats/'
     | '/_authenticated/contracts/'
@@ -483,6 +469,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/companies': {
+      id: '/_authenticated/companies'
+      path: '/companies'
+      fullPath: '/companies'
+      preLoaderRoute: typeof AuthenticatedCompaniesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/(errors)/503': {
@@ -625,25 +618,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/time-slots': {
-      id: '/_authenticated/settings/time-slots'
-      path: '/time-slots'
-      fullPath: '/settings/time-slots'
-      preLoaderRoute: typeof AuthenticatedSettingsTimeSlotsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
     '/_authenticated/settings/statuses': {
       id: '/_authenticated/settings/statuses'
       path: '/statuses'
       fullPath: '/settings/statuses'
       preLoaderRoute: typeof AuthenticatedSettingsStatusesRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
-    '/_authenticated/settings/spaces': {
-      id: '/_authenticated/settings/spaces'
-      path: '/spaces'
-      fullPath: '/settings/spaces'
-      preLoaderRoute: typeof AuthenticatedSettingsSpacesRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/restaurants': {
@@ -740,9 +719,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsDisplayRoute: typeof AuthenticatedSettingsDisplayRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsRestaurantsRoute: typeof AuthenticatedSettingsRestaurantsRoute
-  AuthenticatedSettingsSpacesRoute: typeof AuthenticatedSettingsSpacesRoute
   AuthenticatedSettingsStatusesRoute: typeof AuthenticatedSettingsStatusesRoute
-  AuthenticatedSettingsTimeSlotsRoute: typeof AuthenticatedSettingsTimeSlotsRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedSettingsRestaurantIdRoute: typeof AuthenticatedSettingsRestaurantIdRoute
 }
@@ -756,9 +733,7 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsNotificationsRoute,
     AuthenticatedSettingsRestaurantsRoute:
       AuthenticatedSettingsRestaurantsRoute,
-    AuthenticatedSettingsSpacesRoute: AuthenticatedSettingsSpacesRoute,
     AuthenticatedSettingsStatusesRoute: AuthenticatedSettingsStatusesRoute,
-    AuthenticatedSettingsTimeSlotsRoute: AuthenticatedSettingsTimeSlotsRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
     AuthenticatedSettingsRestaurantIdRoute:
       AuthenticatedSettingsRestaurantIdRoute,
@@ -771,6 +746,7 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedCompaniesRoute: typeof AuthenticatedCompaniesRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
@@ -786,6 +762,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedCompaniesRoute: AuthenticatedCompaniesRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,

@@ -19,6 +19,7 @@ import { ContactsKanban } from './components/contacts-kanban'
 import { ContactsCards } from './components/contacts-cards'
 import { CreateContactDialog } from './components/create-contact-dialog'
 import { useContacts, useContactStatuses, useOrganizationUsers, useRestaurantsList } from './hooks/use-contacts'
+import { useCompanies } from '../companies/hooks/use-companies'
 
 type ViewMode = 'table' | 'kanban' | 'cards'
 
@@ -78,6 +79,7 @@ export function Contacts() {
       setSearchValue('')
       setSelectedCommercials(new Set())
       setSelectedRestaurants(new Set())
+      setSelectedCompanies(new Set())
       setSelectedStatuses(new Set())
       setSelectedSources(new Set())
       navigate({
@@ -92,6 +94,7 @@ export function Contacts() {
 
   const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
   const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(new Set())
+  const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set())
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set())
 
@@ -99,6 +102,7 @@ export function Contacts() {
   const { data: statuses = [], isLoading: isLoadingStatuses } = useContactStatuses()
   const { data: users = [] } = useOrganizationUsers()
   const { data: restaurants = [] } = useRestaurantsList()
+  const { data: companies = [] } = useCompanies()
 
   const sourceOptions = useMemo(() => {
     const sources = new Set(contacts.map(c => c.source).filter(Boolean) as string[])
@@ -137,7 +141,7 @@ export function Contacts() {
 
     if (searchValue) {
       const q = searchValue.toLowerCase()
-      result = result.filter(c => 
+      result = result.filter((c: any) => 
         (c.first_name || '').toLowerCase().includes(q) ||
         (c.last_name || '').toLowerCase().includes(q) ||
         (c.email || '').toLowerCase().includes(q) ||
@@ -146,22 +150,26 @@ export function Contacts() {
     }
 
     if (selectedCommercials.size > 0) {
-      result = result.filter(c => c.assigned_to && selectedCommercials.has(c.assigned_to))
+      result = result.filter((c: any) => c.assigned_to && selectedCommercials.has(c.assigned_to))
     }
 
     if (selectedRestaurants.size > 0) {
-      result = result.filter(c => {
+      result = result.filter((c: any) => {
         const rid = (c as Record<string, unknown>).restaurant_id as string | null
         return rid && selectedRestaurants.has(rid)
       })
     }
 
+    if (selectedCompanies.size > 0) {
+      result = result.filter((c: any) => c.company_id && selectedCompanies.has(c.company_id))
+    }
+
     if (selectedStatuses.size > 0) {
-      result = result.filter(c => c.status?.slug && selectedStatuses.has(c.status.slug))
+      result = result.filter((c: any) => c.status?.slug && selectedStatuses.has(c.status.slug))
     }
 
     if (selectedSources.size > 0) {
-      result = result.filter(c => c.source && selectedSources.has(c.source))
+      result = result.filter((c: any) => c.source && selectedSources.has(c.source))
     }
     
     return result
@@ -223,6 +231,12 @@ export function Contacts() {
               options={restaurants.map(r => ({ label: r.name, value: r.id }))}
               selected={selectedRestaurants}
               onSelectionChange={setSelectedRestaurants}
+            />
+            <FacetedFilter
+              title='Société'
+              options={companies.map((c: any) => ({ label: c.name, value: c.id }))}
+              selected={selectedCompanies}
+              onSelectionChange={setSelectedCompanies}
             />
             <FacetedFilter
               title='Statut'

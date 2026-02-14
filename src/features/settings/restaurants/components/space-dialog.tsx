@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreateSpace, useUpdateSpace, useRestaurants, type Space } from '../hooks/use-settings'
+import { useCreateSpace, useUpdateSpace, useRestaurants, type Space } from '../../hooks/use-settings'
 
 const spaceSchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
@@ -53,7 +53,7 @@ interface SpaceDialogProps {
 export function SpaceDialog({ open, onOpenChange, space, defaultRestaurantId }: SpaceDialogProps) {
   const { mutate: createSpace, isPending: isCreating } = useCreateSpace()
   const { mutate: updateSpace, isPending: isUpdating } = useUpdateSpace()
-  const { data: restaurants = [] } = useRestaurants()
+  const { data: restaurants = [] as any[] } = useRestaurants()
   const isPending = isCreating || isUpdating
 
   const form = useForm<SpaceFormData>({
@@ -125,7 +125,7 @@ export function SpaceDialog({ open, onOpenChange, space, defaultRestaurantId }: 
           <DialogDescription>
             {space
               ? "Modifiez les informations de l'espace."
-              : 'Ajoutez un nouvel espace à votre organisation.'}
+              : 'Ajoutez un nouvel espace à votre restaurant.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -158,7 +158,7 @@ export function SpaceDialog({ open, onOpenChange, space, defaultRestaurantId }: 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {restaurants.map((restaurant) => (
+                        {restaurants.map((restaurant: any) => (
                           <SelectItem key={restaurant.id} value={restaurant.id}>
                             {restaurant.name}
                           </SelectItem>
