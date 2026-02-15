@@ -12,12 +12,23 @@ import {
   History,
   Mail,
   Phone,
+  Trash2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +54,8 @@ import { Switch } from '@/components/ui/switch'
 import {
   useUpdateBooking,
   useDeleteBooking,
+  useCreateBookingEvent,
+  useDeleteBookingEvent,
   useBookingStatuses,
   useQuotesByBooking,
   usePaymentsByBooking,
@@ -75,7 +88,7 @@ type BookingDetailProps = {
 }
 
 // ─── Editable sub-event card ─────────────────────────────────────
-function BookingEventCard({ event, spaces, onDirtyChange }: { event: BookingEventRow; spaces: { id: string; name: string }[]; onDirtyChange?: (isDirty: boolean) => void }) {
+function BookingEventCard({ event, spaces, onDirtyChange, bookingEvents, selectedEventId, onSelectEvent, onDeleteEvent }: { event: BookingEventRow; spaces: { id: string; name: string }[]; onDirtyChange?: (isDirty: boolean) => void; bookingEvents: BookingEventRow[]; selectedEventId: string; onSelectEvent: (value: string) => void; onDeleteEvent: (event: BookingEventRow) => void }) {
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [_dirty, setDirty] = useState(false)
 
@@ -124,7 +137,35 @@ function BookingEventCard({ event, spaces, onDirtyChange }: { event: BookingEven
 
   return (
     <Card>
-      <CardContent className='space-y-3 pt-2'>
+      <CardContent className='space-y-3 pt-1'>
+        <div className='max-w-sm'>
+          <label className='text-xs font-medium'>Sous-événement</label>
+          <div className='flex items-center gap-2'>
+            <Select value={selectedEventId} onValueChange={onSelectEvent}>
+              <SelectTrigger className='h-8'>
+                <SelectValue placeholder='Sélectionner un sous-événement' />
+              </SelectTrigger>
+              <SelectContent>
+                {bookingEvents.map((eventItem, index) => (
+                  <SelectItem key={eventItem.id} value={eventItem.id}>
+                    {eventItem.name || `Sous-événement ${index + 1}`}
+                  </SelectItem>
+                ))}
+                <SelectItem value='__create__'>+ Créer un sous-événement</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type='button'
+              size='icon'
+              variant='outline'
+              className='h-8 w-8 text-destructive hover:text-destructive'
+              onClick={() => onDeleteEvent(event)}
+            >
+              <Trash2 className='h-4 w-4' />
+            </Button>
+          </div>
+        </div>
+
         {/* Nom */}
         <div>
           <label className='text-xs font-medium'>Nom</label>
@@ -306,6 +347,8 @@ export const BookingDetail = forwardRef<
   const navigate = useNavigate()
   const { mutate: updateBooking } = useUpdateBooking()
   const { mutate: deleteBookingMutation } = useDeleteBooking()
+  const { mutate: createBookingEvent } = useCreateBookingEvent()
+  const { mutate: deleteBookingEvent } = useDeleteBookingEvent()
   const { data: statuses = [] } = useBookingStatuses()
   const { data: users = [] } = useOrganizationUsers()
   const { data: spaces = [] } = useSpaces()
@@ -316,7 +359,22 @@ export const BookingDetail = forwardRef<
   const { mutate: deleteDocument, isPending: isDeletingDocument } = useDeleteDocument()
 
   const bookingEvents = booking.booking_events || []
+  const [selectedEventId, setSelectedEventId] = useState<string>(bookingEvents[0]?.id || '')
+  const [eventToDelete, setEventToDelete] = useState<BookingEventRow | null>(null)
   const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
+
+  useEffect(() => {
+    if (!bookingEvents.length) {
+      setSelectedEventId('')
+      return
+    }
+    const exists = bookingEvents.some(e => e.id === selectedEventId)
+    if (!exists) {
+      setSelectedEventId(bookingEvents[0].id)
+    }
+  }, [bookingEvents, selectedEventId])
+
+  const selectedEvent = bookingEvents.find(e => e.id === selectedEventId) || bookingEvents[0]
 
   const formValues = useMemo(() => ({
     contact_id: booking.contact_id || '',
@@ -399,6 +457,23 @@ export const BookingDetail = forwardRef<
     )
   }
 
+  const handleDeleteSubEvent = () => {
+    if (!eventToDelete) return
+
+    const deletedId = eventToDelete.id
+    deleteBookingEvent(deletedId, {
+      onSuccess: () => {
+        const remaining = bookingEvents.filter(e => e.id !== deletedId)
+        setSelectedEventId(remaining[0]?.id || '')
+        setEventToDelete(null)
+        toast.success('Sous-événement supprimé')
+      },
+      onError: () => {
+        toast.error('Erreur lors de la suppression du sous-événement')
+      },
+    })
+  }
+
   const handleDelete = () => {
     deleteBookingMutation(booking.id, {
       onSuccess: () => {
@@ -407,6 +482,50 @@ export const BookingDetail = forwardRef<
       },
       onError: () => toast.error('Erreur lors de la suppression'),
     })
+  }
+
+  const handleCreateSubEvent = (eventData?: Partial<BookingEventRow>) => {
+    createBookingEvent(
+      {
+        booking_id: booking.id,
+        name: eventData?.name || `Sous-événement ${bookingEvents.length + 1}`,
+        event_date: eventData?.event_date || booking.event_date,
+        start_time: eventData?.start_time || booking.start_time || null,
+        end_time: eventData?.end_time || booking.end_time || null,
+        guests_count: eventData?.guests_count ?? booking.guests_count ?? null,
+        space_id: eventData?.space_id || null,
+        occasion: eventData?.occasion || null,
+        is_date_flexible: Boolean(eventData?.is_date_flexible),
+        is_restaurant_flexible: Boolean(eventData?.is_restaurant_flexible),
+        client_preferred_time: eventData?.client_preferred_time || null,
+        menu_aperitif: eventData?.menu_aperitif || null,
+        menu_entree: eventData?.menu_entree || null,
+        menu_plat: eventData?.menu_plat || null,
+        menu_dessert: eventData?.menu_dessert || null,
+        menu_boissons: eventData?.menu_boissons || null,
+        mise_en_place: eventData?.mise_en_place || null,
+        deroulement: eventData?.deroulement || null,
+        is_privatif: Boolean(eventData?.is_privatif),
+        allergies_regimes: eventData?.allergies_regimes || null,
+        prestations_souhaitees: eventData?.prestations_souhaitees || null,
+        budget_client: eventData?.budget_client ?? null,
+        format_souhaite: eventData?.format_souhaite || null,
+        contact_sur_place_nom: eventData?.contact_sur_place_nom || null,
+        contact_sur_place_tel: eventData?.contact_sur_place_tel || null,
+        contact_sur_place_societe: eventData?.contact_sur_place_societe || null,
+        instructions_speciales: eventData?.instructions_speciales || null,
+        commentaires: eventData?.commentaires || null,
+        date_signature_devis: eventData?.date_signature_devis || null,
+      },
+      {
+        onSuccess: (created) => {
+          const createdId = (created as BookingEventRow | null)?.id
+          if (createdId) setSelectedEventId(createdId)
+          toast.success(eventData ? 'Sous-événement dupliqué' : 'Sous-événement créé')
+        },
+        onError: () => toast.error('Erreur lors de la création du sous-événement'),
+      }
+    )
   }
 
   // Expose submitForm, deleteBooking, and getIsDirty methods via ref
@@ -438,7 +557,7 @@ export const BookingDetail = forwardRef<
           <div className='space-y-4'>
             {/* Restaurant badge + dates */}
             <Card>
-              <CardContent className='pt-2 space-y-3'>
+              <CardContent className='pt-1 space-y-3'>
                 {/* Restaurant name + Actions */}
                 <div className='flex items-center justify-between gap-2'>
                   <div className='flex items-center gap-2'>
@@ -457,46 +576,25 @@ export const BookingDetail = forwardRef<
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align='end' className='w-56'>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        if (!booking.contact?.email) {
+                          toast.error('Le contact n\'a pas d\'adresse email')
+                          return
+                        }
+                        window.open(`mailto:${booking.contact.email}`, '_blank')
+                      }}>
                         <Mail className='mr-2 h-4 w-4' />
                         Envoyer un email
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <History className='mr-2 h-4 w-4' />
-                        Voir l'historique des emails
                       </DropdownMenuItem>
                       <DropdownMenuItem>
                         <ExternalLink className='mr-2 h-4 w-4' />
                         Ouvrir l'espace client
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <FileText className='mr-2 h-4 w-4' />
-                        Ouvrir le récapitulatif événement(s)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCreateSubEvent()}>
                         <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z' />
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 4v1m6 11h2m-6 0h-2v4m6-5h-2m6 2v1m-6 4h-2m6-5h-2m-6 2v-1m6-6h2m-6 2v4m6-4h2m-6 2v-1m6-6h2m-6 2v1m-6-6h2m6-2v-1' />
                         </svg>
-                        Dupliquer l'événement
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' />
-                        </svg>
-                        Désactiver la demande d'avis
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' />
-                        </svg>
-                        Transformer en multi-événements
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' />
-                        </svg>
-                        Masquer l'événementiel
+                        Créer un sous-événement
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -521,7 +619,7 @@ export const BookingDetail = forwardRef<
 
             {/* Contact info */}
             <Card>
-              <CardContent className='pt-2 space-y-2'>
+              <CardContent className='pt-1 space-y-2'>
                 {booking.contact?.company?.name && (
                   <div className='text-xs text-muted-foreground'>{booking.contact.company.name}</div>
                 )}
@@ -554,7 +652,7 @@ export const BookingDetail = forwardRef<
 
             {/* Sidebar form fields */}
             <Card>
-              <CardContent className='pt-2 space-y-3'>
+              <CardContent className='pt-1 space-y-3'>
                 {/* Statut */}
                 <FormField
                   control={form.control}
@@ -734,9 +832,24 @@ export const BookingDetail = forwardRef<
             {activeTab === 'evenementiel' && (
               <div className='space-y-4'>
                 {/* Sub-events — the real event details */}
-                {bookingEvents.map(event => (
-                  <BookingEventCard key={event.id} event={event} spaces={spaces} onDirtyChange={onDirtyChange} />
-                ))}
+                {selectedEvent && (
+                  <BookingEventCard
+                    key={selectedEvent.id}
+                    event={selectedEvent}
+                    spaces={spaces}
+                    onDirtyChange={onDirtyChange}
+                    bookingEvents={bookingEvents}
+                    selectedEventId={selectedEventId}
+                    onSelectEvent={(value) => {
+                      if (value === '__create__') {
+                        handleCreateSubEvent()
+                        return
+                      }
+                      setSelectedEventId(value)
+                    }}
+                    onDeleteEvent={setEventToDelete}
+                  />
+                )}
 
                 {bookingEvents.length === 0 && (
                   <Card>
@@ -947,6 +1060,23 @@ export const BookingDetail = forwardRef<
           </div>
 
         </div>
+
+        <AlertDialog open={!!eventToDelete} onOpenChange={(open) => !open && setEventToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer ce sous-événement ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action est irréversible.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction className='bg-destructive text-destructive-foreground hover:bg-destructive/90' onClick={handleDeleteSubEvent}>
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </form>
     </Form>
   )

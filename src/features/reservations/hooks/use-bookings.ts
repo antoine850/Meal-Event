@@ -291,6 +291,26 @@ export function useDeleteBooking() {
   })
 }
 
+export function useCreateBookingEvent() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (event: Partial<BookingEventRow> & { booking_id: string }) => {
+      const { data, error } = await supabase
+        .from('booking_events')
+        .insert(event as never)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+    },
+  })
+}
+
 export function useUpdateBookingEvent() {
   const queryClient = useQueryClient()
 

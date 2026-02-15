@@ -1,4 +1,5 @@
 # Supabase Configuration for MealEvent CRM
+project_id = "geofmvmydyjuculbbmil"
 
 [api]
 enabled = true
