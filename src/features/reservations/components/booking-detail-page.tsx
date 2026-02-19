@@ -18,12 +18,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useBooking } from '../hooks/use-bookings'
+import { useBooking, useQuotesByBooking, usePaymentsByBooking } from '../hooks/use-bookings'
+import { useDocumentsByBooking } from '../hooks/use-documents'
 import { BookingDetail } from './booking-detail'
 
 export function BookingDetailPage() {
   const { id } = useParams({ strict: false }) as { id: string }
   const { data: booking, isLoading } = useBooking(id)
+  const { data: quotes = [] } = useQuotesByBooking(id)
+  const { data: payments = [] } = usePaymentsByBooking(id)
+  const { data: documents = [] } = useDocumentsByBooking(id)
   const [activeTab, setActiveTab] = useState('evenementiel')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
@@ -48,8 +52,6 @@ export function BookingDetailPage() {
     )
   }
 
-  const bookingEvents = booking?.booking_events || []
-
   return (
     <>
       <Header fixed>
@@ -65,17 +67,16 @@ export function BookingDetailPage() {
               <TabsTrigger value='evenementiel' className='gap-1.5'>
                 <CalendarIcon className='h-4 w-4' />
                 Événementiel
-                <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{bookingEvents.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value='facturation' className='gap-1.5'>
                 <Receipt className='h-4 w-4' />
                 Facturation
-                <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>0</Badge>
+                {(quotes.length + payments.length) > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{quotes.length + payments.length}</Badge>}
               </TabsTrigger>
               <TabsTrigger value='fichiers' className='gap-1.5'>
                 <FileText className='h-4 w-4' />
                 Fichiers
-                <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>0</Badge>
+                {documents.length > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{documents.length}</Badge>}
               </TabsTrigger>
               <TabsTrigger value='historique' className='gap-1.5'>
                 <History className='h-4 w-4' />
@@ -86,12 +87,10 @@ export function BookingDetailPage() {
           </Tabs>
         </div>
         <div className='ms-auto flex items-center space-x-2'>
-          {isDirty && (
-            <Button size='sm' onClick={() => bookingDetailRef.current?.submitForm()} className='gap-2'>
-              <Save className='h-4 w-4' />
-              Enregistrer
-            </Button>
-          )}
+          <Button size='sm' onClick={() => bookingDetailRef.current?.submitForm()} disabled={!isDirty} className='gap-2'>
+            <Save className='h-4 w-4' />
+            Enregistrer
+          </Button>
           <Button size='icon' variant='ghost' onClick={() => setShowDeleteDialog(true)} className='h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10'>
             <Trash2 className='h-4 w-4' />
           </Button>

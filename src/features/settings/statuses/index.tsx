@@ -17,6 +17,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useStatuses, useDeleteStatus, type Status } from '../hooks/use-settings'
 import { StatusDialog } from './status-dialog'
 
@@ -26,14 +36,25 @@ export function StatusesSettings() {
   const [editingStatus, setEditingStatus] = useState<Status | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [statusType] = useState<'booking'>('booking')
+  const [statusToDelete, setStatusToDelete] = useState<Status | null>(null)
 
   const isLoading = isLoadingBookings
 
-  const handleDelete = (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce statut ?')) {
-      deleteStatus(id, {
-        onSuccess: () => toast.success('Statut supprimé'),
-        onError: () => toast.error('Erreur lors de la suppression'),
+  const handleDeleteClick = (status: Status) => {
+    setStatusToDelete(status)
+  }
+
+  const handleConfirmDelete = () => {
+    if (statusToDelete) {
+      deleteStatus(statusToDelete.id, {
+        onSuccess: () => {
+          toast.success('Statut supprimé')
+          setStatusToDelete(null)
+        },
+        onError: () => {
+          toast.error('Erreur lors de la suppression')
+          setStatusToDelete(null)
+        },
       })
     }
   }
@@ -111,7 +132,7 @@ export function StatusesSettings() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className='text-destructive'
-                          onClick={() => handleDelete(status.id)}
+                          onClick={() => handleDeleteClick(status)}
                         >
                           <Trash2 className='mr-2 h-4 w-4' />
                           Supprimer
@@ -138,6 +159,26 @@ export function StatusesSettings() {
         status={editingStatus}
         type={statusType}
       />
+
+      <AlertDialog open={!!statusToDelete} onOpenChange={(open) => !open && setStatusToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce statut ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Le statut "{statusToDelete?.name}" sera supprimé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              onClick={handleConfirmDelete}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -5,7 +5,6 @@ import type { Contact } from '@/lib/supabase/types'
 export type ContactWithRelations = Contact & {
   company?: { id: string; name: string } | null
   assigned_user?: { id: string; first_name: string; last_name: string } | null
-  restaurant?: { id: string; name: string } | null
 }
 
 async function getCurrentOrganizationId(): Promise<string | null> {
@@ -33,8 +32,7 @@ export function useContacts() {
         .select(`
           *,
           company:companies(id, name),
-          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name),
-          restaurant:restaurants(id, name)
+          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false })

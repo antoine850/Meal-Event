@@ -56,7 +56,6 @@ bookingsRouter.get('/:id', async (req: Request, res: Response) => {
         space:spaces (*),
         time_slot:time_slots (*),
         assigned_user:users!bookings_assigned_to_fkey (id, first_name, last_name, email),
-        booking_events (*),
         booking_products_services (*),
         quotes (
           *,
@@ -145,19 +144,3 @@ bookingsRouter.post('/:id/products-services', async (req: Request, res: Response
   }
 })
 
-// POST /api/bookings/:id/events
-bookingsRouter.post('/:id/events', async (req: Request, res: Response) => {
-  try {
-    const { data, error } = await supabase
-      .from('booking_events')
-      .insert({ ...req.body, booking_id: req.params.id })
-      .select()
-      .single()
-
-    if (error) throw error
-    res.status(201).json(data)
-  } catch (error) {
-    console.error('Error adding event:', error)
-    res.status(500).json({ error: 'Failed to add event' })
-  }
-})

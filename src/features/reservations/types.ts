@@ -1,7 +1,7 @@
 // Import types from use-bookings to avoid duplication
-import type { BookingEventRow, BookingWithRelations } from './hooks/use-bookings'
+import type { BookingWithRelations } from './hooks/use-bookings'
 
-export type { BookingEventRow, BookingWithRelations }
+export type { BookingWithRelations }
 
 export type Reservation = {
   id: string
@@ -21,9 +21,6 @@ export type Reservation = {
 }
 
 export function bookingToReservation(booking: BookingWithRelations): Reservation {
-  // Use first booking_event for event details (date, time, guests, etc.)
-  const firstEvent = booking.booking_events?.[0]
-  
   return {
     id: booking.id,
     clientName: booking.contact 
@@ -31,11 +28,11 @@ export function bookingToReservation(booking: BookingWithRelations): Reservation
       : 'Client inconnu',
     clientEmail: booking.contact?.email || null,
     clientPhone: booking.contact?.phone || null,
-    date: new Date(firstEvent?.event_date || booking.event_date),
-    startTime: firstEvent?.start_time || '12:00',
-    endTime: firstEvent?.end_time || '14:00',
-    guests: firstEvent?.guests_count || 0,
-    eventType: firstEvent?.occasion || null,
+    date: new Date(booking.event_date),
+    startTime: booking.start_time || '12:00',
+    endTime: booking.end_time || '14:00',
+    guests: booking.guests_count || 0,
+    eventType: booking.occasion || null,
     restaurant: {
       id: booking.restaurant?.id || '',
       name: booking.restaurant?.name || 'Restaurant',
@@ -43,7 +40,7 @@ export function bookingToReservation(booking: BookingWithRelations): Reservation
     },
     status: booking.status?.slug || 'pending',
     statusColor: booking.status?.color || 'bg-gray-500',
-    notes: firstEvent?.commentaires || null,
+    notes: booking.commentaires || null,
     amountHT: 0,
   }
 }

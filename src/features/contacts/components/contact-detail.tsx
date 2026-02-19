@@ -60,7 +60,6 @@ const contactDetailSchema = z.object({
   job_title: z.string().optional(),
   company_id: z.string().nullable().optional(),
   assigned_to: z.string().optional(),
-  restaurant_id: z.string().optional(),
   source: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -79,7 +78,6 @@ export function ContactDetail({ contact }: ContactDetailProps) {
   const { data: bookings = [], isLoading: isLoadingBookings } = useBookingsByContact(contact.id)
   const { mutate: deleteContact, isPending: isDeleting } = useDeleteContact()
   const { data: users = [] } = useOrganizationUsers()
-  const { data: restaurants = [] } = useRestaurantsList()
 
   const formValues = useMemo(() => ({
     first_name: contact.first_name || '',
@@ -90,7 +88,6 @@ export function ContactDetail({ contact }: ContactDetailProps) {
     job_title: contact.job_title || '',
     company_id: contact.company_id || null,
     assigned_to: contact.assigned_to || '',
-    restaurant_id: contact.restaurant_id || '',
     source: contact.source || '',
     address: contact.address || '',
     city: contact.city || '',
@@ -138,23 +135,20 @@ export function ContactDetail({ contact }: ContactDetailProps) {
   const onSubmit = (data: ContactDetailFormData) => {
     updateContact(
       {
-        ...{
-          id: contact.id,
-          first_name: data.first_name,
-          last_name: data.last_name || null,
-          email: data.email || null,
-          phone: data.phone || null,
-          mobile: data.mobile || null,
-          job_title: data.job_title || null,
-          company_id: data.company_id || null,
-          assigned_to: data.assigned_to || null,
-          source: data.source || null,
-          address: data.address || null,
-          city: data.city || null,
-          postal_code: data.postal_code || null,
-          notes: data.notes || null,
-        },
-        restaurant_id: data.restaurant_id || null,
+        id: contact.id,
+        first_name: data.first_name,
+        last_name: data.last_name || null,
+        email: data.email || null,
+        phone: data.phone || null,
+        mobile: data.mobile || null,
+        job_title: data.job_title || null,
+        company_id: data.company_id || null,
+        assigned_to: data.assigned_to || null,
+        source: data.source || null,
+        address: data.address || null,
+        city: data.city || null,
+        postal_code: data.postal_code || null,
+        notes: data.notes || null,
       },
       {
         onSuccess: () => {
@@ -374,30 +368,6 @@ export function ContactDetail({ contact }: ContactDetailProps) {
               <div className='grid grid-cols-2 gap-4'>
                 <FormField
                   control={form.control}
-                  name='restaurant_id'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Restaurant privilégié</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Sélectionner...' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {restaurants.map((r: any) => (
-                            <SelectItem key={r.id} value={r.id}>
-                              {r.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name='source'
                   render={({ field }) => (
                     <FormItem>
@@ -523,7 +493,6 @@ export function ContactDetail({ contact }: ContactDetailProps) {
             ) : (
               <div className='divide-y rounded-md border'>
                 {bookings.map((booking) => {
-                  const firstEvent = booking.booking_events?.[0]
                   return (
                     <Link
                       key={booking.id}
@@ -534,10 +503,10 @@ export function ContactDetail({ contact }: ContactDetailProps) {
                       <div className='flex items-center gap-4 min-w-0'>
                         <div className='flex flex-col'>
                           <span className='text-sm font-medium'>
-                            {format(new Date(firstEvent?.event_date || booking.event_date), 'dd MMMM yyyy', { locale: fr })}
+                            {format(new Date(booking.event_date), 'dd MMMM yyyy', { locale: fr })}
                           </span>
                           <span className='text-xs text-muted-foreground'>
-                            {firstEvent?.start_time || ''}{firstEvent?.end_time ? ` - ${firstEvent.end_time}` : ''}
+                            {booking.start_time || ''}{booking.end_time ? ` - ${booking.end_time}` : ''}
                           </span>
                         </div>
                         {booking.restaurant && (
@@ -553,14 +522,14 @@ export function ContactDetail({ contact }: ContactDetailProps) {
                             </span>
                           </div>
                         )}
-                        {firstEvent?.occasion && (
+                        {booking.occasion && (
                           <span className='text-xs text-muted-foreground hidden sm:inline'>
-                            {firstEvent.occasion}
+                            {booking.occasion}
                           </span>
                         )}
-                        {firstEvent?.guests_count && (
+                        {booking.guests_count && (
                           <span className='text-xs text-muted-foreground'>
-                            {firstEvent.guests_count} pers.
+                            {booking.guests_count} pers.
                           </span>
                         )}
                       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useMemo, useState, forwardRef, useImperativeHandle, useRef } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -7,28 +7,24 @@ import { toast } from 'sonner'
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
+  Edit,
   ExternalLink,
   FileText,
   History,
+  Loader2,
   Mail,
   Phone,
-  Trash2,
+  Plus,
+  Trash2 as TrashIcon,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { DatePicker } from '@/components/ui/date-picker'
+import { TimePicker } from '@/components/ui/time-picker'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,21 +46,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import {
   useUpdateBooking,
   useDeleteBooking,
-  useCreateBookingEvent,
-  useDeleteBookingEvent,
+  useDuplicateBooking,
   useBookingStatuses,
   useQuotesByBooking,
   usePaymentsByBooking,
   type BookingWithRelations,
-  type BookingEventRow,
 } from '../hooks/use-bookings'
 import { useDocumentsByBooking, useUploadDocument, useDeleteDocument } from '../hooks/use-documents'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
+import { useCreateQuote, useDeleteQuote, useRestaurantById, useContactWithCompany } from '../hooks/use-quotes'
+import { QuoteEditor } from './quote-editor'
 
 const bookingDetailSchema = z.object({
   contact_id: z.string().min(1, 'Le contact est requis'),
@@ -87,258 +89,6 @@ type BookingDetailProps = {
   onTabChange?: (tab: string) => void
 }
 
-// ─── Editable sub-event card ─────────────────────────────────────
-function BookingEventCard({ event, spaces, onDirtyChange, bookingEvents, selectedEventId, onSelectEvent, onDeleteEvent }: { event: BookingEventRow; spaces: { id: string; name: string }[]; onDirtyChange?: (isDirty: boolean) => void; bookingEvents: BookingEventRow[]; selectedEventId: string; onSelectEvent: (value: string) => void; onDeleteEvent: (event: BookingEventRow) => void }) {
-  const [form, setForm] = useState<Record<string, unknown>>({})
-  const [_dirty, setDirty] = useState(false)
-
-  useEffect(() => {
-    setForm({
-      name: event.name || '',
-      event_date: event.event_date || '',
-      start_time: event.start_time || '',
-      end_time: event.end_time || '',
-      guests_count: event.guests_count ?? '',
-      space_id: event.space_id || '',
-      occasion: event.occasion || '',
-      is_date_flexible: event.is_date_flexible || false,
-      is_restaurant_flexible: event.is_restaurant_flexible || false,
-      client_preferred_time: event.client_preferred_time || '',
-      menu_aperitif: event.menu_aperitif || '',
-      menu_entree: event.menu_entree || '',
-      menu_plat: event.menu_plat || '',
-      menu_dessert: event.menu_dessert || '',
-      menu_boissons: event.menu_boissons || '',
-      mise_en_place: event.mise_en_place || '',
-      deroulement: event.deroulement || '',
-      is_privatif: event.is_privatif || false,
-      allergies_regimes: event.allergies_regimes || '',
-      prestations_souhaitees: event.prestations_souhaitees || '',
-      budget_client: event.budget_client ?? '',
-      format_souhaite: event.format_souhaite || '',
-      contact_sur_place_nom: event.contact_sur_place_nom || '',
-      contact_sur_place_tel: event.contact_sur_place_tel || '',
-      contact_sur_place_societe: event.contact_sur_place_societe || '',
-      instructions_speciales: event.instructions_speciales || '',
-      commentaires: event.commentaires || '',
-      date_signature_devis: event.date_signature_devis || '',
-    })
-    setDirty(false)
-  }, [event])
-
-  const update = (key: string, value: unknown) => {
-    setForm(prev => ({ ...prev, [key]: value }))
-    setDirty(true)
-    onDirtyChange?.(true)
-  }
-
-  const inputCls = 'flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-  const textareaCls = 'flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none min-h-[60px]'
-
-  return (
-    <Card>
-      <CardContent className='space-y-3 pt-1'>
-        <div className='max-w-sm'>
-          <label className='text-xs font-medium'>Sous-événement</label>
-          <div className='flex items-center gap-2'>
-            <Select value={selectedEventId} onValueChange={onSelectEvent}>
-              <SelectTrigger className='h-8'>
-                <SelectValue placeholder='Sélectionner un sous-événement' />
-              </SelectTrigger>
-              <SelectContent>
-                {bookingEvents.map((eventItem, index) => (
-                  <SelectItem key={eventItem.id} value={eventItem.id}>
-                    {eventItem.name || `Sous-événement ${index + 1}`}
-                  </SelectItem>
-                ))}
-                <SelectItem value='__create__'>+ Créer un sous-événement</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              type='button'
-              size='icon'
-              variant='outline'
-              className='h-8 w-8 text-destructive hover:text-destructive'
-              onClick={() => onDeleteEvent(event)}
-            >
-              <Trash2 className='h-4 w-4' />
-            </Button>
-          </div>
-        </div>
-
-        {/* Nom */}
-        <div>
-          <label className='text-xs font-medium'>Nom</label>
-          <input className={inputCls} value={form.name as string || ''} onChange={e => update('name', e.target.value)} />
-        </div>
-
-        {/* Date / Espace */}
-        <div className='grid gap-3 md:grid-cols-2'>
-          <div>
-            <label className='text-xs font-medium'>Date</label>
-            <input type='date' className={inputCls} value={form.event_date as string || ''} onChange={e => update('event_date', e.target.value)} />
-          </div>
-          <div>
-            <label className='text-xs font-medium'>Espace</label>
-            <select className={inputCls} value={form.space_id as string || ''} onChange={e => update('space_id', e.target.value)}>
-              <option value=''>—</option>
-              {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Horaires / Personnes */}
-        <div className='grid gap-3 md:grid-cols-3'>
-          <div>
-            <label className='text-xs font-medium'>Début</label>
-            <input type='time' className={inputCls} value={form.start_time as string || ''} onChange={e => update('start_time', e.target.value)} />
-          </div>
-          <div>
-            <label className='text-xs font-medium'>Fin</label>
-            <input type='time' className={inputCls} value={form.end_time as string || ''} onChange={e => update('end_time', e.target.value)} />
-          </div>
-          <div>
-            <label className='text-xs font-medium'>Personnes</label>
-            <input type='number' className={inputCls} value={form.guests_count as string || ''} onChange={e => update('guests_count', e.target.value)} />
-          </div>
-        </div>
-
-        {/* Occasion / Heure préférée */}
-        <div className='grid gap-3 md:grid-cols-2'>
-          <div>
-            <label className='text-xs font-medium'>Occasion</label>
-            <input className={inputCls} value={form.occasion as string || ''} onChange={e => update('occasion', e.target.value)} />
-          </div>
-          <div>
-            <label className='text-xs font-medium'>Heure préférée client</label>
-            <input className={inputCls} value={form.client_preferred_time as string || ''} onChange={e => update('client_preferred_time', e.target.value)} />
-          </div>
-        </div>
-
-        {/* Flexibilité / Privatif */}
-        <div className='flex gap-6'>
-          <label className='flex items-center gap-2 text-xs'>
-            <Switch checked={form.is_date_flexible as boolean || false} onCheckedChange={v => update('is_date_flexible', v)} />
-            Date flexible
-          </label>
-          <label className='flex items-center gap-2 text-xs'>
-            <Switch checked={form.is_restaurant_flexible as boolean || false} onCheckedChange={v => update('is_restaurant_flexible', v)} />
-            Restaurant flexible
-          </label>
-          <label className='flex items-center gap-2 text-xs'>
-            <Switch checked={form.is_privatif as boolean || false} onCheckedChange={v => update('is_privatif', v)} />
-            Privatif
-          </label>
-        </div>
-
-        <Separator />
-
-        {/* Menu */}
-        <div className='space-y-2'>
-          <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>Menu</p>
-          <div className='grid gap-3 md:grid-cols-2'>
-            <div>
-              <label className='text-xs font-medium'>Apéritif</label>
-              <textarea className={textareaCls} value={form.menu_aperitif as string || ''} onChange={e => update('menu_aperitif', e.target.value)} />
-            </div>
-            <div>
-              <label className='text-xs font-medium'>Entrée</label>
-              <textarea className={textareaCls} value={form.menu_entree as string || ''} onChange={e => update('menu_entree', e.target.value)} />
-            </div>
-            <div>
-              <label className='text-xs font-medium'>Plat</label>
-              <textarea className={textareaCls} value={form.menu_plat as string || ''} onChange={e => update('menu_plat', e.target.value)} />
-            </div>
-            <div>
-              <label className='text-xs font-medium'>Dessert</label>
-              <textarea className={textareaCls} value={form.menu_dessert as string || ''} onChange={e => update('menu_dessert', e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <label className='text-xs font-medium'>Boissons</label>
-            <textarea className={textareaCls} value={form.menu_boissons as string || ''} onChange={e => update('menu_boissons', e.target.value)} />
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Mise en place / Déroulé */}
-        <div className='grid gap-3 md:grid-cols-2'>
-          <div>
-            <label className='text-xs font-medium'>Mise en place</label>
-            <textarea className={textareaCls} value={form.mise_en_place as string || ''} onChange={e => update('mise_en_place', e.target.value)} />
-          </div>
-          <div>
-            <label className='text-xs font-medium'>Déroulé</label>
-            <textarea className={textareaCls} value={form.deroulement as string || ''} onChange={e => update('deroulement', e.target.value)} />
-          </div>
-        </div>
-
-        {/* Allergies / Prestations */}
-        <div className='grid gap-3 md:grid-cols-2'>
-          <div>
-            <label className='text-xs font-medium'>Allergies / Régimes</label>
-            <textarea className={textareaCls} value={form.allergies_regimes as string || ''} onChange={e => update('allergies_regimes', e.target.value)} />
-          </div>
-          <div>
-            <label className='text-xs font-medium'>Prestations souhaitées</label>
-            <textarea className={textareaCls} value={form.prestations_souhaitees as string || ''} onChange={e => update('prestations_souhaitees', e.target.value)} />
-          </div>
-        </div>
-
-        {/* Budget / Format */}
-        <div className='grid gap-3 md:grid-cols-2'>
-          <div>
-            <label className='text-xs font-medium'>Budget client (€)</label>
-            <input type='number' step='0.01' className={inputCls} value={form.budget_client as string || ''} onChange={e => update('budget_client', e.target.value)} />
-          </div>
-          <div>
-            <label className='text-xs font-medium'>Format souhaité</label>
-            <input className={inputCls} value={form.format_souhaite as string || ''} onChange={e => update('format_souhaite', e.target.value)} />
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Contact sur place */}
-        <div className='space-y-2'>
-          <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>Contact sur place</p>
-          <div className='grid gap-3 md:grid-cols-3'>
-            <div>
-              <label className='text-xs font-medium'>Nom</label>
-              <input className={inputCls} value={form.contact_sur_place_nom as string || ''} onChange={e => update('contact_sur_place_nom', e.target.value)} />
-            </div>
-            <div>
-              <label className='text-xs font-medium'>Téléphone</label>
-              <input className={inputCls} value={form.contact_sur_place_tel as string || ''} onChange={e => update('contact_sur_place_tel', e.target.value)} />
-            </div>
-            <div>
-              <label className='text-xs font-medium'>Société</label>
-              <input className={inputCls} value={form.contact_sur_place_societe as string || ''} onChange={e => update('contact_sur_place_societe', e.target.value)} />
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Instructions / Commentaires / Date signature */}
-        <div>
-          <label className='text-xs font-medium'>Instructions spéciales</label>
-          <textarea className={textareaCls} value={form.instructions_speciales as string || ''} onChange={e => update('instructions_speciales', e.target.value)} />
-        </div>
-        <div>
-          <label className='text-xs font-medium'>Commentaires</label>
-          <textarea className={textareaCls} value={form.commentaires as string || ''} onChange={e => update('commentaires', e.target.value)} />
-        </div>
-        <div className='max-w-xs'>
-          <label className='text-xs font-medium'>Date signature devis</label>
-          <input type='date' className={inputCls} value={form.date_signature_devis as string || ''} onChange={e => update('date_signature_devis', e.target.value)} />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
 // ─── Main component ───────────────────────────────────────────────
 export const BookingDetail = forwardRef<
   { submitForm: () => void; deleteBooking: () => void; getIsDirty: () => boolean },
@@ -347,34 +97,25 @@ export const BookingDetail = forwardRef<
   const navigate = useNavigate()
   const { mutate: updateBooking } = useUpdateBooking()
   const { mutate: deleteBookingMutation } = useDeleteBooking()
-  const { mutate: createBookingEvent } = useCreateBookingEvent()
-  const { mutate: deleteBookingEvent } = useDeleteBookingEvent()
+  const { mutate: duplicateBooking } = useDuplicateBooking()
   const { data: statuses = [] } = useBookingStatuses()
   const { data: users = [] } = useOrganizationUsers()
-  const { data: spaces = [] } = useSpaces()
+  const { data: spaces = [] } = useSpaces(booking.restaurant_id || undefined)
   const { data: quotes = [] } = useQuotesByBooking(booking.id)
   const { data: payments = [] } = usePaymentsByBooking(booking.id)
   const { data: documents = [] } = useDocumentsByBooking(booking.id)
   const { mutate: uploadDocument } = useUploadDocument()
   const { mutate: deleteDocument, isPending: isDeletingDocument } = useDeleteDocument()
+  const { mutate: createQuote, isPending: isCreatingQuote } = useCreateQuote()
+  const { mutate: deleteQuoteMutation } = useDeleteQuote()
+  const { data: fullRestaurant } = useRestaurantById(booking.restaurant_id)
+  const { data: fullContact } = useContactWithCompany(booking.contact_id)
 
-  const bookingEvents = booking.booking_events || []
-  const [selectedEventId, setSelectedEventId] = useState<string>(bookingEvents[0]?.id || '')
-  const [eventToDelete, setEventToDelete] = useState<BookingEventRow | null>(null)
+  // Quote editor state
+  const [quoteEditorOpen, setQuoteEditorOpen] = useState(false)
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
+
   const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
-
-  useEffect(() => {
-    if (!bookingEvents.length) {
-      setSelectedEventId('')
-      return
-    }
-    const exists = bookingEvents.some(e => e.id === selectedEventId)
-    if (!exists) {
-      setSelectedEventId(bookingEvents[0].id)
-    }
-  }, [bookingEvents, selectedEventId])
-
-  const selectedEvent = bookingEvents.find(e => e.id === selectedEventId) || bookingEvents[0]
 
   const formValues = useMemo(() => ({
     contact_id: booking.contact_id || '',
@@ -394,14 +135,66 @@ export const BookingDetail = forwardRef<
     values: formValues,
   })
 
-  // Notify parent when form dirty state changes
-  useEffect(() => {
-    onDirtyChange?.(form.formState.isDirty)
-  }, [form.formState.isDirty, onDirtyChange])
-
-  const blocker = useBlocker({
-    condition: form.formState.isDirty,
+  // ── Event form state (right panel fields) ──
+  const buildEventFormValues = (b: BookingWithRelations) => ({
+    event_date: b.event_date || '',
+    start_time: b.start_time || '',
+    end_time: b.end_time || '',
+    guests_count: b.guests_count ?? '',
+    space_id: b.space_id || '',
+    is_date_flexible: b.is_date_flexible || false,
+    is_restaurant_flexible: b.is_restaurant_flexible || false,
+    client_preferred_time: b.client_preferred_time || '',
+    menu_aperitif: b.menu_aperitif || '',
+    menu_entree: b.menu_entree || '',
+    menu_plat: b.menu_plat || '',
+    menu_dessert: b.menu_dessert || '',
+    menu_boissons: b.menu_boissons || '',
+    mise_en_place: b.mise_en_place || '',
+    deroulement: b.deroulement || '',
+    is_privatif: b.is_privatif || false,
+    allergies_regimes: b.allergies_regimes || '',
+    prestations_souhaitees: b.prestations_souhaitees || '',
+    budget_client: b.budget_client ?? '',
+    format_souhaite: b.format_souhaite || '',
+    contact_sur_place_nom: b.contact_sur_place_nom || '',
+    contact_sur_place_tel: b.contact_sur_place_tel || '',
+    contact_sur_place_societe: b.contact_sur_place_societe || '',
+    instructions_speciales: b.instructions_speciales || '',
+    commentaires: b.commentaires || '',
+    date_signature_devis: b.date_signature_devis || '',
+    assigned_user_ids: b.assigned_user_ids || [],
   })
+
+  const initialEventFormRef = useRef<Record<string, unknown>>(buildEventFormValues(booking))
+  const [eventForm, setEventForm] = useState<Record<string, unknown>>(buildEventFormValues(booking))
+
+  useEffect(() => {
+    const vals = buildEventFormValues(booking)
+    initialEventFormRef.current = vals
+    setEventForm(vals)
+  }, [booking])
+
+  // ── Dirty detection ──
+  const isEventFormDirty = useMemo(() => {
+    const initial = initialEventFormRef.current
+    return Object.keys(initial).some(key => {
+      const a = eventForm[key]
+      const b = initial[key]
+      if (Array.isArray(a) && Array.isArray(b)) {
+        return a.length !== b.length || a.some((v, i) => v !== b[i])
+      }
+      return a !== b
+    })
+  }, [eventForm])
+
+  const isDirty = form.formState.isDirty || isEventFormDirty
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty)
+  }, [isDirty, onDirtyChange])
+
+  const blocker = useBlocker({ condition: isDirty })
 
   useEffect(() => {
     if (blocker.status === 'blocked') {
@@ -422,55 +215,43 @@ export const BookingDetail = forwardRef<
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (form.formState.isDirty) {
+      if (isDirty) {
         e.preventDefault()
         e.returnValue = ''
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [form.formState.isDirty])
+  }, [isDirty])
 
-  const onSubmit = (data: BookingDetailFormData) => {
-    updateBooking(
-      {
-        id: booking.id,
-        contact_id: data.contact_id,
-        restaurant_id: data.restaurant_id,
-        status_id: data.status_id || null,
-        assigned_to: data.assigned_to || null,
-        occasion: data.occasion || null,
-        option: data.option || null,
-        relance: data.relance || null,
-        source: data.source || null,
-        is_table_blocked: data.is_table_blocked || false,
-        has_extra_provider: data.has_extra_provider || false,
-      } as never,
-      {
-        onSuccess: () => {
-          toast.success('Événement mis à jour')
-          form.reset(data, { keepValues: true })
-          onDirtyChange?.(false)
-        },
-        onError: () => toast.error('Erreur lors de la mise à jour'),
-      }
-    )
+  const updateEventField = (key: string, value: unknown) => {
+    setEventForm(prev => ({ ...prev, [key]: value }))
   }
 
-  const handleDeleteSubEvent = () => {
-    if (!eventToDelete) return
+  const onSubmit = (data: BookingDetailFormData) => {
+    const updateData = {
+      id: booking.id,
+      contact_id: data.contact_id,
+      restaurant_id: data.restaurant_id,
+      status_id: data.status_id || null,
+      assigned_to: data.assigned_to || null,
+      occasion: data.occasion || null,
+      option: data.option || null,
+      relance: data.relance || null,
+      source: data.source || null,
+      is_table_blocked: data.is_table_blocked || false,
+      has_extra_provider: data.has_extra_provider || false,
+      ...eventForm,
+    }
 
-    const deletedId = eventToDelete.id
-    deleteBookingEvent(deletedId, {
+    updateBooking(updateData as never, {
       onSuccess: () => {
-        const remaining = bookingEvents.filter(e => e.id !== deletedId)
-        setSelectedEventId(remaining[0]?.id || '')
-        setEventToDelete(null)
-        toast.success('Sous-événement supprimé')
+        toast.success('Événement mis à jour')
+        form.reset(data, { keepValues: true })
+        // Mark current eventForm as the new baseline
+        initialEventFormRef.current = { ...eventForm }
       },
-      onError: () => {
-        toast.error('Erreur lors de la suppression du sous-événement')
-      },
+      onError: () => toast.error('Erreur lors de la mise à jour'),
     })
   }
 
@@ -484,48 +265,14 @@ export const BookingDetail = forwardRef<
     })
   }
 
-  const handleCreateSubEvent = (eventData?: Partial<BookingEventRow>) => {
-    createBookingEvent(
-      {
-        booking_id: booking.id,
-        name: eventData?.name || `Sous-événement ${bookingEvents.length + 1}`,
-        event_date: eventData?.event_date || booking.event_date,
-        start_time: eventData?.start_time || booking.start_time || null,
-        end_time: eventData?.end_time || booking.end_time || null,
-        guests_count: eventData?.guests_count ?? booking.guests_count ?? null,
-        space_id: eventData?.space_id || null,
-        occasion: eventData?.occasion || null,
-        is_date_flexible: Boolean(eventData?.is_date_flexible),
-        is_restaurant_flexible: Boolean(eventData?.is_restaurant_flexible),
-        client_preferred_time: eventData?.client_preferred_time || null,
-        menu_aperitif: eventData?.menu_aperitif || null,
-        menu_entree: eventData?.menu_entree || null,
-        menu_plat: eventData?.menu_plat || null,
-        menu_dessert: eventData?.menu_dessert || null,
-        menu_boissons: eventData?.menu_boissons || null,
-        mise_en_place: eventData?.mise_en_place || null,
-        deroulement: eventData?.deroulement || null,
-        is_privatif: Boolean(eventData?.is_privatif),
-        allergies_regimes: eventData?.allergies_regimes || null,
-        prestations_souhaitees: eventData?.prestations_souhaitees || null,
-        budget_client: eventData?.budget_client ?? null,
-        format_souhaite: eventData?.format_souhaite || null,
-        contact_sur_place_nom: eventData?.contact_sur_place_nom || null,
-        contact_sur_place_tel: eventData?.contact_sur_place_tel || null,
-        contact_sur_place_societe: eventData?.contact_sur_place_societe || null,
-        instructions_speciales: eventData?.instructions_speciales || null,
-        commentaires: eventData?.commentaires || null,
-        date_signature_devis: eventData?.date_signature_devis || null,
+  const handleDuplicate = () => {
+    duplicateBooking(booking, {
+      onSuccess: (data) => {
+        toast.success('Événement dupliqué')
+        navigate({ to: '/evenements/booking/$id', params: { id: (data as { id: string }).id } })
       },
-      {
-        onSuccess: (created) => {
-          const createdId = (created as BookingEventRow | null)?.id
-          if (createdId) setSelectedEventId(createdId)
-          toast.success(eventData ? 'Sous-événement dupliqué' : 'Sous-événement créé')
-        },
-        onError: () => toast.error('Erreur lors de la création du sous-événement'),
-      }
-    )
+      onError: () => toast.error('Erreur lors de la duplication'),
+    })
   }
 
   // Expose submitForm, deleteBooking, and getIsDirty methods via ref
@@ -581,20 +328,31 @@ export const BookingDetail = forwardRef<
                           toast.error('Le contact n\'a pas d\'adresse email')
                           return
                         }
-                        window.open(`mailto:${booking.contact.email}`, '_blank')
+                        window.location.href = `mailto:${booking.contact.email}`
                       }}>
                         <Mail className='mr-2 h-4 w-4' />
                         Envoyer un email
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        if (!booking.contact_id) {
+                          toast.error('Aucun contact associé')
+                          return
+                        }
+                        navigate({ to: '/contacts/contact/$id', params: { id: booking.contact_id } })
+                      }}>
                         <ExternalLink className='mr-2 h-4 w-4' />
                         Ouvrir l'espace client
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleCreateSubEvent()}>
+                      <DropdownMenuItem onClick={handleDuplicate}>
                         <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 4v1m6 11h2m-6 0h-2v4m6-5h-2m6 2v1m-6 4h-2m6-5h-2m-6 2v-1m6-6h2m-6 2v4m6-4h2m-6 2v-1m6-6h2m-6 2v1m-6-6h2m6-2v-1' />
+                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z' />
                         </svg>
-                        Créer un sous-événement
+                        Dupliquer l'événement
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled className='opacity-50'>
+                        <FileText className='mr-2 h-4 w-4' />
+                        Voir la fiche de fonction
+                        <Badge variant='secondary' className='ml-auto text-[9px] px-1.5 py-0'>Soon</Badge>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -653,6 +411,47 @@ export const BookingDetail = forwardRef<
             {/* Sidebar form fields */}
             <Card>
               <CardContent className='pt-1 space-y-3'>
+                {/* Commerciaux assignés */}
+                <div>
+                  <label className='text-xs font-medium'>Commerciaux assignés</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant='outline' className='w-full h-8 justify-start text-xs mt-2'>
+                        {((eventForm.assigned_user_ids as string[]) || []).length > 0
+                          ? users
+                              .filter(u => ((eventForm.assigned_user_ids as string[]) || []).includes(u.id))
+                              .map(u => `${u.first_name} ${u.last_name}`)
+                              .join(', ')
+                          : 'Sélectionnez des commerciaux'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className='w-56 p-3'>
+                      <div className='space-y-2'>
+                        {users.map((user: { id: string; first_name: string; last_name: string }) => (
+                          <div key={user.id} className='flex items-center gap-2'>
+                            <Checkbox
+                              id={`user-${user.id}`}
+                              checked={((eventForm.assigned_user_ids as string[]) || []).includes(user.id)}
+                              onCheckedChange={(checked) => {
+                                const currentIds = (eventForm.assigned_user_ids as string[]) || []
+                                const newIds = checked
+                                  ? [...currentIds, user.id]
+                                  : currentIds.filter((id: string) => id !== user.id)
+                                updateEventField('assigned_user_ids', newIds)
+                              }}
+                            />
+                            <label htmlFor={`user-${user.id}`} className='text-xs cursor-pointer'>
+                              {user.first_name} {user.last_name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <Separator />
+
                 {/* Statut */}
                 <FormField
                   control={form.control}
@@ -697,36 +496,8 @@ export const BookingDetail = forwardRef<
                     <FormItem>
                       <FormLabel className='text-xs'>Relance</FormLabel>
                       <FormControl>
-                        <Input type='date' className='h-8 text-sm' value={field.value || ''} onChange={field.onChange} />
+                        <DatePicker value={field.value || ''} onChange={field.onChange} />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Separator />
-
-                {/* Assigné */}
-                <FormField
-                  control={form.control}
-                  name='assigned_to'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className='text-xs'>Assigné</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className='h-8'>
-                            <SelectValue placeholder='Sélectionnez' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {users.map(u => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.first_name} {u.last_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -831,33 +602,172 @@ export const BookingDetail = forwardRef<
             {/* ── Tab: Événementiel ── */}
             {activeTab === 'evenementiel' && (
               <div className='space-y-4'>
-                {/* Sub-events — the real event details */}
-                {selectedEvent && (
-                  <BookingEventCard
-                    key={selectedEvent.id}
-                    event={selectedEvent}
-                    spaces={spaces}
-                    onDirtyChange={onDirtyChange}
-                    bookingEvents={bookingEvents}
-                    selectedEventId={selectedEventId}
-                    onSelectEvent={(value) => {
-                      if (value === '__create__') {
-                        handleCreateSubEvent()
-                        return
-                      }
-                      setSelectedEventId(value)
-                    }}
-                    onDeleteEvent={setEventToDelete}
-                  />
-                )}
+                <Card>
+                  <CardContent className='space-y-3 pt-1'>
+                    {/* Date / Espace */}
+                    <div className='grid gap-3 md:grid-cols-2'>
+                      <div>
+                        <label className='text-xs font-medium'>Date</label>
+                        <DatePicker value={eventForm.event_date as string || ''} onChange={(value) => updateEventField('event_date', value)} />
+                      </div>
+                      <div>
+                        <label className='text-xs font-medium'>Espace</label>
+                        <Select value={eventForm.space_id as string || ''} onValueChange={(value) => updateEventField('space_id', value)}>
+                          <SelectTrigger className='h-8'>
+                            <SelectValue placeholder='Sélectionnez un espace' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {spaces.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                {bookingEvents.length === 0 && (
-                  <Card>
-                    <CardContent className='py-8 text-center text-muted-foreground'>
-                      Aucun sous-événement pour le moment.
-                    </CardContent>
-                  </Card>
-                )}
+                    {/* Horaires / Personnes */}
+                    <div className='grid gap-3 md:grid-cols-3'>
+                      <div>
+                        <label className='text-xs font-medium'>Début</label>
+                        <TimePicker value={eventForm.start_time as string || ''} onChange={(value) => updateEventField('start_time', value)} />
+                      </div>
+                      <div>
+                        <label className='text-xs font-medium'>Fin</label>
+                        <TimePicker value={eventForm.end_time as string || ''} onChange={(value) => updateEventField('end_time', value)} />
+                      </div>
+                      <div>
+                        <label className='text-xs font-medium'>Personnes</label>
+                        <Input type='number' min='1' value={eventForm.guests_count as string || ''} onChange={e => updateEventField('guests_count', e.target.value ? Number(e.target.value) : null)} className='h-8 text-sm' />
+                      </div>
+                    </div>
+
+                    {/* Heure préférée */}
+                    <div>
+                      <label className='text-xs font-medium'>Heure préférée client</label>
+                      <Input value={eventForm.client_preferred_time as string || ''} onChange={e => updateEventField('client_preferred_time', e.target.value)} className='h-8 text-sm' />
+                    </div>
+
+                    {/* Flexibilité / Privatif */}
+                    <div className='flex gap-6'>
+                      <label className='flex items-center gap-2 text-xs'>
+                        <Switch checked={eventForm.is_date_flexible as boolean || false} onCheckedChange={v => updateEventField('is_date_flexible', v)} />
+                        Date flexible
+                      </label>
+                      <label className='flex items-center gap-2 text-xs'>
+                        <Switch checked={eventForm.is_restaurant_flexible as boolean || false} onCheckedChange={v => updateEventField('is_restaurant_flexible', v)} />
+                        Restaurant flexible
+                      </label>
+                      <label className='flex items-center gap-2 text-xs'>
+                        <Switch checked={eventForm.is_privatif as boolean || false} onCheckedChange={v => updateEventField('is_privatif', v)} />
+                        Privatif
+                      </label>
+                    </div>
+
+                    <Separator />
+
+                    {/* Menu */}
+                    <div className='space-y-2'>
+                      <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>Menu</p>
+                      <div className='grid gap-3 md:grid-cols-2'>
+                        <div>
+                          <label className='text-xs font-medium'>Apéritif</label>
+                          <Textarea value={eventForm.menu_aperitif as string || ''} onChange={e => updateEventField('menu_aperitif', e.target.value)} className='text-sm min-h-[60px]' />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>Entrée</label>
+                          <Textarea value={eventForm.menu_entree as string || ''} onChange={e => updateEventField('menu_entree', e.target.value)} className='text-sm min-h-[60px]' />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>Plat</label>
+                          <Textarea value={eventForm.menu_plat as string || ''} onChange={e => updateEventField('menu_plat', e.target.value)} className='text-sm min-h-[60px]' />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>Dessert</label>
+                          <Textarea value={eventForm.menu_dessert as string || ''} onChange={e => updateEventField('menu_dessert', e.target.value)} className='text-sm min-h-[60px]' />
+                        </div>
+                      </div>
+                      <div>
+                        <label className='text-xs font-medium'>Boissons</label>
+                        <Textarea value={eventForm.menu_boissons as string || ''} onChange={e => updateEventField('menu_boissons', e.target.value)} className='text-sm min-h-[60px]' />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Mise en place / Déroulé */}
+                    <div className='grid gap-3 md:grid-cols-2'>
+                      <div>
+                        <label className='text-xs font-medium'>Mise en place</label>
+                        <Textarea value={eventForm.mise_en_place as string || ''} onChange={e => updateEventField('mise_en_place', e.target.value)} className='text-sm min-h-[60px]' />
+                      </div>
+                      <div>
+                        <label className='text-xs font-medium'>Déroulé</label>
+                        <Textarea value={eventForm.deroulement as string || ''} onChange={e => updateEventField('deroulement', e.target.value)} className='text-sm min-h-[60px]' />
+                      </div>
+                    </div>
+
+                    {/* Allergies / Prestations */}
+                    <div className='grid gap-3 md:grid-cols-2'>
+                      <div>
+                        <label className='text-xs font-medium'>Allergies / Régimes</label>
+                        <Textarea value={eventForm.allergies_regimes as string || ''} onChange={e => updateEventField('allergies_regimes', e.target.value)} className='text-sm min-h-[60px]' />
+                      </div>
+                      <div>
+                        <label className='text-xs font-medium'>Prestations souhaitées</label>
+                        <Textarea value={eventForm.prestations_souhaitees as string || ''} onChange={e => updateEventField('prestations_souhaitees', e.target.value)} className='text-sm min-h-[60px]' />
+                      </div>
+                    </div>
+
+                    {/* Budget / Format */}
+                    <div className='grid gap-3 md:grid-cols-2'>
+                      <div>
+                        <label className='text-xs font-medium'>Budget client (€)</label>
+                        <Input type='number' step='0.01' min='0' value={eventForm.budget_client as string || ''} onChange={e => updateEventField('budget_client', e.target.value ? Number(e.target.value) : null)} className='h-8 text-sm' />
+                      </div>
+                      <div>
+                        <label className='text-xs font-medium'>Format souhaité</label>
+                        <Input value={eventForm.format_souhaite as string || ''} onChange={e => updateEventField('format_souhaite', e.target.value)} className='h-8 text-sm' />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Contact sur place */}
+                    <div className='space-y-2'>
+                      <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>Contact sur place</p>
+                      <div className='grid gap-3 md:grid-cols-3'>
+                        <div>
+                          <label className='text-xs font-medium'>Nom</label>
+                          <Input value={eventForm.contact_sur_place_nom as string || ''} onChange={e => updateEventField('contact_sur_place_nom', e.target.value)} className='h-8 text-sm' />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>Téléphone</label>
+                          <Input value={eventForm.contact_sur_place_tel as string || ''} onChange={e => updateEventField('contact_sur_place_tel', e.target.value)} className='h-8 text-sm' />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>Société</label>
+                          <Input value={eventForm.contact_sur_place_societe as string || ''} onChange={e => updateEventField('contact_sur_place_societe', e.target.value)} className='h-8 text-sm' />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Instructions / Commentaires / Date signature */}
+                    <div>
+                      <label className='text-xs font-medium'>Instructions spéciales</label>
+                      <Textarea value={eventForm.instructions_speciales as string || ''} onChange={e => updateEventField('instructions_speciales', e.target.value)} className='text-sm min-h-[60px]' />
+                    </div>
+                    <div>
+                      <label className='text-xs font-medium'>Commentaires</label>
+                      <Textarea value={eventForm.commentaires as string || ''} onChange={e => updateEventField('commentaires', e.target.value)} className='text-sm min-h-[60px]' />
+                    </div>
+                    <div className='max-w-xs'>
+                      <label className='text-xs font-medium'>Date signature devis</label>
+                      <DatePicker value={eventForm.date_signature_devis as string || ''} onChange={(value) => updateEventField('date_signature_devis', value)} />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
@@ -868,36 +778,101 @@ export const BookingDetail = forwardRef<
               <Card>
                 <CardHeader className='pb-3'>
                   <div className='flex items-center justify-between'>
-                    <CardTitle className='text-base'>Devis / Factures</CardTitle>
-                    <Button size='sm' variant='outline'>
-                      + Offre
+                    <CardTitle className='text-base'>Devis / Offres</CardTitle>
+                    <Button
+                      size='sm'
+                      className='gap-1.5'
+                      disabled={isCreatingQuote}
+                      onClick={() => {
+                        createQuote({
+                          bookingId: booking.id,
+                          restaurantId: booking.restaurant_id || '',
+                          title: `Votre événement | ${booking.occasion || ''}`,
+                          dateStart: booking.event_date || undefined,
+                          dateEnd: booking.event_date || undefined,
+                        }, {
+                          onSuccess: (newQuote) => {
+                            setEditingQuoteId(newQuote.id)
+                            setQuoteEditorOpen(true)
+                            toast.success('Devis créé')
+                          },
+                          onError: () => toast.error('Erreur lors de la création du devis'),
+                        })
+                      }}
+                    >
+                      {isCreatingQuote ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : <Plus className='h-3.5 w-3.5' />}
+                      Nouvelle offre
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {quotes.length > 0 ? (
-                    <div className='space-y-3'>
+                    <div className='space-y-2'>
                       {quotes.map(quote => (
-                        <div key={quote.id} className='border rounded-lg p-3 space-y-2'>
+                        <div key={quote.id} className='border rounded-lg p-3 hover:bg-muted/30 transition-colors'>
                           <div className='flex items-center justify-between'>
-                            <div>
-                              <p className='font-medium text-sm'>Devis {quote.quote_number}</p>
-                              <p className='text-xs text-muted-foreground'>
-                                HT: {quote.total_ht?.toLocaleString('fr-FR')} € | TTC: {quote.total_ttc?.toLocaleString('fr-FR')} €
-                              </p>
+                            <div className='space-y-1'>
+                              <div className='flex items-center gap-2'>
+                                <p className='font-medium text-sm'>{quote.quote_number}</p>
+                                <Badge variant={
+                                  quote.status === 'draft' ? 'secondary' :
+                                  quote.status === 'sent' ? 'default' :
+                                  quote.status === 'signed' ? 'default' :
+                                  'outline'
+                                } className='text-[10px]'>
+                                  {quote.status === 'draft' ? 'Brouillon' :
+                                   quote.status === 'sent' ? 'Envoyé' :
+                                   quote.status === 'signed' ? 'Signé' :
+                                   quote.status === 'expired' ? 'Expiré' :
+                                   quote.status === 'cancelled' ? 'Annulé' :
+                                   quote.status}
+                                </Badge>
+                              </div>
+                              <div className='flex items-center gap-3 text-xs text-muted-foreground'>
+                                <span>HT: {(quote.total_ht || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                <span>TTC: {(quote.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                {quote.title && <span className='truncate max-w-[200px]'>{quote.title}</span>}
+                              </div>
                             </div>
-                            <div className='flex gap-2'>
-                              <Button size='sm' variant='outline'>Devis</Button>
-                              <Button size='sm' variant='outline'>Factures ({quote.status})</Button>
-                              <Button size='sm' variant='outline'>Générer</Button>
+                            <div className='flex items-center gap-1'>
+                              <Button
+                                size='icon'
+                                variant='ghost'
+                                className='h-7 w-7'
+                                title='Éditer'
+                                onClick={() => {
+                                  setEditingQuoteId(quote.id)
+                                  setQuoteEditorOpen(true)
+                                }}
+                              >
+                                <Edit className='h-3.5 w-3.5' />
+                              </Button>
+                              <Button
+                                size='icon'
+                                variant='ghost'
+                                className='h-7 w-7 text-destructive hover:text-destructive'
+                                title='Supprimer'
+                                onClick={() => {
+                                  if (confirm('Supprimer ce devis ?')) {
+                                    deleteQuoteMutation({ id: quote.id, bookingId: booking.id }, {
+                                      onSuccess: () => toast.success('Devis supprimé'),
+                                      onError: () => toast.error('Erreur lors de la suppression'),
+                                    })
+                                  }
+                                }}
+                              >
+                                <TrashIcon className='h-3.5 w-3.5' />
+                              </Button>
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className='py-6 text-center text-muted-foreground'>
+                    <div className='py-8 text-center text-muted-foreground'>
+                      <FileText className='h-8 w-8 mx-auto mb-2 opacity-50' />
                       <p className='text-sm'>Aucun devis pour le moment.</p>
+                      <p className='text-xs mt-1'>Cliquez sur &quot;Nouvelle offre&quot; pour créer un devis.</p>
                     </div>
                   )}
                 </CardContent>
@@ -908,8 +883,9 @@ export const BookingDetail = forwardRef<
                 <CardHeader className='pb-3'>
                   <div className='flex items-center justify-between'>
                     <CardTitle className='text-base'>Paiements / Cautions</CardTitle>
-                    <Button size='sm' variant='outline'>
-                      + Paiement
+                    <Button size='sm' variant='outline' className='gap-1.5'>
+                      <Plus className='h-3.5 w-3.5' />
+                      Paiement
                     </Button>
                   </div>
                 </CardHeader>
@@ -919,28 +895,33 @@ export const BookingDetail = forwardRef<
                       <table className='w-full text-sm'>
                         <thead>
                           <tr className='border-b'>
-                            <th className='text-left py-2 px-2 font-medium'>Statut</th>
-                            <th className='text-left py-2 px-2 font-medium'>Intitulé</th>
-                            <th className='text-left py-2 px-2 font-medium'>Montant</th>
-                            <th className='text-left py-2 px-2 font-medium'>Type de paiement</th>
-                            <th className='text-left py-2 px-2 font-medium'>Caution</th>
-                            <th className='text-left py-2 px-2 font-medium'>Actions</th>
+                            <th className='text-left py-2 px-2 font-medium text-xs'>Statut</th>
+                            <th className='text-left py-2 px-2 font-medium text-xs'>Type</th>
+                            <th className='text-left py-2 px-2 font-medium text-xs'>Montant</th>
+                            <th className='text-left py-2 px-2 font-medium text-xs'>Méthode</th>
+                            <th className='text-left py-2 px-2 font-medium text-xs'>Date</th>
                           </tr>
                         </thead>
                         <tbody>
                           {payments.map(payment => (
                             <tr key={payment.id} className='border-b hover:bg-muted/50'>
                               <td className='py-2 px-2'>
-                                <span className='text-xs px-2 py-1 rounded-full bg-muted'>
-                                  {payment.status}
-                                </span>
+                                <Badge variant={
+                                  payment.status === 'completed' ? 'default' :
+                                  payment.status === 'pending' ? 'secondary' :
+                                  'outline'
+                                } className='text-[10px]'>
+                                  {payment.status === 'completed' ? 'Payé' :
+                                   payment.status === 'pending' ? 'En attente' :
+                                   payment.status === 'failed' ? 'Échoué' :
+                                   payment.status}
+                                </Badge>
                               </td>
-                              <td className='py-2 px-2 text-xs'>Paiement</td>
-                              <td className='py-2 px-2 font-medium'>{payment.amount?.toLocaleString('fr-FR')} €</td>
-                              <td className='py-2 px-2 text-xs'>{payment.payment_type}</td>
-                              <td className='py-2 px-2 text-xs'>—</td>
-                              <td className='py-2 px-2'>
-                                <Button size='sm' variant='ghost'>⋮</Button>
+                              <td className='py-2 px-2 text-xs capitalize'>{payment.payment_type}</td>
+                              <td className='py-2 px-2 text-sm font-medium'>{(payment.amount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                              <td className='py-2 px-2 text-xs capitalize'>{payment.payment_method || '—'}</td>
+                              <td className='py-2 px-2 text-xs text-muted-foreground'>
+                                {payment.created_at ? format(new Date(payment.created_at), 'dd/MM/yyyy', { locale: fr }) : '—'}
                               </td>
                             </tr>
                           ))}
@@ -954,6 +935,16 @@ export const BookingDetail = forwardRef<
                   )}
                 </CardContent>
               </Card>
+
+              {/* Quote Editor Dialog */}
+              <QuoteEditor
+                open={quoteEditorOpen}
+                onOpenChange={setQuoteEditorOpen}
+                quoteId={editingQuoteId}
+                booking={booking}
+                restaurant={fullRestaurant}
+                contact={fullContact}
+              />
               </div>
             )}
 
@@ -1060,23 +1051,6 @@ export const BookingDetail = forwardRef<
           </div>
 
         </div>
-
-        <AlertDialog open={!!eventToDelete} onOpenChange={(open) => !open && setEventToDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer ce sous-événement ?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Cette action est irréversible.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Annuler</AlertDialogCancel>
-              <AlertDialogAction className='bg-destructive text-destructive-foreground hover:bg-destructive/90' onClick={handleDeleteSubEvent}>
-                Supprimer
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </form>
     </Form>
   )

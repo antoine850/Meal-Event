@@ -246,18 +246,24 @@ export type Space = {
   created_at: string
 }
 
-export function useSpaces() {
+export function useSpaces(restaurantId?: string) {
   return useQuery({
-    queryKey: ['settings-spaces'],
+    queryKey: ['settings-spaces', restaurantId],
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('spaces')
         .select('*, restaurant:restaurants(id, name)')
         .eq('organization_id', orgId)
-        .order('name', { ascending: true })
+        .eq('is_active', true)
+
+      if (restaurantId) {
+        query = query.eq('restaurant_id', restaurantId)
+      }
+
+      const { data, error } = await query.order('name', { ascending: true })
 
       if (error) throw error
       return data as (Space & { restaurant: { id: string; name: string } | null })[]

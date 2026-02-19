@@ -762,6 +762,27 @@ export interface Database {
           notes: string | null
           terms: string | null
           pdf_url: string | null
+          title: string | null
+          date_start: string | null
+          date_end: string | null
+          order_number: string | null
+          discount_percentage: number
+          deposit_percentage: number
+          deposit_label: string | null
+          deposit_days: number
+          balance_label: string | null
+          balance_days: number
+          quote_date: string | null
+          quote_due_days: number
+          invoice_due_days: number
+          comments_fr: string | null
+          comments_en: string | null
+          conditions_devis: string | null
+          conditions_facture: string | null
+          conditions_acompte: string | null
+          conditions_solde: string | null
+          language: string
+          version: number
           created_at: string
           updated_at: string
         }
@@ -784,6 +805,27 @@ export interface Database {
           notes?: string | null
           terms?: string | null
           pdf_url?: string | null
+          title?: string | null
+          date_start?: string | null
+          date_end?: string | null
+          order_number?: string | null
+          discount_percentage?: number
+          deposit_percentage?: number
+          deposit_label?: string | null
+          deposit_days?: number
+          balance_label?: string | null
+          balance_days?: number
+          quote_date?: string | null
+          quote_due_days?: number
+          invoice_due_days?: number
+          comments_fr?: string | null
+          comments_en?: string | null
+          conditions_devis?: string | null
+          conditions_facture?: string | null
+          conditions_acompte?: string | null
+          conditions_solde?: string | null
+          language?: string
+          version?: number
           created_at?: string
           updated_at?: string
         }
@@ -806,6 +848,27 @@ export interface Database {
           notes?: string | null
           terms?: string | null
           pdf_url?: string | null
+          title?: string | null
+          date_start?: string | null
+          date_end?: string | null
+          order_number?: string | null
+          discount_percentage?: number
+          deposit_percentage?: number
+          deposit_label?: string | null
+          deposit_days?: number
+          balance_label?: string | null
+          balance_days?: number
+          quote_date?: string | null
+          quote_due_days?: number
+          invoice_due_days?: number
+          comments_fr?: string | null
+          comments_en?: string | null
+          conditions_devis?: string | null
+          conditions_facture?: string | null
+          conditions_acompte?: string | null
+          conditions_solde?: string | null
+          language?: string
+          version?: number
           created_at?: string
           updated_at?: string
         }

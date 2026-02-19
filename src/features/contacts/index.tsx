@@ -14,7 +14,7 @@ import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ContactsTable } from './components/contacts-table'
 import { CreateContactDialog } from './components/create-contact-dialog'
-import { useContacts, useOrganizationUsers, useRestaurantsList } from './hooks/use-contacts'
+import { useContacts, useOrganizationUsers } from './hooks/use-contacts'
 import { useCompanies } from '../companies/hooks/use-companies'
 
 
@@ -63,7 +63,6 @@ export function Contacts() {
     () => {
       setSearchValue('')
       setSelectedCommercials(new Set())
-      setSelectedRestaurants(new Set())
       setSelectedCompanies(new Set())
       setSelectedSources(new Set())
       navigate({
@@ -77,13 +76,11 @@ export function Contacts() {
   const [searchValue, setSearchValue] = useState(search.q || '')
 
   const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
-  const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(new Set())
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set())
 
   const { data: contacts = [], isLoading: isLoadingContacts } = useContacts()
   const { data: users = [] } = useOrganizationUsers()
-  const { data: restaurants = [] } = useRestaurantsList()
   const { data: companies = [] } = useCompanies()
 
   const sourceOptions = useMemo(() => {
@@ -91,7 +88,7 @@ export function Contacts() {
     return Array.from(sources).sort().map(s => ({ label: s, value: s }))
   }, [contacts])
 
-  const hasActiveFilters = !!(search.q || search.from || search.to || selectedCommercials.size || selectedRestaurants.size || selectedSources.size)
+  const hasActiveFilters = !!(search.q || search.from || search.to || selectedCommercials.size || selectedSources.size)
 
 
   const filteredContacts = useMemo(() => {
@@ -124,13 +121,6 @@ export function Contacts() {
       result = result.filter((c: any) => c.assigned_to && selectedCommercials.has(c.assigned_to))
     }
 
-    if (selectedRestaurants.size > 0) {
-      result = result.filter((c: any) => {
-        const rid = c.restaurant_id as string | null
-        return rid && selectedRestaurants.has(rid)
-      })
-    }
-
     if (selectedCompanies.size > 0) {
       result = result.filter((c: any) => c.company_id && selectedCompanies.has(c.company_id))
     }
@@ -141,7 +131,7 @@ export function Contacts() {
     }
     
     return result
-  }, [contacts, dateRange, searchValue, selectedCommercials, selectedRestaurants, selectedSources])
+  }, [contacts, dateRange, searchValue, selectedCommercials, selectedSources])
 
   const isLoading = isLoadingContacts
 
@@ -188,12 +178,6 @@ export function Contacts() {
               options={users.map(u => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
               selected={selectedCommercials}
               onSelectionChange={setSelectedCommercials}
-            />
-            <FacetedFilter
-              title='Restaurant privilégié'
-              options={restaurants.map(r => ({ label: r.name, value: r.id }))}
-              selected={selectedRestaurants}
-              onSelectionChange={setSelectedRestaurants}
             />
             <FacetedFilter
               title='Société'
