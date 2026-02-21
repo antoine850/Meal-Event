@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
-import { Copy, Edit, Loader2, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react'
+import { Edit, Loader2, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   AlertDialog,
@@ -18,7 +18,6 @@ import {
 import {
   type ProductWithRestaurants,
   type PackageWithRelations,
-  PRODUCT_TYPES,
   useProducts,
   useDeleteProduct,
   usePackages,
@@ -27,6 +26,7 @@ import {
 import { useRestaurants } from '../hooks/use-settings'
 import { ProductDialog } from './product-dialog'
 import { PackageDialog } from './package-dialog'
+import { ProductsTable } from './products-table'
 
 export function ProductsPage() {
   const { data: products = [], isLoading: isLoadingProducts } = useProducts()
@@ -47,40 +47,27 @@ export function ProductsPage() {
   // Delete dialog state
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'product' | 'package'; id: string; name: string } | null>(null)
 
-  // Restaurant filter
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null)
-
-  const filteredProducts = useMemo(() => {
-    if (!selectedRestaurantId) return products
-    return products.filter(p =>
-      p.product_restaurants?.some(pr => pr.restaurant_id === selectedRestaurantId)
-    )
-  }, [products, selectedRestaurantId])
-
-  const filteredPackages = useMemo(() => {
-    if (!selectedRestaurantId) return packages
-    return packages.filter(pkg =>
-      pkg.package_restaurants?.some(pr => pr.restaurant_id === selectedRestaurantId)
-    )
-  }, [packages, selectedRestaurantId])
-
   const handleNewProduct = () => {
     setEditingProduct(null)
     setDuplicatingProduct(null)
     setProductDialogOpen(true)
   }
 
-  const handleEditProduct = (product: ProductWithRestaurants) => {
+  const handleEditProduct = useCallback((product: ProductWithRestaurants) => {
     setEditingProduct(product)
     setDuplicatingProduct(null)
     setProductDialogOpen(true)
-  }
+  }, [])
 
-  const handleDuplicateProduct = (product: ProductWithRestaurants) => {
+  const handleDuplicateProduct = useCallback((product: ProductWithRestaurants) => {
     setEditingProduct(null)
     setDuplicatingProduct(product)
     setProductDialogOpen(true)
-  }
+  }, [])
+
+  const handleDeleteProduct = useCallback((product: ProductWithRestaurants) => {
+    setDeleteTarget({ type: 'product', id: product.id, name: product.name })
+  }, [])
 
   const handleNewPackage = () => {
     setEditingPackage(null)
@@ -120,128 +107,35 @@ export function ProductsPage() {
 
   return (
     <>
-      {/* Restaurant filter */}
-      {restaurants.length > 0 && (
-        <div className='flex flex-wrap gap-1.5 mb-4'>
-          <button
-            type='button'
-            onClick={() => setSelectedRestaurantId(null)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-              !selectedRestaurantId
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background hover:bg-muted border-input'
-            }`}
-          >
-            Tous
-          </button>
-          {restaurants.map(r => (
-            <button
-              key={r.id}
-              type='button'
-              onClick={() => setSelectedRestaurantId(selectedRestaurantId === r.id ? null : r.id)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                selectedRestaurantId === r.id
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background hover:bg-muted border-input'
-              }`}
-            >
-              {r.color && <div className='h-2 w-2 rounded-full' style={{ backgroundColor: r.color }} />}
-              {r.name}
-            </button>
-          ))}
-        </div>
-      )}
-
       <Tabs defaultValue='products'>
-        <TabsList className='mb-4'>
-          <TabsTrigger value='products' className='gap-1.5'>
-            <ShoppingCart className='h-4 w-4' />
-            Produits ({filteredProducts.length})
-          </TabsTrigger>
-          <TabsTrigger value='packages' className='gap-1.5'>
-            <Package className='h-4 w-4' />
-            Packages ({filteredPackages.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className='flex items-center justify-between mb-4'>
+          <TabsList>
+            <TabsTrigger value='products' className='gap-1.5'>
+              <ShoppingCart className='h-4 w-4' />
+              Produits ({products.length})
+            </TabsTrigger>
+            <TabsTrigger value='packages' className='gap-1.5'>
+              <Package className='h-4 w-4' />
+              Packages ({packages.length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ── Products Tab ── */}
         <TabsContent value='products'>
-          <div className='flex justify-end mb-4'>
-            <Button size='sm' onClick={handleNewProduct} className='gap-1.5'>
-              <Plus className='h-4 w-4' />
-              Nouveau produit
-            </Button>
-          </div>
-
-          {filteredProducts.length === 0 ? (
-            <Card>
-              <CardContent className='py-8 text-center text-muted-foreground'>
-                Aucun produit pour le moment.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className='space-y-2'>
-              {PRODUCT_TYPES.map(typeInfo => {
-                const typeProducts = filteredProducts.filter(p => p.type === typeInfo.value)
-                if (typeProducts.length === 0) return null
-                return (
-                  <Card key={typeInfo.value}>
-                    <CardHeader className='py-3'>
-                      <CardTitle className='text-sm font-semibold'>{typeInfo.label} ({typeProducts.length})</CardTitle>
-                    </CardHeader>
-                    <CardContent className='p-0'>
-                      <div className='divide-y'>
-                        {typeProducts.map(product => (
-                          <div key={product.id} className='flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors'>
-                            <div className='flex items-center gap-3 min-w-0 flex-1'>
-                              <div className='min-w-0'>
-                                <div className='flex items-center gap-2'>
-                                  <span className='text-sm font-medium truncate'>{product.name}</span>
-                                  {!product.is_active && <Badge variant='secondary' className='text-[10px]'>Inactif</Badge>}
-                                  {product.price_per_person && <Badge variant='outline' className='text-[10px]'>Par pers.</Badge>}
-                                </div>
-                                {product.description && (
-                                  <p className='text-xs text-muted-foreground truncate max-w-md'>{product.description}</p>
-                                )}
-                                <div className='flex items-center gap-2 mt-0.5'>
-                                  <span className='text-xs text-muted-foreground'>{product.unit_price_ht}€ HT</span>
-                                  <span className='text-xs text-muted-foreground'>TVA {product.tva_rate}%</span>
-                                  <span className='text-xs font-medium'>{product.unit_price_ttc}€ TTC</span>
-                                  {product.margin > 0 && <span className='text-xs text-green-600'>Marge {product.margin}%</span>}
-                                </div>
-                              </div>
-                              <div className='flex flex-wrap gap-1 ml-auto mr-2'>
-                                {product.product_restaurants?.map(pr => (
-                                  <Badge key={pr.restaurant_id} variant='secondary' className='text-[10px]'>
-                                    <div
-                                      className='h-1.5 w-1.5 rounded-full mr-1'
-                                      style={{ backgroundColor: pr.restaurant?.color || '#ccc' }}
-                                    />
-                                    {pr.restaurant?.name}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                            <div className='flex items-center gap-1 shrink-0'>
-                              <Button size='icon' variant='ghost' className='h-7 w-7' onClick={() => handleDuplicateProduct(product)} title='Dupliquer'>
-                                <Copy className='h-3.5 w-3.5' />
-                              </Button>
-                              <Button size='icon' variant='ghost' className='h-7 w-7' onClick={() => handleEditProduct(product)} title='Modifier'>
-                                <Edit className='h-3.5 w-3.5' />
-                              </Button>
-                              <Button size='icon' variant='ghost' className='h-7 w-7 text-destructive hover:text-destructive' onClick={() => setDeleteTarget({ type: 'product', id: product.id, name: product.name })} title='Supprimer'>
-                                <Trash2 className='h-3.5 w-3.5' />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
+          <ProductsTable
+            data={products}
+            restaurants={restaurants}
+            onEdit={handleEditProduct}
+            onDuplicate={handleDuplicateProduct}
+            onDelete={handleDeleteProduct}
+            actionButton={
+              <Button size='sm' onClick={handleNewProduct} className='gap-1.5'>
+                <Plus className='h-4 w-4' />
+                Nouveau produit
+              </Button>
+            }
+          />
         </TabsContent>
 
         {/* ── Packages Tab ── */}
@@ -253,7 +147,7 @@ export function ProductsPage() {
             </Button>
           </div>
 
-          {filteredPackages.length === 0 ? (
+          {packages.length === 0 ? (
             <Card>
               <CardContent className='py-8 text-center text-muted-foreground'>
                 Aucun package pour le moment.
@@ -261,7 +155,7 @@ export function ProductsPage() {
             </Card>
           ) : (
             <div className='space-y-2'>
-              {filteredPackages.map(pkg => {
+              {packages.map(pkg => {
                 const totalHt = pkg.package_products?.reduce((sum, pp) => {
                   return sum + ((pp.product as any)?.unit_price_ht || 0) * pp.quantity
                 }, 0) || 0
