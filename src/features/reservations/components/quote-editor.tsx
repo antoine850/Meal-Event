@@ -171,7 +171,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       quoteId,
       name: product.name,
       description: product.description || undefined,
-      quantity: 1,
+      quantity: booking.guests_count || 1,
       unitPrice: product.unit_price_ht,
       tvaRate: product.tva_rate,
       position: items.length,
@@ -182,7 +182,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       },
       onError: () => toast.error('Erreur lors de l\'ajout'),
     })
-  }, [quoteId, catalogProducts, addQuoteItem, items.length])
+  }, [quoteId, catalogProducts, addQuoteItem, items.length, booking.guests_count])
 
   // Change contact on the quote
   const handleChangeContact = useCallback((contactId: string) => {
@@ -565,7 +565,12 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         <div className='grid grid-cols-2 gap-3'>
                           <div>
                             <Label className='text-[10px] text-muted-foreground'>Nom</Label>
-                            <p className='text-sm'>{resolvedContact.first_name} {resolvedContact.last_name || ''}</p>
+                            <div className='flex items-center gap-2'>
+                              <p className='text-sm'>{resolvedContact.first_name} {resolvedContact.last_name || ''}</p>
+                              {(resolvedContact as any).company && (
+                                <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>Pro</Badge>
+                              )}
+                            </div>
                           </div>
                           <div>
                             <Label className='text-[10px] text-muted-foreground'>Email</Label>
@@ -609,8 +614,13 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                         onSelect={() => handleChangeContact(c.id)}
                                         className='text-xs cursor-pointer'
                                       >
-                                        <div className='flex flex-col'>
-                                          <span className='font-medium'>{c.first_name} {c.last_name || ''}</span>
+                                        <div className='flex flex-col w-full'>
+                                          <div className='flex items-center gap-2'>
+                                            <span className='font-medium'>{c.first_name} {c.last_name || ''}</span>
+                                            {(c as any).company && (
+                                              <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>Pro</Badge>
+                                            )}
+                                          </div>
                                           <span className='text-[10px] text-muted-foreground'>
                                             {c.email || ''}
                                             {(c as any).company?.name && ` — ${(c as any).company.name}`}
@@ -806,7 +816,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         addQuoteItem({
                           quoteId,
                           name: 'Nouveau produit',
-                          quantity: 1,
+                          quantity: booking.guests_count || 1,
                           unitPrice: 0,
                           tvaRate: 20,
                           position: items.length,

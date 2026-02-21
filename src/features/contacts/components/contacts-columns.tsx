@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ExternalLink } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
@@ -43,9 +44,14 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
     ),
     cell: ({ row }) => (
       <div className='flex flex-col'>
-        <span className='font-medium'>
-          {row.original.first_name} {row.original.last_name || ''}
-        </span>
+        <div className='flex items-center gap-2'>
+          <span className='font-medium'>
+            {row.original.first_name} {row.original.last_name || ''}
+          </span>
+          {row.original.company && (
+            <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>Pro</Badge>
+          )}
+        </div>
         <span className='text-xs text-muted-foreground'>
           {row.original.company?.name || '-'}
         </span>

@@ -67,6 +67,8 @@ import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
 import { useCreateQuote, useDeleteQuote, useRestaurantById, useContactWithCompany } from '../hooks/use-quotes'
 import { QuoteEditor } from './quote-editor'
+import { PaymentDialog } from './payment-dialog'
+import type { Payment } from '@/lib/supabase/types'
 
 const bookingDetailSchema = z.object({
   contact_id: z.string().min(1, 'Le contact est requis'),
@@ -114,6 +116,10 @@ export const BookingDetail = forwardRef<
   // Quote editor state
   const [quoteEditorOpen, setQuoteEditorOpen] = useState(false)
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
+
+  // Payment dialog state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
 
   const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
 
@@ -229,6 +235,19 @@ export const BookingDetail = forwardRef<
   }
 
   const onSubmit = (data: BookingDetailFormData) => {
+    // Convert empty strings to null for numeric fields
+    const cleanEventForm = {
+      ...eventForm,
+      guests_count: eventForm.guests_count === '' ? null : eventForm.guests_count,
+      budget_client: eventForm.budget_client === '' ? null : eventForm.budget_client,
+    }
+
+    // Check if anything actually changed
+    const hasChanges = form.formState.isDirty || isEventFormDirty
+    if (!hasChanges) {
+      return
+    }
+
     const updateData = {
       id: booking.id,
       contact_id: data.contact_id,
@@ -241,7 +260,7 @@ export const BookingDetail = forwardRef<
       source: data.source || null,
       is_table_blocked: data.is_table_blocked || false,
       has_extra_provider: data.has_extra_provider || false,
-      ...eventForm,
+      ...cleanEventForm,
     }
 
     updateBooking(updateData as never, {
@@ -303,7 +322,7 @@ export const BookingDetail = forwardRef<
           {/* ═══════ LEFT SIDEBAR ═══════ */}
           <div className='space-y-4'>
             {/* Restaurant badge + dates */}
-            <Card>
+            <Card className='bg-muted/50'>
               <CardContent className='pt-1 space-y-3'>
                 {/* Restaurant name + Actions */}
                 <div className='flex items-center justify-between gap-2'>
@@ -376,15 +395,20 @@ export const BookingDetail = forwardRef<
             </Card>
 
             {/* Contact info */}
-            <Card>
+            <Card className='bg-muted/50'>
               <CardContent className='pt-1 space-y-2'>
                 {booking.contact?.company?.name && (
                   <div className='text-xs text-muted-foreground'>{booking.contact.company.name}</div>
                 )}
-                <div className='font-semibold'>
-                  {booking.contact
-                    ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`
-                    : '—'}
+                <div className='flex items-center gap-2'>
+                  <div className='font-semibold'>
+                    {booking.contact
+                      ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`
+                      : '—'}
+                  </div>
+                  {booking.contact?.company && (
+                    <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>Pro</Badge>
+                  )}
                 </div>
                 {booking.contact?.phone && (
                   <div className='flex items-center gap-2 text-sm text-muted-foreground'>
@@ -408,7 +432,8 @@ export const BookingDetail = forwardRef<
               </CardContent>
             </Card>
 
-            {/* Sidebar form fields */}
+            {/* Sidebar form fields - only on evenementiel tab */}
+            {activeTab === 'evenementiel' && (
             <Card>
               <CardContent className='pt-1 space-y-3'>
                 {/* Commerciaux assignés */}
@@ -594,6 +619,7 @@ export const BookingDetail = forwardRef<
                 </div>
               </CardContent>
             </Card>
+            )}
 
           </div>
 
@@ -884,7 +910,10 @@ export const BookingDetail = forwardRef<
                 <CardHeader className='pb-3'>
                   <div className='flex items-center justify-between'>
                     <CardTitle className='text-base'>Paiements / Cautions</CardTitle>
-                    <Button size='sm' variant='outline' className='gap-1.5'>
+                    <Button size='sm' variant='outline' className='gap-1.5' onClick={() => {
+                      setEditingPayment(null)
+                      setPaymentDialogOpen(true)
+                    }}>
                       <Plus className='h-3.5 w-3.5' />
                       Paiement
                     </Button>
@@ -905,7 +934,10 @@ export const BookingDetail = forwardRef<
                         </thead>
                         <tbody>
                           {payments.map(payment => (
-                            <tr key={payment.id} className='border-b hover:bg-muted/50'>
+                            <tr key={payment.id} className='border-b hover:bg-muted/50 cursor-pointer' onClick={() => {
+                              setEditingPayment(payment)
+                              setPaymentDialogOpen(true)
+                            }}>
                               <td className='py-2 px-2'>
                                 <Badge variant={
                                   payment.status === 'completed' ? 'default' :
@@ -936,6 +968,14 @@ export const BookingDetail = forwardRef<
                   )}
                 </CardContent>
               </Card>
+
+              {/* Payment Dialog */}
+              <PaymentDialog
+                open={paymentDialogOpen}
+                onOpenChange={setPaymentDialogOpen}
+                bookingId={booking.id}
+                payment={editingPayment}
+              />
 
               {/* Quote Editor Dialog */}
               <QuoteEditor

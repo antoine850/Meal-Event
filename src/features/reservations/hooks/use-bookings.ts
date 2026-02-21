@@ -342,11 +342,190 @@ export function usePaymentsByBooking(bookingId: string) {
         .from('payments')
         .select('*')
         .eq('booking_id', bookingId)
+        .order('created_at', { ascending: false })
 
       if (error) throw error
       return (data as Payment[]) || []
     },
     enabled: !!bookingId,
+  })
+}
+
+export function useCreatePayment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      bookingId,
+      quoteId,
+      amount,
+      paymentType,
+      paymentMethod,
+      status,
+      paidAt,
+      notes,
+      file,
+    }: {
+      bookingId: string
+      quoteId?: string
+      amount: number
+      paymentType: string
+      paymentMethod?: string
+      status: string
+      paidAt?: string
+      notes?: string
+      file?: File
+    }) => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      let attachmentUrl: string | null = null
+      let attachmentPath: string | null = null
+
+      // Upload file if provided
+      if (file) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        attachmentPath = `${orgId}/payments/${bookingId}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(attachmentPath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: publicUrlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(attachmentPath)
+
+        attachmentUrl = publicUrlData.publicUrl
+      }
+
+      const { data, error } = await supabase
+        .from('payments')
+        .insert({
+          organization_id: orgId,
+          booking_id: bookingId,
+          quote_id: quoteId || null,
+          amount,
+          payment_type: paymentType,
+          payment_method: paymentMethod || null,
+          status,
+          paid_at: paidAt || null,
+          notes: notes || null,
+          attachment_url: attachmentUrl,
+          attachment_path: attachmentPath,
+        } as never)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data as Payment
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['payments', data.booking_id] })
+    },
+  })
+}
+
+export function useUpdatePayment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      bookingId,
+      amount,
+      paymentType,
+      paymentMethod,
+      status,
+      paidAt,
+      notes,
+      file,
+      removeAttachment,
+      currentAttachmentPath,
+    }: {
+      id: string
+      bookingId: string
+      amount?: number
+      paymentType?: string
+      paymentMethod?: string
+      status?: string
+      paidAt?: string | null
+      notes?: string | null
+      file?: File
+      removeAttachment?: boolean
+      currentAttachmentPath?: string | null
+    }) => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const updates: Record<string, unknown> = {}
+      if (amount !== undefined) updates.amount = amount
+      if (paymentType !== undefined) updates.payment_type = paymentType
+      if (paymentMethod !== undefined) updates.payment_method = paymentMethod
+      if (status !== undefined) updates.status = status
+      if (paidAt !== undefined) updates.paid_at = paidAt
+      if (notes !== undefined) updates.notes = notes
+
+      // Handle file upload
+      if (file) {
+        // Delete old file if exists
+        if (currentAttachmentPath) {
+          await supabase.storage.from('documents').remove([currentAttachmentPath])
+        }
+
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const attachmentPath = `${orgId}/payments/${bookingId}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(attachmentPath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: publicUrlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(attachmentPath)
+
+        updates.attachment_url = publicUrlData.publicUrl
+        updates.attachment_path = attachmentPath
+      } else if (removeAttachment && currentAttachmentPath) {
+        // Remove attachment without replacing
+        await supabase.storage.from('documents').remove([currentAttachmentPath])
+        updates.attachment_url = null
+        updates.attachment_path = null
+      }
+
+      const { data, error } = await supabase
+        .from('payments')
+        .update(updates as never)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return { payment: data as Payment, bookingId }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['payments', data.bookingId] })
+    },
+  })
+}
+
+export function useDeletePayment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, bookingId }: { id: string; bookingId: string }) => {
+      const { error } = await supabase.from('payments').delete().eq('id', id)
+      if (error) throw error
+      return { bookingId }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['payments', data.bookingId] })
+    },
   })
 }
 

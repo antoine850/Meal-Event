@@ -937,6 +937,8 @@ export interface Database {
           status: string
           paid_at: string | null
           notes: string | null
+          attachment_url: string | null
+          attachment_path: string | null
           created_at: string
           updated_at: string
         }
@@ -953,6 +955,8 @@ export interface Database {
           status?: string
           paid_at?: string | null
           notes?: string | null
+          attachment_url?: string | null
+          attachment_path?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -969,6 +973,8 @@ export interface Database {
           status?: string
           paid_at?: string | null
           notes?: string | null
+          attachment_url?: string | null
+          attachment_path?: string | null
           created_at?: string
           updated_at?: string
         }
