@@ -84,10 +84,9 @@ export function Apps() {
   return (
     <>
       {/* ===== Top Heading ===== */}
-      <Header>
-        <h1 className='text-2xl font-bold tracking-tight'>Intégrations</h1>
+      <Header fixed>
+        <h1 className='text-lg font-semibold'>Applications</h1>
         <div className='ms-auto flex items-center gap-4'>
-          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

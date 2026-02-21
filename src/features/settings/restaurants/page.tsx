@@ -9,10 +9,9 @@ import { RestaurantsSettings } from './index'
 export function RestaurantsPage() {
   return (
     <>
-      <Header>
-        <h1 className='text-2xl font-bold tracking-tight'>Restaurants</h1>
+      <Header fixed>
+        <h1 className='text-lg font-semibold'>Restaurants</h1>
         <div className='ms-auto flex items-center space-x-4'>
-          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

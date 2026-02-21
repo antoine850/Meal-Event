@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, forwardRef, useImperativeHandle } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -70,12 +70,17 @@ type ContactDetailFormData = z.infer<typeof contactDetailSchema>
 
 type ContactDetailProps = {
   contact: ContactWithRelations
+  activeTab: string
+  onDirtyChange?: (isDirty: boolean) => void
 }
 
-export function ContactDetail({ contact }: ContactDetailProps) {
+export const ContactDetail = forwardRef<
+  { submitForm: () => void; deleteContact: () => void },
+  ContactDetailProps
+>(function ContactDetail({ contact, activeTab, onDirtyChange }, ref) {
   const { mutate: updateContact, isPending } = useUpdateContact()
   const { data: bookings = [], isLoading: isLoadingBookings } = useBookingsByContact(contact.id)
-  const { mutate: deleteContact, isPending: isDeleting } = useDeleteContact()
+  const { mutate: deleteContactMutation, isPending: isDeleting } = useDeleteContact()
   const { data: users = [] } = useOrganizationUsers()
 
   const formValues = useMemo(() => ({
@@ -160,7 +165,7 @@ export function ContactDetail({ contact }: ContactDetailProps) {
   }
 
   const handleDelete = () => {
-    deleteContact(contact.id, {
+    deleteContactMutation(contact.id, {
       onSuccess: () => {
         toast.success('Contact supprimé')
         window.history.back()
@@ -168,6 +173,15 @@ export function ContactDetail({ contact }: ContactDetailProps) {
       onError: () => toast.error('Erreur lors de la suppression'),
     })
   }
+
+  useImperativeHandle(ref, () => ({
+    submitForm: () => form.handleSubmit(onSubmit)(),
+    deleteContact: handleDelete,
+  }), [form, onSubmit, handleDelete])
+
+  useEffect(() => {
+    onDirtyChange?.(form.formState.isDirty)
+  }, [form.formState.isDirty, onDirtyChange])
 
   const sources = [
     'website',
@@ -186,41 +200,10 @@ export function ContactDetail({ contact }: ContactDetailProps) {
         onSubmit={form.handleSubmit(onSubmit)}
         className='space-y-6 pb-8'
       >
-        <div className='flex items-center justify-between'>
-          <div />
-          <div className='flex items-center gap-2'>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type='button' variant='destructive' size='sm'>
-                  <Trash2 className='mr-2 h-4 w-4' />
-                  Supprimer
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Supprimer ce contact ?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Cette action est irréversible. Le contact sera définitivement supprimé.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Annuler</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-                    {isDeleting && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-                    Supprimer
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Button type='submit' form='contact-form' disabled={isPending || !form.formState.isDirty} className='hidden sm:flex'>
-              {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-              <Save className='mr-2 h-4 w-4' />
-              Enregistrer
-            </Button>
-          </div>
-        </div>
-
-        <div className='grid gap-6 lg:grid-cols-2'>
+        {/* ═══════ GENERAL TAB ═══════ */}
+        {activeTab === 'general' && (
+          <div className='space-y-6'>
+            <div className='grid gap-6 lg:grid-cols-2'>
           {/* Informations personnelles */}
           <Card>
             <CardHeader>
@@ -467,20 +450,24 @@ export function ContactDetail({ contact }: ContactDetailProps) {
               />
             </CardContent>
           </Card>
-        </div>
-
-        {/* Événements */}
-        <Card className='lg:col-span-2'>
-          <CardHeader>
-            <div className='flex items-center justify-between w-full'>
-              <div className='flex items-center gap-2'>
-                <CalendarDays className='h-5 w-5' />
-                Événements ({bookings.length})
-              </div>
-              <CreateBookingDialog defaultContactId={contact.id} iconOnly />
             </div>
-          </CardHeader>
-          <CardContent>
+          </div>
+        )}
+
+        {/* ═══════ RESERVATIONS TAB ═══════ */}
+        {activeTab === 'reservations' && (
+          <div className='space-y-6'>
+            <Card>
+              <CardHeader>
+                <div className='flex items-center justify-between w-full'>
+                  <div className='flex items-center gap-2'>
+                    <CalendarDays className='h-5 w-5' />
+                    Événements
+                  </div>
+                  <CreateBookingDialog defaultContactId={contact.id} iconOnly />
+                </div>
+              </CardHeader>
+              <CardContent>
             {isLoadingBookings ? (
               <div className='flex items-center justify-center py-6'>
                 <Loader2 className='h-5 w-5 animate-spin text-muted-foreground' />
@@ -545,18 +532,12 @@ export function ContactDetail({ contact }: ContactDetailProps) {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-        {/* Mobile save button */}
-        <div className='sm:hidden'>
-          <Button type='submit' form='contact-form' disabled={isPending || !form.formState.isDirty} className='w-full'>
-            {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-            <Save className='mr-2 h-4 w-4' />
-            Enregistrer
-          </Button>
-        </div>
       </form>
     </Form>
   )
-}
+})

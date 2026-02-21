@@ -33,8 +33,8 @@ export function Dashboard() {
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className='flex flex-col h-full'>
       {/* ===== Top Heading ===== */}
-      <Header>
-        <h1 className='text-lg font-semibold'>Dashboard</h1>
+      <Header fixed>
+        <h1 className='text-lg font-semibold'>Tableau de bord</h1>
 
         {/* Desktop: Tabs */}
         <TabsList className='ml-4 bg-transparent hidden lg:flex'>
@@ -50,7 +50,6 @@ export function Dashboard() {
         </TabsList>
 
         <div className='ms-auto flex items-center space-x-4'>
-          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

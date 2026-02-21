@@ -49,7 +49,6 @@ export function Contracts() {
       <Header fixed>
         <h1 className='text-lg font-semibold'>Contrats & Factures</h1>
         <div className='ms-auto flex items-center space-x-4'>
-          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

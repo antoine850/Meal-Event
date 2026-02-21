@@ -147,7 +147,6 @@ export function Reservations() {
       <Header fixed>
         <h1 className='text-lg font-semibold'>Événements</h1>
         <div className='ms-auto flex items-center space-x-2 sm:space-x-4'>
-          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

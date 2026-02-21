@@ -51,11 +51,12 @@ export function RestaurantDetailPage() {
               className='w-8 h-8 rounded-full border-2' 
               style={{ backgroundColor: restaurant.color || '#3b82f6' }}
             />
-            <h1 className='text-xl font-bold tracking-tight'>{restaurant.name}</h1>
+            <Header fixed>
+              <h1 className='text-lg font-semibold'>{restaurant.name}</h1>
+            </Header>
           </div>
         </div>
         <div className='ms-auto flex items-center space-x-4'>
-          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

@@ -9,10 +9,9 @@ import { StatusesSettings } from './index'
 export function StatusesPage() {
   return (
     <>
-      <Header>
-        <h1 className='text-2xl font-bold tracking-tight'>Statuts</h1>
+      <Header fixed>
+        <h1 className='text-lg font-semibold'>Statuts</h1>
         <div className='ms-auto flex items-center space-x-4'>
-          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

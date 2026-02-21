@@ -20,9 +20,8 @@ export function Users() {
   return (
     <UsersProvider>
       <Header fixed>
-        <h1 className='text-2xl font-bold tracking-tight'>Utilisateurs</h1>
+        <h1 className='text-lg font-semibold'>Utilisateurs</h1>
         <div className='ms-auto flex items-center space-x-4'>
-          <Search />
           <ThemeSwitch />
           <ConfigDrawer />
           <ProfileDropdown />

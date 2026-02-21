@@ -7,8 +7,8 @@ import { ProductsPage } from './page'
 export function SettingsProducts() {
   return (
     <>
-      <Header>
-        <h1 className='text-2xl font-bold tracking-tight'>Produits & Services</h1>
+      <Header fixed>
+        <h1 className='text-lg font-semibold'>Produits & Services</h1>
         <div className='ms-auto flex items-center space-x-4'>
           <ThemeSwitch />
           <ProfileDropdown />

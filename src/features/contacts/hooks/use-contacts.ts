@@ -130,15 +130,18 @@ export function useContact(id: string) {
   return useQuery({
     queryKey: ['contact', id],
     queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
       const { data, error } = await supabase
         .from('contacts')
         .select(`
           *,
           company:companies(id, name),
-          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name),
-          restaurant:restaurants(id, name)
+          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('id', id)
+        .eq('organization_id', orgId)
         .single()
 
       if (error) throw error
