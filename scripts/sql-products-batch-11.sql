@@ -1,0 +1,60 @@
+INSERT INTO products (organization_id, name, description, type, tag, price_per_person, unit_price_ht, tva_rate, old_id, is_active)
+VALUES
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Carlsberg 50cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 9.17, 20, '3Ppu4yu9FN5BNdh5xpKh', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Formule vin carte blanche', '2 verres de vin carte blanche par personne', 'boissons_alcoolisees', 'Boissons alcoolisées', true, 16.67, 20, '4p4qoA337iUg3cUKSvU5', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Cocktail 24 pièces', '6 pièces salées froides
+6 pièces salées chaudes
+2 mini plats chauds (1 mini plat = 3 pièces)
+2 pièces fromage
+4 pièces sucrées', 'food', 'Food', true, 113.64, 10, '4wiLJYmg0MbiB2rOUvBt', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'AOC Bourgogne Hautes-Côtes de Beaune, Berger Rive', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 49.17, 20, '5ftQxpIdRmOJDij0qnGR', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'AOP Minuty Prestige, Côtes de Provence', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 45.83, 20, '6A66TkhKHRg4FAMxkp8r', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Campari, Apérol, Suze', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5, 20, '6rpYNePMNXmlV1yBcAEU', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'AOP Petit Chablis, Courtault Michelet', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 44.17, 20, '7aZ2DSXzDTVX2Kd5rVu3', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Verre de vin aromatisé', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5, 20, '9ixhCbC3m3Bksz3rRhWA', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Corona 33cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 6.67, 20, 'Ar0brgoWzH6z86eAaT9p', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Formule vin dégustation', '2 verres de vin dégustation par personne', 'boissons_alcoolisees', 'Boissons alcoolisées', true, 18.33, 20, 'BPLKEyVg8EsTz60zXDVh', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Supplément Menu', NULL, 'food', 'Food', false, 4.55, 10, 'Br6flapWyOuIVyfEjR9j', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Expresso (BIO Mexique), décaféiné, Café noisette', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 3.18, 10, 'DT8LDNQsI0sBh4YgCm2J', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Porto Rouge ou Blanc', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5, 20, 'DniIXzFLO3AwkABB15ub', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Irish coffee, Grog', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'E05ZzftatRUh2BXy5KuD', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Cocktail 9 pièces', '3 pièces salées froides
+3 pièces salées chaudes
+3 pièces sucrées', 'food', 'Food', true, 45.45, 10, 'EdQbVR4mjAvYTgtGklys', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Menu Dégustation', '3 Pièces cocktail, Entrée, Plat, pré-dessert, Dessert, eau et café', 'food', 'Food', true, 64.55, 10, 'FpkWRAwOLcY84lcrZGfP', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Grimbergen Blanche 25cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5.83, 20, 'GA8G4mIN5lUaHlwVotGh', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Carlsberg 25cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5.83, 20, 'GHxnlBFx9syEJfcfzfqF', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Menu carte blanche', '3 Mises en bouche du chef, Entrée, Poisson, Viande, Pré-dessert, Dessert et Mignardise. (Menu carte blanche au choix du chef - identique pour tous les convives)', 'food', 'Food', true, 81.82, 10, 'JLg6Co6GzJ7dzImTTMFr', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Hôtesses', NULL, 'prestataires', 'Prestataires', false, 208.33, 20, 'Kem1HnpA05ZL30eScmL9', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'AOP Morgon, Chateau de Corcelles Gamay', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 35.83, 20, 'LGtCkOy0Ds9914SmQkaC', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Hennesy', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 12.5, 20, 'LPzUO7wzrc5jOlVRD7zm', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Coupe de champagne Moët', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', true, 15, 20, 'Lr0sF40pUFTlmY9CVzTd', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Scotch Whisky - 17', 'Lagavulin 16 ans 
+Glenfiddich 18 ans', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 14.17, 20, 'MeeZhh0hZOY9NmokAjwT', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Prosecco Bolani', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 35, 20, 'N669WrnauPmRE9u0NYiW', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Formule vin déjeuner', '2 Verres de vin ou soft au déjeuner', 'boissons_alcoolisees', 'Boissons alcoolisées', true, 13.33, 20, 'NPAT6FZsrNV9s5jhMg4Z', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Redbull', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 6.36, 10, 'Onujv827vqoahLBNyp8R', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Tullamore dew', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'Ph37e1KXpUjYZ3EPs9tm', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Chinon ‘ Les Graves’ Domaine F.Gasnier Bio', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 35, 20, 'PxpfLvttvqvCTVmukK3C', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Bouteille de champagne Greno, maison Pommery', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 95.83, 20, 'QT3kduNL5g8sRatcxpC4', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Ricard', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5, 20, 'QUmzF5ATeUEOhhXQ4vYI', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Liqueur - 9', 'Cointreau, Grand Marnier', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 7.5, 20, 'RbBxWTz7i2l5ls3ntZox', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Thés et Infusions', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 5.45, 10, 'Rg12Q7x6KpTy7mUOqqvs', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'American Whisky', 'Jack Daniel’s, Maker’s Mark, Ole Smoked', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'SQfCrTddHXj3saLsba8Z', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Service voiturier', 'Prestation de 5h - 1 agent', 'prestataires', 'Prestataires', false, 291.67, 20, 'TDPOvh8uTeLs9iTnuoOI', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Agent de sécurité', NULL, 'food', NULL, false, 208.33, 20, 'TJ5s4H9h9udUsakeM4Ub', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Demory IPA 25cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 6.67, 20, 'USquKuQuJrCGKlNIEU1H', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Tequila: camino Real', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'UYY63waBZuZbbgsOFCWk', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Demory IPA 50cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'W7gXTWsFhUQqj50REJir', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Double expresso, Café crème, Cappuccino, Chocolat Chaud', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 5.45, 10, 'XQxqv5acgztgflAWCfll', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Gin - 15', 'The Botanist, Hendrick’s', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 12.5, 20, 'XttI79HISZ4D80XHkFtV', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Smirnoff', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 8.33, 20, 'YEaGIn3JDoFUhGEyEeBK', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Vieille Prune, Poire Williams, Mirabelle', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 8.33, 20, 'ZfE4AeHaBkIJ1EUJh4AK', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'AOC Côte de Bourg Pourpe du Château de Barbe', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 35, 20, 'aWuWVif7mltH1VFPkhh9', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'AOP Crozes-Hermitage Chante-passo, La Source', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 42.5, 20, 'ags2qBhFiQkOnrQH6SkL', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Nikka days', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 15, 20, 'b3uBxhsgy4ymig87gj2O', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Grimbergen Blanche 50cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 9.17, 20, 'bA3Yh7DR7IsdqdPcSOgM', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'AOP Sancerre l’Essentiel, Domaine de La Rossignole', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 43.33, 20, 'eOoxm9i2zFdr9x3m2iqv', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Tequila: Jose Cuervo Especial Reposado', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'fAa7S18dIHdYNugsSQwv', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'AOP côtes du Rhône, Xavier Vignon 100%', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 29.17, 20, 'grQ8uDpPV1VTHrl1kB0B', true)
+RETURNING id, name, unit_price_ht, tva_rate;

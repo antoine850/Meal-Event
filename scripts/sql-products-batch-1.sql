@@ -1,0 +1,60 @@
+INSERT INTO products (organization_id, name, description, type, tag, price_per_person, unit_price_ht, tva_rate, old_id, is_active)
+VALUES
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'I.G.P. Le Versant Viognier les vignobles Foncalieu 2022', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 43.33, 20, 'P9BwKjIaWwt6jeE926Vi', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Rhum - 11', 'The Kraken, Sagatiba pura, HSE Blanc', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 9.17, 20, 'PYkLSwlXd5AuEz58n9nf', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Apéritif', 'Martini Rosso & Bianco, Campari, Suze', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5.83, 20, 'PcGD2p7hfY3e0SACD01s', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Formule Eau et cafe CAVE', 'Une demi bouteille d''eau et une boisson chaude', 'boissons_sans_alcool', 'Boissons sans alcool', true, 9.09, 10, 'PyYcV9Vd9ylf0WchJGmI', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Prestation DJ', 'Prestation DJ, sonorisation, 1 micro
+(Non inclus : écran, jeux de lumière et demandes spécifiques)', 'prestataires', 'Prestataires', false, 1833.33, 20, 'QDMVTwepCdJg8JIzYDo8', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Prestation technique', NULL, 'prestataires', 'Prestataires', false, 0, 20, 'QFXEQha4YucAnDPCpwlP', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.C. Vacqueyras, domaine les Ondines, 2021', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 51.67, 20, 'R77fOstH5fYek95avSqb', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Cognac Camus VS', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 12.5, 20, 'SZhiaoQjOVKUZGU5E7QY', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Menu viandes d''exception', 'côte de veau ou noix d''entrecôte ( portion individuelle ) ou côte de bœuf pour 2 ou faux filet pour 2 + eaux et café', 'food', 'Food', false, 63.64, 10, 'Sd1dY4RCoAfiHtgitPSp', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Bouteille de B.S.A. Pommery Brut Rosé Royal', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', true, 120.83, 20, 'SlHhtOdC48Km3iq9hV7a', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Expresso bio, décaféiné, noisette', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 3.64, 10, 'Ty56GdbvMs3spCTpccEZ', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Rhum: Santa Teresa', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 14.17, 20, 'UY8NUS7C1RGZc0vtZhhH', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.C. Imagine, Myriam Haag, 2010', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 43.33, 20, 'UasfzzZFC36o1nb4tque', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Menu enfant', 'Plat + dessert+ 1 boisson', 'food', 'Food', true, 35.45, 10, 'UgQnqQ116vcUxAjZwb7e', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Gin: Bombay Sapphire', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'Uk75CYy2tBWWbiFosw64', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Assiette de fromage', NULL, 'food', 'Food', false, 10.91, 10, 'V1egrV7cVd7Sku2KX3jK', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Boissons apéritives', 'Martini Rosso & Bianco, Campari, Suze, Porto Blanc & Rouge,', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5.83, 20, 'V5yDNjWnJm8KF2TsJQEN', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Jus et Nectar Alain Milli', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 7.27, 10, 'VQ9Fykqu2Q0ULABc3vdH', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Capuccino, Café Crème, Chocolat Chaud', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 5, 20, 'WSSxqwkORf6ZKWvlmhkw', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Formule vin decouverte', '2 verres de vin Découverte par personne', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 15, 20, 'WlzF4XtB5mVsrbx46mMN', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Verre de vin - 10', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', true, 8.33, 20, 'WpecBMws5mMwWoG94HkV', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.C. Pomerol Château de Sales, 2017', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 75, 20, 'XGM8yIkTmvU6QqUA1ISJ', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.C. Bourgogne Hautes-Côtes de Beaune, domaine Billard P&F 2022', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 56.67, 20, 'XRO1TFhtc9sBOgUhpFgR', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Formule vin d''exception', '2 verres de vin d''exception par personne', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 30, 20, 'XRWPeJeiW98eo2sUhE6l', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Whisky: Monkey Shoulder, Aberlour 10 ans', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'XYzmltmmkFdBckaiTnlz', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Bière pression Heineken 50cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', true, 8.33, 20, 'YcpTS6EION5AT8CgaoXy', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Bière pression Heineken 25cl', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', true, 5, 20, 'Z3cdTOoNJmXItSxCwkCv', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Campari, suze', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 5.83, 20, 'ZTXKpF49PwSMvguLpVCK', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Cocktail 12 pièces', '4 pièces salées froides
+4 pièces salées chaudes
+4 pièces sucrées', 'food', 'Food', true, 54.55, 10, 'ZcsCwreCMhZXyk9BrkZ3', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Menu Gourmand', 'Entrée + Plat + Dessert', 'food', 'Food', false, 45.45, 10, 'a1pQWCPalmE5dKdyRUju', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Verre de vin - 11', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', true, 9.17, 20, 'abZnEKYQ9Mf0RHVP26Tq', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.C. Pessac Leognan, Les Hauts de Smith, 2017', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 79.17, 20, 'b8xN3YremXoamr84tPnh', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Gin: Star Of Bombay, Hendrick’s', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 12.5, 20, 'bfSgpCnlqJkeAEe5cvZw', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Tequila - 12', 'Patron XO café, Patron Silver', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 10, 20, 'd1JzhVbQl35DfHH9FK0N', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Whisky: Lagavulin 16 ans', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 14.17, 20, 'dctWCuIid1yEAonbihbD', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Whisky - 14', 'Talisker Skye, Chivas 12 ans, Nikka From the Barrel', 'boissons_alcoolisees', 'Boissons alcoolisées', false, 11.67, 20, 'dgtSgOEKQccVYLnIFWNK', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Frais de privatisation', NULL, 'frais_privatisation', 'Frais de privatisation', false, 0, 20, 'eHzv1tGhdBh2mRorXHld', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.P Côtes de Provence, Minuty Prestige 2023', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 41.67, 20, 'f8jc4ZwPFQHLnhTh62Re', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Bouteille de B.S.A. Ruinart Brut', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', true, 110, 20, 'fH0FhOO9tvrUFq3hLTPI', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', '2012 Dom Pérignon Cuvée Vintage', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 275, 20, 'fIWKqCxUGuHnHhmSWurc', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Vodka: 42 Below', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 8.33, 20, 'fUo5S7VqzHICMEQMk9oK', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.C. Quincy Domaine du Tremblay Jean Tatin, 2023', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 37.5, 20, 'fyI7A2wVXNJstiKHrtQ4', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.P. Côtes du Rhône-Blanc Xavier Vignon, 2023', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 35, 20, 'gMjS6iNkc2iHwFemD40v', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.C. Chablis 1er Cru Vau de Vey Domaine des Malandes, 2022', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 62.5, 20, 'i4qwFmGA9RC4ic5znfUA', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Aperitif Cocktail', '3 Pièces Cocktail', 'food', 'Food', true, 13.64, 10, 'iJ9AGiZ3QUVkOPPusgkF', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Double Expresso', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 5, 10, 'im7jVYMapYw4hqRZyJPp', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'A.O.C Pessac-Léognan Cru Classé', NULL, 'boissons_alcoolisees', 'Boissons alcoolisées', false, 248.33, 20, 'iy513GueuNGZmsGnX7WN', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', '18 pièces Cocktail', '6 pièces salées froides
+6 pièces salées chaudes
+2 pièces fromage
+4 pièces sucrées', 'food', 'Food', true, 81.82, 10, 'k4prM5bmgj8tmMBk5zxY', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'soft - 9', NULL, 'boissons_sans_alcool', 'Boissons sans alcool', false, 8.18, 10, 'kPIBVFDLnOxtbeWB2l3F', true),
+('425be1b8-f059-4a4f-8e94-d8b8fe69ab27', 'Open Bar', 'Open bar, Gin, Whisky, Rhum et vodka
+Durée de service : 1h30', 'boissons_alcoolisees', 'Boissons alcoolisées', true, 33.33, 20, 'ler9c0U62tf5dPUKVroO', true)
+RETURNING id, name, unit_price_ht, tva_rate;

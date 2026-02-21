@@ -264,6 +264,7 @@ const AuthenticatedContactsContactIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof AuthenticatedIndexRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/forgot-password': typeof authForgotPasswordRoute
   '/onboarding': typeof authOnboardingRoute
@@ -277,7 +278,6 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/companies': typeof AuthenticatedCompaniesRoute
-  '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
@@ -286,16 +286,16 @@ export interface FileRoutesByFullPath {
   '/settings/products': typeof AuthenticatedSettingsProductsRoute
   '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
   '/settings/statuses': typeof AuthenticatedSettingsStatusesRoute
-  '/apps': typeof AuthenticatedAppsIndexRoute
-  '/chats': typeof AuthenticatedChatsIndexRoute
-  '/contacts': typeof AuthenticatedContactsIndexRoute
-  '/contracts': typeof AuthenticatedContractsIndexRoute
-  '/evenements': typeof AuthenticatedEvenementsIndexRoute
-  '/help-center': typeof AuthenticatedHelpCenterIndexRoute
-  '/reservations': typeof AuthenticatedReservationsIndexRoute
+  '/apps/': typeof AuthenticatedAppsIndexRoute
+  '/chats/': typeof AuthenticatedChatsIndexRoute
+  '/contacts/': typeof AuthenticatedContactsIndexRoute
+  '/contracts/': typeof AuthenticatedContractsIndexRoute
+  '/evenements/': typeof AuthenticatedEvenementsIndexRoute
+  '/help-center/': typeof AuthenticatedHelpCenterIndexRoute
+  '/reservations/': typeof AuthenticatedReservationsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
-  '/tasks': typeof AuthenticatedTasksIndexRoute
-  '/users': typeof AuthenticatedUsersIndexRoute
+  '/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/users/': typeof AuthenticatedUsersIndexRoute
   '/contacts/contact/$id': typeof AuthenticatedContactsContactIdRoute
   '/evenements/booking/$id': typeof AuthenticatedEvenementsBookingIdRoute
   '/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
@@ -385,6 +385,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/settings'
     | '/forgot-password'
     | '/onboarding'
@@ -398,7 +399,6 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/companies'
-    | '/'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
@@ -407,16 +407,16 @@ export interface FileRouteTypes {
     | '/settings/products'
     | '/settings/restaurants'
     | '/settings/statuses'
-    | '/apps'
-    | '/chats'
-    | '/contacts'
-    | '/contracts'
-    | '/evenements'
-    | '/help-center'
-    | '/reservations'
+    | '/apps/'
+    | '/chats/'
+    | '/contacts/'
+    | '/contracts/'
+    | '/evenements/'
+    | '/help-center/'
+    | '/reservations/'
     | '/settings/'
-    | '/tasks'
-    | '/users'
+    | '/tasks/'
+    | '/users/'
     | '/contacts/contact/$id'
     | '/evenements/booking/$id'
     | '/reservations/booking/$id'
@@ -518,7 +518,7 @@ declare module '@tanstack/react-router' {
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
-      fullPath: ''
+      fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -630,14 +630,14 @@ declare module '@tanstack/react-router' {
     '/_authenticated/users/': {
       id: '/_authenticated/users/'
       path: '/users'
-      fullPath: '/users'
+      fullPath: '/users/'
       preLoaderRoute: typeof AuthenticatedUsersIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/tasks/': {
       id: '/_authenticated/tasks/'
       path: '/tasks'
-      fullPath: '/tasks'
+      fullPath: '/tasks/'
       preLoaderRoute: typeof AuthenticatedTasksIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
@@ -651,49 +651,49 @@ declare module '@tanstack/react-router' {
     '/_authenticated/reservations/': {
       id: '/_authenticated/reservations/'
       path: '/reservations'
-      fullPath: '/reservations'
+      fullPath: '/reservations/'
       preLoaderRoute: typeof AuthenticatedReservationsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/help-center/': {
       id: '/_authenticated/help-center/'
       path: '/help-center'
-      fullPath: '/help-center'
+      fullPath: '/help-center/'
       preLoaderRoute: typeof AuthenticatedHelpCenterIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/evenements/': {
       id: '/_authenticated/evenements/'
       path: '/evenements'
-      fullPath: '/evenements'
+      fullPath: '/evenements/'
       preLoaderRoute: typeof AuthenticatedEvenementsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/contracts/': {
       id: '/_authenticated/contracts/'
       path: '/contracts'
-      fullPath: '/contracts'
+      fullPath: '/contracts/'
       preLoaderRoute: typeof AuthenticatedContractsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/contacts/': {
       id: '/_authenticated/contacts/'
       path: '/contacts'
-      fullPath: '/contacts'
+      fullPath: '/contacts/'
       preLoaderRoute: typeof AuthenticatedContactsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/chats/': {
       id: '/_authenticated/chats/'
       path: '/chats'
-      fullPath: '/chats'
+      fullPath: '/chats/'
       preLoaderRoute: typeof AuthenticatedChatsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/apps/': {
       id: '/_authenticated/apps/'
       path: '/apps'
-      fullPath: '/apps'
+      fullPath: '/apps/'
       preLoaderRoute: typeof AuthenticatedAppsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }

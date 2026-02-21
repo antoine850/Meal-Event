@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Copy, Edit, Loader2, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,12 +24,14 @@ import {
   usePackages,
   useDeletePackage,
 } from '../hooks/use-products'
+import { useRestaurants } from '../hooks/use-settings'
 import { ProductDialog } from './product-dialog'
 import { PackageDialog } from './package-dialog'
 
 export function ProductsPage() {
   const { data: products = [], isLoading: isLoadingProducts } = useProducts()
   const { data: packages = [], isLoading: isLoadingPackages } = usePackages()
+  const { data: restaurants = [] } = useRestaurants()
   const { mutate: deleteProduct } = useDeleteProduct()
   const { mutate: deletePackage } = useDeletePackage()
 
@@ -44,6 +46,23 @@ export function ProductsPage() {
 
   // Delete dialog state
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'product' | 'package'; id: string; name: string } | null>(null)
+
+  // Restaurant filter
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null)
+
+  const filteredProducts = useMemo(() => {
+    if (!selectedRestaurantId) return products
+    return products.filter(p =>
+      p.product_restaurants?.some(pr => pr.restaurant_id === selectedRestaurantId)
+    )
+  }, [products, selectedRestaurantId])
+
+  const filteredPackages = useMemo(() => {
+    if (!selectedRestaurantId) return packages
+    return packages.filter(pkg =>
+      pkg.package_restaurants?.some(pr => pr.restaurant_id === selectedRestaurantId)
+    )
+  }, [packages, selectedRestaurantId])
 
   const handleNewProduct = () => {
     setEditingProduct(null)
@@ -101,15 +120,47 @@ export function ProductsPage() {
 
   return (
     <>
+      {/* Restaurant filter */}
+      {restaurants.length > 0 && (
+        <div className='flex flex-wrap gap-1.5 mb-4'>
+          <button
+            type='button'
+            onClick={() => setSelectedRestaurantId(null)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              !selectedRestaurantId
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background hover:bg-muted border-input'
+            }`}
+          >
+            Tous
+          </button>
+          {restaurants.map(r => (
+            <button
+              key={r.id}
+              type='button'
+              onClick={() => setSelectedRestaurantId(selectedRestaurantId === r.id ? null : r.id)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                selectedRestaurantId === r.id
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background hover:bg-muted border-input'
+              }`}
+            >
+              {r.color && <div className='h-2 w-2 rounded-full' style={{ backgroundColor: r.color }} />}
+              {r.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <Tabs defaultValue='products'>
         <TabsList className='mb-4'>
           <TabsTrigger value='products' className='gap-1.5'>
             <ShoppingCart className='h-4 w-4' />
-            Produits ({products.length})
+            Produits ({filteredProducts.length})
           </TabsTrigger>
           <TabsTrigger value='packages' className='gap-1.5'>
             <Package className='h-4 w-4' />
-            Packages ({packages.length})
+            Packages ({filteredPackages.length})
           </TabsTrigger>
         </TabsList>
 
@@ -122,7 +173,7 @@ export function ProductsPage() {
             </Button>
           </div>
 
-          {products.length === 0 ? (
+          {filteredProducts.length === 0 ? (
             <Card>
               <CardContent className='py-8 text-center text-muted-foreground'>
                 Aucun produit pour le moment.
@@ -131,7 +182,7 @@ export function ProductsPage() {
           ) : (
             <div className='space-y-2'>
               {PRODUCT_TYPES.map(typeInfo => {
-                const typeProducts = products.filter(p => p.type === typeInfo.value)
+                const typeProducts = filteredProducts.filter(p => p.type === typeInfo.value)
                 if (typeProducts.length === 0) return null
                 return (
                   <Card key={typeInfo.value}>
@@ -149,6 +200,9 @@ export function ProductsPage() {
                                   {!product.is_active && <Badge variant='secondary' className='text-[10px]'>Inactif</Badge>}
                                   {product.price_per_person && <Badge variant='outline' className='text-[10px]'>Par pers.</Badge>}
                                 </div>
+                                {product.description && (
+                                  <p className='text-xs text-muted-foreground truncate max-w-md'>{product.description}</p>
+                                )}
                                 <div className='flex items-center gap-2 mt-0.5'>
                                   <span className='text-xs text-muted-foreground'>{product.unit_price_ht}€ HT</span>
                                   <span className='text-xs text-muted-foreground'>TVA {product.tva_rate}%</span>
@@ -199,7 +253,7 @@ export function ProductsPage() {
             </Button>
           </div>
 
-          {packages.length === 0 ? (
+          {filteredPackages.length === 0 ? (
             <Card>
               <CardContent className='py-8 text-center text-muted-foreground'>
                 Aucun package pour le moment.
@@ -207,7 +261,7 @@ export function ProductsPage() {
             </Card>
           ) : (
             <div className='space-y-2'>
-              {packages.map(pkg => {
+              {filteredPackages.map(pkg => {
                 const totalHt = pkg.package_products?.reduce((sum, pp) => {
                   return sum + ((pp.product as any)?.unit_price_ht || 0) * pp.quantity
                 }, 0) || 0

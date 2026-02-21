@@ -1,0 +1,341 @@
+[
+  {
+    "name": "Menu la Cave Secrète du La Haut",
+    "restaurants": [
+      "d7bd3aab-9989-46f9-985e-e596ef126e83"
+    ]
+  },
+  {
+    "name": "Menu Déjeuner",
+    "restaurants": [
+      "d7bd3aab-9989-46f9-985e-e596ef126e83",
+      "9dba1694-4355-4372-89e4-03783cba3b64",
+      "53926e78-3886-4b31-a3d4-4da04a86644a",
+      "e5024c05-9db3-4a29-b943-de66609f6427",
+      "645bc1f1-514e-4129-b695-044baa02caa5",
+      "273d4b2d-487b-4f88-a141-fc8a9b12887e",
+      "24e37737-b5fd-4abb-ae90-b8acde51186f"
+    ]
+  },
+  {
+    "name": "Privatisation format Dîner assis",
+    "restaurants": [
+      "d7bd3aab-9989-46f9-985e-e596ef126e83"
+    ]
+  },
+  {
+    "name": "Menu Classique",
+    "restaurants": [
+      "d7bd3aab-9989-46f9-985e-e596ef126e83",
+      "273d4b2d-487b-4f88-a141-fc8a9b12887e"
+    ]
+  },
+  {
+    "name": "Viandes d'exception",
+    "restaurants": [
+      "d7bd3aab-9989-46f9-985e-e596ef126e83",
+      "273d4b2d-487b-4f88-a141-fc8a9b12887e"
+    ]
+  },
+  {
+    "name": "Privatisation format Cocktail dinatoire",
+    "restaurants": [
+      "d7bd3aab-9989-46f9-985e-e596ef126e83"
+    ]
+  },
+  {
+    "name": "Menu Dégustation",
+    "restaurants": [
+      "d7bd3aab-9989-46f9-985e-e596ef126e83",
+      "e5024c05-9db3-4a29-b943-de66609f6427",
+      "273d4b2d-487b-4f88-a141-fc8a9b12887e"
+    ]
+  },
+  {
+    "name": "PRIVATISATION",
+    "restaurants": [
+      "9dba1694-4355-4372-89e4-03783cba3b64",
+      "c9c9525d-52c2-4afe-a3fe-592e7e6c4d16",
+      "645bc1f1-514e-4129-b695-044baa02caa5",
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7",
+      "23f49e05-f0dd-48ae-9feb-6f1ffb700528"
+    ]
+  },
+  {
+    "name": "Menu exception",
+    "restaurants": [
+      "9dba1694-4355-4372-89e4-03783cba3b64",
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Menu Poulet Rôti du Dimanche",
+    "restaurants": [
+      "9dba1694-4355-4372-89e4-03783cba3b64"
+    ]
+  },
+  {
+    "name": "Menu Micheline",
+    "restaurants": [
+      "9dba1694-4355-4372-89e4-03783cba3b64"
+    ]
+  },
+  {
+    "name": "Menu Midi",
+    "restaurants": [
+      "9dba1694-4355-4372-89e4-03783cba3b64"
+    ]
+  },
+  {
+    "name": "Menu Mimi",
+    "restaurants": [
+      "53926e78-3886-4b31-a3d4-4da04a86644a"
+    ]
+  },
+  {
+    "name": "Menu Prestige",
+    "restaurants": [
+      "53926e78-3886-4b31-a3d4-4da04a86644a",
+      "e1b8cdeb-b3ee-4644-8bd2-0c9c81bca80c"
+    ]
+  },
+  {
+    "name": "Menu Midi particulier",
+    "restaurants": [
+      "53926e78-3886-4b31-a3d4-4da04a86644a"
+    ]
+  },
+  {
+    "name": "MENU CHOU",
+    "restaurants": [
+      "e1b8cdeb-b3ee-4644-8bd2-0c9c81bca80c"
+    ]
+  },
+  {
+    "name": "MENU DEGUSTATION",
+    "restaurants": [
+      "e1b8cdeb-b3ee-4644-8bd2-0c9c81bca80c",
+      "44eac888-c0fa-4375-8d35-91c97e98b2a3",
+      "1ca8d32c-6b34-44cb-8d24-1c94f9e40543"
+    ]
+  },
+  {
+    "name": "Formule Le Meilleur de l'Italie",
+    "restaurants": [
+      "4f251aa4-36e2-44fe-97f8-e1721e37802d"
+    ]
+  },
+  {
+    "name": "Formule Coco Rocco",
+    "restaurants": [
+      "4f251aa4-36e2-44fe-97f8-e1721e37802d"
+    ]
+  },
+  {
+    "name": "Formule Aperitivo...Come a Milano!",
+    "restaurants": [
+      "4f251aa4-36e2-44fe-97f8-e1721e37802d"
+    ]
+  },
+  {
+    "name": "Formule cocktail - Aperitivo...Come a Milano!",
+    "restaurants": [
+      "4f251aa4-36e2-44fe-97f8-e1721e37802d"
+    ]
+  },
+  {
+    "name": "Formule Déjeuner",
+    "restaurants": [
+      "4f251aa4-36e2-44fe-97f8-e1721e37802d",
+      "c9c9525d-52c2-4afe-a3fe-592e7e6c4d16"
+    ]
+  },
+  {
+    "name": "Menu des chefs",
+    "restaurants": [
+      "e5024c05-9db3-4a29-b943-de66609f6427"
+    ]
+  },
+  {
+    "name": "MENU NUAGE",
+    "restaurants": [
+      "44eac888-c0fa-4375-8d35-91c97e98b2a3",
+      "1ca8d32c-6b34-44cb-8d24-1c94f9e40543"
+    ]
+  },
+  {
+    "name": "MENU MONSIEUR CLAUDE",
+    "restaurants": [
+      "44eac888-c0fa-4375-8d35-91c97e98b2a3",
+      "1ca8d32c-6b34-44cb-8d24-1c94f9e40543"
+    ]
+  },
+  {
+    "name": "FORMULE MADAME SOLEIL - A partager",
+    "restaurants": [
+      "44eac888-c0fa-4375-8d35-91c97e98b2a3"
+    ]
+  },
+  {
+    "name": "Formule Dégustation",
+    "restaurants": [
+      "c9c9525d-52c2-4afe-a3fe-592e7e6c4d16"
+    ]
+  },
+  {
+    "name": "Menu Papa Pool",
+    "restaurants": [
+      "c9c9525d-52c2-4afe-a3fe-592e7e6c4d16"
+    ]
+  },
+  {
+    "name": "Formule montagnarde",
+    "restaurants": [
+      "c9c9525d-52c2-4afe-a3fe-592e7e6c4d16"
+    ]
+  },
+  {
+    "name": "Formule Classique",
+    "restaurants": [
+      "c9c9525d-52c2-4afe-a3fe-592e7e6c4d16"
+    ]
+  },
+  {
+    "name": "Menu festif - Sharing",
+    "restaurants": [
+      "645bc1f1-514e-4129-b695-044baa02caa5"
+    ]
+  },
+  {
+    "name": "Menu Festif",
+    "restaurants": [
+      "645bc1f1-514e-4129-b695-044baa02caa5"
+    ]
+  },
+  {
+    "name": "Menu des fêtes",
+    "restaurants": [
+      "273d4b2d-487b-4f88-a141-fc8a9b12887e"
+    ]
+  },
+  {
+    "name": "Menu Viande d'exception",
+    "restaurants": [
+      "273d4b2d-487b-4f88-a141-fc8a9b12887e"
+    ]
+  },
+  {
+    "name": "Menu Soir “Sapristi”",
+    "restaurants": [
+      "24e37737-b5fd-4abb-ae90-b8acde51186f"
+    ]
+  },
+  {
+    "name": "Formule “Complète”",
+    "restaurants": [
+      "24e37737-b5fd-4abb-ae90-b8acde51186f"
+    ]
+  },
+  {
+    "name": "Menu Soir “Classique”",
+    "restaurants": [
+      "24e37737-b5fd-4abb-ae90-b8acde51186f"
+    ]
+  },
+  {
+    "name": "Menu Offre Fromagère",
+    "restaurants": [
+      "24e37737-b5fd-4abb-ae90-b8acde51186f"
+    ]
+  },
+  {
+    "name": "Menu Sur Mesure Du Chef",
+    "restaurants": [
+      "24e37737-b5fd-4abb-ae90-b8acde51186f"
+    ]
+  },
+  {
+    "name": "Cocktail prestige",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Menu Collection",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Riva expérience",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Cocktail Release",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Menu Barbecue",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Privatisation Release - Tarif JLB",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Privatisation Release - Tarif Fabrique",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Privatisation Release",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Menu à la Savoyarde - Chez Monix",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Cocktail dégustation",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Menu au feu de bois - Chezmonix",
+    "restaurants": [
+      "0c315e35-9267-442e-a3a4-0d25aa8966d7"
+    ]
+  },
+  {
+    "name": "Menu Tata Yoyo",
+    "restaurants": [
+      "23f49e05-f0dd-48ae-9feb-6f1ffb700528"
+    ]
+  },
+  {
+    "name": "Menu exeption de Tata",
+    "restaurants": [
+      "23f49e05-f0dd-48ae-9feb-6f1ffb700528"
+    ]
+  },
+  {
+    "name": "Menu Déjeuner chez Tata",
+    "restaurants": [
+      "23f49e05-f0dd-48ae-9feb-6f1ffb700528"
+    ]
+  }
+]

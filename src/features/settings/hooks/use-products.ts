@@ -24,12 +24,14 @@ export type Product = {
   name: string
   description: string | null
   type: 'boissons_alcoolisees' | 'boissons_sans_alcool' | 'food' | 'frais_personnel' | 'frais_privatisation' | 'prestataires'
+  tag: string | null
   price_per_person: boolean
   unit_price_ht: number
   tva_rate: number
   unit_price_ttc: number
   margin: number
   is_active: boolean
+  old_id: string | null
   created_at: string
   updated_at: string
 }
