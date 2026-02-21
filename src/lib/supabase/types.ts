@@ -747,6 +747,7 @@ export interface Database {
           id: string
           organization_id: string | null
           booking_id: string | null
+          contact_id: string | null
           quote_number: string
           total_ht: number
           total_tva: number
@@ -790,6 +791,7 @@ export interface Database {
           id?: string
           organization_id?: string | null
           booking_id?: string | null
+          contact_id?: string | null
           quote_number: string
           total_ht?: number
           total_tva?: number
@@ -833,6 +835,7 @@ export interface Database {
           id?: string
           organization_id?: string | null
           booking_id?: string | null
+          contact_id?: string | null
           quote_number?: string
           total_ht?: number
           total_tva?: number

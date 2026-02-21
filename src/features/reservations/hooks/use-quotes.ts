@@ -163,6 +163,7 @@ export function useCreateQuote() {
     mutationFn: async ({
       bookingId,
       restaurantId,
+      contactId,
       title,
       dateStart,
       dateEnd,
@@ -182,6 +183,7 @@ export function useCreateQuote() {
     }: {
       bookingId: string
       restaurantId: string
+      contactId?: string
       title?: string
       dateStart?: string
       dateEnd?: string
@@ -221,6 +223,7 @@ export function useCreateQuote() {
         .insert({
           organization_id: orgId,
           booking_id: bookingId,
+          contact_id: contactId || null,
           quote_number: quoteNumber,
           status: 'draft',
           title: title || null,

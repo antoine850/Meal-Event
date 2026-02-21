@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import {
+  ChevronDown,
   FileText,
   Loader2,
   Package,
@@ -30,6 +31,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -55,7 +69,8 @@ import {
   DEFAULT_CONDITIONS_ACOMPTE,
   DEFAULT_CONDITIONS_SOLDE,
 } from '../hooks/use-quotes'
-import { QuotePreview } from './quote-preview'
+import { QuotePreview, type DocumentType } from './quote-preview'
+import { useContacts } from '@/features/contacts/hooks/use-contacts'
 import { QuotePdfExportButton } from './quote-pdf-export'
 
 type Props = {
@@ -98,7 +113,17 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const [language, setLanguage] = useState<'fr' | 'en'>('fr')
   const [activeTab, setActiveTab] = useState('general')
   const [activeCondition, setActiveCondition] = useState('devis')
-  const [selectedProductId, setSelectedProductId] = useState('')
+  const [documentType, setDocumentType] = useState<DocumentType>('devis')
+  const [productPopoverOpen, setProductPopoverOpen] = useState(false)
+  const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
+
+  const { data: allContacts = [] } = useContacts()
+
+  // Resolve contact: use quote's contact_id if available, fallback to booking contact
+  const quoteContactId = quoteData?.contact_id || null
+  const resolvedContact = quoteContactId
+    ? allContacts.find(c => c.id === quoteContactId) || contact
+    : contact
 
   // Initialize from quote data
   useEffect(() => {
@@ -136,10 +161,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     })
   }, [quoteId, updateQuote])
 
-  // Add product from catalog
-  const handleAddProduct = useCallback(() => {
-    if (!quoteId || !selectedProductId) return
-    const product = catalogProducts.find(p => p.id === selectedProductId)
+  // Add product from catalog (via combobox)
+  const handleAddProductFromCatalog = useCallback((productId: string) => {
+    if (!quoteId) return
+    const product = catalogProducts.find(p => p.id === productId)
     if (!product) return
 
     addQuoteItem({
@@ -152,28 +177,20 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       position: items.length,
     }, {
       onSuccess: () => {
-        setSelectedProductId('')
+        setProductPopoverOpen(false)
         toast.success('Produit ajouté')
       },
       onError: () => toast.error('Erreur lors de l\'ajout'),
     })
-  }, [quoteId, selectedProductId, catalogProducts, addQuoteItem, items.length])
+  }, [quoteId, catalogProducts, addQuoteItem, items.length])
 
-  // Add manual product
-  const handleAddManualProduct = useCallback(() => {
+  // Change contact on the quote
+  const handleChangeContact = useCallback((contactId: string) => {
     if (!quoteId) return
-    addQuoteItem({
-      quoteId,
-      name: 'Nouveau produit',
-      quantity: 1,
-      unitPrice: 0,
-      tvaRate: 20,
-      position: items.length,
-    }, {
-      onSuccess: () => toast.success('Produit ajouté'),
-      onError: () => toast.error('Erreur lors de l\'ajout'),
-    })
-  }, [quoteId, addQuoteItem, items.length])
+    saveQuoteField('contact_id', contactId)
+    setContactPopoverOpen(false)
+    toast.success('Contact mis à jour')
+  }, [quoteId, saveQuoteField])
 
   // Update item field
   const handleUpdateItem = useCallback((itemId: string, field: string, value: any) => {
@@ -223,7 +240,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     items,
     booking,
     restaurant,
-    contact,
+    contact: resolvedContact as any,
     title,
     dateStart,
     dateEnd,
@@ -254,7 +271,8 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   if (isLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className='sm:max-w-[95vw] h-[95vh] p-0 gap-0'>
+        <DialogContent className='sm:max-w-[95vw] h-[95vh] p-0 gap-0' aria-describedby={undefined}>
+          <DialogTitle className='sr-only'>Chargement du devis</DialogTitle>
           <div className='flex items-center justify-center h-full'>
             <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
           </div>
@@ -265,7 +283,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-[95vw] h-[95vh] p-0 gap-0' showCloseButton={false}>
+      <DialogContent className='sm:max-w-[95vw] h-[95vh] p-0 gap-0' showCloseButton={false} aria-describedby={undefined}>
         {/* Header */}
         <div className='flex items-center justify-between px-6 py-3 border-b'>
           <div className='flex items-center gap-3'>
@@ -275,24 +293,6 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
             <Badge variant={quoteData?.status === 'draft' ? 'secondary' : quoteData?.status === 'sent' ? 'default' : 'outline'}>
               {quoteData?.status === 'draft' ? 'Brouillon' : quoteData?.status === 'sent' ? 'Envoyé' : quoteData?.status === 'signed' ? 'Signé' : quoteData?.status || 'Brouillon'}
             </Badge>
-            <div className='flex items-center gap-1 ml-2'>
-              <Button
-                size='sm'
-                variant={language === 'fr' ? 'default' : 'outline'}
-                className='h-6 px-2 text-xs'
-                onClick={() => { setLanguage('fr'); saveQuoteField('language', 'fr') }}
-              >
-                FR
-              </Button>
-              <Button
-                size='sm'
-                variant={language === 'en' ? 'default' : 'outline'}
-                className='h-6 px-2 text-xs'
-                onClick={() => { setLanguage('en'); saveQuoteField('language', 'en') }}
-              >
-                EN
-              </Button>
-            </div>
           </div>
           <div className='flex items-center gap-2'>
             <span className='text-sm font-semibold'>
@@ -545,18 +545,18 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
 
                 {/* ── Tab Contact ── */}
                 <TabsContent value='contact' className='mt-0 space-y-4'>
-                  {contact ? (
+                  {resolvedContact ? (
                     <Card>
                       <CardContent className='p-4 space-y-3'>
-                        {contact.company && (
+                        {(resolvedContact as any).company && (
                           <div>
                             <Label className='text-[10px] text-muted-foreground'>Société</Label>
-                            <p className='text-sm font-medium'>{contact.company.name}</p>
-                            {contact.company.billing_address && (
+                            <p className='text-sm font-medium'>{(resolvedContact as any).company.name}</p>
+                            {(resolvedContact as any).company.billing_address && (
                               <p className='text-xs text-muted-foreground'>
-                                {contact.company.billing_address}
-                                {contact.company.billing_postal_code && `, ${contact.company.billing_postal_code}`}
-                                {contact.company.billing_city && ` ${contact.company.billing_city}`}
+                                {(resolvedContact as any).company.billing_address}
+                                {(resolvedContact as any).company.billing_postal_code && `, ${(resolvedContact as any).company.billing_postal_code}`}
+                                {(resolvedContact as any).company.billing_city && ` ${(resolvedContact as any).company.billing_city}`}
                               </p>
                             )}
                           </div>
@@ -565,15 +565,15 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         <div className='grid grid-cols-2 gap-3'>
                           <div>
                             <Label className='text-[10px] text-muted-foreground'>Nom</Label>
-                            <p className='text-sm'>{contact.first_name} {contact.last_name || ''}</p>
+                            <p className='text-sm'>{resolvedContact.first_name} {resolvedContact.last_name || ''}</p>
                           </div>
                           <div>
                             <Label className='text-[10px] text-muted-foreground'>Email</Label>
-                            <p className='text-sm'>{contact.email || '—'}</p>
+                            <p className='text-sm'>{resolvedContact.email || '—'}</p>
                           </div>
                           <div>
                             <Label className='text-[10px] text-muted-foreground'>Téléphone</Label>
-                            <p className='text-sm'>{contact.phone || '—'}</p>
+                            <p className='text-sm'>{resolvedContact.phone || '—'}</p>
                           </div>
                         </div>
                         <Separator />
@@ -582,18 +582,90 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             variant='outline'
                             size='sm'
                             className='gap-1.5 text-xs'
-                            onClick={() => window.open(`/contacts/${contact.id}`, '_blank')}
+                            onClick={() => window.open(`/contacts/${resolvedContact.id}`, '_blank')}
                           >
                             <ExternalLink className='h-3 w-3' />
                             Ouvrir la fiche
                           </Button>
+                          <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant='outline' size='sm' className='gap-1.5 text-xs'>
+                                <User className='h-3 w-3' />
+                                Changer le contact
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className='w-[350px] p-0' align='start'>
+                              <Command>
+                                <CommandInput placeholder='Rechercher un contact...' className='text-xs' />
+                                <CommandList>
+                                  <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
+                                    Aucun contact trouvé.
+                                  </CommandEmpty>
+                                  <CommandGroup>
+                                    {allContacts.map(c => (
+                                      <CommandItem
+                                        key={c.id}
+                                        value={`${c.first_name} ${c.last_name || ''} ${c.email || ''} ${(c as any).company?.name || ''}`}
+                                        onSelect={() => handleChangeContact(c.id)}
+                                        className='text-xs cursor-pointer'
+                                      >
+                                        <div className='flex flex-col'>
+                                          <span className='font-medium'>{c.first_name} {c.last_name || ''}</span>
+                                          <span className='text-[10px] text-muted-foreground'>
+                                            {c.email || ''}
+                                            {(c as any).company?.name && ` — ${(c as any).company.name}`}
+                                          </span>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </CardContent>
                     </Card>
                   ) : (
                     <Card>
-                      <CardContent className='p-6 text-center text-muted-foreground text-sm'>
-                        Aucun contact associé à cet événement.
+                      <CardContent className='p-4 space-y-3'>
+                        <p className='text-sm text-muted-foreground text-center'>Aucun contact associé.</p>
+                        <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <Button variant='outline' size='sm' className='w-full gap-1.5 text-xs'>
+                              <User className='h-3 w-3' />
+                              Assigner un contact
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className='w-[350px] p-0' align='start'>
+                            <Command>
+                              <CommandInput placeholder='Rechercher un contact...' className='text-xs' />
+                              <CommandList>
+                                <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
+                                  Aucun contact trouvé.
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {allContacts.map(c => (
+                                    <CommandItem
+                                      key={c.id}
+                                      value={`${c.first_name} ${c.last_name || ''} ${c.email || ''} ${(c as any).company?.name || ''}`}
+                                      onSelect={() => handleChangeContact(c.id)}
+                                      className='text-xs cursor-pointer'
+                                    >
+                                      <div className='flex flex-col'>
+                                        <span className='font-medium'>{c.first_name} {c.last_name || ''}</span>
+                                        <span className='text-[10px] text-muted-foreground'>
+                                          {c.email || ''}
+                                          {(c as any).company?.name && ` — ${(c as any).company.name}`}
+                                        </span>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </CardContent>
                     </Card>
                   )}
@@ -679,40 +751,70 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                 {/* ── Tab Produits ── */}
                 <TabsContent value='produits' className='mt-0 space-y-3'>
                   {/* Add product controls */}
-                  <div className='flex items-end gap-2'>
-                    <div className='flex-1'>
-                      <Label className='text-xs'>Ajouter un produit du catalogue</Label>
-                      <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                        <SelectTrigger className='mt-1 h-8 text-xs'>
-                          <SelectValue placeholder='Sélectionner un produit...' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {catalogProducts.map(p => (
-                            <SelectItem key={p.id} value={p.id} className='text-xs'>
-                              {p.name} — {p.unit_price_ht}€ HT (TVA {p.tva_rate}%)
-                            </SelectItem>
-                          ))}
-                          {catalogProducts.length === 0 && (
-                            <div className='px-2 py-1.5 text-xs text-muted-foreground'>Aucun produit dans le catalogue</div>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      size='sm'
-                      className='h-8 gap-1 text-xs'
-                      onClick={handleAddProduct}
-                      disabled={!selectedProductId || isAddingItem}
-                    >
-                      <Plus className='h-3 w-3' />
-                      Ajouter
-                    </Button>
+                  <div className='flex items-center gap-2'>
+                    <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          size='sm'
+                          className='flex-1 h-8 gap-1.5 text-xs justify-start'
+                          variant='outline'
+                          disabled={isAddingItem}
+                        >
+                          <Plus className='h-3 w-3' />
+                          Ajouter un produit du catalogue
+                          <ChevronDown className='h-3 w-3 ml-auto opacity-50' />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className='w-[400px] p-0' align='start'>
+                        <Command>
+                          <CommandInput placeholder='Rechercher un produit...' className='text-xs' />
+                          <CommandList className='max-h-[300px] overflow-y-auto'>
+                            <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
+                              Aucun produit trouvé.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {catalogProducts.map(p => (
+                                <CommandItem
+                                  key={p.id}
+                                  value={`${p.name} ${p.type}`}
+                                  onSelect={() => handleAddProductFromCatalog(p.id)}
+                                  className='text-xs cursor-pointer'
+                                >
+                                  <div className='flex items-center justify-between w-full'>
+                                    <div>
+                                      <span className='font-medium'>{p.name}</span>
+                                      {p.description && (
+                                        <span className='block text-[10px] text-muted-foreground truncate max-w-[250px]'>{p.description}</span>
+                                      )}
+                                    </div>
+                                    <span className='text-muted-foreground shrink-0 ml-2'>{p.unit_price_ht.toFixed(2)}€ HT</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <Button
                       size='sm'
                       variant='outline'
-                      className='h-8 gap-1 text-xs'
-                      onClick={handleAddManualProduct}
+                      className='h-8 gap-1 text-xs shrink-0'
                       disabled={isAddingItem}
+                      onClick={() => {
+                        if (!quoteId) return
+                        addQuoteItem({
+                          quoteId,
+                          name: 'Nouveau produit',
+                          quantity: 1,
+                          unitPrice: 0,
+                          tvaRate: 20,
+                          position: items.length,
+                        }, {
+                          onSuccess: () => toast.success('Produit ajouté'),
+                          onError: () => toast.error("Erreur lors de l'ajout"),
+                        })
+                      }}
                     >
                       <Plus className='h-3 w-3' />
                       Produit manuel
@@ -841,16 +943,45 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
           </div>
 
           {/* Right: PDF Preview */}
-          <div className='w-[45%] bg-muted/30 flex flex-col'>
-            <div className='px-4 py-2 border-b flex items-center justify-between'>
-              <span className='text-xs font-medium text-muted-foreground'>Aperçu du devis</span>
+          <div className='w-[45%] bg-muted/30 flex flex-col overflow-hidden'>
+            <div className='px-4 py-2 border-b flex items-center justify-between shrink-0'>
+              <div className='flex items-center gap-2'>
+                <Select value={documentType} onValueChange={(v) => setDocumentType(v as DocumentType)}>
+                  <SelectTrigger className='h-7 w-[200px] text-xs'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='devis' className='text-xs'>Devis</SelectItem>
+                    <SelectItem value='acompte' className='text-xs'>Acompte à signature</SelectItem>
+                    <SelectItem value='solde' className='text-xs'>Solde</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className='flex items-center gap-1'>
+                  <Button
+                    size='sm'
+                    variant={language === 'fr' ? 'default' : 'outline'}
+                    className='h-6 px-1.5 text-[10px]'
+                    onClick={() => { setLanguage('fr'); saveQuoteField('language', 'fr') }}
+                  >
+                    🇫🇷
+                  </Button>
+                  <Button
+                    size='sm'
+                    variant={language === 'en' ? 'default' : 'outline'}
+                    className='h-6 px-1.5 text-[10px]'
+                    onClick={() => { setLanguage('en'); saveQuoteField('language', 'en') }}
+                  >
+                    🇬🇧
+                  </Button>
+                </div>
+              </div>
               <QuotePdfExportButton quoteNumber={quoteData?.quote_number || 'devis'} />
             </div>
-            <ScrollArea className='flex-1'>
+            <div className='flex-1 overflow-auto'>
               <div className='p-4'>
-                <QuotePreview data={previewData} />
+                <QuotePreview data={previewData} documentType={documentType} />
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
       </DialogContent>

@@ -787,6 +787,7 @@ export const BookingDetail = forwardRef<
                         createQuote({
                           bookingId: booking.id,
                           restaurantId: booking.restaurant_id || '',
+                          contactId: booking.contact_id || undefined,
                           title: `Votre événement | ${booking.occasion || ''}`,
                           dateStart: booking.event_date || undefined,
                           dateEnd: booking.event_date || undefined,
