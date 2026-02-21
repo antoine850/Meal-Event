@@ -185,7 +185,7 @@ function DocumentHeader({ restaurant, docTitle, docNumber, date, dueDate, color 
       </div>
       <div className='text-right text-[10px] space-y-0.5 shrink-0'>
         <p className='text-xs font-bold'>{docTitle} n°{docNumber}</p>
-        <p>Date du {docTitle.toLowerCase()} – {date}</p>
+        <p>Date du {(docTitle || '').toLowerCase()} – {date}</p>
         <p>Date d'échéance – {dueDate}</p>
       </div>
     </div>
@@ -285,7 +285,7 @@ function ConditionsPage({ title, conditions, color }: { title: string; condition
 // ── Main component ──
 
 export function QuotePreview({ data, documentType = 'devis' }: Props) {
-  const l = labels[data.language]
+  const l = labels[data.language] || labels.fr
   const restaurant = data.restaurant as any
   const color = restaurant?.color || '#0d7377'
 
