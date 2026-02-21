@@ -46,7 +46,6 @@ import {
   useUpdateContact,
   useDeleteContact,
   useOrganizationUsers,
-  useRestaurantsList,
 } from '../hooks/use-contacts'
 import { useBookingsByContact } from '@/features/reservations/hooks/use-bookings'
 import { CreateBookingDialog } from '@/features/reservations/components/create-booking-dialog'

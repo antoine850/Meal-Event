@@ -20,7 +20,7 @@ import { useCompanies } from '../companies/hooks/use-companies'
 
 export function Contacts() {
   const search = useSearch({ from: '/_authenticated/contacts/' })
-  const navigate = useNavigate({ from: '/contacts' })
+  const navigate = useNavigate({ from: '/contacts/' })
 
   const dateRange: DateRange | undefined = search.from
     ? { from: new Date(search.from), to: search.to ? new Date(search.to) : undefined }
@@ -29,8 +29,8 @@ export function Contacts() {
   const setSearch = useCallback(
     (updates: Record<string, string | undefined>) => {
       navigate({
-        search: (prev: Record<string, unknown>) => {
-          const next = { ...prev, ...updates }
+        search: (prev) => {
+          const next = { ...prev, ...updates } as Record<string, unknown>
           Object.keys(next).forEach(k => {
             if (next[k] === undefined || next[k] === '') delete next[k]
           })
@@ -66,7 +66,7 @@ export function Contacts() {
       setSelectedCompanies(new Set())
       setSelectedSources(new Set())
       navigate({
-        search: {},
+        search: () => ({}),
         replace: true,
       })
     },
