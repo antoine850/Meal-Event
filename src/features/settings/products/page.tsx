@@ -1,9 +1,7 @@
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
-import { Edit, Loader2, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react'
+import { Loader2, Package, Plus, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   AlertDialog,
@@ -27,6 +25,7 @@ import { useRestaurants } from '../hooks/use-settings'
 import { ProductDialog } from './product-dialog'
 import { PackageDialog } from './package-dialog'
 import { ProductsTable } from './products-table'
+import { PackagesTable } from './packages-table'
 
 export function ProductsPage() {
   const { data: products = [], isLoading: isLoadingProducts } = useProducts()
@@ -74,10 +73,14 @@ export function ProductsPage() {
     setPackageDialogOpen(true)
   }
 
-  const handleEditPackage = (pkg: PackageWithRelations) => {
+  const handleEditPackage = useCallback((pkg: PackageWithRelations) => {
     setEditingPackage(pkg)
     setPackageDialogOpen(true)
-  }
+  }, [])
+
+  const handleDeletePackage = useCallback((pkg: PackageWithRelations) => {
+    setDeleteTarget({ type: 'package', id: pkg.id, name: pkg.name })
+  }, [])
 
   const handleDelete = () => {
     if (!deleteTarget) return
@@ -140,73 +143,18 @@ export function ProductsPage() {
 
         {/* ── Packages Tab ── */}
         <TabsContent value='packages'>
-          <div className='flex justify-end mb-4'>
-            <Button size='sm' onClick={handleNewPackage} className='gap-1.5'>
-              <Plus className='h-4 w-4' />
-              Nouveau package
-            </Button>
-          </div>
-
-          {packages.length === 0 ? (
-            <Card>
-              <CardContent className='py-8 text-center text-muted-foreground'>
-                Aucun package pour le moment.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className='space-y-2'>
-              {packages.map(pkg => {
-                const totalHt = pkg.package_products?.reduce((sum, pp) => {
-                  return sum + ((pp.product as any)?.unit_price_ht || 0) * pp.quantity
-                }, 0) || 0
-                return (
-                  <Card key={pkg.id}>
-                    <div className='flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors'>
-                      <div className='min-w-0 flex-1'>
-                        <div className='flex items-center gap-2'>
-                          <span className='text-sm font-medium'>{pkg.name}</span>
-                          {!pkg.is_active && <Badge variant='secondary' className='text-[10px]'>Inactif</Badge>}
-                          <Badge variant='outline' className='text-[10px]'>{pkg.package_products?.length || 0} produits</Badge>
-                        </div>
-                        {pkg.description && <p className='text-xs text-muted-foreground mt-0.5 truncate'>{pkg.description}</p>}
-                        <div className='flex items-center gap-2 mt-1'>
-                          <span className='text-xs font-medium'>Total HT: {totalHt.toFixed(2)}€</span>
-                          <div className='flex gap-1 ml-2'>
-                            {pkg.package_restaurants?.map(pr => (
-                              <Badge key={pr.restaurant_id} variant='secondary' className='text-[10px]'>
-                                <div
-                                  className='h-1.5 w-1.5 rounded-full mr-1'
-                                  style={{ backgroundColor: pr.restaurant?.color || '#ccc' }}
-                                />
-                                {pr.restaurant?.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                        {pkg.package_products && pkg.package_products.length > 0 && (
-                          <div className='flex flex-wrap gap-1 mt-1.5'>
-                            {pkg.package_products.map(pp => (
-                              <span key={pp.product_id} className='text-[10px] bg-muted rounded px-1.5 py-0.5'>
-                                {(pp.product as any)?.name} ×{pp.quantity}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className='flex items-center gap-1 shrink-0'>
-                        <Button size='icon' variant='ghost' className='h-7 w-7' onClick={() => handleEditPackage(pkg)} title='Modifier'>
-                          <Edit className='h-3.5 w-3.5' />
-                        </Button>
-                        <Button size='icon' variant='ghost' className='h-7 w-7 text-destructive hover:text-destructive' onClick={() => setDeleteTarget({ type: 'package', id: pkg.id, name: pkg.name })} title='Supprimer'>
-                          <Trash2 className='h-3.5 w-3.5' />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
+          <PackagesTable
+            data={packages}
+            restaurants={restaurants}
+            onEdit={handleEditPackage}
+            onDelete={handleDeletePackage}
+            actionButton={
+              <Button size='sm' onClick={handleNewPackage} className='gap-1.5'>
+                <Plus className='h-4 w-4' />
+                Nouveau package
+              </Button>
+            }
+          />
         </TabsContent>
       </Tabs>
 

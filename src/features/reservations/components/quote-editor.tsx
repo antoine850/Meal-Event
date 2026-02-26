@@ -63,6 +63,7 @@ import {
   useUpdateQuoteItem,
   useDeleteQuoteItem,
   useProductsByRestaurant,
+  usePackagesByRestaurant,
   useQuoteWithItems,
   DEFAULT_CONDITIONS_DEVIS,
   DEFAULT_CONDITIONS_FACTURE,
@@ -89,6 +90,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const { mutate: updateQuoteItem } = useUpdateQuoteItem()
   const { mutate: deleteQuoteItem } = useDeleteQuoteItem()
   const { data: catalogProducts = [] } = useProductsByRestaurant(restaurant?.id || null)
+  const { data: catalogPackages = [] } = usePackagesByRestaurant(restaurant?.id || null)
 
   // Local state for quote fields
   const [title, setTitle] = useState('')
@@ -115,6 +117,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const [activeCondition, setActiveCondition] = useState('devis')
   const [documentType, setDocumentType] = useState<DocumentType>('devis')
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
+  const [packagePopoverOpen, setPackagePopoverOpen] = useState(false)
   const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
 
   const { data: allContacts = [] } = useContacts()
@@ -171,7 +174,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       quoteId,
       name: product.name,
       description: product.description || undefined,
-      quantity: booking.guests_count || 1,
+      quantity: product.price_per_person ? (booking.guests_count || 1) : 1,
       unitPrice: product.unit_price_ht,
       tvaRate: product.tva_rate,
       position: items.length,
@@ -183,6 +186,35 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       onError: () => toast.error('Erreur lors de l\'ajout'),
     })
   }, [quoteId, catalogProducts, addQuoteItem, items.length, booking.guests_count])
+
+  // Add package from catalog (via combobox)
+  const handleAddPackageFromCatalog = useCallback((packageId: string) => {
+    if (!quoteId) return
+    const pkg = catalogPackages.find(p => p.id === packageId)
+    if (!pkg) return
+
+    // Build description from package products
+    const productsDesc = pkg.package_products?.map(pp => 
+      `${pp.product?.name || 'Produit'} ×${pp.quantity}`
+    ).join(', ') || ''
+    const fullDescription = [pkg.description, productsDesc].filter(Boolean).join(' — ')
+
+    addQuoteItem({
+      quoteId,
+      name: pkg.name,
+      description: fullDescription || undefined,
+      quantity: pkg.price_per_person ? (booking.guests_count || 1) : 1,
+      unitPrice: pkg.unit_price_ht,
+      tvaRate: pkg.tva_rate,
+      position: items.length,
+    }, {
+      onSuccess: () => {
+        setPackagePopoverOpen(false)
+        toast.success('Package ajouté')
+      },
+      onError: () => toast.error('Erreur lors de l\'ajout'),
+    })
+  }, [quoteId, catalogPackages, addQuoteItem, items.length, booking.guests_count])
 
   // Change contact on the quote
   const handleChangeContact = useCallback((contactId: string) => {
@@ -760,7 +792,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
 
                 {/* ── Tab Produits ── */}
                 <TabsContent value='produits' className='mt-0 space-y-3'>
-                  {/* Add product controls */}
+                  {/* Add product/package controls */}
                   <div className='flex items-center gap-2'>
                     <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
                       <PopoverTrigger asChild>
@@ -771,7 +803,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                           disabled={isAddingItem}
                         >
                           <Plus className='h-3 w-3' />
-                          Ajouter un produit du catalogue
+                          Produit
                           <ChevronDown className='h-3 w-3 ml-auto opacity-50' />
                         </Button>
                       </PopoverTrigger>
@@ -798,6 +830,58 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                       )}
                                     </div>
                                     <span className='text-muted-foreground shrink-0 ml-2'>{p.unit_price_ht.toFixed(2)}€ HT</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <Popover open={packagePopoverOpen} onOpenChange={setPackagePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          size='sm'
+                          className='flex-1 h-8 gap-1.5 text-xs justify-start'
+                          variant='outline'
+                          disabled={isAddingItem}
+                        >
+                          <Package className='h-3 w-3' />
+                          Package
+                          <ChevronDown className='h-3 w-3 ml-auto opacity-50' />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className='w-[400px] p-0' align='start'>
+                        <Command>
+                          <CommandInput placeholder='Rechercher un package...' className='text-xs' />
+                          <CommandList className='max-h-[300px] overflow-y-auto'>
+                            <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
+                              Aucun package trouvé.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {catalogPackages.map(pkg => (
+                                <CommandItem
+                                  key={pkg.id}
+                                  value={pkg.name}
+                                  onSelect={() => handleAddPackageFromCatalog(pkg.id)}
+                                  className='text-xs cursor-pointer'
+                                >
+                                  <div className='flex items-center justify-between w-full'>
+                                    <div>
+                                      <div className='flex items-center gap-1.5'>
+                                        <span className='font-medium'>{pkg.name}</span>
+                                        {pkg.price_per_person && (
+                                          <span className='text-[9px] bg-muted px-1 rounded'>par pers.</span>
+                                        )}
+                                      </div>
+                                      {pkg.description && (
+                                        <span className='block text-[10px] text-muted-foreground truncate max-w-[250px]'>{pkg.description}</span>
+                                      )}
+                                      <span className='block text-[10px] text-muted-foreground'>
+                                        {pkg.package_products?.length || 0} produits inclus
+                                      </span>
+                                    </div>
+                                    <span className='text-muted-foreground shrink-0 ml-2'>{pkg.unit_price_ht.toFixed(2)}€ HT</span>
                                   </div>
                                 </CommandItem>
                               ))}
@@ -856,15 +940,20 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                           {items.map((item: QuoteItem) => (
                             <TableRow key={item.id}>
                               <TableCell>
-                                <Input
-                                  defaultValue={item.name}
-                                  onBlur={e => {
-                                    if (e.target.value !== item.name) {
-                                      handleUpdateItem(item.id, 'name', e.target.value)
-                                    }
-                                  }}
-                                  className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0'
-                                />
+                                <div className='space-y-0.5'>
+                                  <Input
+                                    defaultValue={item.name}
+                                    onBlur={e => {
+                                      if (e.target.value !== item.name) {
+                                        handleUpdateItem(item.id, 'name', e.target.value)
+                                      }
+                                    }}
+                                    className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0'
+                                  />
+                                  {item.description && (
+                                    <p className='text-[10px] text-muted-foreground truncate max-w-[280px]'>{item.description}</p>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <Input

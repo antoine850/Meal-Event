@@ -1,0 +1,4 @@
+-- Add pricing fields to packages table
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS unit_price_ht DECIMAL(10, 2) NOT NULL DEFAULT 0;
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS price_per_person BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS tva_rate DECIMAL(5, 2) NOT NULL DEFAULT 20;

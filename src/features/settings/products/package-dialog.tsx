@@ -46,6 +46,9 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [unitPriceHt, setUnitPriceHt] = useState<number>(0)
+  const [pricePerPerson, setPricePerPerson] = useState(false)
+  const [tvaRate, setTvaRate] = useState<number>(20)
   const [isActive, setIsActive] = useState(true)
   const [productItems, setProductItems] = useState<ProductItem[]>([])
   const [selectedRestaurants, setSelectedRestaurants] = useState<string[]>([])
@@ -55,12 +58,18 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
       if (pkg) {
         setName(pkg.name)
         setDescription(pkg.description || '')
+        setUnitPriceHt(pkg.unit_price_ht || 0)
+        setPricePerPerson(pkg.price_per_person || false)
+        setTvaRate(pkg.tva_rate || 20)
         setIsActive(pkg.is_active)
         setProductItems(pkg.package_products?.map(pp => ({ product_id: pp.product_id, quantity: pp.quantity })) || [])
         setSelectedRestaurants(pkg.package_restaurants?.map(pr => pr.restaurant_id) || [])
       } else {
         setName('')
         setDescription('')
+        setUnitPriceHt(0)
+        setPricePerPerson(false)
+        setTvaRate(20)
         setIsActive(true)
         setProductItems([])
         setSelectedRestaurants([])
@@ -73,10 +82,17 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
       toast.error('Le nom est requis')
       return
     }
+    if (unitPriceHt <= 0) {
+      toast.error('Le prix du package est requis')
+      return
+    }
 
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
+      unit_price_ht: unitPriceHt,
+      price_per_person: pricePerPerson,
+      tva_rate: tvaRate,
       is_active: isActive,
       product_items: productItems.filter(pi => pi.product_id),
       restaurant_ids: selectedRestaurants,
@@ -126,7 +142,7 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-lg max-h-[90vh] overflow-y-auto'>
+      <DialogContent className='w-[95vw] max-w-lg max-h-[90vh] overflow-y-auto'>
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Modifier le package' : 'Nouveau package'}</DialogTitle>
         </DialogHeader>
@@ -140,6 +156,40 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
           <div>
             <Label>Description</Label>
             <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder='Description...' className='resize-none min-h-[60px]' />
+          </div>
+
+          {/* Pricing */}
+          <div className='grid grid-cols-2 gap-3'>
+            <div>
+              <Label>Prix du package HT *</Label>
+              <Input
+                type='number'
+                step='0.01'
+                min={0}
+                value={unitPriceHt}
+                onChange={e => setUnitPriceHt(parseFloat(e.target.value) || 0)}
+                placeholder='0.00'
+              />
+            </div>
+            <div>
+              <Label>TVA (%)</Label>
+              <Input
+                type='number'
+                step='0.01'
+                min={0}
+                max={100}
+                value={tvaRate}
+                onChange={e => setTvaRate(parseFloat(e.target.value) || 20)}
+              />
+            </div>
+          </div>
+
+          <div className='flex items-center justify-between'>
+            <div>
+              <Label>Prix par personne</Label>
+              <p className='text-xs text-muted-foreground'>Le prix sera multiplié par le nombre de convives</p>
+            </div>
+            <Switch checked={pricePerPerson} onCheckedChange={setPricePerPerson} />
           </div>
 
           <div className='flex items-center justify-between'>
@@ -159,12 +209,14 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
               {productItems.map((item, index) => (
                 <div key={index} className='flex items-center gap-2'>
                   <Select value={item.product_id} onValueChange={v => updateProductItem(index, 'product_id', v)}>
-                    <SelectTrigger className='flex-1'>
-                      <SelectValue placeholder='Sélectionner un produit' />
+                    <SelectTrigger className='flex-1 min-w-0'>
+                      <SelectValue placeholder='Sélectionner un produit' className='truncate' />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className='max-w-[calc(100vw-4rem)] sm:max-w-[400px]'>
                       {products.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.name} ({p.unit_price_ht}€ HT)</SelectItem>
+                        <SelectItem key={p.id} value={p.id} className='max-w-full'>
+                          <span className='truncate block max-w-[280px]'>{p.name} ({p.unit_price_ht}€ HT)</span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -173,10 +225,10 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
                     min={1}
                     value={item.quantity}
                     onChange={e => updateProductItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                    className='w-20'
+                    className='w-16 shrink-0'
                     placeholder='Qté'
                   />
-                  <Button type='button' size='icon' variant='ghost' onClick={() => removeProductItem(index)} className='h-8 w-8 text-destructive hover:text-destructive'>
+                  <Button type='button' size='icon' variant='ghost' onClick={() => removeProductItem(index)} className='h-8 w-8 shrink-0 text-destructive hover:text-destructive'>
                     <Trash2 className='h-3 w-3' />
                   </Button>
                 </div>
@@ -185,8 +237,9 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
                 <p className='text-xs text-muted-foreground text-center py-2'>Aucun produit ajouté</p>
               )}
               {productItems.length > 0 && (
-                <div className='text-right text-sm font-medium pt-1 border-t'>
-                  Total HT: {totalHt.toFixed(2)} €
+                <div className='text-right text-sm pt-1 border-t space-y-0.5'>
+                  <div className='text-muted-foreground'>Somme des produits: {totalHt.toFixed(2)} €</div>
+                  <div className='font-medium'>Prix du package: {unitPriceHt.toFixed(2)} €</div>
                 </div>
               )}
             </div>

@@ -489,3 +489,58 @@ export function useProductsByRestaurant(restaurantId: string | null) {
     enabled: !!restaurantId,
   })
 }
+
+// ============================================
+// Packages by Restaurant
+// ============================================
+
+export type PackageWithRelations = {
+  id: string
+  organization_id: string
+  name: string
+  description: string | null
+  unit_price_ht: number
+  price_per_person: boolean
+  tva_rate: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  package_products: { product_id: string; quantity: number; product: any }[]
+  package_restaurants: { restaurant_id: string; restaurant: { id: string; name: string; color: string | null } }[]
+}
+
+export function usePackagesByRestaurant(restaurantId: string | null) {
+  return useQuery<PackageWithRelations[]>({
+    queryKey: ['packages-by-restaurant', restaurantId],
+    queryFn: async () => {
+      if (!restaurantId) return []
+
+      const { data, error } = await supabase
+        .from('packages')
+        .select(`
+          *,
+          package_products(
+            product_id,
+            quantity,
+            product:products(*)
+          ),
+          package_restaurants(
+            restaurant_id,
+            restaurant:restaurants(id, name, color)
+          )
+        `)
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+
+      if (error) throw error
+
+      // Filter to only packages linked to this restaurant
+      const filtered = (data as unknown as PackageWithRelations[]).filter(p =>
+        p.package_restaurants?.some(pr => pr.restaurant_id === restaurantId)
+      )
+
+      return filtered
+    },
+    enabled: !!restaurantId,
+  })
+}

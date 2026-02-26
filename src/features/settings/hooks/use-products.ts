@@ -45,6 +45,9 @@ export type Package = {
   organization_id: string
   name: string
   description: string | null
+  unit_price_ht: number
+  price_per_person: boolean
+  tva_rate: number
   is_active: boolean
   created_at: string
   updated_at: string
@@ -215,7 +218,13 @@ export function useCreatePackage() {
 
       const { data, error } = await supabase
         .from('packages')
-        .insert({ ...pkg, organization_id: orgId } as never)
+        .insert({
+          ...pkg,
+          organization_id: orgId,
+          unit_price_ht: pkg.unit_price_ht ?? 0,
+          price_per_person: pkg.price_per_person ?? false,
+          tva_rate: pkg.tva_rate ?? 20,
+        } as never)
         .select()
         .single()
 
