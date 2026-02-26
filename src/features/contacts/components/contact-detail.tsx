@@ -7,8 +7,7 @@ import { toast } from 'sonner'
 import { Link } from '@tanstack/react-router'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CalendarDays, ExternalLink, Loader2, Save, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { CalendarDays, ExternalLink, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -27,17 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import type { ContactWithRelations } from '../types'
@@ -78,9 +66,9 @@ export const ContactDetail = forwardRef<
   { submitForm: () => void; deleteContact: () => void },
   ContactDetailProps
 >(function ContactDetail({ contact, activeTab, onDirtyChange }, ref) {
-  const { mutate: updateContact, isPending } = useUpdateContact()
+  const { mutate: updateContact, isPending: _isPending } = useUpdateContact()
   const { data: bookings = [], isLoading: isLoadingBookings } = useBookingsByContact(contact.id)
-  const { mutate: deleteContactMutation, isPending: isDeleting } = useDeleteContact()
+  const { mutate: deleteContactMutation, isPending: _isDeleting } = useDeleteContact()
   const { data: users = [] } = useOrganizationUsers()
 
   const formValues = useMemo(() => ({

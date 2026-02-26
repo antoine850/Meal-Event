@@ -11,7 +11,6 @@ import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { CalendarView } from './components/calendar-view'
 import { BookingsTable } from './components/bookings-table'
@@ -25,7 +24,7 @@ type CalendarMode = 'month' | 'week' | 'day'
 
 export function Reservations() {
   const search = useSearch({ from: '/_authenticated/evenements/' })
-  const navigate = useNavigate({ from: '/evenements/' })
+  const navigate = useNavigate({ from: '/evenements' })
 
   // Derive state from URL search params
   const mainView = (search.view || 'calendar') as MainView
@@ -53,7 +52,7 @@ export function Reservations() {
   const setSearch = useCallback(
     (updates: Record<string, string | undefined>) => {
       navigate({
-        search: (prev) => {
+        search: (prev: Record<string, unknown>) => {
           const next = { ...prev, ...updates } as Record<string, unknown>
           Object.keys(next).forEach(k => {
             if (next[k] === undefined || next[k] === '') delete next[k]
