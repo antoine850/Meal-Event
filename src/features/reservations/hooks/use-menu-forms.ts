@@ -68,14 +68,34 @@ export function useMenuFormByToken(token: string | null) {
     queryKey: ['menu_forms', 'token', token],
     enabled: !!token,
     queryFn: async () => {
-      const { data, error } = await (supabase
+      // First fetch the form with fields and responses
+      const { data: formData, error: formError } = await (supabase
         .from('menu_forms') as any)
         .select('*, menu_form_fields(*), menu_form_responses(*)')
         .eq('share_token', token!)
         .single()
 
-      if (error) throw error
-      return data as MenuFormFull
+      if (formError) throw formError
+
+      // Then fetch the booking to get restaurant_id
+      const { data: bookingData } = await (supabase
+        .from('bookings') as any)
+        .select('restaurant_id')
+        .eq('id', formData.booking_id)
+        .single()
+
+      // Finally fetch the restaurant
+      let restaurant = null
+      if (bookingData?.restaurant_id) {
+        const { data: restaurantData } = await (supabase
+          .from('restaurants') as any)
+          .select('id, name, color, logo_url, address, city, postal_code, phone, email')
+          .eq('id', bookingData.restaurant_id)
+          .single()
+        restaurant = restaurantData
+      }
+
+      return { ...formData, restaurant } as MenuFormFull & { restaurant: any }
     },
   })
 }

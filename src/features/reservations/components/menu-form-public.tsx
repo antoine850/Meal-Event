@@ -7,6 +7,9 @@ import {
   Lock,
   MessageSquare,
   Users,
+  MapPin,
+  Phone,
+  Mail,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -127,31 +130,78 @@ export function MenuFormPublic({ token }: Props) {
     })
   }
 
+  const restaurant = (formData as any)?.restaurant
+  const primaryColor = restaurant?.color || '#3b82f6'
+
   return (
-    <div className='min-h-screen bg-gray-50 py-8 px-4'>
-      <div className='max-w-2xl mx-auto space-y-6'>
-        {/* Header */}
-        <Card>
-          <CardHeader>
-            <div className='space-y-2'>
-              <CardTitle className='text-xl'>{formData.title}</CardTitle>
-              {formData.description && (
-                <p className='text-sm text-muted-foreground'>{formData.description}</p>
+    <div className='min-h-screen bg-gray-50'>
+      {/* Restaurant Branding Banner */}
+      {restaurant && (
+        <div 
+          className='w-full py-8 px-4 text-white shadow-lg'
+          style={{ backgroundColor: primaryColor }}
+        >
+          <div className='max-w-2xl mx-auto'>
+            <div className='flex items-start gap-4'>
+              {restaurant.logo_url && (
+                <img 
+                  src={restaurant.logo_url} 
+                  alt={restaurant.name}
+                  className='h-16 w-16 rounded-lg bg-white/10 object-contain p-2'
+                />
               )}
-              <div className='flex items-center gap-2'>
-                <Badge variant='outline' className='gap-1'>
-                  <Users className='h-3 w-3' />
-                  {guestsCount} convive{guestsCount > 1 ? 's' : ''}
-                </Badge>
-                {isSubmitted && (
-                  <Badge className='bg-green-500 text-white gap-1'>
-                    <CheckCircle2 className='h-3 w-3' /> Soumis
-                  </Badge>
-                )}
+              <div className='flex-1'>
+                <h1 className='text-2xl font-bold mb-2'>{restaurant.name}</h1>
+                <div className='space-y-1 text-sm text-white/90'>
+                  {restaurant.address && (
+                    <div className='flex items-center gap-2'>
+                      <MapPin className='h-3.5 w-3.5' />
+                      <span>{restaurant.address}, {restaurant.postal_code} {restaurant.city}</span>
+                    </div>
+                  )}
+                  {restaurant.phone && (
+                    <div className='flex items-center gap-2'>
+                      <Phone className='h-3.5 w-3.5' />
+                      <span>{restaurant.phone}</span>
+                    </div>
+                  )}
+                  {restaurant.email && (
+                    <div className='flex items-center gap-2'>
+                      <Mail className='h-3.5 w-3.5' />
+                      <span>{restaurant.email}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </CardHeader>
-        </Card>
+          </div>
+        </div>
+      )}
+
+      <div className='py-8 px-4'>
+        <div className='max-w-2xl mx-auto space-y-6'>
+          {/* Header */}
+          <Card>
+            <CardHeader>
+              <div className='space-y-2'>
+                <CardTitle className='text-xl'>{formData.title}</CardTitle>
+                {formData.description && (
+                  <p className='text-sm text-muted-foreground'>{formData.description}</p>
+                )}
+                <div className='flex items-center gap-2'>
+                  <Badge variant='outline' className='gap-1'>
+                    <Users className='h-3 w-3' />
+                    {guestsCount} convive{guestsCount > 1 ? 's' : ''}
+                  </Badge>
+                  {isSubmitted && (
+                    <Badge className='bg-green-500 text-white gap-1'>
+                      <CheckCircle2 className='h-3 w-3' /> Soumis
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
 
         {/* Submitted message */}
         {isSubmitted && (
@@ -259,6 +309,7 @@ export function MenuFormPublic({ token }: Props) {
             Soumettre mes choix
           </Button>
         )}
+        </div>
       </div>
     </div>
   )

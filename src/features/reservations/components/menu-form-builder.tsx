@@ -26,7 +26,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -406,7 +405,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0'>
+      <DialogContent className='max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden'>
         {/* Header */}
         <DialogHeader className='px-6 py-4 border-b shrink-0'>
           <div className='flex items-center justify-between'>
@@ -460,8 +459,8 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
             <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
           </div>
         ) : (
-          <ScrollArea className='flex-1'>
-            <div className='p-6 max-w-3xl mx-auto space-y-8'>
+          <div className='flex-1 min-h-0 overflow-auto'>
+            <div className='p-6 max-w-3xl mx-auto space-y-8 pb-8'>
               {/* ── Section: Informations générales ── */}
               <div className='space-y-4'>
                 <div className='flex items-center gap-2'>
@@ -665,7 +664,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </DialogContent>
     </Dialog>
