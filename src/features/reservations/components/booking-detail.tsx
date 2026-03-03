@@ -66,7 +66,9 @@ import { useDocumentsByBooking, useUploadDocument, useDeleteDocument } from '../
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
 import { useCreateQuote, useDeleteQuote, useRestaurantById, useContactWithCompany } from '../hooks/use-quotes'
+import { useMenuFormsByBooking, useCreateMenuForm, useDeleteMenuForm } from '../hooks/use-menu-forms'
 import { QuoteEditor } from './quote-editor'
+import { MenuFormBuilder } from './menu-form-builder'
 import { PaymentDialog } from './payment-dialog'
 import type { Payment } from '@/lib/supabase/types'
 
@@ -120,6 +122,13 @@ export const BookingDetail = forwardRef<
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
+
+  // Menu forms state
+  const { data: menuForms = [] } = useMenuFormsByBooking(booking.id)
+  const { mutate: createMenuForm, isPending: isCreatingMenuForm } = useCreateMenuForm()
+  const { mutate: deleteMenuForm } = useDeleteMenuForm()
+  const [menuFormBuilderOpen, setMenuFormBuilderOpen] = useState(false)
+  const [editingMenuFormId, setEditingMenuFormId] = useState<string | null>(null)
 
   const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
 
@@ -406,8 +415,10 @@ export const BookingDetail = forwardRef<
                       ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`
                       : '—'}
                   </div>
-                  {booking.contact?.company && (
-                    <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>Pro</Badge>
+                  {booking.contact && (
+                    booking.contact.company
+                      ? <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>B2B</Badge>
+                      : <Badge className='bg-gray-500 text-white text-[10px] px-1.5 py-0 h-5'>B2C</Badge>
                   )}
                 </div>
                 {booking.contact?.phone && (
@@ -590,6 +601,35 @@ export const BookingDetail = forwardRef<
 
                 <Separator />
 
+                {/* Budget client */}
+                <div>
+                  <label className='text-xs font-medium'>Budget client (€)</label>
+                  <Input
+                    type='number'
+                    min='0'
+                    step='0.01'
+                    placeholder='0.00'
+                    value={eventForm.budget_client as number || ''}
+                    onChange={e => updateEventField('budget_client', e.target.value ? Number(e.target.value) : null)}
+                    className='h-8 text-sm'
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Format souhaité */}
+                <div>
+                  <label className='text-xs font-medium'>Format souhaité</label>
+                  <Input
+                    placeholder='Cocktail, Assis, Buffet...'
+                    value={eventForm.format_souhaite as string || ''}
+                    onChange={e => updateEventField('format_souhaite', e.target.value)}
+                    className='h-8 text-sm'
+                  />
+                </div>
+
+                <Separator />
+
                 {/* Switches */}
                 <div className='space-y-2'>
                   <FormField
@@ -744,18 +784,6 @@ export const BookingDetail = forwardRef<
                       </div>
                     </div>
 
-                    {/* Budget / Format */}
-                    <div className='grid gap-3 md:grid-cols-2'>
-                      <div>
-                        <label className='text-xs font-medium'>Budget client (€)</label>
-                        <Input type='number' step='0.01' min='0' value={eventForm.budget_client as string || ''} onChange={e => updateEventField('budget_client', e.target.value ? Number(e.target.value) : null)} className='h-8 text-sm' />
-                      </div>
-                      <div>
-                        <label className='text-xs font-medium'>Format souhaité</label>
-                        <Input value={eventForm.format_souhaite as string || ''} onChange={e => updateEventField('format_souhaite', e.target.value)} className='h-8 text-sm' />
-                      </div>
-                    </div>
-
                     <Separator />
 
                     {/* Contact sur place */}
@@ -800,6 +828,69 @@ export const BookingDetail = forwardRef<
             {/* ── Tab: Facturation ── */}
             {activeTab === 'facturation' && (
               <div className='space-y-4'>
+              {/* B2B Billing Info Warning */}
+              {fullContact?.company && (
+                (() => {
+                  const company = fullContact.company
+                  const missingFields: string[] = []
+                  if (!company.billing_address) missingFields.push('Adresse de facturation')
+                  if (!company.billing_postal_code) missingFields.push('Code postal')
+                  if (!company.billing_city) missingFields.push('Ville')
+                  if (!company.siret) missingFields.push('SIRET')
+                  if (!company.tva_number) missingFields.push('N° TVA')
+                  
+                  if (missingFields.length > 0) {
+                    return (
+                      <Card className='border-amber-300 bg-amber-50'>
+                        <CardHeader className='pb-2'>
+                          <div className='flex items-center gap-2'>
+                            <Badge className='bg-blue-500 text-white'>B2B</Badge>
+                            <CardTitle className='text-base text-amber-800'>Informations de facturation incomplètes</CardTitle>
+                          </div>
+                        </CardHeader>
+                        <CardContent className='space-y-3'>
+                          <p className='text-sm text-amber-700'>
+                            La société <strong>{company.name}</strong> a des informations de facturation manquantes :
+                          </p>
+                          <ul className='text-sm text-amber-700 list-disc list-inside'>
+                            {missingFields.map(field => (
+                              <li key={field}>{field}</li>
+                            ))}
+                          </ul>
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            className='gap-1.5 border-amber-400 text-amber-800 hover:bg-amber-100'
+                            onClick={() => {
+                              navigate({ to: '/companies' })
+                              toast.info(`Recherchez "${company.name}" pour compléter les informations`)
+                            }}
+                          >
+                            <Edit className='h-3.5 w-3.5' />
+                            Compléter les informations
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )
+                  }
+                  return null
+                })()
+              )}
+
+              {/* B2C Info - No billing info required */}
+              {booking.contact && !booking.contact.company && (
+                <Card className='border-gray-200 bg-gray-50'>
+                  <CardContent className='py-3'>
+                    <div className='flex items-center gap-2'>
+                      <Badge className='bg-gray-500 text-white'>B2C</Badge>
+                      <span className='text-sm text-muted-foreground'>
+                        Contact particulier — Aucune information de facturation société requise
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Devis / Factures Section */}
               <Card>
                 <CardHeader className='pb-3'>
@@ -1075,6 +1166,133 @@ export const BookingDetail = forwardRef<
                   </div>
                 </CardContent>
               </Card>
+              </div>
+            )}
+
+            {/* ── Tab: Menu ── */}
+            {activeTab === 'menu' && (
+              <div className='space-y-4'>
+                <div className='flex items-center justify-between'>
+                  <h3 className='text-lg font-semibold'>Formulaires de menu</h3>
+                  <Button
+                    size='sm'
+                    className='gap-1.5'
+                    disabled={isCreatingMenuForm}
+                    onClick={() => {
+                      createMenuForm({
+                        bookingId: booking.id,
+                        guestsCount: booking.guests_count || 1,
+                      }, {
+                        onSuccess: (form) => {
+                          setEditingMenuFormId(form.id)
+                          setMenuFormBuilderOpen(true)
+                          toast.success('Formulaire créé')
+                        },
+                        onError: () => toast.error('Erreur lors de la création'),
+                      })
+                    }}
+                  >
+                    {isCreatingMenuForm ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : <Plus className='h-3.5 w-3.5' />}
+                    Nouveau formulaire
+                  </Button>
+                </div>
+
+                {menuForms.length === 0 ? (
+                  <Card>
+                    <CardContent className='py-8 text-center text-muted-foreground'>
+                      <FileText className='mx-auto h-8 w-8 mb-2 opacity-50' />
+                      <p className='text-sm'>Aucun formulaire de menu.</p>
+                      <p className='text-xs mt-1'>Créez un formulaire pour permettre au client de choisir ses menus.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className='space-y-2'>
+                    {menuForms.map(form => {
+                      const fieldCount = form.menu_form_fields?.length || 0
+                      const statusMap: Record<string, { label: string; color: string }> = {
+                        draft: { label: 'Brouillon', color: 'bg-gray-500' },
+                        shared: { label: 'Partagé', color: 'bg-blue-500' },
+                        submitted: { label: 'Soumis', color: 'bg-green-500' },
+                        locked: { label: 'Verrouillé', color: 'bg-gray-700' },
+                      }
+                      const st = statusMap[form.status] || statusMap.draft
+
+                      return (
+                        <Card key={form.id} className='hover:shadow-sm transition-shadow'>
+                          <CardContent className='p-4'>
+                            <div className='flex items-center justify-between'>
+                              <div className='flex-1 space-y-1'>
+                                <div className='flex items-center gap-2'>
+                                  <span className='font-medium text-sm'>{form.title}</span>
+                                  <Badge className={`${st.color} text-white text-[10px]`}>{st.label}</Badge>
+                                  <Badge variant='outline' className='text-[10px]'>{fieldCount} champ{fieldCount > 1 ? 's' : ''}</Badge>
+                                  <Badge variant='outline' className='text-[10px]'>{form.guests_count} convive{form.guests_count > 1 ? 's' : ''}</Badge>
+                                </div>
+                                <p className='text-[10px] text-muted-foreground'>
+                                  Modifié le {format(new Date(form.updated_at), 'dd/MM/yyyy à HH:mm', { locale: fr })}
+                                  {form.submitted_at && ` · Soumis le ${format(new Date(form.submitted_at), 'dd/MM/yyyy à HH:mm', { locale: fr })}`}
+                                </p>
+                              </div>
+                              <div className='flex items-center gap-1'>
+                                <Button
+                                  variant='outline'
+                                  size='sm'
+                                  className='h-7 text-xs gap-1'
+                                  onClick={() => {
+                                    setEditingMenuFormId(form.id)
+                                    setMenuFormBuilderOpen(true)
+                                  }}
+                                >
+                                  <Edit className='h-3 w-3' />
+                                  {form.status === 'submitted' || form.status === 'locked' ? 'Voir' : 'Éditer'}
+                                </Button>
+                                {(form.status === 'shared' || form.status === 'submitted') && (
+                                  <Button
+                                    variant='outline'
+                                    size='sm'
+                                    className='h-7 text-xs gap-1'
+                                    onClick={() => {
+                                      const url = `${window.location.origin}/menu-form/${form.share_token}`
+                                      navigator.clipboard.writeText(url)
+                                      toast.success('Lien copié !')
+                                    }}
+                                  >
+                                    <ExternalLink className='h-3 w-3' />
+                                    Lien
+                                  </Button>
+                                )}
+                                {form.status === 'draft' && (
+                                  <Button
+                                    variant='ghost'
+                                    size='sm'
+                                    className='h-7 w-7 p-0 text-destructive hover:text-destructive'
+                                    onClick={() => {
+                                      deleteMenuForm(form.id, {
+                                        onSuccess: () => toast.success('Formulaire supprimé'),
+                                        onError: () => toast.error('Erreur'),
+                                      })
+                                    }}
+                                  >
+                                    <TrashIcon className='h-3 w-3' />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <MenuFormBuilder
+                  formId={editingMenuFormId}
+                  open={menuFormBuilderOpen}
+                  onOpenChange={(open) => {
+                    setMenuFormBuilderOpen(open)
+                    if (!open) setEditingMenuFormId(null)
+                  }}
+                />
               </div>
             )}
 

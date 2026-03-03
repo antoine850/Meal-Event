@@ -217,6 +217,7 @@ export interface Database {
           tva_number: string | null
           iban: string | null
           bic: string | null
+          bank_name: string | null
           is_active: boolean
           created_at: string
           updated_at: string
@@ -240,6 +241,7 @@ export interface Database {
           tva_number?: string | null
           iban?: string | null
           bic?: string | null
+          bank_name?: string | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -263,6 +265,7 @@ export interface Database {
           tva_number?: string | null
           iban?: string | null
           bic?: string | null
+          bank_name?: string | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -1214,6 +1217,114 @@ export interface Database {
           updated_at?: string
         }
       }
+      menu_forms: {
+        Row: {
+          id: string
+          booking_id: string
+          organization_id: string | null
+          title: string
+          description: string | null
+          guests_count: number
+          status: string
+          share_token: string | null
+          client_comment: string | null
+          submitted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id: string
+          organization_id?: string | null
+          title?: string
+          description?: string | null
+          guests_count?: number
+          status?: string
+          share_token?: string | null
+          client_comment?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string
+          organization_id?: string | null
+          title?: string
+          description?: string | null
+          guests_count?: number
+          status?: string
+          share_token?: string | null
+          client_comment?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      menu_form_fields: {
+        Row: {
+          id: string
+          menu_form_id: string
+          label: string
+          field_type: string
+          options: Json
+          is_per_person: boolean
+          is_required: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          menu_form_id: string
+          label: string
+          field_type?: string
+          options?: Json
+          is_per_person?: boolean
+          is_required?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          menu_form_id?: string
+          label?: string
+          field_type?: string
+          options?: Json
+          is_per_person?: boolean
+          is_required?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+      }
+      menu_form_responses: {
+        Row: {
+          id: string
+          menu_form_id: string
+          field_id: string
+          guest_index: number
+          value: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          menu_form_id: string
+          field_id: string
+          guest_index?: number
+          value?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          menu_form_id?: string
+          field_id?: string
+          guest_index?: number
+          value?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -1257,6 +1368,9 @@ export type PaymentReminder = Tables<'payment_reminders'>
 export type Receipt = Tables<'receipts'>
 export type Document = Tables<'documents'>
 export type Settings = Tables<'settings'>
+export type MenuForm = Tables<'menu_forms'>
+export type MenuFormField = Tables<'menu_form_fields'>
+export type MenuFormResponse = Tables<'menu_form_responses'>
 
 // Extended types with relations
 export type ContactWithRelations = Contact & {

@@ -140,6 +140,7 @@ const restaurantDetailSchema = z.object({
   billing_additional_text: z.string().optional(),
   iban: z.string().optional(),
   bic: z.string().optional(),
+  bank_name: z.string().optional(),
   invoice_prefix: z.string().optional(),
   quote_validity_days: z.number().optional(),
   invoice_due_days: z.number().optional(),
@@ -232,6 +233,7 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       billing_additional_text: (r.billing_additional_text as string) || '',
       iban: (r.iban as string) || '',
       bic: (r.bic as string) || '',
+      bank_name: (r.bank_name as string) || '',
       invoice_prefix: (r.invoice_prefix as string) || '',
       quote_validity_days: (r.quote_validity_days as number) ?? 7,
       invoice_due_days: (r.invoice_due_days as number) ?? undefined,
@@ -1143,6 +1145,19 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                         <FormLabel>BIC</FormLabel>
                         <FormControl>
                           <Input placeholder='BNPAFRPPXXX' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='bank_name'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nom de la banque</FormLabel>
+                        <FormControl>
+                          <Input placeholder='BNP Paribas' {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useParams, Link } from '@tanstack/react-router'
-import { ArrowLeft, Loader2, CalendarIcon, Receipt, FileText, History, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, CalendarIcon, Receipt, FileText, History, Save, Trash2, UtensilsCrossed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useBooking, useQuotesByBooking, usePaymentsByBooking } from '../hooks/use-bookings'
 import { useDocumentsByBooking } from '../hooks/use-documents'
+import { useMenuFormsByBooking } from '../hooks/use-menu-forms'
 import { BookingDetail } from './booking-detail'
 
 export function BookingDetailPage() {
@@ -28,6 +29,7 @@ export function BookingDetailPage() {
   const { data: quotes = [] } = useQuotesByBooking(id)
   const { data: payments = [] } = usePaymentsByBooking(id)
   const { data: documents = [] } = useDocumentsByBooking(id)
+  const { data: menuForms = [] } = useMenuFormsByBooking(id)
   const [activeTab, setActiveTab] = useState('evenementiel')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
@@ -63,7 +65,7 @@ export function BookingDetailPage() {
             </Link>
           </Button>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className='grid w-fit grid-cols-4'>
+            <TabsList className='grid w-fit grid-cols-5'>
               <TabsTrigger value='evenementiel' className='gap-1.5'>
                 <CalendarIcon className='h-4 w-4' />
                 Événementiel
@@ -77,6 +79,11 @@ export function BookingDetailPage() {
                 <FileText className='h-4 w-4' />
                 Fichiers
                 {documents.length > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{documents.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value='menu' className='gap-1.5'>
+                <UtensilsCrossed className='h-4 w-4' />
+                Menu
+                {menuForms.length > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{menuForms.length}</Badge>}
               </TabsTrigger>
               <TabsTrigger value='historique' className='gap-1.5'>
                 <History className='h-4 w-4' />

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as MenuFormTokenRouteImport } from './routes/menu-form.$token'
 import { Route as AuthenticatedCompaniesRouteImport } from './routes/_authenticated/companies'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
@@ -61,6 +62,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const MenuFormTokenRoute = MenuFormTokenRouteImport.update({
+  id: '/menu-form/$token',
+  path: '/menu-form/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedCompaniesRoute = AuthenticatedCompaniesRouteImport.update({
   id: '/companies',
@@ -277,6 +283,7 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/companies': typeof AuthenticatedCompaniesRoute
+  '/menu-form/$token': typeof MenuFormTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -315,6 +322,7 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/companies': typeof AuthenticatedCompaniesRoute
+  '/menu-form/$token': typeof MenuFormTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -357,6 +365,7 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_authenticated/companies': typeof AuthenticatedCompaniesRoute
+  '/menu-form/$token': typeof MenuFormTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -398,6 +407,7 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/companies'
+    | '/menu-form/$token'
     | '/'
     | '/errors/$error'
     | '/settings/account'
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/companies'
+    | '/menu-form/$token'
     | '/'
     | '/errors/$error'
     | '/settings/account'
@@ -477,6 +488,7 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_authenticated/companies'
+    | '/menu-form/$token'
     | '/_authenticated/'
     | '/_authenticated/errors/$error'
     | '/_authenticated/settings/account'
@@ -511,6 +523,7 @@ export interface RootRouteChildren {
   errors404Route: typeof errors404Route
   errors500Route: typeof errors500Route
   errors503Route: typeof errors503Route
+  MenuFormTokenRoute: typeof MenuFormTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -535,6 +548,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/menu-form/$token': {
+      id: '/menu-form/$token'
+      path: '/menu-form/$token'
+      fullPath: '/menu-form/$token'
+      preLoaderRoute: typeof MenuFormTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/companies': {
       id: '/_authenticated/companies'
@@ -898,6 +918,7 @@ const rootRouteChildren: RootRouteChildren = {
   errors404Route: errors404Route,
   errors500Route: errors500Route,
   errors503Route: errors503Route,
+  MenuFormTokenRoute: MenuFormTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

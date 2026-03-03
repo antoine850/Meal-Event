@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import {
   ChevronDown,
@@ -65,13 +65,12 @@ import {
   useProductsByRestaurant,
   usePackagesByRestaurant,
   useQuoteWithItems,
-  DEFAULT_CONDITIONS_DEVIS,
-  DEFAULT_CONDITIONS_FACTURE,
-  DEFAULT_CONDITIONS_ACOMPTE,
-  DEFAULT_CONDITIONS_SOLDE,
+  generateAllCGV,
+  type RestaurantBillingInfo,
 } from '../hooks/use-quotes'
 import { QuotePreview, type DocumentType } from './quote-preview'
 import { useContacts } from '@/features/contacts/hooks/use-contacts'
+import { useUpdateCompany } from '@/features/companies/hooks/use-companies'
 import { QuotePdfExportButton } from './quote-pdf-export'
 
 type Props = {
@@ -91,6 +90,15 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const { mutate: deleteQuoteItem } = useDeleteQuoteItem()
   const { data: catalogProducts = [] } = useProductsByRestaurant(restaurant?.id || null)
   const { data: catalogPackages = [] } = usePackagesByRestaurant(restaurant?.id || null)
+  const { mutate: updateCompany, isPending: isUpdatingCompany } = useUpdateCompany()
+
+  // B2B billing form state
+  const [billingAddress, setBillingAddress] = useState('')
+  const [billingPostalCode, setBillingPostalCode] = useState('')
+  const [billingCity, setBillingCity] = useState('')
+  const [billingSiret, setBillingSiret] = useState('')
+  const [billingTvaNumber, setBillingTvaNumber] = useState('')
+  const [billingFormDirty, setBillingFormDirty] = useState(false)
 
   // Local state for quote fields
   const [title, setTitle] = useState('')
@@ -153,6 +161,19 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       setLanguage((quoteData.language as 'fr' | 'en') || 'fr')
     }
   }, [quoteData])
+
+  // Initialize billing form from company data
+  useEffect(() => {
+    const company = (resolvedContact as any)?.company
+    if (company) {
+      setBillingAddress(company.billing_address || '')
+      setBillingPostalCode(company.billing_postal_code || '')
+      setBillingCity(company.billing_city || '')
+      setBillingSiret(company.siret || '')
+      setBillingTvaNumber(company.tva_number || '')
+      setBillingFormDirty(false)
+    }
+  }, [resolvedContact])
 
   const items = quoteData?.quote_items || []
 
@@ -241,24 +262,48 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     })
   }, [quoteId, deleteQuoteItem])
 
-  // Load default conditions
-  const handleLoadDefaultConditions = useCallback(() => {
-    setConditionsDevis(DEFAULT_CONDITIONS_DEVIS)
-    setConditionsFacture(DEFAULT_CONDITIONS_FACTURE)
-    setConditionsAcompte(DEFAULT_CONDITIONS_ACOMPTE)
-    setConditionsSolde(DEFAULT_CONDITIONS_SOLDE)
+  // Get restaurant billing info for CGV generation
+  const restaurantBillingInfo: RestaurantBillingInfo = useMemo(() => ({
+    company_name: (restaurant as any)?.company_name || null,
+    legal_form: (restaurant as any)?.legal_form || null,
+    billing_address: (restaurant as any)?.billing_address || null,
+    billing_postal_code: (restaurant as any)?.billing_postal_code || null,
+    billing_city: (restaurant as any)?.billing_city || null,
+    rcs: (restaurant as any)?.rcs || null,
+    siren: (restaurant as any)?.siren || null,
+    siret: (restaurant as any)?.siret || restaurant?.siret || null,
+    share_capital: (restaurant as any)?.share_capital || null,
+    billing_email: (restaurant as any)?.billing_email || restaurant?.email || null,
+    name: restaurant?.name || null,
+  }), [restaurant])
+
+  // Load default conditions with dynamic restaurant info
+  const handleLoadDefaultConditions = useCallback((lang: 'fr' | 'en' = language) => {
+    const cgv = generateAllCGV(lang, restaurantBillingInfo)
+    setConditionsDevis(cgv.conditionsDevis)
+    setConditionsFacture(cgv.conditionsFacture)
+    setConditionsAcompte(cgv.conditionsAcompte)
+    setConditionsSolde(cgv.conditionsSolde)
     if (quoteId) {
       updateQuote({
         id: quoteId,
-        conditions_devis: DEFAULT_CONDITIONS_DEVIS,
-        conditions_facture: DEFAULT_CONDITIONS_FACTURE,
-        conditions_acompte: DEFAULT_CONDITIONS_ACOMPTE,
-        conditions_solde: DEFAULT_CONDITIONS_SOLDE,
+        conditions_devis: cgv.conditionsDevis,
+        conditions_facture: cgv.conditionsFacture,
+        conditions_acompte: cgv.conditionsAcompte,
+        conditions_solde: cgv.conditionsSolde,
       } as any, {
-        onSuccess: () => toast.success('Conditions par défaut chargées'),
+        onSuccess: () => toast.success(lang === 'fr' ? 'Conditions FR chargées' : 'Conditions EN chargées'),
       })
     }
-  }, [quoteId, updateQuote])
+  }, [quoteId, updateQuote, language, restaurantBillingInfo])
+
+  // Handle language change - regenerate CGV
+  const handleLanguageChange = useCallback((newLang: 'fr' | 'en') => {
+    setLanguage(newLang)
+    saveQuoteField('language', newLang)
+    // Regenerate CGV with new language
+    handleLoadDefaultConditions(newLang)
+  }, [saveQuoteField, handleLoadDefaultConditions])
 
   // Calculate totals
   const totalHt = items.reduce((sum, item) => sum + ((item.total_ht as number) || 0), 0)
@@ -599,9 +644,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             <Label className='text-[10px] text-muted-foreground'>Nom</Label>
                             <div className='flex items-center gap-2'>
                               <p className='text-sm'>{resolvedContact.first_name} {resolvedContact.last_name || ''}</p>
-                              {(resolvedContact as any).company && (
-                                <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>Pro</Badge>
-                              )}
+                              {(resolvedContact as any).company
+                                ? <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>B2B</Badge>
+                                : <Badge className='bg-gray-500 text-white text-[10px] px-1.5 py-0 h-5'>B2C</Badge>
+                              }
                             </div>
                           </div>
                           <div>
@@ -613,6 +659,107 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             <p className='text-sm'>{resolvedContact.phone || '—'}</p>
                           </div>
                         </div>
+                        {/* B2B Billing Info Section - Editable Form */}
+                        {(resolvedContact as any).company && (
+                          <>
+                            <Separator />
+                            <div className='space-y-3'>
+                              <div className='flex items-center justify-between'>
+                                <Label className='text-[10px] text-muted-foreground uppercase'>Informations de facturation</Label>
+                                {billingFormDirty && (
+                                  <Badge variant='outline' className='text-[9px] text-amber-600 border-amber-300'>Non sauvegardé</Badge>
+                                )}
+                              </div>
+                              {(() => {
+                                const company = (resolvedContact as any).company
+                                const hasMissing = !billingAddress && !company.billing_address
+                                return (
+                                  <div className={`border rounded p-3 space-y-3 ${hasMissing ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
+                                    {hasMissing && (
+                                      <p className='text-[10px] text-red-600 font-medium'>⚠️ Veuillez compléter les informations de facturation</p>
+                                    )}
+                                    <div className='space-y-2'>
+                                      <div>
+                                        <Label className='text-[10px]'>Adresse de facturation</Label>
+                                        <Input
+                                          className='h-7 text-xs'
+                                          placeholder='123 rue de Paris'
+                                          value={billingAddress}
+                                          onChange={e => { setBillingAddress(e.target.value); setBillingFormDirty(true) }}
+                                        />
+                                      </div>
+                                      <div className='grid grid-cols-2 gap-2'>
+                                        <div>
+                                          <Label className='text-[10px]'>Code postal</Label>
+                                          <Input
+                                            className='h-7 text-xs'
+                                            placeholder='75001'
+                                            value={billingPostalCode}
+                                            onChange={e => { setBillingPostalCode(e.target.value); setBillingFormDirty(true) }}
+                                          />
+                                        </div>
+                                        <div>
+                                          <Label className='text-[10px]'>Ville</Label>
+                                          <Input
+                                            className='h-7 text-xs'
+                                            placeholder='Paris'
+                                            value={billingCity}
+                                            onChange={e => { setBillingCity(e.target.value); setBillingFormDirty(true) }}
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className='grid grid-cols-2 gap-2'>
+                                        <div>
+                                          <Label className='text-[10px]'>SIRET</Label>
+                                          <Input
+                                            className='h-7 text-xs'
+                                            placeholder='123 456 789 00012'
+                                            value={billingSiret}
+                                            onChange={e => { setBillingSiret(e.target.value); setBillingFormDirty(true) }}
+                                          />
+                                        </div>
+                                        <div>
+                                          <Label className='text-[10px]'>N° TVA</Label>
+                                          <Input
+                                            className='h-7 text-xs'
+                                            placeholder='FR12345678901'
+                                            value={billingTvaNumber}
+                                            onChange={e => { setBillingTvaNumber(e.target.value); setBillingFormDirty(true) }}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      size='sm'
+                                      className='w-full h-7 text-xs'
+                                      disabled={isUpdatingCompany || !billingFormDirty}
+                                      onClick={() => {
+                                        updateCompany({
+                                          id: company.id,
+                                          billing_address: billingAddress || null,
+                                          billing_postal_code: billingPostalCode || null,
+                                          billing_city: billingCity || null,
+                                          siret: billingSiret || null,
+                                          tva_number: billingTvaNumber || null,
+                                        }, {
+                                          onSuccess: () => {
+                                            toast.success('Informations de facturation mises à jour')
+                                            setBillingFormDirty(false)
+                                          },
+                                          onError: () => toast.error('Erreur lors de la mise à jour'),
+                                        })
+                                      }}
+                                    >
+                                      {isUpdatingCompany ? <Loader2 className='h-3 w-3 animate-spin mr-1' /> : null}
+                                      Enregistrer les informations
+                                    </Button>
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          </>
+                        )}
+
                         <Separator />
                         <div className='flex gap-2'>
                           <Button
@@ -649,9 +796,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                         <div className='flex flex-col w-full'>
                                           <div className='flex items-center gap-2'>
                                             <span className='font-medium'>{c.first_name} {c.last_name || ''}</span>
-                                            {(c as any).company && (
-                                              <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>Pro</Badge>
-                                            )}
+                                            {(c as any).company
+                                              ? <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>B2B</Badge>
+                                              : <Badge className='bg-gray-500 text-white text-[10px] px-1.5 py-0 h-5'>B2C</Badge>
+                                            }
                                           </div>
                                           <span className='text-[10px] text-muted-foreground'>
                                             {c.email || ''}
@@ -694,8 +842,14 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                       onSelect={() => handleChangeContact(c.id)}
                                       className='text-xs cursor-pointer'
                                     >
-                                      <div className='flex flex-col'>
-                                        <span className='font-medium'>{c.first_name} {c.last_name || ''}</span>
+                                      <div className='flex flex-col w-full'>
+                                        <div className='flex items-center gap-2'>
+                                          <span className='font-medium'>{c.first_name} {c.last_name || ''}</span>
+                                          {(c as any).company
+                                            ? <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>B2B</Badge>
+                                            : <Badge className='bg-gray-500 text-white text-[10px] px-1.5 py-0 h-5'>B2C</Badge>
+                                          }
+                                        </div>
                                         <span className='text-[10px] text-muted-foreground'>
                                           {c.email || ''}
                                           {(c as any).company?.name && ` — ${(c as any).company.name}`}
@@ -741,7 +895,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         variant='outline'
                         size='sm'
                         className='w-full gap-1.5 text-xs'
-                        onClick={handleLoadDefaultConditions}
+                        onClick={() => handleLoadDefaultConditions(language)}
                       >
                         <RotateCcw className='h-3 w-3' />
                         Charger CGV
@@ -1060,7 +1214,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     size='sm'
                     variant={language === 'fr' ? 'default' : 'outline'}
                     className='h-6 px-1.5 text-[10px]'
-                    onClick={() => { setLanguage('fr'); saveQuoteField('language', 'fr') }}
+                    onClick={() => handleLanguageChange('fr')}
                   >
                     🇫🇷
                   </Button>
@@ -1068,7 +1222,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     size='sm'
                     variant={language === 'en' ? 'default' : 'outline'}
                     className='h-6 px-1.5 text-[10px]'
-                    onClick={() => { setLanguage('en'); saveQuoteField('language', 'en') }}
+                    onClick={() => handleLanguageChange('en')}
                   >
                     🇬🇧
                   </Button>

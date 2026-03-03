@@ -124,6 +124,24 @@ const labels = {
     depositFor: 'Acompte pour le devis n°',
     depositsHt: 'Acompte(s) HT',
     depositAtSignature: 'Acompte à signature',
+    relatedQuote: 'Réf. devis',
+    depositPercent: 'Acompte',
+    balancePercent: 'Solde',
+    companyName: 'Raison sociale',
+    name: 'Nom',
+    address: 'Adresse',
+    siretSiren: 'Siret/Siren',
+    vatNumber: 'Numéro de TVA',
+    email: 'Email',
+    phone: 'Téléphone',
+    firstName: 'Prénom Nom',
+    billingAddress: 'Adresse de facturation',
+    dateOf: 'Date du',
+    dueDateLabel: "Date d'échéance",
+    iban: 'IBAN',
+    bic: 'BIC',
+    bankName: 'Banque',
+    shareCapital: 'au capital de',
   },
   en: {
     quote: 'QUOTE',
@@ -160,18 +178,37 @@ const labels = {
     depositFor: 'Deposit for quote #',
     depositsHt: 'Deposit(s) excl. VAT',
     depositAtSignature: 'Deposit at signature',
+    relatedQuote: 'Quote ref.',
+    depositPercent: 'Deposit',
+    balancePercent: 'Balance',
+    companyName: 'Company name',
+    name: 'Name',
+    address: 'Address',
+    siretSiren: 'Siret/Siren',
+    vatNumber: 'VAT number',
+    email: 'Email',
+    phone: 'Phone',
+    firstName: 'Name',
+    billingAddress: 'Billing address',
+    dateOf: 'Date of',
+    dueDateLabel: 'Due date',
+    iban: 'IBAN',
+    bic: 'BIC',
+    bankName: 'Bank',
+    shareCapital: 'share capital of',
   },
 }
 
 // ── Shared sub-components ──
 
-function DocumentHeader({ restaurant, docTitle, docNumber, date, dueDate, color }: {
+function DocumentHeader({ restaurant, docTitle, docNumber, date, dueDate, color, l }: {
   restaurant: any
   docTitle: string
   docNumber: string
   date: string
   dueDate: string
   color: string
+  l: typeof labels['fr']
 }) {
   return (
     <div className='flex items-center justify-between rounded-lg px-5 py-4' style={{ backgroundColor: color, color: 'white' }}>
@@ -185,8 +222,8 @@ function DocumentHeader({ restaurant, docTitle, docNumber, date, dueDate, color 
       </div>
       <div className='text-right text-[10px] space-y-0.5 shrink-0'>
         <p className='text-xs font-bold'>{docTitle} n°{docNumber}</p>
-        <p>Date du {(docTitle || '').toLowerCase()} – {date}</p>
-        <p>Date d'échéance – {dueDate}</p>
+        <p>{l.dateOf} {(docTitle || '').toLowerCase()} – {date}</p>
+        <p>{l.dueDateLabel} – {dueDate}</p>
       </div>
     </div>
   )
@@ -197,15 +234,15 @@ function IssuerClientBlock({ restaurant, contact, l }: { restaurant: any; contac
     <div className='grid grid-cols-2 gap-6'>
       <div className='space-y-1'>
         <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.issuer}</h3>
-        {restaurant?.company_name && <p className='text-[10px] text-gray-500'>Raison sociale – {restaurant.company_name}</p>}
-        <p className='font-semibold'>Nom – {restaurant?.name || ''}</p>
-        {restaurant?.address && <p className='text-gray-600'>Adresse – {restaurant.address}</p>}
+        {restaurant?.company_name && <p className='text-[10px] text-gray-500'>{l.companyName} – {restaurant.company_name}</p>}
+        <p className='font-semibold'>{l.name} – {restaurant?.name || ''}</p>
+        {restaurant?.address && <p className='text-gray-600'>{l.address} – {restaurant.address}</p>}
         {(restaurant?.postal_code || restaurant?.city) && (
           <p className='text-gray-600'>{restaurant?.postal_code} {restaurant?.city}</p>
         )}
-        {restaurant?.siret && <p className='text-gray-500 text-[10px]'>Siret/Siren – {restaurant.siret}</p>}
-        {restaurant?.tva_number && <p className='text-gray-500 text-[10px]'>Numéro de TVA – {restaurant.tva_number}</p>}
-        {restaurant?.email && <p className='text-gray-500 text-[10px]'>Email – {restaurant.email}</p>}
+        {restaurant?.siret && <p className='text-gray-500 text-[10px]'>{l.siretSiren} – {restaurant.siret}</p>}
+        {restaurant?.tva_number && <p className='text-gray-500 text-[10px]'>{l.vatNumber} – {restaurant.tva_number}</p>}
+        {restaurant?.email && <p className='text-gray-500 text-[10px]'>{l.email} – {restaurant.email}</p>}
       </div>
       <div className='space-y-1'>
         <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.client}</h3>
@@ -213,12 +250,12 @@ function IssuerClientBlock({ restaurant, contact, l }: { restaurant: any; contac
           <p className='font-semibold'>{contact.company.name}</p>
         )}
         <p className={contact?.company ? '' : 'font-semibold'}>
-          Prénom Nom – {contact?.first_name} {contact?.last_name || ''}
+          {l.firstName} – {contact?.first_name} {contact?.last_name || ''}
         </p>
-        {contact?.email && <p className='text-gray-600'>Email – {contact.email}</p>}
-        {contact?.phone && <p className='text-gray-600'>Téléphone – {contact.phone}</p>}
+        {contact?.email && <p className='text-gray-600'>{l.email} – {contact.email}</p>}
+        {contact?.phone && <p className='text-gray-600'>{l.phone} – {contact.phone}</p>}
         {contact?.company?.billing_address && (
-          <p className='text-gray-600'>Adresse de facturation – {contact.company.billing_address}</p>
+          <p className='text-gray-600'>{l.billingAddress} – {contact.company.billing_address}</p>
         )}
         {(contact?.company?.billing_postal_code || contact?.company?.billing_city) && (
           <p className='text-gray-600'>
@@ -236,26 +273,27 @@ function BankDetails({ restaurant, l }: { restaurant: any; l: typeof labels['fr'
     <div className='space-y-1'>
       <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.bankDetails}</h3>
       <div className='bg-gray-50 rounded px-3 py-2 text-[10px] space-y-0.5 border'>
-        {restaurant?.iban && <p>IBAN : {restaurant.iban}</p>}
-        {restaurant?.bic && <p>BIC : {restaurant.bic}</p>}
+        {restaurant?.bank_name && <p className='font-semibold'>{l.bankName} : {restaurant.bank_name}</p>}
+        {restaurant?.iban && <p>{l.iban} : {restaurant.iban}</p>}
+        {restaurant?.bic && <p>{l.bic} : {restaurant.bic}</p>}
       </div>
     </div>
   )
 }
 
-function DocumentFooter({ restaurant }: { restaurant: any }) {
+function DocumentFooter({ restaurant, l }: { restaurant: any; l: typeof labels['fr'] }) {
   return (
     <div className='border-t pt-2 text-[9px] text-gray-400 text-center space-y-0.5'>
       <p>
         {restaurant?.company_name || restaurant?.name}
         {restaurant?.legal_form && ` — ${restaurant.legal_form}`}
-        {restaurant?.share_capital && ` au capital de ${restaurant.share_capital}`}
+        {restaurant?.share_capital && ` ${l.shareCapital} ${restaurant.share_capital}`}
       </p>
       <p>
         {restaurant?.siren && `SIREN: ${restaurant.siren}`}
         {restaurant?.rcs && ` — RCS: ${restaurant.rcs}`}
         {restaurant?.siret && ` — SIRET: ${restaurant.siret}`}
-        {restaurant?.tva_number && ` — TVA: ${restaurant.tva_number}`}
+        {restaurant?.tva_number && ` — ${l.vatNumber}: ${restaurant.tva_number}`}
       </p>
       {(restaurant?.email || restaurant?.phone) && (
         <p>
@@ -315,6 +353,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             date={formatDate(data.quoteDate)}
             dueDate={addDays(data.quoteDate, data.quoteDueDays)}
             color={color}
+            l={l}
           />
 
           <IssuerClientBlock restaurant={restaurant} contact={data.contact} l={l} />
@@ -434,7 +473,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           </div>
 
           <BankDetails restaurant={restaurant} l={l} />
-          <DocumentFooter restaurant={restaurant} />
+          <DocumentFooter restaurant={restaurant} l={l} />
         </div>
 
         <ConditionsPage title={l.generalConditions} conditions={data.conditionsDevis} color={color} />
@@ -454,12 +493,18 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
         <div className='p-6 space-y-5'>
           <DocumentHeader
             restaurant={restaurant}
-            docTitle={data.language === 'fr' ? "Facture d'acompte" : 'Deposit invoice'}
+            docTitle={l.depositInvoice}
             docNumber={quoteNumber}
             date={formatDate(data.quoteDate)}
             dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
             color={color}
+            l={l}
           />
+
+          {/* Quote reference */}
+          <div className='text-[10px] text-gray-600 bg-gray-50 px-3 py-2 rounded border'>
+            <span className='font-medium'>{l.relatedQuote}:</span> {quoteNumber} — {l.depositPercent} {data.depositPercentage}%
+          </div>
 
           <IssuerClientBlock restaurant={restaurant} contact={data.contact} l={l} />
 
@@ -484,48 +529,56 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             </div>
           )}
 
-          {/* Single line: deposit */}
-          <div className='border rounded overflow-hidden'>
-            <table className='w-full text-[10px]'>
-              <thead>
-                <tr style={{ backgroundColor: color, color: 'white' }}>
-                  <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
-                  <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
-                  <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalTtc}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className='bg-white'>
-                  <td className='px-2 py-1.5 font-medium'>
-                    {l.depositFor}{quoteNumber} ({data.depositPercentage}%)
-                  </td>
-                  <td className='text-right px-2 py-1.5'>{depositHt.toFixed(2)} €</td>
-                  <td className='text-right px-2 py-1.5'>{depositTtc.toFixed(2)} €</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {/* Products table with details */}
+          {data.items.length > 0 && (
+            <div className='border rounded overflow-hidden'>
+              <table className='w-full text-[10px]'>
+                <thead>
+                  <tr style={{ backgroundColor: color, color: 'white' }}>
+                    <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
+                    <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
+                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
+                    <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
+                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.items.map((item, i) => (
+                    <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className='px-2 py-1.5'>
+                        <span className='font-medium'>{item.name}</span>
+                        {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
+                      </td>
+                      <td className='text-center px-2 py-1.5'>{item.quantity}</td>
+                      <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
+                      <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
+                      <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Totals */}
           <div className='flex items-end justify-between'>
             <BankDetails restaurant={restaurant} l={l} />
             <div className='w-56 space-y-1'>
               <div className='flex justify-between text-[10px]'>
-                <span className='text-gray-600'>{l.totalHt}</span>
-                <span className='font-medium' style={{ color }}>{depositHt.toFixed(2)} €</span>
-              </div>
-              <div className='flex justify-between text-[10px]'>
-                <span className='text-gray-600'>TVA {avgTvaRate.toFixed(0)}%</span>
-                <span>{depositTva.toFixed(2)} €</span>
+                <span className='text-gray-600'>{l.subtotalHt} (before deposit)</span>
+                <span className='text-[9px] text-gray-500'>{l.totalHt}: {data.totalHt.toFixed(2)} €</span>
               </div>
               <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
                 <span>{l.totalTtc}</span>
                 <span>{depositTtc.toFixed(2)} €</span>
               </div>
+              <div className='text-[9px] text-gray-500 text-right'>
+                {l.totalHt}: {depositHt.toFixed(2)} €
+              </div>
             </div>
           </div>
 
-          <DocumentFooter restaurant={restaurant} />
+          <DocumentFooter restaurant={restaurant} l={l} />
         </div>
 
         <ConditionsPage title={l.generalConditions} conditions={data.conditionsAcompte} color={color} />
@@ -534,9 +587,11 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   }
 
   // ── SOLDE ──
-  const depositHt = data.totalHt * (data.depositPercentage / 100)
-  const balanceHt = data.totalHt - depositHt
   const avgTvaRate = data.totalHt > 0 ? ((data.totalTtc - data.totalHt) / data.totalHt) * 100 : 20
+  const depositHt = data.totalHt * (data.depositPercentage / 100)
+  const depositTva = depositHt * (avgTvaRate / 100)
+  const depositTtc = depositHt + depositTva
+  const balanceHt = data.totalHt - depositHt
   const balanceTva = balanceHt * (avgTvaRate / 100)
   const balanceTtc = balanceHt + balanceTva
 
@@ -545,12 +600,18 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
       <div className='p-6 space-y-5'>
         <DocumentHeader
           restaurant={restaurant}
-          docTitle={data.language === 'fr' ? 'Facture de solde' : 'Balance invoice'}
+          docTitle={l.balanceInvoice}
           docNumber={quoteNumber}
           date={formatDate(data.quoteDate)}
           dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
           color={color}
+          l={l}
         />
+
+        {/* Quote reference */}
+        <div className='text-[10px] text-gray-600 bg-gray-50 px-3 py-2 rounded border'>
+          <span className='font-medium'>{l.relatedQuote}:</span> {quoteNumber} — {l.balancePercent} {(100 - data.depositPercentage)}%
+        </div>
 
         <IssuerClientBlock restaurant={restaurant} contact={data.contact} l={l} />
 
@@ -622,7 +683,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           <div className='w-64 space-y-1'>
             <div className='flex justify-between text-[10px]'>
               <span className='text-gray-600'>{l.subtotalBeforeDeposit}</span>
-              <span className='font-medium'>{data.totalHt.toFixed(2)} €</span>
+              <span className='text-[9px] text-gray-500'>{l.totalHt}: {data.totalHt.toFixed(2)} €</span>
             </div>
             <div className='flex justify-between text-[10px]'>
               <span className='text-gray-500'>TTC : {data.totalTtc.toFixed(2)} €</span>
@@ -631,34 +692,26 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             <Separator className='bg-gray-300' />
             <div className='border rounded px-2 py-1.5 space-y-0.5'>
               <p className='text-[10px] font-semibold'>{l.depositsHt}</p>
-              <div className='flex justify-between text-[10px]'>
-                <span style={{ color }}>{l.depositAtSignature}</span>
-                <span style={{ color }}>- {depositHt.toFixed(2)} €</span>
+              <div className='flex justify-between items-center'>
+                <span className='text-[10px]' style={{ color }}>{l.depositAtSignature}</span>
+                <div className='text-right'>
+                  <div className='text-xs font-bold' style={{ color }}>- {depositTtc.toFixed(2)} €</div>
+                  <div className='text-[9px] text-gray-500'>{l.totalHt}: {depositHt.toFixed(2)} €</div>
+                </div>
               </div>
             </div>
             <Separator className='bg-gray-300' />
-            <div className='flex justify-between text-[10px]'>
-              <span className='text-gray-600'>{l.totalHt}</span>
-              <span className='font-medium'>{balanceHt.toFixed(2)} €</span>
-            </div>
-            {Object.entries(tvaByRate).map(([rate, val]) => {
-              const ratioHt = val.ht / (data.totalHt || 1)
-              const rateBalanceTva = (balanceHt * ratioHt) * (Number(rate) / 100)
-              return (
-                <div key={rate} className='flex justify-between text-[10px]'>
-                  <span className='text-gray-600'>TVA {rate}%</span>
-                  <span>{rateBalanceTva.toFixed(2)} €</span>
-                </div>
-              )
-            })}
             <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
               <span>{l.totalTtc}</span>
               <span>{balanceTtc.toFixed(2)} €</span>
             </div>
+            <div className='text-[9px] text-gray-500 text-right'>
+              {l.totalHt}: {balanceHt.toFixed(2)} €
+            </div>
           </div>
         </div>
 
-        <DocumentFooter restaurant={restaurant} />
+        <DocumentFooter restaurant={restaurant} l={l} />
       </div>
 
       <ConditionsPage title={l.generalConditions} conditions={data.conditionsSolde} color={color} />

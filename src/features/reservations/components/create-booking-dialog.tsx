@@ -176,8 +176,14 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                     <SelectContent>
                       {contacts.map((contact) => (
                         <SelectItem key={contact.id} value={contact.id}>
-                          {contact.first_name} {contact.last_name || ''} 
-                          {contact.company?.name && ` - ${contact.company.name}`}
+                          <div className='flex items-center gap-2'>
+                            <span>{contact.first_name} {contact.last_name || ''}</span>
+                            {contact.company?.name 
+                              ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded'>B2B</span>
+                              : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded'>B2C</span>
+                            }
+                            {contact.company?.name && <span className='text-muted-foreground text-xs'>- {contact.company.name}</span>}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>

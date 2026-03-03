@@ -25,39 +25,179 @@ export type QuoteWithItems = Quote & {
 }
 
 // ============================================
-// Default conditions templates
+// Default conditions templates with placeholders
+// Placeholders: {{company_name}}, {{legal_form}}, {{billing_address}}, {{billing_postal_code}}, {{billing_city}}, {{rcs}}, {{siren}}, {{siret}}, {{share_capital}}, {{billing_email}}
 // ============================================
 
-export const DEFAULT_CONDITIONS_DEVIS = `CONDITIONS GÉNÉRALES DE VENTE – DEVIS
+export type RestaurantBillingInfo = {
+  company_name?: string | null
+  legal_form?: string | null
+  billing_address?: string | null
+  billing_postal_code?: string | null
+  billing_city?: string | null
+  rcs?: string | null
+  siren?: string | null
+  siret?: string | null
+  share_capital?: string | null
+  billing_email?: string | null
+  name?: string | null
+}
+
+// CGV Templates - French
+const CGV_DEVIS_FR = `CONDITIONS GÉNÉRALES DE VENTE
 
 1. Objet
-Les présentes conditions générales de vente (CGV) régissent les relations contractuelles entre l'établissement et le client dans le cadre de la prestation événementielle décrite dans le devis.
 
-2. Devis et acceptation
-Le devis est valable pendant la durée indiquée sur celui-ci. L'acceptation du devis par le client vaut engagement ferme. Toute modification ultérieure devra faire l'objet d'un avenant écrit.
+Les présentes conditions générales de vente et son annexe "Respect des règles sanitaires" régissent les relations entre le client et la société {{company_name}}, {{legal_form}} dont le siège social est {{billing_address}} {{billing_postal_code}} {{billing_city}} immatriculée au Registre du commerce et des sociétés sous le numéro {{rcs}} (le « Prestataire »). Les conditions générales de vente sont applicables aux réservations de groupes effectuées par le client au sein de l'établissement détenu par le Prestataire sont considérées comme telles, toutes les réservations supérieures à onze (11) personnes passées auprès du Prestataire.
 
-3. Prix
-Les prix indiqués sont en euros. Ils sont soumis à la TVA au taux en vigueur. Tout supplément ou modification de prestation fera l'objet d'une facturation complémentaire.
+2. Acceptation des Conditions Générales de Vente
 
-4. Acompte et paiement
-Un acompte est exigé à la signature du devis. Le solde est payable selon les conditions indiquées sur le devis. En cas de retard de paiement, des pénalités de retard seront appliquées conformément à la législation en vigueur.
+Les présentes conditions générales de vente sont adressées au client avec l'envoi d'un devis pour lui permettre d'effectuer sa réservation. En signant le devis, le client reconnaît avoir pris connaissance et accepté les termes des présentes conditions générales de vente.
 
-5. Annulation
-Toute annulation doit être notifiée par écrit. En cas d'annulation :
-- Plus de 30 jours avant l'événement : l'acompte est conservé
-- Moins de 30 jours avant l'événement : 50% du montant total est dû
-- Moins de 15 jours avant l'événement : 100% du montant total est dû
+3. Réservation
 
-6. Responsabilité
-L'établissement s'engage à mettre en œuvre tous les moyens nécessaires à la bonne exécution de la prestation. Sa responsabilité ne saurait être engagée en cas de force majeure.
+3.1 - La réservation du client est considérée comme définitive dès paiement par lui du montant total du prix de la commande tel qu'indiqué au terme du devis, en réponse à l'envoi de son devis et de ses conditions générales de vente signés.
 
-7. Données personnelles
-Les données personnelles collectées sont traitées conformément au RGPD. Le client dispose d'un droit d'accès, de rectification et de suppression de ses données.
+3.2 - Un dépôt de garanties peut être exigé pour que la réservation soit complètement validée, destiné à couvrir les dommages et/ou dégradations des espaces ainsi que des mobiliers et équipements les garnissant, causés par le client et/ou ses invités.
 
-8. Litiges
-En cas de litige, les parties s'engagent à rechercher une solution amiable. À défaut, le tribunal compétent sera celui du siège de l'établissement.`
+Le dépôt de garantie sera restitué au client dans un délai maximum de 15 jours, après l'exécution de la réservation, déduction faite des sommes couvrant les dommages et/ou dégradations des espaces ainsi que des mobiliers et équipements les garnissant, causé par le client et/ou ses invités.
 
-export const DEFAULT_CONDITIONS_FACTURE = `CONDITIONS GÉNÉRALES – FACTURE
+4. Conditions de modification et d'annulation de la réservation
+
+4.1 - Il est rappelé au Client, conformément à l'article L. 221-28-12° du Code de la consommation, qu'il ne dispose pas du droit de rétractation prévu à l'article L. 221-18 du Code de la consommation.
+
+4.2 - Le client a la possibilité de modifier le nombre de participants en respectant les limites qui vont suivre, en informant le Prestataire et ce jusqu'à 7 jours ouvrables avant la réalisation de la prestation. Cette modification entraînera une variation du montant de la facturation de la prestation au prorata du nombre de participants.
+
+4.3 - Passé ce délai, en cas de baisse du nombre de participants, le montant de la facturation restera toutefois celle fixée au devis.
+
+4.4 - En cas d'annulation par le client de sa réservation après confirmation 7 jours ouvrables avant la date de réalisation de la prestation, le prestataire conservera le prix de la réservation commandée tel que prévue aux termes du devis.
+
+5. Facturation
+
+5.1 – Sauf modification intervenue conformément à l'article 4.2 ci-dessus, la facturation correspondra au minimum, au montant du devis accepté par le biais de la confirmation du client.
+
+5.2 - Si au jour de la prestation, le nombre de participants est inférieur à celui prévu initialement, la facturation ne pourra pas être minorée au prorata du nombre de participants absents.
+
+5.3 - Si au jour de la prestation, le nombre de participants est supérieur à celui prévu initialement, la facturation sera majorée au prorata du nombre de participants présents.
+
+5.4 - Aucun escompte ne sera accordé en cas de règlement anticipé.
+
+6. Inexécution - Défaut de paiement
+
+6.1 - Le règlement intégral de la prestation est exigible au jour de l'exécution de l'envoi du devis signé par le client.
+
+Le défaut de paiement à l'échéance fixée entraîne automatiquement l'application d'une pénalité de retard. Cette pénalité représente 3 fois le taux d'intérêt légal en vigueur à compter de la date d'exigibilité et sur la totalité des sommes restant dues.
+
+6.2 - En cas de retard de paiement, l'indemnité forfaitaire pour frais de recouvrement est de 40 euros.
+
+7. Engagement et obligations du client
+
+7.1 - Un état des lieux des espaces ainsi que des mobiliers et équipements garnissant lesdits espaces pourra être réalisé avant et après l'exécution de la réservation sur demande de l'autre partie.
+
+7.2 - À défaut d'état des lieux/inventaires avant l'exécution de la réservation, l'ensemble des espaces ainsi que les mobiliers et équipements garnissant lesdits espaces sont réputés être en parfait état d'usage et/ou de fonctionnement.
+
+7.3 - Le client est responsable de tous dégâts causés par lui-même, ses préposés, ses invités dans les établissements et locaux du Prestataire.
+
+8. Responsabilité du Prestataire
+
+8.1 - Le Prestataire n'est pas responsable du matériel et des objets entreposés dans ses établissements par le client, ses préposés ou invités.
+
+8.2 - Le Prestataire n'est pas responsable du comportement de ses clients et des préjudices qui en découleraient pour autrui.
+
+9. Protection des données à caractère personnel
+
+9.1 - Le Prestataire collecte et traite des données personnelles du client, en qualité de responsable du traitement, pour exécuter la prestation. La base légale est l'exécution d'un contrat. Les destinataires de ces données sont le service commercial, le service comptabilité et la direction du Prestataire.
+
+9.2 - Le Client dispose d'un droit d'accès, de rectification, d'effacement et à la portabilité de ses données. Pour exercer ses droits, le client peut formuler sa demande par e-mail à {{billing_email}} ou par courrier postal à {{company_name}} {{billing_address}} {{billing_postal_code}} {{billing_city}}.
+
+10. Force majeure
+
+En cas de force majeure, chaque partie est libérée de toute obligation à l'égard de l'autre partie. De façon expresse, sont considérés comme cas de force majeure : les grèves, intempéries, épidémies, blocage des moyens de transport, incendie, tempête, inondation, restrictions gouvernementales et tous autres cas indépendants de la volonté expresse des Parties.
+
+11. Tribunal compétent
+
+11.1 - Les présentes conditions générales de vente sont régies exclusivement par le droit français.
+
+11.2 - En cas de litige, le client peut recourir gratuitement à un médiateur de la consommation en vue de la résolution amiable du litige. En l'absence d'accord amiable entre les parties, le litige pourra être porté devant le tribunal compétent.`
+
+// CGV Templates - English
+const CGV_DEVIS_EN = `GENERAL TERMS AND CONDITIONS OF SALE
+
+1. Purpose
+
+These general terms and conditions of sale govern the relationship between the client and {{company_name}}, a {{legal_form}} with registered office at {{billing_address}} {{billing_postal_code}} {{billing_city}}, registered under number {{rcs}} (the "Provider"). These general terms and conditions apply to group reservations made by the client at the establishment owned by the Provider, defined as any reservation for more than eleven (11) persons.
+
+2. Acceptance of General Terms and Conditions
+
+These general terms and conditions are sent to the client with the quote to enable them to make their reservation. By signing the quote, the client acknowledges having read and accepted the terms of these general conditions.
+
+3. Reservation
+
+3.1 - The client's reservation is considered final upon payment of the total amount as indicated in the quote, in response to sending the signed quote and general terms and conditions.
+
+3.2 - A security deposit may be required for the reservation to be fully validated, intended to cover any damage to the spaces, furniture, and equipment caused by the client and/or their guests.
+
+The security deposit will be returned to the client within a maximum of 15 days after the execution of the reservation, less any amounts covering damages.
+
+4. Modification and Cancellation Conditions
+
+4.1 - The client is reminded that, in accordance with Article L. 221-28-12° of the Consumer Code, they do not have the right of withdrawal provided for in Article L. 221-18 of the Consumer Code.
+
+4.2 - The client may modify the number of participants by informing the Provider up to 7 working days before the service. This modification will result in a variation of the invoice amount in proportion to the number of participants.
+
+4.3 - After this deadline, in case of a decrease in the number of participants, the invoice amount will remain as set in the quote.
+
+4.4 - In case of cancellation by the client after confirmation 7 working days before the service date, the Provider will retain the reservation price as provided in the quote.
+
+5. Invoicing
+
+5.1 - Unless modified in accordance with Article 4.2 above, the invoice will correspond at minimum to the amount of the quote accepted by the client.
+
+5.2 - If on the day of the service, the number of participants is lower than initially planned, the invoice cannot be reduced in proportion to absent participants.
+
+5.3 - If on the day of the service, the number of participants is higher than initially planned, the invoice will be increased in proportion to the participants present.
+
+5.4 - No discount will be granted for early payment.
+
+6. Non-performance - Default of Payment
+
+6.1 - Full payment is due on the day the signed quote is sent by the client.
+
+Late payment automatically triggers the application of a late payment penalty. This penalty represents 3 times the legal interest rate in force from the due date on all outstanding amounts.
+
+6.2 - In case of late payment, the fixed compensation for recovery costs is 40 euros.
+
+7. Client Commitments and Obligations
+
+7.1 - An inventory of the spaces, furniture, and equipment may be carried out before and after the reservation at the request of either party.
+
+7.2 - In the absence of an inventory before the reservation, all spaces, furniture, and equipment are deemed to be in perfect working condition.
+
+7.3 - The client is responsible for all damage caused by themselves, their employees, or their guests on the Provider's premises.
+
+8. Provider's Liability
+
+8.1 - The Provider is not responsible for materials and objects stored on its premises by the client, their employees, or guests.
+
+8.2 - The Provider is not responsible for the behavior of its clients and any resulting harm to others.
+
+9. Personal Data Protection
+
+9.1 - The Provider collects and processes the client's personal data as data controller to perform the service. The legal basis is the performance of a contract. The recipients of this data are the commercial service, accounting department, and management of the Provider.
+
+9.2 - The Client has the right to access, rectify, erase, and port their data. To exercise these rights, the client may submit a request by email to {{billing_email}} or by post to {{company_name}} {{billing_address}} {{billing_postal_code}} {{billing_city}}.
+
+10. Force Majeure
+
+In case of force majeure, each party is released from all obligations to the other party. Force majeure events expressly include: strikes, severe weather, epidemics, transport blockages, fire, storm, flood, government restrictions, and all other events beyond the express will of the Parties.
+
+11. Competent Court
+
+11.1 - These general terms and conditions are governed exclusively by French law.
+
+11.2 - In case of dispute, the client may use a consumer mediator free of charge for amicable resolution. Failing amicable agreement, the dispute may be brought before the competent court.`
+
+const CGV_FACTURE_FR = `CONDITIONS GÉNÉRALES – FACTURE
 
 1. Paiement
 La facture est payable à réception, sauf mention contraire. Tout retard de paiement entraînera l'application de pénalités de retard au taux légal en vigueur, ainsi qu'une indemnité forfaitaire de 40€ pour frais de recouvrement.
@@ -69,17 +209,68 @@ Aucun escompte n'est accordé pour paiement anticipé.
 Les prestations restent la propriété de l'établissement jusqu'au paiement intégral du prix.
 
 4. Réclamations
-Toute réclamation doit être formulée par écrit dans un délai de 7 jours suivant la réception de la facture.`
+Toute réclamation doit être formulée par écrit dans un délai de 7 jours suivant la réception de la facture.
 
-export const DEFAULT_CONDITIONS_ACOMPTE = `CONDITIONS – ACOMPTE
+Société : {{company_name}}, {{legal_form}}
+Siège social : {{billing_address}} {{billing_postal_code}} {{billing_city}}
+RCS : {{rcs}} | SIRET : {{siret}}
+Contact : {{billing_email}}`
+
+const CGV_FACTURE_EN = `GENERAL CONDITIONS – INVOICE
+
+1. Payment
+The invoice is payable upon receipt, unless otherwise stated. Any late payment will result in the application of late payment penalties at the legal rate in force, plus a fixed compensation of €40 for recovery costs.
+
+2. Discount
+No discount is granted for early payment.
+
+3. Retention of Title Clause
+Services remain the property of the establishment until full payment of the price.
+
+4. Claims
+Any claim must be made in writing within 7 days of receiving the invoice.
+
+Company: {{company_name}}, {{legal_form}}
+Registered office: {{billing_address}} {{billing_postal_code}} {{billing_city}}
+RCS: {{rcs}} | SIRET: {{siret}}
+Contact: {{billing_email}}`
+
+const CGV_ACOMPTE_FR = `CONDITIONS – ACOMPTE
 
 Le versement de l'acompte vaut acceptation ferme et définitive du devis et des conditions générales de vente associées.
 
 L'acompte versé est acquis à l'établissement et ne sera pas remboursé en cas d'annulation par le client, sauf dispositions contraires prévues dans les conditions d'annulation du devis.
 
-Le solde restant dû sera facturé selon les modalités prévues au devis.`
+Le solde restant dû sera facturé selon les modalités prévues au devis.
 
-export const DEFAULT_CONDITIONS_SOLDE = `CONDITIONS – SOLDE / BALANCE
+Société : {{company_name}}, {{legal_form}}
+RCS : {{rcs}} | SIRET : {{siret}}`
+
+const CGV_ACOMPTE_EN = `CONDITIONS – DEPOSIT
+
+Payment of the deposit constitutes firm and final acceptance of the quote and associated general terms and conditions of sale.
+
+The deposit paid is acquired by the establishment and will not be refunded in case of cancellation by the client, unless otherwise provided in the cancellation conditions of the quote.
+
+The remaining balance will be invoiced according to the terms set out in the quote.
+
+Company: {{company_name}}, {{legal_form}}
+RCS: {{rcs}} | SIRET: {{siret}}`
+
+const CGV_SOLDE_FR = `CONDITIONS – SOLDE
+
+Le paiement du solde est dû selon les modalités prévues au devis.
+
+Le solde doit être réglé intégralement avant la date de l'événement, sauf accord écrit contraire.
+
+Tout retard de paiement entraînera l'application de pénalités de retard au taux légal en vigueur, ainsi qu'une indemnité forfaitaire de 40€ pour frais de recouvrement.
+
+Toute contestation relative au solde doit être formulée par écrit dans un délai de 7 jours suivant la réception de la facture.
+
+Société : {{company_name}}, {{legal_form}}
+RCS : {{rcs}} | SIRET : {{siret}}`
+
+const CGV_SOLDE_EN = `CONDITIONS – BALANCE
 
 Payment of the balance is due according to the terms specified in the quote.
 
@@ -87,7 +278,60 @@ The balance must be paid in full before the event date unless otherwise agreed i
 
 Late payments will incur interest charges at the legal rate in force, plus a fixed recovery fee of €40 as provided by law.
 
-Any dispute regarding the balance must be raised in writing within 7 days of receiving the invoice.`
+Any dispute regarding the balance must be raised in writing within 7 days of receiving the invoice.
+
+Company: {{company_name}}, {{legal_form}}
+RCS: {{rcs}} | SIRET: {{siret}}`
+
+// Function to replace placeholders with actual restaurant billing info
+export function generateCGV(template: string, billingInfo: RestaurantBillingInfo): string {
+  return template
+    .replace(/\{\{company_name\}\}/g, billingInfo.company_name || billingInfo.name || '[Nom de la société]')
+    .replace(/\{\{legal_form\}\}/g, billingInfo.legal_form || '[Forme juridique]')
+    .replace(/\{\{billing_address\}\}/g, billingInfo.billing_address || '[Adresse]')
+    .replace(/\{\{billing_postal_code\}\}/g, billingInfo.billing_postal_code || '[Code postal]')
+    .replace(/\{\{billing_city\}\}/g, billingInfo.billing_city || '[Ville]')
+    .replace(/\{\{rcs\}\}/g, billingInfo.rcs || '[RCS]')
+    .replace(/\{\{siren\}\}/g, billingInfo.siren || '[SIREN]')
+    .replace(/\{\{siret\}\}/g, billingInfo.siret || '[SIRET]')
+    .replace(/\{\{share_capital\}\}/g, billingInfo.share_capital || '[Capital social]')
+    .replace(/\{\{billing_email\}\}/g, billingInfo.billing_email || '[Email]')
+}
+
+// Get CGV templates by language
+export function getCGVTemplates(language: 'fr' | 'en') {
+  if (language === 'en') {
+    return {
+      devis: CGV_DEVIS_EN,
+      facture: CGV_FACTURE_EN,
+      acompte: CGV_ACOMPTE_EN,
+      solde: CGV_SOLDE_EN,
+    }
+  }
+  return {
+    devis: CGV_DEVIS_FR,
+    facture: CGV_FACTURE_FR,
+    acompte: CGV_ACOMPTE_FR,
+    solde: CGV_SOLDE_FR,
+  }
+}
+
+// Generate all CGV conditions for a restaurant
+export function generateAllCGV(language: 'fr' | 'en', billingInfo: RestaurantBillingInfo) {
+  const templates = getCGVTemplates(language)
+  return {
+    conditionsDevis: generateCGV(templates.devis, billingInfo),
+    conditionsFacture: generateCGV(templates.facture, billingInfo),
+    conditionsAcompte: generateCGV(templates.acompte, billingInfo),
+    conditionsSolde: generateCGV(templates.solde, billingInfo),
+  }
+}
+
+// Legacy exports for backward compatibility
+export const DEFAULT_CONDITIONS_DEVIS = CGV_DEVIS_FR
+export const DEFAULT_CONDITIONS_FACTURE = CGV_FACTURE_FR
+export const DEFAULT_CONDITIONS_ACOMPTE = CGV_ACOMPTE_FR
+export const DEFAULT_CONDITIONS_SOLDE = CGV_SOLDE_FR
 
 // ============================================
 // Hooks
