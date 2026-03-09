@@ -219,25 +219,34 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
 
     // Download signed document
     let signedPdfUrl: string | null = null
+    let pdfDownloadSuccess = false
     try {
       const signedPdf = await downloadSignedDocument(signnowDocumentId)
       // Upload to Supabase Storage
       const fileName = `signed-${quote.quote_number}.pdf`
-      const { data: uploadData } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')
         .upload(`quotes/${quote.id}/${fileName}`, signedPdf, {
           contentType: 'application/pdf',
           upsert: true,
         })
 
-      if (uploadData?.path) {
+      if (uploadError) {
+        console.error('Error uploading signed PDF to storage:', uploadError)
+      } else if (uploadData?.path) {
         const { data: urlData } = supabase.storage
           .from('documents')
           .getPublicUrl(uploadData.path)
         signedPdfUrl = urlData?.publicUrl || null
+        pdfDownloadSuccess = true
       }
     } catch (downloadErr) {
-      console.error('Error downloading signed document:', downloadErr)
+      console.error('⚠️ CRITICAL: Failed to download/store signed PDF:', downloadErr)
+      // Continue workflow but log the issue
+    }
+
+    if (!pdfDownloadSuccess) {
+      console.warn(`⚠️ Quote ${quote.quote_number} marked as signed but PDF download failed - manual intervention may be needed`)
     }
 
     // Update quote as signed
@@ -253,7 +262,13 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
     console.log(`Quote ${quote.quote_number} signed via SignNow`)
 
     // ── AUTO-TRIGGER: Send deposit invoice + Stripe payment link ──
-    await autoSendDepositAfterSignature(quote.id)
+    try {
+      await autoSendDepositAfterSignature(quote.id)
+    } catch (autoSendError) {
+      console.error('⚠️ CRITICAL: Failed to auto-send deposit after signature:', autoSendError)
+      // Quote is already marked as signed, so deposit can be sent manually
+      console.warn(`Quote ${quote.quote_number} is signed but deposit email failed - manual send required`)
+    }
   } catch (error) {
     console.error('Error handling SignNow document complete:', error)
   }
@@ -331,8 +346,14 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=cancelled`,
     })
 
-    // Generate deposit PDF
-    const pdfBuffer = await generateQuotePdf(quoteId, 'acompte')
+    // Generate deposit PDF with error handling
+    let pdfBuffer: Buffer
+    try {
+      pdfBuffer = await generateQuotePdf(quoteId, 'acompte')
+    } catch (pdfError) {
+      console.error('Error generating deposit PDF in auto-send:', pdfError)
+      throw new Error('Failed to generate deposit PDF')
+    }
 
     // Build & send email
     const html = buildDepositEmailHtml({

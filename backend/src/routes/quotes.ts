@@ -137,6 +137,11 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
+    // Validate status: can only send email if draft or quote_sent (resend)
+    if (!['draft', 'quote_sent'].includes(quoteData.status)) {
+      return res.status(400).json({ error: `Impossible d'envoyer le devis depuis le statut: ${quoteData.status}` })
+    }
+
     // Get commercial (assigned_to) email for reply-to
     let commercialName: string | null = null
     let commercialEmail: string | null = null
@@ -160,8 +165,14 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       }
     }
 
-    // Generate PDF
-    const pdfBuffer = await generateQuotePdf(quoteId, 'devis')
+    // Generate PDF with error handling
+    let pdfBuffer: Buffer
+    try {
+      pdfBuffer = await generateQuotePdf(quoteId, 'devis')
+    } catch (pdfError) {
+      console.error('Error generating PDF:', pdfError)
+      return res.status(500).json({ error: 'Erreur lors de la génération du PDF' })
+    }
 
     // Build email
     const html = buildQuoteEmailHtml({
@@ -233,8 +244,19 @@ quotesRouter.post('/:id/send-signature', async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
-    // Generate PDF
-    const pdfBuffer = await generateQuotePdf(quoteId, 'devis')
+    // Validate status: can only send signature if draft or quote_sent
+    if (!['draft', 'quote_sent'].includes(quoteData.status)) {
+      return res.status(400).json({ error: `Impossible d'envoyer la signature depuis le statut: ${quoteData.status}` })
+    }
+
+    // Generate PDF with error handling
+    let pdfBuffer: Buffer
+    try {
+      pdfBuffer = await generateQuotePdf(quoteId, 'devis')
+    } catch (pdfError) {
+      console.error('Error generating PDF:', pdfError)
+      return res.status(500).json({ error: 'Erreur lors de la génération du PDF' })
+    }
     const fileName = `${quoteData.quote_number}.pdf`
 
     // Upload to SignNow
@@ -293,6 +315,11 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
+    // Validate status: can only send deposit if quote_signed or deposit_sent (resend)
+    if (!['quote_signed', 'deposit_sent'].includes(quoteData.status)) {
+      return res.status(400).json({ error: `Impossible d'envoyer l'acompte depuis le statut: ${quoteData.status}` })
+    }
+
     // Calculate deposit amount
     const depositAmount = quoteData.total_ttc * (quoteData.deposit_percentage / 100)
 
@@ -343,8 +370,14 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=cancelled`,
     })
 
-    // Generate deposit invoice PDF
-    const pdfBuffer = await generateQuotePdf(quoteId, 'acompte')
+    // Generate deposit invoice PDF with error handling
+    let pdfBuffer: Buffer
+    try {
+      pdfBuffer = await generateQuotePdf(quoteId, 'acompte')
+    } catch (pdfError) {
+      console.error('Error generating deposit PDF:', pdfError)
+      return res.status(500).json({ error: 'Erreur lors de la génération du PDF d\'acompte' })
+    }
 
     // Build email
     const html = buildDepositEmailHtml({
@@ -434,6 +467,11 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
+    // Validate status: can only send balance if deposit_paid
+    if (quoteData.status !== 'deposit_paid') {
+      return res.status(400).json({ error: `Impossible d'envoyer le solde depuis le statut: ${quoteData.status}` })
+    }
+
     // Calculate balance: total + extras - deposit already paid
     const items = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'product')
     const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
@@ -490,8 +528,14 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=cancelled`,
     })
 
-    // Generate balance invoice PDF
-    const pdfBuffer = await generateQuotePdf(quoteId, 'solde')
+    // Generate balance invoice PDF with error handling
+    let pdfBuffer: Buffer
+    try {
+      pdfBuffer = await generateQuotePdf(quoteId, 'solde')
+    } catch (pdfError) {
+      console.error('Error generating balance PDF:', pdfError)
+      return res.status(500).json({ error: 'Erreur lors de la génération du PDF de solde' })
+    }
 
     // Build email
     const html = buildBalanceEmailHtml({
