@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
 import { useParams, Link } from '@tanstack/react-router'
-import { ArrowLeft, Loader2, CalendarIcon, Receipt, FileText, History, Save, Trash2, UtensilsCrossed } from 'lucide-react'
+import { ArrowLeft, CalendarIcon, Receipt, FileText, History, Save, Trash2, UtensilsCrossed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
@@ -25,20 +26,49 @@ import { BookingDetail } from './booking-detail'
 
 export function BookingDetailPage() {
   const { id } = useParams({ strict: false }) as { id: string }
+  const initialTab = (() => {
+    if (typeof window === 'undefined') return 'evenementiel'
+    const p = new URLSearchParams(window.location.search)
+    return p.get('tab') || 'evenementiel'
+  })()
   const { data: booking, isLoading } = useBooking(id)
   const { data: quotes = [] } = useQuotesByBooking(id)
   const { data: payments = [] } = usePaymentsByBooking(id)
   const { data: documents = [] } = useDocumentsByBooking(id)
   const { data: menuForms = [] } = useMenuFormsByBooking(id)
-  const [activeTab, setActiveTab] = useState('evenementiel')
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const bookingDetailRef = useRef<{ submitForm: () => void; deleteBooking: () => void; getIsDirty: () => boolean } | null>(null)
 
   if (isLoading) {
     return (
-      <div className='flex h-full items-center justify-center'>
-        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      <div className='flex h-full flex-col'>
+        <Header fixed>
+          <div className='flex items-center gap-4 flex-1'>
+            <Skeleton className='h-9 w-28' />
+            <Skeleton className='h-9 w-[320px]' />
+          </div>
+          <div className='ms-auto flex items-center space-x-2'>
+            <Skeleton className='h-9 w-24' />
+            <Skeleton className='h-9 w-9' />
+            <div className='ml-4 flex items-center space-x-4 border-l pl-4'>
+              <Skeleton className='h-8 w-8 rounded-full' />
+              <Skeleton className='h-8 w-8 rounded-full' />
+            </div>
+          </div>
+        </Header>
+        <Main className='flex flex-1 flex-col gap-4 p-6'>
+          <div className='grid gap-4 md:grid-cols-3'>
+            <Skeleton className='h-36 rounded-lg col-span-1' />
+            <Skeleton className='h-36 rounded-lg col-span-2' />
+          </div>
+          <div className='grid gap-4 md:grid-cols-2'>
+            <Skeleton className='h-64 rounded-lg' />
+            <Skeleton className='h-64 rounded-lg' />
+          </div>
+          <Skeleton className='h-72 rounded-lg' />
+        </Main>
       </div>
     )
   }
@@ -64,7 +94,17 @@ export function BookingDetailPage() {
               Événements
             </Link>
           </Button>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(tab) => {
+              setActiveTab(tab)
+              if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href)
+                url.searchParams.set('tab', tab)
+                window.history.replaceState(null, '', url.toString())
+              }
+            }}
+          >
             <TabsList className='grid w-fit grid-cols-5'>
               <TabsTrigger value='evenementiel' className='gap-1.5'>
                 <CalendarIcon className='h-4 w-4' />

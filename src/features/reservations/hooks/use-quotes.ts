@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { apiClient } from '@/lib/api-client'
 import type { Quote, QuoteItem } from '@/lib/supabase/types'
 import type { ProductWithRestaurants } from '@/features/settings/hooks/use-products'
 
@@ -14,6 +15,106 @@ async function getCurrentOrganizationId(): Promise<string | null> {
     .single()
 
   return (data as { organization_id: string } | null)?.organization_id || null
+}
+
+// Set one quote as primary for a booking (single active quote)
+export function useSetPrimaryQuote() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+      // Clear existing primary on booking
+      const { error: clearError } = await supabase
+        .from('quotes')
+        .update({ primary_quote: false } as never)
+        .eq('booking_id', bookingId)
+      if (clearError) throw clearError
+
+      // Set selected quote as primary
+      const { data, error } = await supabase
+        .from('quotes')
+        .update({ primary_quote: true } as never)
+        .eq('id', quoteId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data as Quote
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+    },
+  })
+}
+
+// ============================================
+// Integration Hooks: Email, Signature, Payments
+// ============================================
+
+export function useSendQuoteEmail() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+      return apiClient<{ success: boolean; emailId: string }>(`/api/quotes/${quoteId}/send-email`, {
+        method: 'POST',
+      })
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
+    },
+  })
+}
+
+export function useSendSignature() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+      return apiClient<{ success: boolean; documentId: string; inviteId: string }>(`/api/quotes/${quoteId}/send-signature`, {
+        method: 'POST',
+      })
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
+    },
+  })
+}
+
+export function useSendDeposit() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+      return apiClient<{ success: boolean; sessionId: string; paymentUrl: string }>(`/api/quotes/${quoteId}/send-deposit`, {
+        method: 'POST',
+      })
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
+      queryClient.invalidateQueries({ queryKey: ['payments', variables.bookingId] })
+    },
+  })
+}
+
+export function useSendBalance() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+      return apiClient<{ success: boolean; sessionId: string; paymentUrl: string }>(`/api/quotes/${quoteId}/send-balance`, {
+        method: 'POST',
+      })
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
+      queryClient.invalidateQueries({ queryKey: ['payments', variables.bookingId] })
+    },
+  })
 }
 
 // ============================================
@@ -415,6 +516,7 @@ export function useCreateQuote() {
       conditionsFacture,
       conditionsAcompte,
       conditionsSolde,
+      additionalConditions,
       commentsFr,
       commentsEn,
       depositPercentage,
@@ -435,6 +537,7 @@ export function useCreateQuote() {
       conditionsFacture?: string
       conditionsAcompte?: string
       conditionsSolde?: string
+      additionalConditions?: string
       commentsFr?: string
       commentsEn?: string
       depositPercentage?: number
@@ -487,6 +590,7 @@ export function useCreateQuote() {
           conditions_facture: conditionsFacture ?? DEFAULT_CONDITIONS_FACTURE,
           conditions_acompte: conditionsAcompte ?? DEFAULT_CONDITIONS_ACOMPTE,
           conditions_solde: conditionsSolde ?? DEFAULT_CONDITIONS_SOLDE,
+          additional_conditions: additionalConditions ?? null,
           language: 'fr',
           version: 1,
         } as never)
@@ -556,6 +660,7 @@ export function useAddQuoteItem() {
       tvaRate,
       discountAmount,
       position,
+      itemType,
     }: {
       quoteId: string
       name: string
@@ -565,6 +670,7 @@ export function useAddQuoteItem() {
       tvaRate: number
       discountAmount?: number
       position?: number
+      itemType?: string
     }) => {
       const totalHt = quantity * unitPrice - (discountAmount || 0)
       const totalTtc = totalHt * (1 + tvaRate / 100)
@@ -582,14 +688,17 @@ export function useAddQuoteItem() {
           total_ht: totalHt,
           total_ttc: totalTtc,
           position: position || 0,
+          item_type: itemType || 'product',
         } as never)
         .select()
         .single()
 
       if (error) throw error
 
-      // Recalculate quote totals
-      await recalculateQuoteTotals(quoteId)
+      // Recalculate quote totals (only for products, not extras)
+      if (itemType !== 'extra') {
+        await recalculateQuoteTotals(quoteId)
+      }
 
       return data as QuoteItem
     },
@@ -788,3 +897,4 @@ export function usePackagesByRestaurant(restaurantId: string | null) {
     enabled: !!restaurantId,
   })
 }
+

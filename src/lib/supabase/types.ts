@@ -218,6 +218,12 @@ export interface Database {
           iban: string | null
           bic: string | null
           bank_name: string | null
+          invoice_prefix: string | null
+          legal_name: string | null
+          legal_form: string | null
+          share_capital: string | null
+          rcs: string | null
+          siren: string | null
           is_active: boolean
           created_at: string
           updated_at: string
@@ -242,6 +248,12 @@ export interface Database {
           iban?: string | null
           bic?: string | null
           bank_name?: string | null
+          invoice_prefix?: string | null
+          legal_name?: string | null
+          legal_form?: string | null
+          share_capital?: string | null
+          rcs?: string | null
+          siren?: string | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -266,6 +278,12 @@ export interface Database {
           iban?: string | null
           bic?: string | null
           bank_name?: string | null
+          invoice_prefix?: string | null
+          legal_name?: string | null
+          legal_form?: string | null
+          share_capital?: string | null
+          rcs?: string | null
+          siren?: string | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -785,8 +803,23 @@ export interface Database {
           conditions_facture: string | null
           conditions_acompte: string | null
           conditions_solde: string | null
+          additional_conditions: string | null
           language: string
           version: number
+          primary_quote: boolean
+          quote_sent_at: string | null
+          quote_signed_at: string | null
+          deposit_paid_at: string | null
+          balance_sent_at: string | null
+          balance_paid_at: string | null
+          signnow_document_id: string | null
+          signnow_invite_id: string | null
+          signed_pdf_url: string | null
+          stripe_deposit_session_id: string | null
+          stripe_deposit_url: string | null
+          stripe_balance_session_id: string | null
+          stripe_balance_url: string | null
+          deposit_sent_at: string | null
           created_at: string
           updated_at: string
         }
@@ -829,8 +862,23 @@ export interface Database {
           conditions_facture?: string | null
           conditions_acompte?: string | null
           conditions_solde?: string | null
+          additional_conditions?: string | null
           language?: string
           version?: number
+          primary_quote?: boolean
+          quote_sent_at?: string | null
+          quote_signed_at?: string | null
+          deposit_paid_at?: string | null
+          balance_sent_at?: string | null
+          balance_paid_at?: string | null
+          signnow_document_id?: string | null
+          signnow_invite_id?: string | null
+          signed_pdf_url?: string | null
+          stripe_deposit_session_id?: string | null
+          stripe_deposit_url?: string | null
+          stripe_balance_session_id?: string | null
+          stripe_balance_url?: string | null
+          deposit_sent_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -873,8 +921,23 @@ export interface Database {
           conditions_facture?: string | null
           conditions_acompte?: string | null
           conditions_solde?: string | null
+          additional_conditions?: string | null
           language?: string
           version?: number
+          primary_quote?: boolean
+          quote_sent_at?: string | null
+          quote_signed_at?: string | null
+          deposit_paid_at?: string | null
+          balance_sent_at?: string | null
+          balance_paid_at?: string | null
+          signnow_document_id?: string | null
+          signnow_invite_id?: string | null
+          signed_pdf_url?: string | null
+          stripe_deposit_session_id?: string | null
+          stripe_deposit_url?: string | null
+          stripe_balance_session_id?: string | null
+          stripe_balance_url?: string | null
+          deposit_sent_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -893,6 +956,7 @@ export interface Database {
           total_ht: number | null
           total_ttc: number | null
           position: number
+          item_type: string
           created_at: string
         }
         Insert: {
@@ -908,6 +972,7 @@ export interface Database {
           total_ht?: number | null
           total_ttc?: number | null
           position?: number
+          item_type?: string
           created_at?: string
         }
         Update: {
@@ -923,6 +988,7 @@ export interface Database {
           total_ht?: number | null
           total_ttc?: number | null
           position?: number
+          item_type?: string
           created_at?: string
         }
       }
@@ -944,6 +1010,7 @@ export interface Database {
           attachment_path: string | null
           created_at: string
           updated_at: string
+          payment_modality: string | null
         }
         Insert: {
           id?: string
@@ -962,6 +1029,7 @@ export interface Database {
           attachment_path?: string | null
           created_at?: string
           updated_at?: string
+          payment_modality?: string | null
         }
         Update: {
           id?: string
@@ -980,6 +1048,7 @@ export interface Database {
           attachment_path?: string | null
           created_at?: string
           updated_at?: string
+          payment_modality?: string | null
         }
       }
       payment_links: {

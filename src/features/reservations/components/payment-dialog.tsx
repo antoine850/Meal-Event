@@ -35,6 +35,14 @@ const PAYMENT_STATUSES = [
   { value: 'failed', label: 'Échoué' },
 ]
 
+const PAYMENT_MODALITIES = [
+  { value: 'acompte', label: 'Acompte' },
+  { value: 'solde', label: 'Solde' },
+  { value: 'caution', label: 'Caution' },
+  { value: 'extra', label: 'Extra' },
+  { value: 'autre', label: 'Autre' },
+]
+
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -49,6 +57,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
 
   const [amount, setAmount] = useState('')
   const [paymentType, setPaymentType] = useState('virement')
+  const [paymentModality, setPaymentModality] = useState('acompte')
   const [status, setStatus] = useState('pending')
   const [paidAt, setPaidAt] = useState('')
   const [notes, setNotes] = useState('')
@@ -65,6 +74,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
       if (payment) {
         setAmount(String(payment.amount || ''))
         setPaymentType(payment.payment_type || 'virement')
+        setPaymentModality(payment.payment_modality || 'acompte')
         setStatus(payment.status || 'pending')
         setPaidAt(payment.paid_at ? payment.paid_at.split('T')[0] : '')
         setNotes(payment.notes || '')
@@ -73,6 +83,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
       } else {
         setAmount('')
         setPaymentType('virement')
+        setPaymentModality('acompte')
         setStatus('pending')
         setPaidAt(new Date().toISOString().split('T')[0])
         setNotes('')
@@ -97,6 +108,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
         bookingId,
         amount: amountNum,
         paymentType,
+        paymentModality,
         status,
         paidAt: paidAt || null,
         notes: notes || null,
@@ -115,6 +127,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
         bookingId,
         amount: amountNum,
         paymentType,
+        paymentModality,
         status,
         paidAt: paidAt || undefined,
         notes: notes || undefined,
@@ -173,6 +186,21 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
               <SelectContent>
                 {PAYMENT_TYPES.map(t => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Payment Modality */}
+          <div className='space-y-2'>
+            <Label>Modalité *</Label>
+            <Select value={paymentModality} onValueChange={setPaymentModality}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAYMENT_MODALITIES.map(m => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

@@ -360,6 +360,7 @@ export function useCreatePayment() {
       quoteId,
       amount,
       paymentType,
+      paymentModality,
       paymentMethod,
       status,
       paidAt,
@@ -370,6 +371,7 @@ export function useCreatePayment() {
       quoteId?: string
       amount: number
       paymentType: string
+      paymentModality?: string
       paymentMethod?: string
       status: string
       paidAt?: string
@@ -409,6 +411,7 @@ export function useCreatePayment() {
           quote_id: quoteId || null,
           amount,
           payment_type: paymentType,
+          payment_modality: paymentModality || 'autre',
           payment_method: paymentMethod || null,
           status,
           paid_at: paidAt || null,
@@ -437,6 +440,7 @@ export function useUpdatePayment() {
       bookingId,
       amount,
       paymentType,
+      paymentModality,
       paymentMethod,
       status,
       paidAt,
@@ -449,6 +453,7 @@ export function useUpdatePayment() {
       bookingId: string
       amount?: number
       paymentType?: string
+      paymentModality?: string
       paymentMethod?: string
       status?: string
       paidAt?: string | null
@@ -463,6 +468,7 @@ export function useUpdatePayment() {
       const updates: Record<string, unknown> = {}
       if (amount !== undefined) updates.amount = amount
       if (paymentType !== undefined) updates.payment_type = paymentType
+      if (paymentModality !== undefined) updates.payment_modality = paymentModality
       if (paymentMethod !== undefined) updates.payment_method = paymentMethod
       if (status !== undefined) updates.status = status
       if (paidAt !== undefined) updates.paid_at = paidAt

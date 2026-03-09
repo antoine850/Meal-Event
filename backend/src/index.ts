@@ -23,8 +23,9 @@ app.use(cors({
   credentials: true,
 }))
 
-// Webhooks need raw body for signature verification
-app.use('/api/webhooks', express.raw({ type: 'application/json' }))
+// Stripe webhooks need raw body for signature verification
+app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }))
+// All other routes (including SignNow webhook) use JSON parsing
 app.use(express.json())
 
 // Health check

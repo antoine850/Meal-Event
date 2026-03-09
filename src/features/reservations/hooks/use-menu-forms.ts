@@ -77,10 +77,23 @@ export function useMenuFormByToken(token: string | null) {
 
       if (formError) throw formError
 
-      // Then fetch the booking to get restaurant_id
+      // Then fetch the booking with contact information
       const { data: bookingData } = await (supabase
         .from('bookings') as any)
-        .select('restaurant_id')
+        .select(`
+          restaurant_id,
+          event_date,
+          start_time,
+          guests_count,
+          occasion,
+          event_type,
+          contacts(
+            first_name,
+            last_name,
+            email,
+            phone
+          )
+        `)
         .eq('id', formData.booking_id)
         .single()
 
@@ -95,7 +108,7 @@ export function useMenuFormByToken(token: string | null) {
         restaurant = restaurantData
       }
 
-      return { ...formData, restaurant } as MenuFormFull & { restaurant: any }
+      return { ...formData, restaurant, booking: bookingData } as MenuFormFull & { restaurant: any; booking: any }
     },
   })
 }

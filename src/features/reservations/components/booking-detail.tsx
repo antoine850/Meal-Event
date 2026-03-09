@@ -7,15 +7,22 @@ import { toast } from 'sonner'
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
+  Download,
   Edit,
   ExternalLink,
   FileText,
   History,
   Loader2,
   Mail,
+  MoreVertical,
   Phone,
   Plus,
   Trash2 as TrashIcon,
+  Send,
+  FileSignature,
+  CreditCard,
+  Receipt,
+  CheckCircle,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -58,19 +65,33 @@ import {
   useDeleteBooking,
   useDuplicateBooking,
   useBookingStatuses,
+  type BookingWithRelations,
   useQuotesByBooking,
   usePaymentsByBooking,
-  type BookingWithRelations,
 } from '../hooks/use-bookings'
-import { useDocumentsByBooking, useUploadDocument, useDeleteDocument } from '../hooks/use-documents'
+import {
+  useSetPrimaryQuote,
+  useCreateQuote,
+  useDeleteQuote,
+  useRestaurantById,
+  useContactWithCompany,
+  useSendQuoteEmail,
+  useSendSignature,
+  useSendDeposit,
+  useSendBalance,
+} from '../hooks/use-quotes'
+import {
+  useDocumentsByBooking,
+  useUploadDocument,
+  useDeleteDocument,
+} from '../hooks/use-documents'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
-import { useCreateQuote, useDeleteQuote, useRestaurantById, useContactWithCompany } from '../hooks/use-quotes'
 import { useMenuFormsByBooking, useCreateMenuForm, useDeleteMenuForm } from '../hooks/use-menu-forms'
 import { QuoteEditor } from './quote-editor'
 import { MenuFormBuilder } from './menu-form-builder'
 import { PaymentDialog } from './payment-dialog'
-import type { Payment } from '@/lib/supabase/types'
+import type { Payment, Quote } from '@/lib/supabase/types'
 
 const bookingDetailSchema = z.object({
   contact_id: z.string().min(1, 'Le contact est requis'),
@@ -106,12 +127,17 @@ export const BookingDetail = forwardRef<
   const { data: users = [] } = useOrganizationUsers()
   const { data: spaces = [] } = useSpaces(booking.restaurant_id || undefined)
   const { data: quotes = [] } = useQuotesByBooking(booking.id)
+  const { mutate: setPrimaryQuote, isPending: isSettingPrimary } = useSetPrimaryQuote()
   const { data: payments = [] } = usePaymentsByBooking(booking.id)
   const { data: documents = [] } = useDocumentsByBooking(booking.id)
   const { mutate: uploadDocument } = useUploadDocument()
   const { mutate: deleteDocument, isPending: isDeletingDocument } = useDeleteDocument()
   const { mutate: createQuote, isPending: isCreatingQuote } = useCreateQuote()
   const { mutate: deleteQuoteMutation } = useDeleteQuote()
+  const { mutate: sendQuoteEmail, isPending: isSendingEmail } = useSendQuoteEmail()
+  const { mutate: sendSignature, isPending: isSendingSignature } = useSendSignature()
+  const { mutate: sendDeposit, isPending: isSendingDeposit } = useSendDeposit()
+  const { mutate: sendBalance, isPending: isSendingBalance } = useSendBalance()
   const { data: fullRestaurant } = useRestaurantById(booking.restaurant_id)
   const { data: fullContact } = useContactWithCompany(booking.contact_id)
 
@@ -129,6 +155,7 @@ export const BookingDetail = forwardRef<
   const { mutate: deleteMenuForm } = useDeleteMenuForm()
   const [menuFormBuilderOpen, setMenuFormBuilderOpen] = useState(false)
   const [editingMenuFormId, setEditingMenuFormId] = useState<string | null>(null)
+
 
   const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
 
@@ -895,7 +922,7 @@ export const BookingDetail = forwardRef<
               <Card>
                 <CardHeader className='pb-3'>
                   <div className='flex items-center justify-between'>
-                    <CardTitle className='text-base'>Devis / Offres</CardTitle>
+                    <CardTitle className='text-base'>Devis / Offres / Factures</CardTitle>
                     <Button
                       size='sm'
                       className='gap-1.5'
@@ -925,66 +952,252 @@ export const BookingDetail = forwardRef<
                 </CardHeader>
                 <CardContent>
                   {quotes.length > 0 ? (
-                    <div className='space-y-2'>
-                      {quotes.map(quote => (
-                        <div key={quote.id} className='border rounded-lg p-3 hover:bg-muted/30 transition-colors'>
-                          <div className='flex items-center justify-between'>
-                            <div className='space-y-1'>
-                              <div className='flex items-center gap-2'>
-                                <p className='font-medium text-sm'>{quote.quote_number}</p>
-                                <Badge variant={
-                                  quote.status === 'draft' ? 'secondary' :
-                                  quote.status === 'sent' ? 'default' :
-                                  quote.status === 'signed' ? 'default' :
-                                  'outline'
-                                } className='text-[10px]'>
-                                  {quote.status === 'draft' ? 'Brouillon' :
-                                   quote.status === 'sent' ? 'Envoyé' :
-                                   quote.status === 'signed' ? 'Signé' :
-                                   quote.status === 'expired' ? 'Expiré' :
-                                   quote.status === 'cancelled' ? 'Annulé' :
-                                   quote.status}
-                                </Badge>
+                    <div className='space-y-3'>
+                      {quotes.map((quote: Quote) => {
+                        // Workflow state checks
+                        const isQuoteSent = !!(quote as any).quote_sent_at
+                        const isQuoteSigned = !!(quote as any).quote_signed_at
+                        const isDepositPaid = !!(quote as any).deposit_paid_at
+                        const isBalanceSent = !!(quote as any).balance_sent_at
+                        const isBalancePaid = !!(quote as any).balance_paid_at
+                        const isPrimary = !!(quote as any).primary_quote
+                        
+                        // Conditions for actions
+                        const canSendQuote = quote.status === 'draft'
+                        const canSendSignature = quote.status === 'draft' || quote.status === 'quote_sent'
+                        const canSendDepositLink = isQuoteSigned && !isDepositPaid
+                        const canSendBalanceInvoice = isQuoteSigned && isDepositPaid && !isBalanceSent
+                        const canMarkComplete = isBalanceSent && !isBalancePaid
+                        
+                        return (
+                          <div key={quote.id} className='border rounded-lg p-3 hover:bg-muted/30 transition-colors'>
+                            {/* Header row */}
+                            <div className='flex items-start justify-between mb-2'>
+                              <div className='space-y-1'>
+                                <div className='flex items-center gap-2'>
+                                  <p className='font-medium text-sm'>{quote.quote_number}</p>
+                                  <Badge variant='outline' className='text-[10px] text-muted-foreground'>
+                                    {format(new Date(quote.created_at), 'dd/MM/yyyy', { locale: fr })}
+                                  </Badge>
+                                  {isPrimary && (
+                                    <Badge variant='default' className='text-[10px] bg-emerald-600 hover:bg-emerald-600'>Actif</Badge>
+                                  )}
+                                </div>
+                                <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+                                  <span className='font-medium'>TTC: {(quote.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                  {quote.title && <><span>•</span><span className='truncate max-w-[150px]'>{quote.title}</span></>}
+                                </div>
                               </div>
-                              <div className='flex items-center gap-3 text-xs text-muted-foreground'>
-                                <span>HT: {(quote.total_ht || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
-                                <span>TTC: {(quote.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
-                                {quote.title && <span className='truncate max-w-[200px]'>{quote.title}</span>}
-                              </div>
-                            </div>
-                            <div className='flex items-center gap-1'>
-                              <Button
-                                size='icon'
-                                variant='ghost'
-                                className='h-7 w-7'
-                                title='Éditer'
-                                onClick={() => {
-                                  setEditingQuoteId(quote.id)
-                                  setQuoteEditorOpen(true)
-                                }}
-                              >
-                                <Edit className='h-3.5 w-3.5' />
-                              </Button>
-                              <Button
-                                size='icon'
-                                variant='ghost'
-                                className='h-7 w-7 text-destructive hover:text-destructive'
-                                title='Supprimer'
-                                onClick={() => {
-                                  if (confirm('Supprimer ce devis ?')) {
-                                    deleteQuoteMutation({ id: quote.id, bookingId: booking.id }, {
-                                      onSuccess: () => toast.success('Devis supprimé'),
-                                      onError: () => toast.error('Erreur lors de la suppression'),
+                              <div className='flex items-center gap-1'>
+                                <Button
+                                  size='sm'
+                                  variant={isPrimary ? 'secondary' : 'outline'}
+                                  className='h-7 text-xs gap-1'
+                                  disabled={isPrimary || isSettingPrimary}
+                                  onClick={() => {
+                                    setPrimaryQuote({ quoteId: quote.id, bookingId: booking.id }, {
+                                      onSuccess: () => toast.success('Devis défini comme actif'),
+                                      onError: () => toast.error('Impossible de définir le devis actif'),
                                     })
-                                  }
-                                }}
-                              >
-                                <TrashIcon className='h-3.5 w-3.5' />
-                              </Button>
+                                  }}
+                                >
+                                  <CheckCircle className='h-3 w-3' />
+                                  {isPrimary ? 'Actif' : isSettingPrimary ? '…' : 'Utiliser'}
+                                </Button>
+                                <Button
+                                  size='icon'
+                                  variant='ghost'
+                                  className='h-7 w-7'
+                                  title='Éditer'
+                                  onClick={() => {
+                                    setEditingQuoteId(quote.id)
+                                    setQuoteEditorOpen(true)
+                                  }}
+                                >
+                                  <Edit className='h-3.5 w-3.5' />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button size='icon' variant='ghost' className='h-7 w-7' title='Actions'>
+                                      <MoreVertical className='h-3.5 w-3.5' />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align='end' className='w-64'>
+                                    {/* PDF Downloads */}
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setEditingQuoteId(quote.id)
+                                        setQuoteEditorOpen(true)
+                                      }}
+                                    >
+                                      <Download className='h-3.5 w-3.5 mr-2' />
+                                      Télécharger Devis PDF
+                                    </DropdownMenuItem>
+                                    
+                                    {/* Workflow Actions with conditions */}
+                                    <DropdownMenuItem
+                                      disabled={!canSendQuote || isSendingEmail}
+                                      onClick={() => {
+                                        if (canSendQuote) {
+                                          sendQuoteEmail(
+                                            { quoteId: quote.id, bookingId: booking.id },
+                                            {
+                                              onSuccess: () => toast.success('Devis envoyé par email'),
+                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
+                                            }
+                                          )
+                                        }
+                                      }}
+                                      className={!canSendQuote ? 'opacity-50' : ''}
+                                    >
+                                      <Send className='h-3.5 w-3.5 mr-2' />
+                                      <div className='flex flex-col'>
+                                        <span>{isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}</span>
+                                        {!canSendQuote && <span className='text-[10px] text-muted-foreground'>Déjà envoyé</span>}
+                                      </div>
+                                    </DropdownMenuItem>
+                                  
+                                    <DropdownMenuItem
+                                      disabled={!canSendSignature || isSendingSignature}
+                                      onClick={() => {
+                                        if (canSendSignature) {
+                                          sendSignature(
+                                            { quoteId: quote.id, bookingId: booking.id },
+                                            {
+                                              onSuccess: () => toast.success('Lien de signature envoyé'),
+                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
+                                            }
+                                          )
+                                        }
+                                      }}
+                                      className={!canSendSignature ? 'opacity-50' : ''}
+                                    >
+                                      <FileSignature className='h-3.5 w-3.5 mr-2' />
+                                      <div className='flex flex-col'>
+                                        <span>{isSendingSignature ? 'Envoi en cours...' : 'Envoyer Lien de Signature'}</span>
+                                        {!canSendSignature && <span className='text-[10px] text-muted-foreground'>Déjà signé</span>}
+                                      </div>
+                                    </DropdownMenuItem>
+                                  
+                                    <DropdownMenuItem
+                                      disabled={!canSendDepositLink || isSendingDeposit}
+                                      onClick={() => {
+                                        if (canSendDepositLink) {
+                                          sendDeposit(
+                                            { quoteId: quote.id, bookingId: booking.id },
+                                            {
+                                              onSuccess: () => toast.success('Facture d\'acompte envoyée avec lien de paiement'),
+                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
+                                            }
+                                          )
+                                        }
+                                      }}
+                                      className={!canSendDepositLink ? 'opacity-50' : ''}
+                                    >
+                                      <CreditCard className='h-3.5 w-3.5 mr-2' />
+                                      <div className='flex flex-col'>
+                                        <span>{isSendingDeposit ? 'Envoi en cours...' : 'Envoyer Lien Paiement Acompte'}</span>
+                                        {!canSendDepositLink && !isQuoteSigned && <span className='text-[10px] text-muted-foreground'>Devis non signé</span>}
+                                        {!canSendDepositLink && isDepositPaid && <span className='text-[10px] text-muted-foreground'>Acompte déjà payé</span>}
+                                      </div>
+                                    </DropdownMenuItem>
+                                  
+                                    <DropdownMenuItem
+                                      disabled={!canSendBalanceInvoice || isSendingBalance}
+                                      onClick={() => {
+                                        if (canSendBalanceInvoice) {
+                                          sendBalance(
+                                            { quoteId: quote.id, bookingId: booking.id },
+                                            {
+                                              onSuccess: () => toast.success('Facture de solde envoyée'),
+                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
+                                            }
+                                          )
+                                        }
+                                      }}
+                                      className={!canSendBalanceInvoice ? 'opacity-50' : ''}
+                                    >
+                                      <Receipt className='h-3.5 w-3.5 mr-2' />
+                                      <div className='flex flex-col'>
+                                        <span>{isSendingBalance ? 'Envoi en cours...' : 'Envoyer Facture de Solde'}</span>
+                                        {!canSendBalanceInvoice && !isQuoteSigned && <span className='text-[10px] text-muted-foreground'>Devis non signé</span>}
+                                        {!canSendBalanceInvoice && isQuoteSigned && !isDepositPaid && <span className='text-[10px] text-muted-foreground'>Acompte non payé</span>}
+                                        {!canSendBalanceInvoice && isBalanceSent && <span className='text-[10px] text-muted-foreground'>Déjà envoyée</span>}
+                                      </div>
+                                    </DropdownMenuItem>
+                                  
+                                    <DropdownMenuItem
+                                      disabled={!canMarkComplete}
+                                      onClick={() => {
+                                        if (canMarkComplete) {
+                                          toast.info('Marqué comme terminé... (à implémenter)')
+                                        }
+                                      }}
+                                      className={!canMarkComplete ? 'opacity-50' : ''}
+                                    >
+                                      <CheckCircle className='h-3.5 w-3.5 mr-2' />
+                                      <div className='flex flex-col'>
+                                        <span>Marquer comme Terminé</span>
+                                        {!canMarkComplete && !isBalanceSent && <span className='text-[10px] text-muted-foreground'>Facture de solde non envoyée</span>}
+                                        {!canMarkComplete && isBalancePaid && <span className='text-[10px] text-muted-foreground'>Déjà terminé</span>}
+                                      </div>
+                                    </DropdownMenuItem>
+                                  
+                                  <DropdownMenuItem
+                                    className='text-destructive focus:text-destructive'
+                                    onClick={() => {
+                                      if (confirm('Supprimer ce devis ?')) {
+                                        deleteQuoteMutation({ id: quote.id, bookingId: booking.id }, {
+                                          onSuccess: () => toast.success('Devis supprimé'),
+                                          onError: () => toast.error('Erreur lors de la suppression'),
+                                        })
+                                      }
+                                    }}
+                                  >
+                                    <TrashIcon className='h-3.5 w-3.5 mr-2' />
+                                    Supprimer
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
+                          
+                          {/* Workflow Status Tags */}
+                          <div className='flex items-center gap-1.5 flex-wrap'>
+                            <Badge 
+                              variant='outline' 
+                              className={`text-[9px] px-1.5 py-0 h-5 ${isQuoteSent ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+                            >
+                              {isQuoteSent ? '✓' : '○'} Devis envoyé
+                            </Badge>
+                            <Badge 
+                              variant='outline' 
+                              className={`text-[9px] px-1.5 py-0 h-5 ${isQuoteSigned ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+                            >
+                              {isQuoteSigned ? '✓' : '○'} Signé
+                            </Badge>
+                            <Badge 
+                              variant='outline' 
+                              className={`text-[9px] px-1.5 py-0 h-5 ${isDepositPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+                            >
+                              {isDepositPaid ? '✓' : '○'} Acompte payé
+                            </Badge>
+                            <Badge 
+                              variant='outline' 
+                              className={`text-[9px] px-1.5 py-0 h-5 ${isBalanceSent ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+                            >
+                              {isBalanceSent ? '✓' : '○'} Solde envoyé
+                            </Badge>
+                            <Badge 
+                              variant='outline' 
+                              className={`text-[9px] px-1.5 py-0 h-5 ${isBalancePaid ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+                            >
+                              {isBalancePaid ? '✓' : '○'} Soldé
+                            </Badge>
+                          </div>
                         </div>
-                      ))}
+                      )
+                      })}
                     </div>
                   ) : (
                     <div className='py-8 text-center text-muted-foreground'>
@@ -1009,6 +1222,36 @@ export const BookingDetail = forwardRef<
                       Paiement
                     </Button>
                   </div>
+                  {/* Payment Balance Summary */}
+                  {(() => {
+                    const signedQuote = quotes.find(q => q.status === 'signed')
+                    const totalDevisTtc = signedQuote?.total_ttc || 0
+                    const acomptesRecus = payments
+                      .filter(p => p.status === 'completed' && (p.payment_modality === 'acompte' || !p.payment_modality || p.payment_modality === 'autre'))
+                      .reduce((sum, p) => sum + (p.amount || 0), 0)
+                    const soldeRestant = totalDevisTtc - acomptesRecus
+
+                    if (totalDevisTtc > 0 || acomptesRecus > 0) {
+                      return (
+                        <div className='mt-3 p-2 sm:p-3 bg-muted/50 rounded-lg space-y-1 text-xs'>
+                          <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
+                            <span className='text-muted-foreground'>Total Devis TTC</span>
+                            <span className='font-medium'>{totalDevisTtc.toFixed(2)} €</span>
+                          </div>
+                          <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
+                            <span className='text-muted-foreground'>Acomptes reçus</span>
+                            <span className='font-medium text-green-600'>- {acomptesRecus.toFixed(2)} €</span>
+                          </div>
+                          <Separator className='my-1' />
+                          <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2 font-semibold'>
+                            <span>Solde restant</span>
+                            <span className={soldeRestant > 0 ? 'text-orange-600' : 'text-green-600'}>{soldeRestant.toFixed(2)} €</span>
+                          </div>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
                 </CardHeader>
                 <CardContent>
                   {payments.length > 0 ? (

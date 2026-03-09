@@ -20,6 +20,18 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: SIGNNOW_CLIENT_ID
+        sync: false
+      - key: SIGNNOW_CLIENT_SECRET
+        sync: false
+      - key: SIGNNOW_API_BASE
+        sync: false
+      - key: SIGNNOW_WEBHOOK_SECRET
+        sync: false
       - key: FRONTEND_URL
         sync: false
     healthCheckPath: /health

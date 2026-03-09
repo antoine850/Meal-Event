@@ -1,10 +1,10 @@
 import { Separator } from '@/components/ui/separator'
-import type { QuoteItem } from '@/lib/supabase/types'
+import type { QuoteItem, Payment } from '@/lib/supabase/types'
 import type { BookingWithRelations } from '../hooks/use-bookings'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
 import type { QuoteWithItems } from '../hooks/use-quotes'
 
-export type DocumentType = 'devis' | 'acompte' | 'solde'
+export type DocumentType = 'devis' | 'acompte' | 'solde' | 'facture_finale'
 
 export type QuotePreviewData = {
   quote: QuoteWithItems | null
@@ -48,7 +48,10 @@ export type QuotePreviewData = {
   conditionsFacture: string
   conditionsAcompte: string
   conditionsSolde: string
+  additionalConditions: string
   language: 'fr' | 'en'
+  extras?: QuoteItem[]
+  payments?: Payment[]
 }
 
 type Props = {
@@ -142,6 +145,15 @@ const labels = {
     bic: 'BIC',
     bankName: 'Banque',
     shareCapital: 'au capital de',
+    additionalConditions: 'Conditions particulières',
+    finalInvoice: 'FACTURE FINALE',
+    extras: 'Extras',
+    paymentsReceived: 'Paiements reçus',
+    remainingBalance: 'Solde restant',
+    totalWithExtras: 'Total avec extras',
+    serviceItems: 'Prestation',
+    subtotalPrestation: 'Sous-total prestation',
+    subtotalExtras: 'Sous-total extras',
   },
   en: {
     quote: 'QUOTE',
@@ -196,6 +208,15 @@ const labels = {
     bic: 'BIC',
     bankName: 'Bank',
     shareCapital: 'share capital of',
+    additionalConditions: 'Special terms',
+    finalInvoice: 'FINAL INVOICE',
+    extras: 'Extras',
+    paymentsReceived: 'Payments received',
+    remainingBalance: 'Remaining balance',
+    totalWithExtras: 'Total with extras',
+    serviceItems: 'Service',
+    subtotalPrestation: 'Service subtotal',
+    subtotalExtras: 'Extras subtotal',
   },
 }
 
@@ -477,6 +498,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
         </div>
 
         <ConditionsPage title={l.generalConditions} conditions={data.conditionsDevis} color={color} />
+        <ConditionsPage title={l.additionalConditions} conditions={data.additionalConditions} color={color} />
       </div>
     )
   }
@@ -636,80 +658,147 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           </div>
         )}
 
-        {/* Full products table */}
-        {data.items.length > 0 && (
+        {/* Combined products + extras table for Solde */}
+        {(data.items.length > 0 || (data.extras || []).length > 0) && (
           <div className='border rounded overflow-hidden'>
             <table className='w-full text-[10px]'>
               <thead>
                 <tr style={{ backgroundColor: color, color: 'white' }}>
                   <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
                   <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
-                  <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceTtc}</th>
+                  <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
+                  <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
                   <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
                   <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalTtc}</th>
-                  <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
                 </tr>
               </thead>
               <tbody>
-                {/* Date header row */}
-                {data.dateStart && (
-                  <tr>
-                    <td colSpan={6} className='px-2 py-1.5 font-semibold text-[10px] border-b' style={{ color }}>
-                      {formatDateLong(data.dateStart).replace(/^\w/, c => c.toUpperCase())}
-                    </td>
-                  </tr>
+                {/* Section: Prestation (quote items) */}
+                {data.items.length > 0 && (
+                  <>
+                    <tr>
+                      <td colSpan={6} className='px-2 py-1.5 font-bold text-[10px] border-b bg-gray-100' style={{ color }}>
+                        {l.serviceItems || 'Prestation'}
+                        {data.dateStart && ` — ${formatDateLong(data.dateStart)}`}
+                      </td>
+                    </tr>
+                    {data.items.map((item, i) => (
+                      <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className='px-2 py-1.5'>
+                          <span className='font-medium'>{item.name}</span>
+                          {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
+                        </td>
+                        <td className='text-center px-2 py-1.5'>{item.quantity}</td>
+                        <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
+                        <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
+                        <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
+                      </tr>
+                    ))}
+                    {/* Subtotal for prestation */}
+                    <tr className='border-t'>
+                      <td colSpan={4} className='px-2 py-1 text-right text-[9px] text-gray-600'>{l.subtotalPrestation || 'Sous-total prestation'}</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{data.totalHt.toFixed(2)} €</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{data.totalTtc.toFixed(2)} €</td>
+                    </tr>
+                  </>
                 )}
-                {data.items.map((item, i) => (
-                  <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className='px-2 py-1.5'>
-                      <span className='font-medium'>{item.name}</span>
-                      {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
-                    </td>
-                    <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                    <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
-                    <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
-                    <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
-                    <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                  </tr>
-                ))}
+
+                {/* Section: Extras */}
+                {(data.extras || []).length > 0 && (
+                  <>
+                    <tr>
+                      <td colSpan={6} className='px-2 py-1.5 font-bold text-[10px] border-b bg-amber-50' style={{ color }}>
+                        {l.extras}
+                      </td>
+                    </tr>
+                    {(data.extras || []).map((extra, i) => (
+                      <tr key={extra.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className='px-2 py-1.5'>
+                          <span className='font-medium'>{extra.name}</span>
+                          {extra.description && <span className='block text-gray-500 text-[9px]'>{extra.description}</span>}
+                        </td>
+                        <td className='text-center px-2 py-1.5'>{extra.quantity}</td>
+                        <td className='text-right px-2 py-1.5'>{(extra.unit_price || 0).toFixed(2)} €</td>
+                        <td className='text-center px-2 py-1.5'>{extra.tva_rate}%</td>
+                        <td className='text-right px-2 py-1.5'>{(extra.total_ht || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{(extra.total_ttc || 0).toFixed(2)} €</td>
+                      </tr>
+                    ))}
+                    {/* Subtotal for extras */}
+                    <tr className='border-t'>
+                      <td colSpan={4} className='px-2 py-1 text-right text-[9px] text-gray-600'>{l.subtotalExtras || 'Sous-total extras'}</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{(data.extras || []).reduce((sum, e) => sum + (e.total_ht || 0), 0).toFixed(2)} €</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{(data.extras || []).reduce((sum, e) => sum + (e.total_ttc || 0), 0).toFixed(2)} €</td>
+                    </tr>
+                  </>
+                )}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* Totals with deposit deduction */}
-        <div className='flex items-end justify-between'>
-          <BankDetails restaurant={restaurant} l={l} />
-          <div className='w-64 space-y-1'>
-            <div className='flex justify-between text-[10px]'>
-              <span className='text-gray-600'>{l.subtotalBeforeDeposit}</span>
-              <span className='text-[9px] text-gray-500'>{l.totalHt}: {data.totalHt.toFixed(2)} €</span>
-            </div>
-            <div className='flex justify-between text-[10px]'>
-              <span className='text-gray-500'>TTC : {data.totalTtc.toFixed(2)} €</span>
-              <span />
-            </div>
-            <Separator className='bg-gray-300' />
-            <div className='border rounded px-2 py-1.5 space-y-0.5'>
-              <p className='text-[10px] font-semibold'>{l.depositsHt}</p>
-              <div className='flex justify-between items-center'>
-                <span className='text-[10px]' style={{ color }}>{l.depositAtSignature}</span>
-                <div className='text-right'>
-                  <div className='text-xs font-bold' style={{ color }}>- {depositTtc.toFixed(2)} €</div>
-                  <div className='text-[9px] text-gray-500'>{l.totalHt}: {depositHt.toFixed(2)} €</div>
+        {/* Totals with deposit deduction and extras */}
+        {(() => {
+          const extrasHt = (data.extras || []).reduce((sum, e) => sum + (e.total_ht || 0), 0)
+          const extrasTtc = (data.extras || []).reduce((sum, e) => sum + (e.total_ttc || 0), 0)
+          const grandTotalHt = data.totalHt + extrasHt
+          const grandTotalTtc = data.totalTtc + extrasTtc
+          const finalBalanceHt = grandTotalHt - depositHt
+          const finalBalanceTtc = grandTotalTtc - depositTtc
+
+          return (
+            <div className='flex items-end justify-between'>
+              <BankDetails restaurant={restaurant} l={l} />
+              <div className='w-64 space-y-1'>
+                <div className='flex justify-between text-[10px]'>
+                  <span className='text-gray-600'>{l.subtotalBeforeDeposit}</span>
+                  <span className='text-[9px] text-gray-500'>{l.totalHt}: {data.totalHt.toFixed(2)} €</span>
+                </div>
+                <div className='flex justify-between text-[10px]'>
+                  <span className='text-gray-500'>TTC : {data.totalTtc.toFixed(2)} €</span>
+                  <span />
+                </div>
+                {extrasTtc > 0 && (
+                  <>
+                    <div className='flex justify-between text-[10px]'>
+                      <span className='text-gray-600'>{l.extras}</span>
+                      <span className='text-[9px] text-gray-500'>+ {extrasHt.toFixed(2)} € HT</span>
+                    </div>
+                    <div className='flex justify-between text-[10px]'>
+                      <span className='text-gray-500'>TTC : + {extrasTtc.toFixed(2)} €</span>
+                      <span />
+                    </div>
+                    <Separator className='bg-gray-300' />
+                    <div className='flex justify-between text-[10px] font-medium'>
+                      <span>{l.totalWithExtras}</span>
+                      <span>{grandTotalTtc.toFixed(2)} € TTC</span>
+                    </div>
+                  </>
+                )}
+                <Separator className='bg-gray-300' />
+                <div className='border rounded px-2 py-1.5 space-y-0.5'>
+                  <p className='text-[10px] font-semibold'>{l.depositsHt}</p>
+                  <div className='flex justify-between items-center'>
+                    <span className='text-[10px]' style={{ color }}>{l.depositAtSignature}</span>
+                    <div className='text-right'>
+                      <div className='text-xs font-bold' style={{ color }}>- {depositTtc.toFixed(2)} €</div>
+                      <div className='text-[9px] text-gray-500'>{l.totalHt}: {depositHt.toFixed(2)} €</div>
+                    </div>
+                  </div>
+                </div>
+                <Separator className='bg-gray-300' />
+                <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
+                  <span>{l.totalTtc}</span>
+                  <span>{finalBalanceTtc.toFixed(2)} €</span>
+                </div>
+                <div className='text-[9px] text-gray-500 text-right'>
+                  {l.totalHt}: {finalBalanceHt.toFixed(2)} €
                 </div>
               </div>
             </div>
-            <Separator className='bg-gray-300' />
-            <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
-              <span>{l.totalTtc}</span>
-              <span>{balanceTtc.toFixed(2)} €</span>
-            </div>
-            <div className='text-[9px] text-gray-500 text-right'>
-              {l.totalHt}: {balanceHt.toFixed(2)} €
-            </div>
-          </div>
-        </div>
+          )
+        })()}
 
         <DocumentFooter restaurant={restaurant} l={l} />
       </div>
@@ -717,4 +806,195 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
       <ConditionsPage title={l.generalConditions} conditions={data.conditionsSolde} color={color} />
     </div>
   )
+
+  // ── FACTURE FINALE ──
+  if (documentType === 'facture_finale') {
+    const extras = data.extras || []
+    const payments = data.payments || []
+    
+    // Calculate extras totals
+    const extrasTotalHt = extras.reduce((sum, e) => sum + (e.total_ht || 0), 0)
+    const extrasTotalTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
+    
+    // Calculate payments received (completed only)
+    const paymentsReceived = payments
+      .filter(p => p.status === 'completed')
+      .reduce((sum, p) => sum + (p.amount || 0), 0)
+    
+    // Grand totals
+    const grandTotalHt = data.totalHt + extrasTotalHt
+    const grandTotalTtc = data.totalTtc + extrasTotalTtc
+    const remainingBalance = grandTotalTtc - paymentsReceived
+
+    return (
+      <div id='quote-preview-content' className='bg-white text-black rounded-lg shadow-sm border text-[11px] leading-relaxed'>
+        <div className='p-6 space-y-5'>
+          <DocumentHeader
+            restaurant={restaurant}
+            docTitle={l.finalInvoice}
+            docNumber={quoteNumber}
+            date={formatDate(data.quoteDate)}
+            dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
+            color={color}
+            l={l}
+          />
+
+          {/* Quote reference */}
+          <div className='text-[10px] text-gray-600 bg-gray-50 px-3 py-2 rounded border'>
+            <span className='font-medium'>{l.relatedQuote}:</span> {quoteNumber}
+          </div>
+
+          <IssuerClientBlock restaurant={restaurant} contact={data.contact} l={l} />
+
+          {/* Event title */}
+          {(data.title || data.dateStart) && (
+            <div className='px-3 py-3 rounded border' style={{ borderColor: color + '40' }}>
+              {data.title && <p className='font-semibold text-xs'>{data.title}</p>}
+              {data.dateStart && (
+                <div className='mt-1'>
+                  <p className='text-[10px] font-semibold'>{l.serviceStart}</p>
+                  <p className='text-[10px] text-gray-600'>{formatDateLong(data.dateStart)}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Comments */}
+          {comments && (
+            <div className='bg-amber-50 border border-amber-200 rounded px-3 py-2'>
+              <h3 className='text-[10px] font-bold text-amber-800'>{l.comments}</h3>
+              <p className='text-[10px] text-gray-700 whitespace-pre-line'>{comments}</p>
+            </div>
+          )}
+
+          {/* Original Quote Items */}
+          {data.items.length > 0 && (
+            <div className='border rounded overflow-hidden'>
+              <table className='w-full text-[10px]'>
+                <thead>
+                  <tr style={{ backgroundColor: color, color: 'white' }}>
+                    <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
+                    <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
+                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
+                    <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
+                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
+                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalTtc}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.items.map((item, i) => (
+                    <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className='px-2 py-1.5'>
+                        <span className='font-medium'>{item.name}</span>
+                        {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
+                      </td>
+                      <td className='text-center px-2 py-1.5'>{item.quantity}</td>
+                      <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
+                      <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
+                      <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
+                      <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Extras Section */}
+          {extras.length > 0 && (
+            <div className='space-y-2'>
+              <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.extras}</h3>
+              <div className='border rounded overflow-hidden'>
+                <table className='w-full text-[10px]'>
+                  <thead>
+                    <tr style={{ backgroundColor: color + '20' }}>
+                      <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
+                      <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
+                      <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
+                      <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
+                      <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
+                      <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalTtc}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extras.map((extra, i) => (
+                      <tr key={extra.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className='px-2 py-1.5'>
+                          <span className='font-medium'>{extra.name}</span>
+                          {extra.description && <span className='block text-gray-500 text-[9px]'>{extra.description}</span>}
+                        </td>
+                        <td className='text-center px-2 py-1.5'>{extra.quantity}</td>
+                        <td className='text-right px-2 py-1.5'>{(extra.unit_price || 0).toFixed(2)} €</td>
+                        <td className='text-center px-2 py-1.5'>{extra.tva_rate}%</td>
+                        <td className='text-right px-2 py-1.5'>{(extra.total_ht || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{(extra.total_ttc || 0).toFixed(2)} €</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Totals with payments */}
+          <div className='flex justify-end'>
+            <div className='w-64 space-y-1'>
+              <div className='flex justify-between text-[10px]'>
+                <span className='text-gray-600'>{l.subtotalHt} (Devis)</span>
+                <span>{data.totalHt.toFixed(2)} €</span>
+              </div>
+              {extras.length > 0 && (
+                <>
+                  <div className='flex justify-between text-[10px]'>
+                    <span className='text-gray-600'>{l.subtotalHt} ({l.extras})</span>
+                    <span>+ {extrasTotalHt.toFixed(2)} €</span>
+                  </div>
+                  <Separator className='bg-gray-300' />
+                  <div className='flex justify-between text-[10px] font-medium'>
+                    <span>{l.totalWithExtras} HT</span>
+                    <span>{grandTotalHt.toFixed(2)} €</span>
+                  </div>
+                </>
+              )}
+              <div className='flex justify-between text-[10px]'>
+                <span className='text-gray-600'>{l.totalTvaLabel}</span>
+                <span>{(grandTotalTtc - grandTotalHt).toFixed(2)} €</span>
+              </div>
+              <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
+                <span>{l.totalTtc}</span>
+                <span>{grandTotalTtc.toFixed(2)} €</span>
+              </div>
+
+              {/* Payments received */}
+              {paymentsReceived > 0 && (
+                <>
+                  <Separator className='bg-gray-300 my-2' />
+                  <div className='border rounded px-2 py-1.5 space-y-0.5'>
+                    <p className='text-[10px] font-semibold'>{l.paymentsReceived}</p>
+                    {payments.filter(p => p.status === 'completed').map(p => (
+                      <div key={p.id} className='flex justify-between text-[10px]'>
+                        <span className='text-gray-600'>{p.payment_modality || 'Paiement'}</span>
+                        <span className='text-green-600'>- {(p.amount || 0).toFixed(2)} €</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator className='bg-gray-300' />
+                  <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: remainingBalance > 0 ? '#f97316' : '#22c55e', color: 'white' }}>
+                    <span>{l.remainingBalance}</span>
+                    <span>{remainingBalance.toFixed(2)} €</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <BankDetails restaurant={restaurant} l={l} />
+          <DocumentFooter restaurant={restaurant} l={l} />
+        </div>
+
+        <ConditionsPage title={l.generalConditions} conditions={data.conditionsFacture} color={color} />
+        <ConditionsPage title={l.additionalConditions} conditions={data.additionalConditions} color={color} />
+      </div>
+    )
+  }
 }

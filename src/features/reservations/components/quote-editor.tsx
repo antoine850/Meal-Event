@@ -11,6 +11,11 @@ import {
   User,
   ExternalLink,
   RotateCcw,
+  Download,
+  Send,
+  FileSignature,
+  CreditCard,
+  Receipt,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +23,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +40,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Command,
   CommandEmpty,
@@ -65,13 +76,17 @@ import {
   useProductsByRestaurant,
   usePackagesByRestaurant,
   useQuoteWithItems,
+  useSendQuoteEmail,
+  useSendSignature,
+  useSendDeposit,
+  useSendBalance,
   generateAllCGV,
   type RestaurantBillingInfo,
 } from '../hooks/use-quotes'
 import { QuotePreview, type DocumentType } from './quote-preview'
 import { useContacts } from '@/features/contacts/hooks/use-contacts'
 import { useUpdateCompany } from '@/features/companies/hooks/use-companies'
-import { QuotePdfExportButton } from './quote-pdf-export'
+// QuotePdfExportButton replaced by inline dropdown actions
 
 type Props = {
   open: boolean
@@ -91,6 +106,18 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const { data: catalogProducts = [] } = useProductsByRestaurant(restaurant?.id || null)
   const { data: catalogPackages = [] } = usePackagesByRestaurant(restaurant?.id || null)
   const { mutate: updateCompany, isPending: isUpdatingCompany } = useUpdateCompany()
+  const { mutate: sendQuoteEmail, isPending: isSendingEmail } = useSendQuoteEmail()
+  const { mutate: sendSignature, isPending: isSendingSignature } = useSendSignature()
+  const { mutate: sendDeposit, isPending: isSendingDeposit } = useSendDeposit()
+  const { mutate: sendBalance, isPending: isSendingBalance } = useSendBalance()
+  
+  // Extras state (using quote_items with item_type='extra')
+  const [editingExtra, setEditingExtra] = useState<QuoteItem | null>(null)
+  const [extraName, setExtraName] = useState('')
+  const [extraDescription, setExtraDescription] = useState('')
+  const [extraQuantity, setExtraQuantity] = useState(1)
+  const [extraUnitPrice, setExtraUnitPrice] = useState(0)
+  const [extraTvaRate, setExtraTvaRate] = useState(20)
 
   // B2B billing form state
   const [billingAddress, setBillingAddress] = useState('')
@@ -120,6 +147,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const [conditionsFacture, setConditionsFacture] = useState('')
   const [conditionsAcompte, setConditionsAcompte] = useState('')
   const [conditionsSolde, setConditionsSolde] = useState('')
+  const [additionalConditions, setAdditionalConditions] = useState('')
   const [language, setLanguage] = useState<'fr' | 'en'>('fr')
   const [activeTab, setActiveTab] = useState('general')
   const [activeCondition, setActiveCondition] = useState('devis')
@@ -158,6 +186,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       setConditionsFacture(quoteData.conditions_facture || '')
       setConditionsAcompte(quoteData.conditions_acompte || '')
       setConditionsSolde(quoteData.conditions_solde || '')
+      setAdditionalConditions(quoteData.additional_conditions || '')
       setLanguage((quoteData.language as 'fr' | 'en') || 'fr')
     }
   }, [quoteData])
@@ -305,16 +334,20 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     handleLoadDefaultConditions(newLang)
   }, [saveQuoteField, handleLoadDefaultConditions])
 
-  // Calculate totals
-  const totalHt = items.reduce((sum, item) => sum + ((item.total_ht as number) || 0), 0)
-  const totalTtc = items.reduce((sum, item) => sum + ((item.total_ttc as number) || 0), 0)
+  // Filter items by type
+  const products = items.filter(item => item.item_type !== 'extra')
+  const extras = items.filter(item => item.item_type === 'extra')
+
+  // Calculate totals (products only, not extras)
+  const totalHt = products.reduce((sum, item) => sum + ((item.total_ht as number) || 0), 0)
+  const totalTtc = products.reduce((sum, item) => sum + ((item.total_ttc as number) || 0), 0)
   const depositAmount = totalTtc * (depositPercentage / 100)
   const balanceAmount = totalTtc - depositAmount
 
   // Build preview data
   const previewData = {
     quote: quoteData ?? null,
-    items,
+    items: products,
     booking,
     restaurant,
     contact: resolvedContact as any,
@@ -342,7 +375,9 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     conditionsFacture,
     conditionsAcompte,
     conditionsSolde,
+    additionalConditions,
     language,
+    extras,
   }
 
   if (isLoading) {
@@ -367,8 +402,29 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
             <DialogTitle className='text-base'>
               {quoteData?.quote_number || 'Nouveau devis'}
             </DialogTitle>
-            <Badge variant={quoteData?.status === 'draft' ? 'secondary' : quoteData?.status === 'sent' ? 'default' : 'outline'}>
-              {quoteData?.status === 'draft' ? 'Brouillon' : quoteData?.status === 'sent' ? 'Envoyé' : quoteData?.status === 'signed' ? 'Signé' : quoteData?.status || 'Brouillon'}
+            <Badge variant={
+              quoteData?.status === 'draft' ? 'secondary' :
+              quoteData?.status === 'quote_sent' ? 'default' :
+              quoteData?.status === 'quote_signed' ? 'default' :
+              quoteData?.status === 'deposit_sent' ? 'default' :
+              quoteData?.status === 'deposit_paid' ? 'default' :
+              quoteData?.status === 'balance_sent' ? 'default' :
+              quoteData?.status === 'completed' ? 'default' :
+              'outline'
+            } className={
+              quoteData?.status === 'quote_signed' ? 'bg-green-100 text-green-800 border-green-200' :
+              quoteData?.status === 'deposit_paid' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+              quoteData?.status === 'completed' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+              ''
+            }>
+              {quoteData?.status === 'draft' ? 'Brouillon' :
+               quoteData?.status === 'quote_sent' ? 'Devis Envoyé' :
+               quoteData?.status === 'quote_signed' ? 'Devis Signé' :
+               quoteData?.status === 'deposit_sent' ? 'Acompte Envoyé' :
+               quoteData?.status === 'deposit_paid' ? 'Paiement Reçu' :
+               quoteData?.status === 'balance_sent' ? 'Solde Envoyé' :
+               quoteData?.status === 'completed' ? 'Terminé' :
+               quoteData?.status || 'Brouillon'}
             </Badge>
           </div>
           <div className='flex items-center gap-2'>
@@ -384,9 +440,9 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
         {/* Body: 2 columns */}
         <div className='flex flex-1 overflow-hidden'>
           {/* Left: Tabs */}
-          <div className='w-[55%] border-r flex flex-col'>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className='flex flex-col flex-1'>
-              <TabsList className='mx-4 mt-3 grid w-fit grid-cols-4'>
+          <div className='w-[55%] border-r flex flex-col overflow-hidden'>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className='flex flex-col flex-1 overflow-hidden'>
+              <TabsList className='mx-4 mt-3 mb-3 grid w-fit grid-cols-5 shrink-0'>
                 <TabsTrigger value='general' className='gap-1.5 text-xs'>
                   <ReceiptText className='h-3.5 w-3.5' />
                   Général
@@ -406,9 +462,17 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     <Badge variant='secondary' className='ml-1 h-4 px-1 text-[10px]'>{items.length}</Badge>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value='extras' className='gap-1.5 text-xs'>
+                  <Plus className='h-3.5 w-3.5' />
+                  Extras
+                  {extras.length > 0 && (
+                    <Badge variant='secondary' className='ml-1 h-4 px-1 text-[10px]'>{extras.length}</Badge>
+                  )}
+                </TabsTrigger>
               </TabsList>
 
-              <ScrollArea className='flex-1 px-4 py-3'>
+              <div className='flex-1 min-h-0 overflow-auto'>
+                <div className='px-4 pb-3'>
                 {/* ── Tab Général ── */}
                 <TabsContent value='general' className='mt-0 space-y-4'>
                   <div>
@@ -868,79 +932,87 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                 </TabsContent>
 
                 {/* ── Tab Conditions ── */}
-                <TabsContent value='conditions' className='mt-0'>
-                  <div className='flex gap-3'>
-                    {/* Left nav */}
-                    <div className='w-32 shrink-0 space-y-1'>
-                      {[
-                        { key: 'devis', label: 'Devis' },
-                        { key: 'facture', label: 'Facture' },
-                        { key: 'acompte', label: 'Acompte' },
-                        { key: 'solde', label: 'Solde' },
-                      ].map(item => (
-                        <button
-                          key={item.key}
-                          onClick={() => setActiveCondition(item.key)}
-                          className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                            activeCondition === item.key
-                              ? 'bg-primary text-primary-foreground'
-                              : 'hover:bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                      <Separator className='my-2' />
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        className='w-full gap-1.5 text-xs'
-                        onClick={() => handleLoadDefaultConditions(language)}
+                <TabsContent value='conditions' className='mt-0 flex gap-3 h-full'>
+                  {/* Left nav - fixed, not scrollable */}
+                  <div className='w-32 shrink-0 space-y-1'>
+                    {[
+                      { key: 'devis', label: 'Devis' },
+                      { key: 'facture', label: 'Facture' },
+                      { key: 'acompte', label: 'Acompte' },
+                      { key: 'solde', label: 'Solde' },
+                      { key: 'additional', label: 'Conditions suppl.' },
+                    ].map(item => (
+                      <button
+                        key={item.key}
+                        onClick={() => setActiveCondition(item.key)}
+                        className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          activeCondition === item.key
+                            ? 'bg-primary text-primary-foreground'
+                            : 'hover:bg-muted text-muted-foreground'
+                        }`}
                       >
-                        <RotateCcw className='h-3 w-3' />
-                        Charger CGV
-                      </Button>
-                    </div>
+                        {item.label}
+                      </button>
+                    ))}
+                    <Separator className='my-2' />
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='w-full gap-1.5 text-xs'
+                      onClick={() => handleLoadDefaultConditions(language)}
+                    >
+                      <RotateCcw className='h-3 w-3' />
+                      Charger CGV
+                    </Button>
+                  </div>
 
-                    {/* Right: textarea */}
-                    <div className='flex-1'>
-                      {activeCondition === 'devis' && (
-                        <Textarea
-                          value={conditionsDevis}
-                          onChange={e => setConditionsDevis(e.target.value)}
-                          onBlur={() => saveQuoteField('conditions_devis', conditionsDevis || null)}
-                          placeholder='Conditions générales de vente — Devis'
-                          className='min-h-[400px] text-xs resize-none font-mono'
-                        />
-                      )}
-                      {activeCondition === 'facture' && (
-                        <Textarea
-                          value={conditionsFacture}
-                          onChange={e => setConditionsFacture(e.target.value)}
-                          onBlur={() => saveQuoteField('conditions_facture', conditionsFacture || null)}
-                          placeholder='Conditions générales — Facture'
-                          className='min-h-[400px] text-xs resize-none font-mono'
-                        />
-                      )}
-                      {activeCondition === 'acompte' && (
-                        <Textarea
-                          value={conditionsAcompte}
-                          onChange={e => setConditionsAcompte(e.target.value)}
-                          onBlur={() => saveQuoteField('conditions_acompte', conditionsAcompte || null)}
-                          placeholder='Conditions — Acompte'
-                          className='min-h-[400px] text-xs resize-none font-mono'
-                        />
-                      )}
-                      {activeCondition === 'solde' && (
-                        <Textarea
-                          value={conditionsSolde}
-                          onChange={e => setConditionsSolde(e.target.value)}
-                          onBlur={() => saveQuoteField('conditions_solde', conditionsSolde || null)}
-                          placeholder='Conditions — Solde / Balance'
-                          className='min-h-[400px] text-xs resize-none font-mono'
-                        />
-                      )}
-                    </div>
+                  {/* Right: textarea - scrollable */}
+                  <div className='flex-1 min-h-0'>
+                    {activeCondition === 'devis' && (
+                      <Textarea
+                        value={conditionsDevis}
+                        onChange={e => setConditionsDevis(e.target.value)}
+                        onBlur={() => saveQuoteField('conditions_devis', conditionsDevis || null)}
+                        placeholder='Conditions générales de vente — Devis'
+                        className='h-full text-xs resize-none font-mono'
+                      />
+                    )}
+                    {activeCondition === 'facture' && (
+                      <Textarea
+                        value={conditionsFacture}
+                        onChange={e => setConditionsFacture(e.target.value)}
+                        onBlur={() => saveQuoteField('conditions_facture', conditionsFacture || null)}
+                        placeholder='Conditions générales — Facture'
+                        className='h-full text-xs resize-none font-mono'
+                      />
+                    )}
+                    {activeCondition === 'acompte' && (
+                      <Textarea
+                        value={conditionsAcompte}
+                        onChange={e => setConditionsAcompte(e.target.value)}
+                        onBlur={() => saveQuoteField('conditions_acompte', conditionsAcompte || null)}
+                        placeholder='Conditions — Acompte'
+                        className='h-full text-xs resize-none font-mono'
+                      />
+                    )}
+                    {activeCondition === 'solde' && (
+                      <Textarea
+                        value={conditionsSolde}
+                        onChange={e => setConditionsSolde(e.target.value)}
+                        onBlur={() => saveQuoteField('conditions_solde', conditionsSolde || null)}
+                        placeholder='Conditions — Solde / Balance'
+                        className='h-full text-xs resize-none font-mono'
+                      />
+                    )}
+                    {activeCondition === 'additional' && (
+                      <Textarea
+                        value={additionalConditions}
+                        onChange={e => setAdditionalConditions(e.target.value)}
+                        onBlur={() => saveQuoteField('additional_conditions', additionalConditions || null)}
+                        placeholder='Conditions supplémentaires personnalisées...'
+                        className='h-full text-xs resize-none font-mono'
+                      />
+                    )}
                   </div>
                 </TabsContent>
 
@@ -1191,7 +1263,238 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     </div>
                   )}
                 </TabsContent>
-              </ScrollArea>
+
+                {/* ── Tab Extras ── */}
+                <TabsContent value='extras' className='mt-0 space-y-3'>
+                  <p className='text-xs text-muted-foreground'>
+                    Ajoutez des extras (consommations, services supplémentaires) qui apparaîtront sur la facture de solde.
+                  </p>
+                  
+                  {/* Add extra form */}
+                  <Card>
+                    <CardContent className='pt-4 space-y-3'>
+                      <div className='grid grid-cols-2 gap-3'>
+                        <div>
+                          <Label className='text-xs'>Désignation</Label>
+                          <Input
+                            value={extraName}
+                            onChange={e => setExtraName(e.target.value)}
+                            placeholder='Ex: Bouteille de champagne'
+                            className='mt-1 h-8 text-xs'
+                          />
+                        </div>
+                        <div>
+                          <Label className='text-xs'>Description (optionnel)</Label>
+                          <Input
+                            value={extraDescription}
+                            onChange={e => setExtraDescription(e.target.value)}
+                            placeholder='Détails...'
+                            className='mt-1 h-8 text-xs'
+                          />
+                        </div>
+                      </div>
+                      <div className='grid grid-cols-4 gap-3'>
+                        <div>
+                          <Label className='text-xs'>Quantité</Label>
+                          <Input
+                            type='number'
+                            min={1}
+                            value={extraQuantity}
+                            onChange={e => setExtraQuantity(parseInt(e.target.value) || 1)}
+                            className='mt-1 h-8 text-xs'
+                          />
+                        </div>
+                        <div>
+                          <Label className='text-xs'>Prix unitaire HT</Label>
+                          <Input
+                            type='number'
+                            min={0}
+                            step={0.01}
+                            value={extraUnitPrice}
+                            onChange={e => setExtraUnitPrice(parseFloat(e.target.value) || 0)}
+                            className='mt-1 h-8 text-xs'
+                          />
+                        </div>
+                        <div>
+                          <Label className='text-xs'>TVA %</Label>
+                          <Input
+                            type='number'
+                            min={0}
+                            max={100}
+                            value={extraTvaRate}
+                            onChange={e => setExtraTvaRate(parseFloat(e.target.value) || 20)}
+                            className='mt-1 h-8 text-xs'
+                          />
+                        </div>
+                        <div className='flex items-end'>
+                          <Button
+                            size='sm'
+                            className='w-full h-8 text-xs gap-1'
+                            disabled={!extraName || !quoteId || isAddingItem}
+                            onClick={() => {
+                              if (!quoteId || !extraName) return
+                              if (editingExtra) {
+                                updateQuoteItem({
+                                  id: editingExtra.id,
+                                  quoteId,
+                                  name: extraName,
+                                  description: extraDescription || null,
+                                  quantity: extraQuantity,
+                                  unit_price: extraUnitPrice,
+                                  tva_rate: extraTvaRate,
+                                } as any, {
+                                  onSuccess: () => {
+                                    toast.success('Extra modifié')
+                                    setEditingExtra(null)
+                                    setExtraName('')
+                                    setExtraDescription('')
+                                    setExtraQuantity(1)
+                                    setExtraUnitPrice(0)
+                                    setExtraTvaRate(20)
+                                  },
+                                  onError: () => toast.error('Erreur lors de la modification'),
+                                })
+                              } else {
+                                addQuoteItem({
+                                  quoteId,
+                                  name: extraName,
+                                  description: extraDescription,
+                                  quantity: extraQuantity,
+                                  unitPrice: extraUnitPrice,
+                                  tvaRate: extraTvaRate,
+                                  position: items.length,
+                                  itemType: 'extra',
+                                }, {
+                                  onSuccess: () => {
+                                    toast.success('Extra ajouté')
+                                    setExtraName('')
+                                    setExtraDescription('')
+                                    setExtraQuantity(1)
+                                    setExtraUnitPrice(0)
+                                    setExtraTvaRate(20)
+                                  },
+                                  onError: () => toast.error("Erreur lors de l'ajout"),
+                                })
+                              }
+                            }}
+                          >
+                            {isAddingItem ? <Loader2 className='h-3 w-3 animate-spin' /> : <Plus className='h-3 w-3' />}
+                            {editingExtra ? 'Modifier' : 'Ajouter'}
+                          </Button>
+                        </div>
+                      </div>
+                      {editingExtra && (
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          className='text-xs'
+                          onClick={() => {
+                            setEditingExtra(null)
+                            setExtraName('')
+                            setExtraDescription('')
+                            setExtraQuantity(1)
+                            setExtraUnitPrice(0)
+                            setExtraTvaRate(20)
+                          }}
+                        >
+                          Annuler la modification
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Extras list */}
+                  {extras.length === 0 ? (
+                    <Card>
+                      <CardContent className='py-8 text-center text-muted-foreground text-sm'>
+                        Aucun extra ajouté. Les extras apparaîtront sur la facture de solde.
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className='border rounded-md'>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className='text-xs'>Désignation</TableHead>
+                            <TableHead className='text-xs w-16'>Qté</TableHead>
+                            <TableHead className='text-xs w-20'>P.U. HT</TableHead>
+                            <TableHead className='text-xs w-16'>TVA</TableHead>
+                            <TableHead className='text-xs w-24 text-right'>Total TTC</TableHead>
+                            <TableHead className='w-16' />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {extras.map((extra) => (
+                            <TableRow key={extra.id}>
+                              <TableCell>
+                                <div className='space-y-0.5'>
+                                  <span className='text-xs font-medium'>{extra.name}</span>
+                                  {extra.description && (
+                                    <p className='text-[10px] text-muted-foreground'>{extra.description}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className='text-xs'>{extra.quantity}</TableCell>
+                              <TableCell className='text-xs'>{(extra.unit_price || 0).toFixed(2)} €</TableCell>
+                              <TableCell className='text-xs'>{extra.tva_rate}%</TableCell>
+                              <TableCell className='text-right text-xs font-medium'>
+                                {(extra.total_ttc || 0).toFixed(2)} €
+                              </TableCell>
+                              <TableCell>
+                                <div className='flex items-center gap-1'>
+                                  <Button
+                                    size='icon'
+                                    variant='ghost'
+                                    className='h-6 w-6'
+                                    onClick={() => {
+                                      setEditingExtra(extra)
+                                      setExtraName(extra.name)
+                                      setExtraDescription(extra.description || '')
+                                      setExtraQuantity(extra.quantity)
+                                      setExtraUnitPrice(extra.unit_price)
+                                      setExtraTvaRate(extra.tva_rate)
+                                    }}
+                                  >
+                                    <ReceiptText className='h-3 w-3' />
+                                  </Button>
+                                  <Button
+                                    size='icon'
+                                    variant='ghost'
+                                    className='h-6 w-6 text-destructive hover:text-destructive'
+                                    onClick={() => {
+                                      if (!quoteId) return
+                                      deleteQuoteItem({ id: extra.id, quoteId }, {
+                                        onSuccess: () => toast.success('Extra supprimé'),
+                                        onError: () => toast.error('Erreur lors de la suppression'),
+                                      })
+                                    }}
+                                  >
+                                    <Trash2 className='h-3 w-3' />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+
+                      {/* Extras totals */}
+                      <div className='border-t px-4 py-2 space-y-1'>
+                        <div className='flex justify-between text-xs'>
+                          <span className='text-muted-foreground'>Total Extras HT</span>
+                          <span className='font-medium'>{extras.reduce((sum, e) => sum + (e.quantity * e.unit_price), 0).toFixed(2)} €</span>
+                        </div>
+                        <div className='flex justify-between text-sm font-semibold'>
+                          <span>Total Extras TTC</span>
+                          <span>{extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0).toFixed(2)} €</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                </div>
+              </div>
             </Tabs>
           </div>
 
@@ -1228,7 +1531,144 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                   </Button>
                 </div>
               </div>
-              <QuotePdfExportButton quoteNumber={quoteData?.quote_number || 'devis'} />
+              {/* Actions Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant='outline' size='sm' className='gap-1.5 text-xs h-7'>
+                    <Download className='h-3 w-3' />
+                    Actions
+                    <ChevronDown className='h-3 w-3' />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align='end' className='w-56'>
+                  {/* PDF Downloads */}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const element = document.getElementById('quote-preview-content')
+                      if (!element) {
+                        toast.error('Aperçu non disponible')
+                        return
+                      }
+                      // Trigger PDF export
+                      import('html2pdf.js').then(({ default: html2pdf }) => {
+                        html2pdf()
+                          .set({
+                            margin: [5, 5, 10, 5],
+                            filename: `${quoteData?.quote_number || 'devis'}.pdf`,
+                            image: { type: 'jpeg', quality: 0.98 },
+                            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                          })
+                          .from(element)
+                          .save()
+                          .then(() => toast.success('PDF téléchargé'))
+                          .catch(() => toast.error('Erreur lors de l\'export PDF'))
+                      })
+                    }}
+                  >
+                    <Download className='h-3.5 w-3.5 mr-2' />
+                    Télécharger PDF
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  
+                  {/* Workflow Actions based on status */}
+                  {quoteData?.status === 'draft' && (
+                    <DropdownMenuItem
+                      disabled={isSendingEmail}
+                      onClick={() => {
+                        if (!quoteId) return
+                        sendQuoteEmail(
+                          { quoteId, bookingId: booking.id },
+                          {
+                            onSuccess: () => toast.success('Devis envoyé par email'),
+                            onError: (err) => toast.error(`Erreur: ${err.message}`),
+                          }
+                        )
+                      }}
+                    >
+                      <Send className='h-3.5 w-3.5 mr-2' />
+                      {isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}
+                    </DropdownMenuItem>
+                  )}
+                  
+                  {(quoteData?.status === 'draft' || quoteData?.status === 'quote_sent') && (
+                    <DropdownMenuItem
+                      disabled={isSendingSignature}
+                      onClick={() => {
+                        if (!quoteId) return
+                        sendSignature(
+                          { quoteId, bookingId: booking.id },
+                          {
+                            onSuccess: () => toast.success('Lien de signature envoyé'),
+                            onError: (err) => toast.error(`Erreur: ${err.message}`),
+                          }
+                        )
+                      }}
+                    >
+                      <FileSignature className='h-3.5 w-3.5 mr-2' />
+                      {isSendingSignature ? 'Envoi en cours...' : 'Envoyer Lien de Signature'}
+                    </DropdownMenuItem>
+                  )}
+                  
+                  {quoteData?.status === 'quote_signed' && (
+                    <DropdownMenuItem
+                      disabled={isSendingDeposit}
+                      onClick={() => {
+                        if (!quoteId) return
+                        sendDeposit(
+                          { quoteId, bookingId: booking.id },
+                          {
+                            onSuccess: () => toast.success('Facture d\'acompte envoyée avec lien de paiement'),
+                            onError: (err) => toast.error(`Erreur: ${err.message}`),
+                          }
+                        )
+                      }}
+                    >
+                      <CreditCard className='h-3.5 w-3.5 mr-2' />
+                      {isSendingDeposit ? 'Envoi en cours...' : 'Envoyer Lien Paiement Acompte'}
+                    </DropdownMenuItem>
+                  )}
+                  
+                  {quoteData?.status === 'deposit_sent' && (
+                    <DropdownMenuItem
+                      disabled={isSendingDeposit}
+                      onClick={() => {
+                        if (!quoteId) return
+                        sendDeposit(
+                          { quoteId, bookingId: booking.id },
+                          {
+                            onSuccess: () => toast.success('Lien de paiement renvoyé'),
+                            onError: (err) => toast.error(`Erreur: ${err.message}`),
+                          }
+                        )
+                      }}
+                    >
+                      <CreditCard className='h-3.5 w-3.5 mr-2' />
+                      {isSendingDeposit ? 'Envoi en cours...' : 'Renvoyer Lien de Paiement'}
+                    </DropdownMenuItem>
+                  )}
+                  
+                  {quoteData?.status === 'deposit_paid' && (
+                    <DropdownMenuItem
+                      disabled={isSendingBalance}
+                      onClick={() => {
+                        if (!quoteId) return
+                        sendBalance(
+                          { quoteId, bookingId: booking.id },
+                          {
+                            onSuccess: () => toast.success('Facture de solde envoyée'),
+                            onError: (err) => toast.error(`Erreur: ${err.message}`),
+                          }
+                        )
+                      }}
+                    >
+                      <Receipt className='h-3.5 w-3.5 mr-2' />
+                      {isSendingBalance ? 'Envoi en cours...' : 'Envoyer Facture de Solde'}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <div className='flex-1 overflow-auto'>
               <div className='p-4'>
