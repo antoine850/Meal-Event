@@ -613,8 +613,6 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   const depositHt = data.totalHt * (data.depositPercentage / 100)
   const depositTva = depositHt * (avgTvaRate / 100)
   const depositTtc = depositHt + depositTva
-  const balanceHt = data.totalHt - depositHt
-  const balanceTva = balanceHt * (avgTvaRate / 100)
 
   return (
     <div id='quote-preview-content' className='bg-white text-black rounded-lg shadow-sm border text-[11px] leading-relaxed'>
