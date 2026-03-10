@@ -1,17 +1,18 @@
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces'
 import { supabase } from './supabase.js'
+import path from 'path'
 
 // pdfmake uses a CJS default export — use require
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PdfPrinter = require('pdfmake')
 
-// ── Fonts (pdfmake built-in Roboto) ──
+// ── Fonts (use standard fonts that don't require external files) ──
 const fonts = {
-  Roboto: {
-    normal: 'node_modules/pdfmake/build/vfs_fonts.js',
-    bold: 'node_modules/pdfmake/build/vfs_fonts.js',
-    italics: 'node_modules/pdfmake/build/vfs_fonts.js',
-    bolditalics: 'node_modules/pdfmake/build/vfs_fonts.js',
+  Helvetica: {
+    normal: 'Helvetica',
+    bold: 'Helvetica-Bold',
+    italics: 'Helvetica-Oblique',
+    bolditalics: 'Helvetica-BoldOblique',
   },
 }
 
@@ -139,7 +140,7 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
         id, event_date, occasion, guests_count,
         contact:contacts(
           id, first_name, last_name, email, phone,
-          company:companies(name, billing_address, billing_city, billing_postal_code, siret, tva_number)
+          company:companies(name)
         ),
         restaurant:restaurants(
           id, name, address, city, postal_code, phone, email,
@@ -561,6 +562,7 @@ function buildDocDefinition(
       margin: [20, 0, 20, 10] as [number, number, number, number],
     },
     defaultStyle: {
+      font: 'Helvetica',
       fontSize: 9,
     },
     styles: {

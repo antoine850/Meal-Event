@@ -55,14 +55,14 @@ export function useSendQuoteEmail() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+    mutationFn: async ({ quoteId, bookingId: _bookingId }: { quoteId: string; bookingId: string }) => {
       return apiClient<{ success: boolean; emailId: string }>(`/api/quotes/${quoteId}/send-email`, {
         method: 'POST',
       })
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
-      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
+    onSuccess: (_, { bookingId, quoteId }) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
     },
   })
 }
@@ -71,14 +71,14 @@ export function useSendSignature() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+    mutationFn: async ({ quoteId, bookingId: _bookingId }: { quoteId: string; bookingId: string }) => {
       return apiClient<{ success: boolean; documentId: string; inviteId: string }>(`/api/quotes/${quoteId}/send-signature`, {
         method: 'POST',
       })
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
-      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
+    onSuccess: (_, { bookingId, quoteId }) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
     },
   })
 }
@@ -87,15 +87,15 @@ export function useSendDeposit() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+    mutationFn: async ({ quoteId, bookingId: _bookingId }: { quoteId: string; bookingId: string }) => {
       return apiClient<{ success: boolean; sessionId: string; paymentUrl: string }>(`/api/quotes/${quoteId}/send-deposit`, {
         method: 'POST',
       })
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
-      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
-      queryClient.invalidateQueries({ queryKey: ['payments', variables.bookingId] })
+    onSuccess: (_, { bookingId, quoteId }) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
+      queryClient.invalidateQueries({ queryKey: ['payments', bookingId] })
     },
   })
 }
@@ -104,15 +104,15 @@ export function useSendBalance() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+    mutationFn: async ({ quoteId, bookingId: _bookingId }: { quoteId: string; bookingId: string }) => {
       return apiClient<{ success: boolean; sessionId: string; paymentUrl: string }>(`/api/quotes/${quoteId}/send-balance`, {
         method: 'POST',
       })
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
-      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
-      queryClient.invalidateQueries({ queryKey: ['payments', variables.bookingId] })
+    onSuccess: (_, { bookingId, quoteId }) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
+      queryClient.invalidateQueries({ queryKey: ['payments', bookingId] })
     },
   })
 }

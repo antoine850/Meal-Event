@@ -11,7 +11,9 @@ import { quotesRouter } from './routes/quotes.js'
 import { paymentsRouter } from './routes/payments.js'
 import { webhooksRouter } from './routes/webhooks.js'
 
-dotenv.config()
+// Load environment variables from .env.local
+dotenv.config({ path: '.env.local' })
+dotenv.config() // Fallback to .env if .env.local doesn't exist
 
 const app = express()
 const PORT = process.env.PORT || 3001
