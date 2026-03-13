@@ -140,10 +140,7 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
-    // Validate status: can only send email if draft or quote_sent (resend)
-    if (!['draft', 'quote_sent'].includes(quoteData.status)) {
-      return res.status(400).json({ error: `Impossible d'envoyer le devis depuis le statut: ${quoteData.status}` })
-    }
+    // Allow resending quote from any status (no restriction)
 
     // Get commercial (assigned_to) email for reply-to
     let commercialName: string | null = null
@@ -250,10 +247,7 @@ quotesRouter.post('/:id/send-signature', async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
-    // Validate status: can only send signature if draft or quote_sent
-    if (!['draft', 'quote_sent'].includes(quoteData.status)) {
-      return res.status(400).json({ error: `Impossible d'envoyer la signature depuis le statut: ${quoteData.status}` })
-    }
+    // Allow resending signature from any status (no restriction)
 
     // Generate PDF with error handling
     let pdfBuffer: Buffer
@@ -321,10 +315,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
-    // Validate status: can only send deposit if quote_signed or deposit_sent (resend)
-    if (!['quote_signed', 'deposit_sent'].includes(quoteData.status)) {
-      return res.status(400).json({ error: `Impossible d'envoyer l'acompte depuis le statut: ${quoteData.status}` })
-    }
+    // Allow resending deposit from any status (no restriction)
 
     // Calculate deposit amount
     const depositAmount = quoteData.total_ttc * (quoteData.deposit_percentage / 100)
@@ -473,10 +464,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
-    // Validate status: can only send balance if deposit_paid
-    if (quoteData.status !== 'deposit_paid') {
-      return res.status(400).json({ error: `Impossible d'envoyer le solde depuis le statut: ${quoteData.status}` })
-    }
+    // Allow resending balance from any status (no restriction)
 
     // Calculate balance: total + extras - deposit already paid
     const items = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'product')
