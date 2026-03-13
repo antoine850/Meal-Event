@@ -137,6 +137,22 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
   }
 
   try {
+    // Get PaymentIntent to retrieve receipt URL
+    let receiptUrl: string | null = null
+    if (session.payment_intent) {
+      try {
+        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string)
+        // Get the latest charge to find receipt URL
+        if (paymentIntent.latest_charge) {
+          const charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string)
+          receiptUrl = charge.receipt_url || null
+          console.log(`[Stripe] Receipt URL: ${receiptUrl}`)
+        }
+      } catch (err) {
+        console.error('Error retrieving receipt URL:', err)
+      }
+    }
+
     // Update existing pending payment to paid (created when link was sent)
     const { data: existingPayment, error: findError } = await supabase
       .from('payments')
@@ -153,6 +169,7 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
           status: 'paid',
           paid_at: new Date().toISOString(),
           stripe_payment_intent_id: session.payment_intent as string,
+          attachment_url: receiptUrl,
         })
         .eq('id', existingPayment.id)
 
@@ -175,9 +192,25 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
           stripe_payment_id: session.payment_intent as string,
           status: 'paid',
           paid_at: new Date().toISOString(),
+          attachment_url: receiptUrl,
         })
 
       if (paymentError) throw paymentError
+    }
+
+    // Store receipt as document if URL available
+    if (receiptUrl && booking_id) {
+      const docName = link_type === 'deposit' ? 'Reçu Stripe - Acompte' : link_type === 'balance' ? 'Reçu Stripe - Solde' : 'Reçu Stripe'
+      await supabase
+        .from('documents')
+        .insert({
+          booking_id,
+          name: docName,
+          type: 'receipt',
+          url: receiptUrl,
+          mime_type: 'text/html',
+        })
+      console.log(`[Stripe] Stored receipt document for booking ${booking_id}`)
     }
 
     // Update payment link as used
