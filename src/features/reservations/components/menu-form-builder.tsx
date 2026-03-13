@@ -69,6 +69,7 @@ import {
   useAddMenuFormField,
   useUpdateMenuFormField,
   useDeleteMenuFormField,
+  useMenuDimensionsByRestaurant,
 } from '../hooks/use-menu-forms'
 import type { MenuFormField } from '@/lib/supabase/types'
 import { format } from 'date-fns'
@@ -78,6 +79,7 @@ type Props = {
   formId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  restaurantId?: string | null
 }
 
 // ── Isolated Field Editor (prevents parent re-render on keystroke) ──
@@ -248,7 +250,7 @@ function FieldEditor({ field, onSave, onDelete, isLocked }: {
               <div className='flex items-center gap-2 pt-1'>
                 <Input
                   className='h-8 text-sm flex-1'
-                  placeholder='Nom de l\'option...'
+                  placeholder="Nom de l'option..."
                   value={newOptionLabel}
                   onChange={e => setNewOptionLabel(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption() } }}
@@ -308,7 +310,7 @@ function FieldEditor({ field, onSave, onDelete, isLocked }: {
 }
 
 // ── Main Builder ──
-export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
+export function MenuFormBuilder({ formId, open, onOpenChange, restaurantId }: Props) {
   // Early return MUST be before any hooks
   if (!formId) return null
 
@@ -317,11 +319,13 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
   const { mutate: addField, isPending: isAddingField } = useAddMenuFormField()
   const { mutate: updateField } = useUpdateMenuFormField()
   const { mutate: deleteField } = useDeleteMenuFormField()
+  const { data: availableDimensions = [] } = useMenuDimensionsByRestaurant(restaurantId || null)
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [guestsCount, setGuestsCount] = useState(1)
   const [formDirty, setFormDirty] = useState(false)
+  const [showFieldSourceDialog, setShowFieldSourceDialog] = useState(false)
 
   useEffect(() => {
     if (formData) {
@@ -345,6 +349,16 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
   }
 
   const handleAddField = () => {
+    // If there are available dimensions, show selection dialog
+    if (availableDimensions.length > 0) {
+      setShowFieldSourceDialog(true)
+    } else {
+      // Otherwise create a manual field directly
+      createManualField()
+    }
+  }
+
+  const createManualField = () => {
     if (!formId) return
     addField({
       menuFormId: formId,
@@ -356,6 +370,33 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
       sortOrder: fields.length,
     }, {
       onSuccess: () => toast.success('Champ ajouté'),
+      onError: () => toast.error('Erreur lors de l\'ajout'),
+    })
+  }
+
+  const createFieldFromDimension = (dimensionId: string) => {
+    if (!formId) return
+    const dimension = availableDimensions.find(d => d.id === dimensionId)
+    if (!dimension) return
+
+    const options = dimension.menu_dimension_options?.map(opt => ({
+      label: opt.label,
+      description: opt.description || ''
+    })) || []
+
+    addField({
+      menuFormId: formId,
+      label: dimension.name,
+      fieldType: 'select',
+      options: options as any,
+      isPerPerson: true,
+      isRequired: false,
+      sortOrder: fields.length,
+    }, {
+      onSuccess: () => {
+        toast.success('Champ ajouté depuis le formulaire')
+        setShowFieldSourceDialog(false)
+      },
       onError: () => toast.error('Erreur lors de l\'ajout'),
     })
   }
@@ -684,6 +725,64 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
           </div>
         )}
       </DialogContent>
+
+      {/* Field Source Selection Dialog */}
+      <Dialog open={showFieldSourceDialog} onOpenChange={setShowFieldSourceDialog}>
+        <DialogContent className='max-w-md'>
+          <DialogHeader>
+            <DialogTitle>Ajouter un champ</DialogTitle>
+            <DialogDescription>
+              Choisissez un formulaire de menu existant ou créez un champ manuellement.
+            </DialogDescription>
+          </DialogHeader>
+          <div className='space-y-4 py-4'>
+            {/* Existing dimensions */}
+            {availableDimensions.length > 0 && (
+              <div className='space-y-2'>
+                <Label className='text-sm font-medium'>Formulaires de menu disponibles</Label>
+                <div className='space-y-2'>
+                  {availableDimensions.map(dim => (
+                    <Button
+                      key={dim.id}
+                      variant='outline'
+                      className='w-full justify-start h-auto py-3 px-4'
+                      onClick={() => createFieldFromDimension(dim.id)}
+                      disabled={isAddingField}
+                    >
+                      <div className='flex-1 text-left'>
+                        <div className='font-medium'>{dim.name}</div>
+                        {dim.description && (
+                          <div className='text-xs text-muted-foreground mt-0.5'>{dim.description}</div>
+                        )}
+                        <div className='text-xs text-muted-foreground mt-1'>
+                          {dim.menu_dimension_options?.length || 0} option(s)
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Manual creation */}
+            <div className='space-y-2'>
+              <Label className='text-sm font-medium'>Ou créer manuellement</Label>
+              <Button
+                variant='outline'
+                className='w-full'
+                onClick={() => {
+                  createManualField()
+                  setShowFieldSourceDialog(false)
+                }}
+                disabled={isAddingField}
+              >
+                <Plus className='h-4 w-4 mr-2' />
+                Créer un champ vide
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }

@@ -169,14 +169,14 @@ export function MenusPage() {
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
-          <h2 className='text-2xl font-bold tracking-tight'>Dimensions de Menu</h2>
+          <h2 className='text-2xl font-bold tracking-tight'>Formulaires de menu</h2>
           <p className='text-muted-foreground'>
-            Créez des choix de menu réutilisables pour vos formulaires d'événements.
+            Créez des formulaires de menu réutilisables pour vos événements.
           </p>
         </div>
         <Button onClick={openCreateDialog} className='gap-2'>
           <Plus className='h-4 w-4' />
-          Nouvelle dimension
+          Nouveau formulaire
         </Button>
       </div>
 
@@ -185,13 +185,13 @@ export function MenusPage() {
         <Card className='border-dashed'>
           <CardContent className='py-12 text-center'>
             <ChefHat className='mx-auto h-12 w-12 text-muted-foreground/40' />
-            <h3 className='mt-4 text-lg font-semibold'>Aucune dimension de menu</h3>
+            <h3 className='mt-4 text-lg font-semibold'>Aucun formulaire de menu</h3>
             <p className='mt-2 text-sm text-muted-foreground'>
-              Les dimensions de menu sont des choix prédéfinis (entrées, plats, desserts...) que vous pouvez réutiliser dans vos formulaires de menu.
+              Les formulaires de menu sont des choix prédéfinis (entrées, plats, desserts...) que vous pouvez réutiliser dans vos événements.
             </p>
             <Button onClick={openCreateDialog} className='mt-4 gap-2'>
               <Plus className='h-4 w-4' />
-              Créer une dimension
+              Créer un formulaire
             </Button>
           </CardContent>
         </Card>
@@ -275,10 +275,10 @@ export function MenusPage() {
         <DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
           <DialogHeader>
             <DialogTitle>
-              {selectedDimension ? 'Modifier la dimension' : 'Nouvelle dimension de menu'}
+              {selectedDimension ? 'Modifier le formulaire' : 'Nouveau formulaire de menu'}
             </DialogTitle>
             <DialogDescription>
-              Une dimension de menu regroupe des options de choix (ex: "Entrées" avec plusieurs plats).
+              Un formulaire de menu regroupe des options de choix (ex: "Entrées" avec plusieurs plats) réutilisables dans vos événements.
             </DialogDescription>
           </DialogHeader>
 
@@ -307,7 +307,7 @@ export function MenusPage() {
             <div className='space-y-2'>
               <Label>Restaurants *</Label>
               <p className='text-xs text-muted-foreground'>
-                Sélectionnez les restaurants où cette dimension sera disponible.
+                Sélectionnez les restaurants où ce formulaire sera disponible.
               </p>
               <div className='grid gap-2 sm:grid-cols-2 mt-2'>
                 {restaurants.map(rest => (
@@ -402,9 +402,9 @@ export function MenusPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer cette dimension ?</AlertDialogTitle>
+            <AlertDialogTitle>Supprimer ce formulaire ?</AlertDialogTitle>
             <AlertDialogDescription>
-              La dimension "{selectedDimension?.name}" et toutes ses options seront supprimées.
+              Le formulaire "{selectedDimension?.name}" et toutes ses options seront supprimés.
               Cette action est irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>

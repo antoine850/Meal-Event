@@ -58,6 +58,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -87,7 +95,7 @@ import {
 } from '../hooks/use-documents'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
-import { useMenuFormsByBooking, useCreateMenuForm, useDeleteMenuForm } from '../hooks/use-menu-forms'
+import { useMenuFormsByBooking, useCreateMenuForm, useDeleteMenuForm, useMenuDimensionsByRestaurant } from '../hooks/use-menu-forms'
 import { QuoteEditor } from './quote-editor'
 import { MenuFormBuilder } from './menu-form-builder'
 import { PaymentDialog } from './payment-dialog'
@@ -153,8 +161,10 @@ export const BookingDetail = forwardRef<
   const { data: menuForms = [] } = useMenuFormsByBooking(booking.id)
   const { mutate: createMenuForm, isPending: isCreatingMenuForm } = useCreateMenuForm()
   const { mutate: deleteMenuForm } = useDeleteMenuForm()
+  const { data: availableMenuDimensions = [] } = useMenuDimensionsByRestaurant(booking.restaurant_id)
   const [menuFormBuilderOpen, setMenuFormBuilderOpen] = useState(false)
   const [editingMenuFormId, setEditingMenuFormId] = useState<string | null>(null)
+  const [showMenuFormSourceDialog, setShowMenuFormSourceDialog] = useState(false)
 
 
   const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
@@ -1434,22 +1444,9 @@ export const BookingDetail = forwardRef<
                   <Button
                     size='sm'
                     className='gap-1.5'
-                    disabled={isCreatingMenuForm}
-                    onClick={() => {
-                      createMenuForm({
-                        bookingId: booking.id,
-                        guestsCount: booking.guests_count || 1,
-                      }, {
-                        onSuccess: (form) => {
-                          setEditingMenuFormId(form.id)
-                          setMenuFormBuilderOpen(true)
-                          toast.success('Formulaire créé')
-                        },
-                        onError: () => toast.error('Erreur lors de la création'),
-                      })
-                    }}
+                    onClick={() => setShowMenuFormSourceDialog(true)}
                   >
-                    {isCreatingMenuForm ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : <Plus className='h-3.5 w-3.5' />}
+                    <Plus className='h-3.5 w-3.5' />
                     Nouveau formulaire
                   </Button>
                 </div>
@@ -1549,7 +1546,90 @@ export const BookingDetail = forwardRef<
                     setMenuFormBuilderOpen(open)
                     if (!open) setEditingMenuFormId(null)
                   }}
+                  restaurantId={booking.restaurant_id}
                 />
+
+                {/* Menu Form Source Selection Dialog */}
+                <Dialog open={showMenuFormSourceDialog} onOpenChange={setShowMenuFormSourceDialog}>
+                  <DialogContent className='max-w-md'>
+                    <DialogHeader>
+                      <DialogTitle>Nouveau formulaire de menu</DialogTitle>
+                      <DialogDescription>
+                        Choisissez un formulaire existant comme modèle ou créez un formulaire vide.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className='space-y-4 py-4'>
+                      {/* Existing dimensions */}
+                      {availableMenuDimensions.length > 0 && (
+                        <div className='space-y-2'>
+                          <Label className='text-sm font-medium'>Formulaires disponibles</Label>
+                          <div className='space-y-2'>
+                            {availableMenuDimensions.map(dim => (
+                              <Button
+                                key={dim.id}
+                                variant='outline'
+                                className='w-full justify-start h-auto py-3 px-4'
+                                onClick={() => {
+                                  createMenuForm({
+                                    bookingId: booking.id,
+                                    guestsCount: booking.guests_count || 1,
+                                    title: dim.name,
+                                  }, {
+                                    onSuccess: (form) => {
+                                      setEditingMenuFormId(form.id)
+                                      setMenuFormBuilderOpen(true)
+                                      setShowMenuFormSourceDialog(false)
+                                      toast.success(`Formulaire créé depuis "${dim.name}"`)
+                                    },
+                                    onError: () => toast.error('Erreur lors de la création'),
+                                  })
+                                }}
+                                disabled={isCreatingMenuForm}
+                              >
+                                <div className='flex-1 text-left'>
+                                  <div className='font-medium'>{dim.name}</div>
+                                  {dim.description && (
+                                    <div className='text-xs text-muted-foreground mt-0.5'>{dim.description}</div>
+                                  )}
+                                  <div className='text-xs text-muted-foreground mt-1'>
+                                    {dim.menu_dimension_options?.length || 0} option(s)
+                                  </div>
+                                </div>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Manual creation */}
+                      <div className='space-y-2'>
+                        <Label className='text-sm font-medium'>Ou créer un formulaire vide</Label>
+                        <Button
+                          variant='outline'
+                          className='w-full'
+                          onClick={() => {
+                            createMenuForm({
+                              bookingId: booking.id,
+                              guestsCount: booking.guests_count || 1,
+                            }, {
+                              onSuccess: (form) => {
+                                setEditingMenuFormId(form.id)
+                                setMenuFormBuilderOpen(true)
+                                setShowMenuFormSourceDialog(false)
+                                toast.success('Formulaire créé')
+                              },
+                              onError: () => toast.error('Erreur lors de la création'),
+                            })
+                          }}
+                          disabled={isCreatingMenuForm}
+                        >
+                          {isCreatingMenuForm ? <Loader2 className='h-4 w-4 mr-2 animate-spin' /> : <Plus className='h-4 w-4 mr-2' />}
+                          Créer un formulaire vide
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
 
