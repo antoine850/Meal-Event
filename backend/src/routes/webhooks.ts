@@ -29,9 +29,17 @@ webhooksRouter.post('/stripe', async (req: Request, res: Response) => {
       return res.status(400).send(`Webhook Error: ${(err as Error).message}`)
     }
   } else {
-    // No webhook secret configured - accept webhook without verification (dev mode)
+    // No webhook secret configured - parse raw body manually (dev mode)
     console.warn('⚠️ STRIPE_WEBHOOK_SECRET not configured - accepting webhook without verification')
-    event = req.body as Stripe.Event
+    try {
+      // req.body is a Buffer when using express.raw()
+      const bodyString = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : req.body
+      event = typeof bodyString === 'string' ? JSON.parse(bodyString) : bodyString
+      console.log(`[Stripe Webhook] Event type: ${event.type}`)
+    } catch (parseErr) {
+      console.error('Failed to parse Stripe webhook body:', parseErr)
+      return res.status(400).send('Invalid webhook payload')
+    }
   }
 
   switch (event.type) {
