@@ -451,6 +451,21 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
         stripe_link_id: session.id,
       })
 
+    // Create pending payment record (will be updated to 'paid' by webhook)
+    await supabase
+      .from('payments')
+      .insert({
+        organization_id: quoteData.organization_id,
+        booking_id: booking?.id,
+        quote_id: quoteId,
+        amount: depositAmount,
+        payment_type: 'deposit',
+        payment_method: 'stripe',
+        stripe_payment_id: session.id,
+        status: 'pending',
+        notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
+      })
+
     // Log email
     await supabase
       .from('email_logs')
@@ -602,6 +617,21 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         amount: balanceAmount,
         url: session.url,
         stripe_link_id: session.id,
+      })
+
+    // Create pending payment record (will be updated to 'paid' by webhook)
+    await supabase
+      .from('payments')
+      .insert({
+        organization_id: quoteData.organization_id,
+        booking_id: booking?.id,
+        quote_id: quoteId,
+        amount: balanceAmount,
+        payment_type: 'balance',
+        payment_method: 'stripe',
+        stripe_payment_id: session.id,
+        status: 'pending',
+        notes: `Solde - ${quoteData.quote_number}`,
       })
 
     // Log email

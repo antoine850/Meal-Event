@@ -129,27 +129,56 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
 async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
   const { booking_id, quote_id, link_type } = session.metadata || {}
 
+  console.log(`[Stripe] Payment success - booking: ${booking_id}, quote: ${quote_id}, type: ${link_type}`)
+
   if (!booking_id) {
     console.error('No booking_id in session metadata')
     return
   }
 
   try {
-    // Create payment record
-    const { error: paymentError } = await supabase
+    // Update existing pending payment to paid (created when link was sent)
+    const { data: existingPayment, error: findError } = await supabase
       .from('payments')
-      .insert({
-        booking_id,
-        quote_id: quote_id || null,
-        amount: (session.amount_total || 0) / 100,
-        payment_type: link_type || 'full',
-        payment_method: 'stripe',
-        stripe_payment_id: session.payment_intent as string,
-        status: 'paid',
-        paid_at: new Date().toISOString(),
-      })
+      .select('id')
+      .eq('stripe_payment_id', session.id)
+      .eq('status', 'pending')
+      .single()
 
-    if (paymentError) throw paymentError
+    if (existingPayment) {
+      // Update existing payment
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          stripe_payment_intent_id: session.payment_intent as string,
+        })
+        .eq('id', existingPayment.id)
+
+      if (updateError) {
+        console.error('Error updating payment:', updateError)
+      } else {
+        console.log(`[Stripe] Updated payment ${existingPayment.id} to paid`)
+      }
+    } else {
+      // Fallback: Create new payment if pending one not found
+      console.log('[Stripe] No pending payment found, creating new one')
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          booking_id,
+          quote_id: quote_id || null,
+          amount: (session.amount_total || 0) / 100,
+          payment_type: link_type || 'full',
+          payment_method: 'stripe',
+          stripe_payment_id: session.payment_intent as string,
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+        })
+
+      if (paymentError) throw paymentError
+    }
 
     // Update payment link as used
     await supabase
@@ -451,6 +480,21 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         percentage: quote.deposit_percentage,
         url: session.url,
         stripe_link_id: session.id,
+      })
+
+    // Create pending payment record (will be updated to 'paid' by webhook)
+    await supabase
+      .from('payments')
+      .insert({
+        organization_id: quote.organization_id,
+        booking_id: booking.id,
+        quote_id: quoteId,
+        amount: depositAmount,
+        payment_type: 'deposit',
+        payment_method: 'stripe',
+        stripe_payment_id: session.id,
+        status: 'pending',
+        notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
       })
 
     // Log email
