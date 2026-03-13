@@ -40,6 +40,7 @@ import { Route as AuthenticatedSettingsStatusesRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsRestaurantsRouteImport } from './routes/_authenticated/settings/restaurants'
 import { Route as AuthenticatedSettingsProductsRouteImport } from './routes/_authenticated/settings/products'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
+import { Route as AuthenticatedSettingsMenusRouteImport } from './routes/_authenticated/settings/menus'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
@@ -214,6 +215,12 @@ const AuthenticatedSettingsNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsMenusRoute =
+  AuthenticatedSettingsMenusRouteImport.update({
+    id: '/menus',
+    path: '/menus',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsDisplayRoute =
   AuthenticatedSettingsDisplayRouteImport.update({
     id: '/display',
@@ -289,6 +296,7 @@ export interface FileRoutesByFullPath {
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
+  '/settings/menus': typeof AuthenticatedSettingsMenusRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/products': typeof AuthenticatedSettingsProductsRoute
   '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
@@ -328,6 +336,7 @@ export interface FileRoutesByTo {
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
+  '/settings/menus': typeof AuthenticatedSettingsMenusRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/products': typeof AuthenticatedSettingsProductsRoute
   '/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
@@ -371,6 +380,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
+  '/_authenticated/settings/menus': typeof AuthenticatedSettingsMenusRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/products': typeof AuthenticatedSettingsProductsRoute
   '/_authenticated/settings/restaurants': typeof AuthenticatedSettingsRestaurantsRoute
@@ -413,6 +423,7 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
+    | '/settings/menus'
     | '/settings/notifications'
     | '/settings/products'
     | '/settings/restaurants'
@@ -452,6 +463,7 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
+    | '/settings/menus'
     | '/settings/notifications'
     | '/settings/products'
     | '/settings/restaurants'
@@ -494,6 +506,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
+    | '/_authenticated/settings/menus'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/products'
     | '/_authenticated/settings/restaurants'
@@ -745,6 +758,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/menus': {
+      id: '/_authenticated/settings/menus'
+      path: '/menus'
+      fullPath: '/settings/menus'
+      preLoaderRoute: typeof AuthenticatedSettingsMenusRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/display': {
       id: '/_authenticated/settings/display'
       path: '/display'
@@ -837,6 +857,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
   AuthenticatedSettingsDisplayRoute: typeof AuthenticatedSettingsDisplayRoute
+  AuthenticatedSettingsMenusRoute: typeof AuthenticatedSettingsMenusRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsProductsRoute: typeof AuthenticatedSettingsProductsRoute
   AuthenticatedSettingsRestaurantsRoute: typeof AuthenticatedSettingsRestaurantsRoute
@@ -850,6 +871,7 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
     AuthenticatedSettingsAppearanceRoute: AuthenticatedSettingsAppearanceRoute,
     AuthenticatedSettingsDisplayRoute: AuthenticatedSettingsDisplayRoute,
+    AuthenticatedSettingsMenusRoute: AuthenticatedSettingsMenusRoute,
     AuthenticatedSettingsNotificationsRoute:
       AuthenticatedSettingsNotificationsRoute,
     AuthenticatedSettingsProductsRoute: AuthenticatedSettingsProductsRoute,

@@ -1340,6 +1340,7 @@ export interface Database {
           is_per_person: boolean
           is_required: boolean
           sort_order: number
+          menu_dimension_id: string | null
           created_at: string
         }
         Insert: {
@@ -1351,6 +1352,7 @@ export interface Database {
           is_per_person?: boolean
           is_required?: boolean
           sort_order?: number
+          menu_dimension_id?: string | null
           created_at?: string
         }
         Update: {
@@ -1361,6 +1363,79 @@ export interface Database {
           options?: Json
           is_per_person?: boolean
           is_required?: boolean
+          sort_order?: number
+          menu_dimension_id?: string | null
+          created_at?: string
+        }
+      }
+      menu_dimensions: {
+        Row: {
+          id: string
+          organization_id: string | null
+          name: string
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id?: string | null
+          name: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string | null
+          name?: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      menu_dimension_restaurants: {
+        Row: {
+          id: string
+          menu_dimension_id: string
+          restaurant_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          menu_dimension_id: string
+          restaurant_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          menu_dimension_id?: string
+          restaurant_id?: string
+          created_at?: string
+        }
+      }
+      menu_dimension_options: {
+        Row: {
+          id: string
+          menu_dimension_id: string
+          label: string
+          description: string | null
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          menu_dimension_id: string
+          label: string
+          description?: string | null
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          menu_dimension_id?: string
+          label?: string
+          description?: string | null
           sort_order?: number
           created_at?: string
         }
@@ -1440,6 +1515,9 @@ export type Settings = Tables<'settings'>
 export type MenuForm = Tables<'menu_forms'>
 export type MenuFormField = Tables<'menu_form_fields'>
 export type MenuFormResponse = Tables<'menu_form_responses'>
+export type MenuDimension = Tables<'menu_dimensions'>
+export type MenuDimensionRestaurant = Tables<'menu_dimension_restaurants'>
+export type MenuDimensionOption = Tables<'menu_dimension_options'>
 
 // Extended types with relations
 export type ContactWithRelations = Contact & {

@@ -31,7 +31,7 @@ const PAYMENT_TYPES = [
 
 const PAYMENT_STATUSES = [
   { value: 'pending', label: 'En attente' },
-  { value: 'completed', label: 'Payé' },
+  { value: 'paid', label: 'Payé' },
   { value: 'failed', label: 'Échoué' },
 ]
 

@@ -91,8 +91,9 @@ function FieldEditor({ field, onSave, onDelete, isLocked }: {
   const [fieldType, setFieldType] = useState(field.field_type)
   const [isPerPerson, setIsPerPerson] = useState(field.is_per_person)
   const [isRequired, setIsRequired] = useState(field.is_required)
-  const [options, setOptions] = useState<string[]>(parseOptions(field.options))
-  const [newOption, setNewOption] = useState('')
+  const [options, setOptions] = useState<MenuOption[]>(() => parseOptions(field.options))
+  const [newOptionLabel, setNewOptionLabel] = useState('')
+  const [newOptionDesc, setNewOptionDesc] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
@@ -117,16 +118,22 @@ function FieldEditor({ field, onSave, onDelete, isLocked }: {
       field_type: fieldType,
       is_per_person: isPerPerson,
       is_required: isRequired,
-      options: JSON.stringify(options),
+      options: stringifyOptions(options),
     })
     setIsDirty(false)
   }, [field.id, label, fieldType, isPerPerson, isRequired, options, isDirty, onSave])
 
   const addOption = () => {
-    const text = newOption.trim()
+    const text = newOptionLabel.trim()
     if (!text) return
-    setOptions(prev => [...prev, text])
-    setNewOption('')
+    setOptions(prev => [...prev, { label: text, description: newOptionDesc.trim() || undefined }])
+    setNewOptionLabel('')
+    setNewOptionDesc('')
+    setIsDirty(true)
+  }
+
+  const updateOptionDescription = (idx: number, desc: string) => {
+    setOptions(prev => prev.map((opt, i) => i === idx ? { ...opt, description: desc } : opt))
     setIsDirty(true)
   }
 
@@ -148,9 +155,12 @@ function FieldEditor({ field, onSave, onDelete, isLocked }: {
                 {field.is_required && <Badge variant='outline' className='text-[9px] text-red-500 border-red-200'>Requis</Badge>}
               </div>
               {field.field_type === 'select' && (
-                <div className='flex gap-1.5 flex-wrap mt-1'>
+                <div className='flex flex-col gap-1 mt-1'>
                   {parseOptions(field.options).map((opt, i) => (
-                    <Badge key={i} variant='secondary' className='text-xs'>{opt}</Badge>
+                    <div key={i} className='flex items-start gap-2'>
+                      <Badge variant='secondary' className='text-xs'>{opt.label}</Badge>
+                      {opt.description && <span className='text-xs text-muted-foreground'>{opt.description}</span>}
+                    </div>
                   ))}
                 </div>
               )}
@@ -212,11 +222,18 @@ function FieldEditor({ field, onSave, onDelete, isLocked }: {
         {fieldType === 'select' && (
           <div className='space-y-2'>
             <Label className='text-xs font-medium'>Options de choix</Label>
-            <div className='space-y-1.5'>
+            <div className='space-y-2'>
               {options.map((opt, idx) => (
-                <div key={idx} className='flex items-center gap-2 group'>
-                  <div className='flex-1 flex items-center bg-muted/50 rounded-md px-3 py-1.5 text-sm'>
-                    {opt}
+                <div key={idx} className='flex items-start gap-2 group p-2 bg-muted/30 rounded-md'>
+                  <div className='flex-1 space-y-1'>
+                    <div className='font-medium text-sm'>{opt.label}</div>
+                    <Input
+                      className='h-7 text-xs'
+                      placeholder='Description (optionnelle)...'
+                      value={opt.description || ''}
+                      onChange={e => updateOptionDescription(idx, e.target.value)}
+                      onBlur={saveAll}
+                    />
                   </div>
                   <Button
                     variant='ghost'
@@ -228,15 +245,15 @@ function FieldEditor({ field, onSave, onDelete, isLocked }: {
                   </Button>
                 </div>
               ))}
-              <div className='flex items-center gap-2'>
+              <div className='flex items-center gap-2 pt-1'>
                 <Input
                   className='h-8 text-sm flex-1'
-                  placeholder='Ajouter une option...'
-                  value={newOption}
-                  onChange={e => setNewOption(e.target.value)}
+                  placeholder='Nom de l\'option...'
+                  value={newOptionLabel}
+                  onChange={e => setNewOptionLabel(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption() } }}
                 />
-                <Button size='sm' variant='outline' className='h-8 px-3 text-xs gap-1' onClick={addOption} disabled={!newOption.trim()}>
+                <Button size='sm' variant='outline' className='h-8 px-3 text-xs gap-1' onClick={addOption} disabled={!newOptionLabel.trim()}>
                   <Plus className='h-3 w-3' />
                   Ajouter
                 </Button>
@@ -673,11 +690,26 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
 
 // ── Helpers ──
 
-function parseOptions(options: any): string[] {
+export type MenuOption = { label: string; description?: string }
+
+function parseOptions(options: any): MenuOption[] {
   if (!options) return []
+  let parsed: any[] = []
   if (typeof options === 'string') {
-    try { return JSON.parse(options) } catch { return [] }
+    try { parsed = JSON.parse(options) } catch { return [] }
+  } else if (Array.isArray(options)) {
+    parsed = options
+  } else {
+    return []
   }
-  if (Array.isArray(options)) return options as string[]
-  return []
+  // Convert old format (string[]) to new format ({label, description}[])
+  return parsed.map(opt => {
+    if (typeof opt === 'string') return { label: opt, description: '' }
+    if (typeof opt === 'object' && opt.label) return { label: opt.label, description: opt.description || '' }
+    return { label: String(opt), description: '' }
+  })
+}
+
+function stringifyOptions(options: MenuOption[]): string {
+  return JSON.stringify(options)
 }

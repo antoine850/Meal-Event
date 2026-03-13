@@ -1041,7 +1041,7 @@ export const BookingDetail = forwardRef<
                                       disabled={isSendingEmail}
                                       onClick={() => {
                                         // B2B Validation: Check if company info is complete
-                                        const company = (contact as any)?.company
+                                        const company = fullContact?.company
                                         if (company) {
                                           const missingFields: string[] = []
                                           if (!company.name) missingFields.push('Raison sociale')
@@ -1236,14 +1236,16 @@ export const BookingDetail = forwardRef<
                   </div>
                   {/* Payment Balance Summary */}
                   {(() => {
-                    const signedQuote = quotes.find(q => q.status === 'signed')
-                    const totalDevisTtc = signedQuote?.total_ttc || 0
-                    const acomptesRecus = payments
-                      .filter(p => p.status === 'completed' && (p.payment_modality === 'acompte' || !p.payment_modality || p.payment_modality === 'autre'))
+                    // Get the most advanced quote (by status progression)
+                    const primaryQuote = quotes.find(q => ['deposit_paid', 'balance_sent', 'balance_paid'].includes(q.status)) || quotes.find(q => q.status === 'quote_signed') || quotes.find(q => q.status === 'deposit_sent') || quotes[0]
+                    const totalDevisTtc = primaryQuote?.total_ttc || 0
+                    // Only count payments with status 'paid' (from Stripe webhook) or 'completed' (manual)
+                    const paiementsRecus = payments
+                      .filter(p => p.status === 'paid' || p.status === 'completed')
                       .reduce((sum, p) => sum + (p.amount || 0), 0)
-                    const soldeRestant = totalDevisTtc - acomptesRecus
+                    const soldeRestant = totalDevisTtc - paiementsRecus
 
-                    if (totalDevisTtc > 0 || acomptesRecus > 0) {
+                    if (totalDevisTtc > 0 || paiementsRecus > 0) {
                       return (
                         <div className='mt-3 p-2 sm:p-3 bg-muted/50 rounded-lg space-y-1 text-xs'>
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
@@ -1251,8 +1253,8 @@ export const BookingDetail = forwardRef<
                             <span className='font-medium'>{totalDevisTtc.toFixed(2)} €</span>
                           </div>
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
-                            <span className='text-muted-foreground'>Acomptes reçus</span>
-                            <span className='font-medium text-green-600'>- {acomptesRecus.toFixed(2)} €</span>
+                            <span className='text-muted-foreground'>Paiements reçus</span>
+                            <span className='font-medium text-green-600'>- {paiementsRecus.toFixed(2)} €</span>
                           </div>
                           <Separator className='my-1' />
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2 font-semibold'>
@@ -1275,7 +1277,7 @@ export const BookingDetail = forwardRef<
                             <th className='text-left py-2 px-2 font-medium text-xs'>Type</th>
                             <th className='text-left py-2 px-2 font-medium text-xs'>Montant</th>
                             <th className='text-left py-2 px-2 font-medium text-xs'>Méthode</th>
-                            <th className='text-left py-2 px-2 font-medium text-xs'>Date</th>
+                            <th className='text-left py-2 px-2 font-medium text-xs'>Payé le</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1286,21 +1288,21 @@ export const BookingDetail = forwardRef<
                             }}>
                               <td className='py-2 px-2'>
                                 <Badge variant={
-                                  payment.status === 'completed' ? 'default' :
+                                  (payment.status === 'paid' || payment.status === 'completed') ? 'default' :
                                   payment.status === 'pending' ? 'secondary' :
                                   'outline'
-                                } className='text-[10px]'>
-                                  {payment.status === 'completed' ? 'Payé' :
+                                } className={`text-[10px] ${(payment.status === 'paid' || payment.status === 'completed') ? 'bg-green-600' : ''}`}>
+                                  {(payment.status === 'paid' || payment.status === 'completed') ? 'Payé' :
                                    payment.status === 'pending' ? 'En attente' :
                                    payment.status === 'failed' ? 'Échoué' :
                                    payment.status}
                                 </Badge>
                               </td>
-                              <td className='py-2 px-2 text-xs capitalize'>{payment.payment_type}</td>
+                              <td className='py-2 px-2 text-xs capitalize'>{payment.payment_modality || payment.payment_type}</td>
                               <td className='py-2 px-2 text-sm font-medium'>{(payment.amount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
-                              <td className='py-2 px-2 text-xs capitalize'>{payment.payment_method || '—'}</td>
+                              <td className='py-2 px-2 text-xs capitalize'>{payment.payment_method || payment.payment_type || '—'}</td>
                               <td className='py-2 px-2 text-xs text-muted-foreground'>
-                                {payment.created_at ? format(new Date(payment.created_at), 'dd/MM/yyyy', { locale: fr }) : '—'}
+                                {payment.paid_at ? format(new Date(payment.paid_at), 'dd/MM/yyyy', { locale: fr }) : '—'}
                               </td>
                             </tr>
                           ))}

@@ -14,6 +14,7 @@ import {
   Tags,
   Building,
   ShoppingCart,
+  ChefHat,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -89,6 +90,11 @@ export const sidebarData: SidebarData = {
               title: 'Produits & Services',
               url: '/settings/products',
               icon: ShoppingCart,
+            },
+            {
+              title: 'Menus',
+              url: '/settings/menus',
+              icon: ChefHat,
             },
             {
               title: 'Notifications',

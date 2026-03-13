@@ -404,14 +404,19 @@ export function MenuFormPublic({ token }: Props) {
                     {/* Regular options */}
                     {options.map((opt, optIdx) => (
                       <div key={optIdx} className='flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors'>
-                        <span className='text-sm font-medium'>{opt}</span>
+                        <div className='flex-1'>
+                          <span className='text-sm font-medium'>{opt.label}</span>
+                          {opt.description && (
+                            <p className='text-xs text-muted-foreground mt-0.5'>{opt.description}</p>
+                          )}
+                        </div>
                         <div className='flex items-center gap-2'>
                           <Button
                             size='sm'
                             variant='outline'
                             className='h-8 w-8 p-0'
-                            onClick={() => updateQuantity(field.id, opt, -1, expectedCount)}
-                            disabled={isSubmitted || (fieldQty[opt] || 0) === 0}
+                            onClick={() => updateQuantity(field.id, opt.label, -1, expectedCount)}
+                            disabled={isSubmitted || (fieldQty[opt.label] || 0) === 0}
                           >
                             <Minus className='h-3 w-3' />
                           </Button>
@@ -419,8 +424,8 @@ export function MenuFormPublic({ token }: Props) {
                             type='number'
                             min='0'
                             max={expectedCount}
-                            value={fieldQty[opt] || 0}
-                            onChange={(e) => setQuantityDirect(field.id, opt, e.target.value, expectedCount)}
+                            value={fieldQty[opt.label] || 0}
+                            onChange={(e) => setQuantityDirect(field.id, opt.label, e.target.value, expectedCount)}
                             disabled={isSubmitted}
                             className='h-8 w-14 text-center text-sm p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                           />
@@ -428,7 +433,7 @@ export function MenuFormPublic({ token }: Props) {
                             size='sm'
                             variant='outline'
                             className='h-8 w-8 p-0'
-                            onClick={() => updateQuantity(field.id, opt, 1, expectedCount)}
+                            onClick={() => updateQuantity(field.id, opt.label, 1, expectedCount)}
                             disabled={isSubmitted || currentTotal >= expectedCount}
                           >
                             <Plus className='h-3 w-3' />
@@ -522,11 +527,22 @@ export function MenuFormPublic({ token }: Props) {
 
 // ── Helpers ──
 
-function parseOptions(options: any): string[] {
+type MenuOption = { label: string; description?: string }
+
+function parseOptions(options: any): MenuOption[] {
   if (!options) return []
+  let parsed: any[] = []
   if (typeof options === 'string') {
-    try { return JSON.parse(options) } catch { return [] }
+    try { parsed = JSON.parse(options) } catch { return [] }
+  } else if (Array.isArray(options)) {
+    parsed = options
+  } else {
+    return []
   }
-  if (Array.isArray(options)) return options as string[]
-  return []
+  // Convert old format (string[]) to new format ({label, description}[])
+  return parsed.map(opt => {
+    if (typeof opt === 'string') return { label: opt, description: '' }
+    if (typeof opt === 'object' && opt.label) return { label: opt.label, description: opt.description || '' }
+    return { label: String(opt), description: '' }
+  })
 }

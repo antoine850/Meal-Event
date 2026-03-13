@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { MenuForm, MenuFormField, MenuFormResponse } from '@/lib/supabase/types'
+import type { MenuForm, MenuFormField, MenuFormResponse, MenuDimension, MenuDimensionOption } from '@/lib/supabase/types'
 
 async function getCurrentOrganizationId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser()
@@ -345,6 +345,134 @@ export function useSubmitMenuForm() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu_forms'] })
+    },
+  })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Menu Dimensions: Reusable menu choice templates linked to restaurants
+// ══════════════════════════════════════════════════════════════════════════════
+
+export type MenuDimensionWithOptions = MenuDimension & {
+  menu_dimension_options: MenuDimensionOption[]
+  menu_dimension_restaurants?: { restaurant_id: string }[]
+}
+
+// Get all menu dimensions for a specific restaurant
+export function useMenuDimensionsByRestaurant(restaurantId: string | null) {
+  return useQuery({
+    queryKey: ['menu_dimensions', 'restaurant', restaurantId],
+    enabled: !!restaurantId,
+    queryFn: async () => {
+      const { data: links, error: linksError } = await (supabase
+        .from('menu_dimension_restaurants') as any)
+        .select('menu_dimension_id')
+        .eq('restaurant_id', restaurantId!)
+
+      if (linksError) throw linksError
+
+      const dimensionIds = (links || []).map((l: any) => l.menu_dimension_id)
+      if (dimensionIds.length === 0) return []
+
+      const { data, error } = await (supabase
+        .from('menu_dimensions') as any)
+        .select('*, menu_dimension_options(*)')
+        .in('id', dimensionIds)
+        .order('name')
+
+      if (error) throw error
+      return (data || []) as MenuDimensionWithOptions[]
+    },
+  })
+}
+
+// Get all menu dimensions for the organization
+export function useMenuDimensions() {
+  return useQuery({
+    queryKey: ['menu_dimensions'],
+    queryFn: async () => {
+      const organizationId = await getCurrentOrganizationId()
+      if (!organizationId) return []
+
+      const { data, error } = await (supabase
+        .from('menu_dimensions') as any)
+        .select('*, menu_dimension_options(*), menu_dimension_restaurants(restaurant_id)')
+        .eq('organization_id', organizationId)
+        .order('name')
+
+      if (error) throw error
+      return (data || []) as MenuDimensionWithOptions[]
+    },
+  })
+}
+
+export function useCreateMenuDimension() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ name, description, restaurantIds, options }: {
+      name: string
+      description?: string
+      restaurantIds: string[]
+      options: { label: string; description?: string }[]
+    }) => {
+      const organizationId = await getCurrentOrganizationId()
+
+      const { data: dimension, error: dimError } = await (supabase
+        .from('menu_dimensions') as any)
+        .insert({
+          organization_id: organizationId,
+          name,
+          description: description || null,
+        })
+        .select()
+        .single()
+
+      if (dimError) throw dimError
+
+      if (restaurantIds.length > 0) {
+        const { error: linkError } = await (supabase
+          .from('menu_dimension_restaurants') as any)
+          .insert(restaurantIds.map(rid => ({
+            menu_dimension_id: dimension.id,
+            restaurant_id: rid,
+          })))
+        if (linkError) throw linkError
+      }
+
+      if (options.length > 0) {
+        const { error: optError } = await (supabase
+          .from('menu_dimension_options') as any)
+          .insert(options.map((opt, idx) => ({
+            menu_dimension_id: dimension.id,
+            label: opt.label,
+            description: opt.description || null,
+            sort_order: idx,
+          })))
+        if (optError) throw optError
+      }
+
+      return dimension as MenuDimension
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu_dimensions'] })
+    },
+  })
+}
+
+export function useDeleteMenuDimension() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase
+        .from('menu_dimensions') as any)
+        .delete()
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menu_dimensions'] })
     },
   })
 }
