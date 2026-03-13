@@ -74,11 +74,6 @@ interface QuoteData {
       phone: string | null
       company?: {
         name: string
-        billing_address?: string | null
-        billing_city?: string | null
-        billing_postal_code?: string | null
-        siret?: string | null
-        tva_number?: string | null
       } | null
     } | null
     restaurant: {
@@ -244,10 +239,6 @@ function buildDocDefinition(
           { text: `${contact?.first_name || ''} ${contact?.last_name || ''}`, style: contact?.company ? 'normal' as const : 'bold' as const },
           ...(contact?.email ? [{ text: `Email: ${contact.email}`, style: 'small' as const }] : []),
           ...(contact?.phone ? [{ text: `Tél: ${contact.phone}`, style: 'small' as const }] : []),
-          ...(contact?.company?.billing_address ? [{ text: contact.company.billing_address, style: 'small' as const }] : []),
-          ...(contact?.company?.billing_postal_code || contact?.company?.billing_city
-            ? [{ text: `${contact?.company?.billing_postal_code || ''} ${contact?.company?.billing_city || ''}`, style: 'small' as const }]
-            : []),
         ],
       },
     ],
