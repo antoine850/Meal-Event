@@ -20,11 +20,18 @@ webhooksRouter.post('/stripe', async (req: Request, res: Response) => {
 
   let event: Stripe.Event
 
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret)
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err)
-    return res.status(400).send(`Webhook Error: ${(err as Error).message}`)
+  // Only verify signature if webhook secret is configured
+  if (webhookSecret) {
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret)
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err)
+      return res.status(400).send(`Webhook Error: ${(err as Error).message}`)
+    }
+  } else {
+    // No webhook secret configured - accept webhook without verification (dev mode)
+    console.warn('⚠️ STRIPE_WEBHOOK_SECRET not configured - accepting webhook without verification')
+    event = req.body as Stripe.Event
   }
 
   switch (event.type) {
