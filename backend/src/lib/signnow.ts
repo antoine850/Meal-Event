@@ -31,15 +31,20 @@ async function getAccessToken(): Promise<string> {
   const basicAuth = Buffer.from(`${SIGNNOW_CLIENT_ID}:${SIGNNOW_CLIENT_SECRET}`).toString('base64')
 
   // SignNow requires grant_type=password with username and password
+  // Important: SignNow SDK replaces %40 with @ in the email - we need to do the same
   const params = new URLSearchParams()
   params.append('grant_type', 'password')
   params.append('username', SIGNNOW_USERNAME)
   params.append('password', SIGNNOW_PASSWORD)
+  
+  // Replace %40 with @ as per SignNow SDK implementation
+  const body = params.toString().replace(/%40/g, '@')
+  console.log(`[SignNow] Request body (sanitized): grant_type=password&username=${SIGNNOW_USERNAME.substring(0, 5)}...&password=***`)
 
   try {
     const response = await axios.post(
       `${SIGNNOW_API_BASE}/oauth2/token`,
-      params.toString(),
+      body,
       {
         headers: {
           'Authorization': `Basic ${basicAuth}`,
@@ -109,10 +114,12 @@ export async function addSignatureField(documentId: string, params: {
 }): Promise<void> {
   const client = await getClient()
 
+  // SignNow coordinates: y=0 is at the bottom of the page
+  // A4 page is ~842 points tall, so y=80 places signature near bottom
   const {
     pageNumber = 0,
-    x = 30,
-    y = 700,
+    x = 350,
+    y = 80,
     width = 200,
     height = 50,
     role = 'Signer 1',

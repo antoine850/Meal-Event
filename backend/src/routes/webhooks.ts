@@ -55,6 +55,11 @@ webhooksRouter.post('/stripe', async (req: Request, res: Response) => {
 // ═══════════════════════════════════════════════════════════════
 webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
   try {
+    // Log raw payload for debugging
+    console.log('[SignNow Webhook] Raw body type:', typeof req.body)
+    console.log('[SignNow Webhook] Raw body:', JSON.stringify(req.body, null, 2))
+    console.log('[SignNow Webhook] Headers:', JSON.stringify(req.headers, null, 2))
+
     // Verify webhook signature if secret is configured
     const signature = req.headers['x-signnow-signature'] as string || ''
     const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
@@ -68,10 +73,12 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
     }
 
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
-    const eventType = payload.event || payload.action || ''
-    const documentId = payload.document_id || payload.data?.document_id || ''
+    
+    // SignNow webhook payload structure can vary - try multiple paths
+    const eventType = payload.event || payload.action || payload.meta?.event || payload.content?.event || ''
+    const documentId = payload.document_id || payload.data?.document_id || payload.content?.document_id || payload.meta?.document_id || ''
 
-    console.log(`SignNow webhook: ${eventType} for document ${documentId}`)
+    console.log(`[SignNow Webhook] Event: ${eventType}, Document: ${documentId}`)
 
     if (eventType === 'document.complete' || eventType === 'document_complete') {
       await handleSignNowDocumentComplete(documentId)

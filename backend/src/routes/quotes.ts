@@ -263,10 +263,12 @@ quotesRouter.post('/:id/send-signature', async (req: Request, res: Response) => 
     const documentId = await uploadDocument(pdfBuffer, fileName)
 
     // Add signature field at the bottom of the last page
+    // SignNow coordinates: y=0 is at the bottom of the page
+    // A4 page is ~842 points tall, so y=80 places signature near bottom
     await addSignatureField(documentId, {
       pageNumber: 0,
-      x: 30,
-      y: 700,
+      x: 350,
+      y: 80,
       width: 200,
       height: 50,
     })
