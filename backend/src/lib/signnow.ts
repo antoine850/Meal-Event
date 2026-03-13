@@ -79,7 +79,7 @@ function getClient(): Promise<AxiosInstance> {
   })
 }
 
-export async function uploadDocument(pdfBuffer: Buffer, fileName: string): Promise<string> {
+export async function uploadDocument(pdfBuffer: Buffer, fileName: string): Promise<{ id: string; pageCount: number }> {
   const token = await getAccessToken()
 
   const FormData = (await import('form-data')).default
@@ -100,7 +100,20 @@ export async function uploadDocument(pdfBuffer: Buffer, fileName: string): Promi
     }
   )
 
-  return response.data.id
+  // Get document details to find page count
+  const docDetails = await axios.get(
+    `${SIGNNOW_API_BASE}/document/${response.data.id}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  )
+
+  const pageCount = docDetails.data.page_count || docDetails.data.pages?.length || 1
+  console.log(`[SignNow] Document uploaded: ${response.data.id}, pages: ${pageCount}`)
+
+  return { id: response.data.id, pageCount }
 }
 
 export async function addSignatureField(documentId: string, params: {
@@ -114,12 +127,12 @@ export async function addSignatureField(documentId: string, params: {
 }): Promise<void> {
   const client = await getClient()
 
-  // SignNow coordinates: y=0 is at the bottom of the page
-  // A4 page is ~842 points tall, so y=80 places signature near bottom
+  // SignNow coordinates: y=0 is at the TOP of the page (not bottom!)
+  // A4 page is ~842 points tall, so y=750 places signature near bottom
   const {
     pageNumber = 0,
     x = 350,
-    y = 80,
+    y = 750,
     width = 200,
     height = 50,
     role = 'Signer 1',
