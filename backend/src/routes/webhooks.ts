@@ -241,13 +241,16 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
       return
     }
 
-    // Download signed document
+    // Download signed document (optional - continue workflow even if it fails)
     let signedPdfUrl: string | null = null
-    let pdfDownloadSuccess = false
     try {
+      console.log(`[SignNow] Downloading signed document: ${signnowDocumentId}`)
       const signedPdf = await downloadSignedDocument(signnowDocumentId)
+      
       // Upload to Supabase Storage
       const fileName = `signed-${quote.quote_number}.pdf`
+      console.log(`[Storage] Uploading to: quotes/${quote.id}/${fileName}`)
+      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')
         .upload(`quotes/${quote.id}/${fileName}`, signedPdf, {
@@ -256,21 +259,19 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
         })
 
       if (uploadError) {
-        console.error('Error uploading signed PDF to storage:', uploadError)
+        console.error('[Storage] Upload error:', uploadError)
+        // Check if bucket exists
+        const { data: buckets } = await supabase.storage.listBuckets()
+        console.log('[Storage] Available buckets:', buckets?.map(b => b.name))
       } else if (uploadData?.path) {
         const { data: urlData } = supabase.storage
           .from('documents')
           .getPublicUrl(uploadData.path)
         signedPdfUrl = urlData?.publicUrl || null
-        pdfDownloadSuccess = true
+        console.log(`[Storage] Signed PDF uploaded successfully: ${signedPdfUrl}`)
       }
-    } catch (downloadErr) {
-      console.error('⚠️ CRITICAL: Failed to download/store signed PDF:', downloadErr)
-      // Continue workflow but log the issue
-    }
-
-    if (!pdfDownloadSuccess) {
-      console.warn(`⚠️ Quote ${quote.quote_number} marked as signed but PDF download failed - manual intervention may be needed`)
+    } catch (downloadErr: any) {
+      console.error('⚠️ Failed to download/store signed PDF (continuing workflow):', downloadErr?.message || downloadErr)
     }
 
     // Update quote as signed
@@ -346,7 +347,13 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       }
     }
 
+    // Validate required data for Stripe
+    if (!booking?.id) {
+      throw new Error('Booking ID is required for Stripe payment link')
+    }
+
     // Create Stripe Checkout Session
+    console.log(`[Stripe] Creating deposit checkout session for quote ${quote.quote_number}`)
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{
@@ -361,14 +368,16 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         quantity: 1,
       }],
       metadata: {
-        booking_id: booking?.id || '',
+        booking_id: booking.id,
         quote_id: quoteId,
         link_type: 'deposit',
       },
       customer_email: contact.email,
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=success&type=deposit`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking.id}?payment=success&type=deposit`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking.id}?payment=cancelled`,
     })
+    
+    console.log(`[Stripe] Session created: ${session.id}, URL: ${session.url}`)
 
     // Generate deposit PDF with error handling
     let pdfBuffer: Buffer
@@ -420,7 +429,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
     await supabase
       .from('payment_links')
       .insert({
-        booking_id: booking?.id,
+        booking_id: booking.id,
         quote_id: quoteId,
         link_type: 'deposit',
         amount: depositAmount,
@@ -435,7 +444,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       .insert({
         organization_id: quote.organization_id,
         quote_id: quoteId,
-        booking_id: booking?.id,
+        booking_id: booking.id,
         email_type: 'deposit_invoice',
         recipient_email: contact.email,
         reply_to_email: commercialEmail || restaurant?.email,
@@ -444,8 +453,9 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         status: 'sent',
       })
 
-    console.log(`Auto-sent deposit email for quote ${quote.quote_number} after signature`)
-  } catch (error) {
-    console.error('Error auto-sending deposit after signature:', error)
+    console.log(`✅ Auto-sent deposit email for quote ${quote.quote_number} after signature`)
+  } catch (error: any) {
+    console.error('❌ Error auto-sending deposit after signature:', error?.message || error)
+    throw error
   }
 }
