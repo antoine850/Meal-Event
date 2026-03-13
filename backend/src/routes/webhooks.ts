@@ -81,10 +81,12 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
     console.log(`[SignNow Webhook] Event: ${eventType}, Document: ${documentId}`)
 
     // SignNow events that indicate document is signed:
+    // - user.document.complete - when a user completes signing
+    // - document.complete - alternative event name
     // - document.update with status change
     // - invite.update when signer completes
-    // - document.complete (if using newer API)
-    if (eventType === 'document.complete' || eventType === 'document_complete') {
+    if (eventType === 'user.document.complete' || eventType === 'document.complete' || eventType === 'document_complete') {
+      console.log(`[SignNow Webhook] Processing document complete event for: ${documentId}`)
       await handleSignNowDocumentComplete(documentId)
     } else if (eventType === 'document.update' || eventType === 'invite.update') {
       // Check if the document is fully signed
@@ -95,6 +97,8 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
       if (status === 'completed' || status === 'signed' || status === 'document-signed') {
         await handleSignNowDocumentComplete(documentId)
       }
+    } else {
+      console.log(`[SignNow Webhook] Unhandled event type: ${eventType}`)
     }
 
     res.json({ received: true })
