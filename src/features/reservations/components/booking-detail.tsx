@@ -963,7 +963,8 @@ export const BookingDetail = forwardRef<
                         const isPrimary = !!(quote as any).primary_quote
                         
                         // Conditions for actions
-                        const canSendQuote = quote.status === 'draft'
+                        // Allow resending quote email anytime (no restriction)
+                        const canSendQuote = true
                         // Allow resending signature as long as quote is not yet signed
                         const canSendSignature = !isQuoteSigned
                         const canSendDepositLink = isQuoteSigned && !isDepositPaid

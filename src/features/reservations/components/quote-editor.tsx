@@ -1572,25 +1572,23 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                   
                   <DropdownMenuSeparator />
                   
-                  {/* Workflow Actions based on status */}
-                  {quoteData?.status === 'draft' && (
-                    <DropdownMenuItem
-                      disabled={isSendingEmail}
-                      onClick={() => {
-                        if (!quoteId) return
-                        sendQuoteEmail(
-                          { quoteId, bookingId: booking.id },
-                          {
-                            onSuccess: () => toast.success('Devis envoyé par email'),
-                            onError: (err) => toast.error(`Erreur: ${err.message}`),
-                          }
-                        )
-                      }}
-                    >
-                      <Send className='h-3.5 w-3.5 mr-2' />
-                      {isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}
-                    </DropdownMenuItem>
-                  )}
+                  {/* Workflow Actions - Allow resending quote email anytime */}
+                  <DropdownMenuItem
+                    disabled={isSendingEmail}
+                    onClick={() => {
+                      if (!quoteId) return
+                      sendQuoteEmail(
+                        { quoteId, bookingId: booking.id },
+                        {
+                          onSuccess: () => toast.success('Devis envoyé par email'),
+                          onError: (err) => toast.error(`Erreur: ${err.message}`),
+                        }
+                      )
+                    }}
+                  >
+                    <Send className='h-3.5 w-3.5 mr-2' />
+                    {isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}
+                  </DropdownMenuItem>
                   
                   {/* Allow resending signature as long as quote is not yet signed */}
                   {!(quoteData as any)?.quote_signed_at && (
