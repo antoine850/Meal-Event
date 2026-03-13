@@ -3,9 +3,19 @@ import axios, { type AxiosInstance } from 'axios'
 // SignNow API URLs:
 // - Production: https://api.signnow.com
 // - Sandbox/Eval: https://api-eval.signnow.com (NOT eval.signnow.com!)
+//
+// SignNow uses OAuth 2.0 with grant_type=password (Resource Owner Password Credentials)
+// Required env vars:
+// - SIGNNOW_API_BASE: API URL (sandbox or production)
+// - SIGNNOW_CLIENT_ID: Your application's client ID
+// - SIGNNOW_CLIENT_SECRET: Your application's client secret
+// - SIGNNOW_USERNAME: Your SignNow account email
+// - SIGNNOW_PASSWORD: Your SignNow account password
 const SIGNNOW_API_BASE = process.env.SIGNNOW_API_BASE || 'https://api.signnow.com'
 const SIGNNOW_CLIENT_ID = process.env.SIGNNOW_CLIENT_ID || ''
 const SIGNNOW_CLIENT_SECRET = process.env.SIGNNOW_CLIENT_SECRET || ''
+const SIGNNOW_USERNAME = process.env.SIGNNOW_USERNAME || ''
+const SIGNNOW_PASSWORD = process.env.SIGNNOW_PASSWORD || ''
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
@@ -16,13 +26,20 @@ async function getAccessToken(): Promise<string> {
 
   console.log(`[SignNow] Getting access token from: ${SIGNNOW_API_BASE}/oauth2/token`)
   console.log(`[SignNow] Client ID: ${SIGNNOW_CLIENT_ID ? SIGNNOW_CLIENT_ID.substring(0, 8) + '...' : 'NOT SET'}`)
+  console.log(`[SignNow] Username: ${SIGNNOW_USERNAME ? SIGNNOW_USERNAME.substring(0, 5) + '...' : 'NOT SET'}`)
 
   const basicAuth = Buffer.from(`${SIGNNOW_CLIENT_ID}:${SIGNNOW_CLIENT_SECRET}`).toString('base64')
+
+  // SignNow requires grant_type=password with username and password
+  const params = new URLSearchParams()
+  params.append('grant_type', 'password')
+  params.append('username', SIGNNOW_USERNAME)
+  params.append('password', SIGNNOW_PASSWORD)
 
   try {
     const response = await axios.post(
       `${SIGNNOW_API_BASE}/oauth2/token`,
-      'grant_type=client_credentials',
+      params.toString(),
       {
         headers: {
           'Authorization': `Basic ${basicAuth}`,
