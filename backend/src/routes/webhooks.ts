@@ -171,7 +171,6 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
           status: 'paid',
           paid_at: new Date().toISOString(),
           stripe_payment_intent_id: session.payment_intent as string,
-          attachment_url: receiptUrl,
         })
         .eq('id', existingPayment.id)
 
@@ -194,7 +193,6 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
           stripe_payment_id: session.payment_intent as string,
           status: 'paid',
           paid_at: new Date().toISOString(),
-          attachment_url: receiptUrl,
         })
 
       if (paymentError) throw paymentError
