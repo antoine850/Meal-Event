@@ -1038,25 +1038,35 @@ export const BookingDetail = forwardRef<
                                     
                                     {/* Workflow Actions with conditions */}
                                     <DropdownMenuItem
-                                      disabled={!canSendQuote || isSendingEmail}
+                                      disabled={isSendingEmail}
                                       onClick={() => {
-                                        if (canSendQuote) {
-                                          sendQuoteEmail(
-                                            { quoteId: quote.id, bookingId: booking.id },
-                                            {
-                                              onSuccess: () => toast.success('Devis envoyé par email'),
-                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
-                                            }
-                                          )
+                                        // B2B Validation: Check if company info is complete
+                                        const company = (contact as any)?.company
+                                        if (company) {
+                                          const missingFields: string[] = []
+                                          if (!company.name) missingFields.push('Raison sociale')
+                                          if (!company.billing_address) missingFields.push('Adresse')
+                                          if (!company.billing_postal_code) missingFields.push('Code postal')
+                                          if (!company.billing_city) missingFields.push('Ville')
+                                          if (!company.siret) missingFields.push('SIRET')
+                                          
+                                          if (missingFields.length > 0) {
+                                            toast.error(`Informations société manquantes : ${missingFields.join(', ')}. Veuillez compléter les informations de la société avant d'envoyer le devis.`)
+                                            return
+                                          }
                                         }
+                                        
+                                        sendQuoteEmail(
+                                          { quoteId: quote.id, bookingId: booking.id },
+                                          {
+                                            onSuccess: () => toast.success('Devis envoyé par email'),
+                                            onError: (err) => toast.error(`Erreur: ${err.message}`),
+                                          }
+                                        )
                                       }}
-                                      className={!canSendQuote ? 'opacity-50' : ''}
                                     >
                                       <Send className='h-3.5 w-3.5 mr-2' />
-                                      <div className='flex flex-col'>
-                                        <span>{isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}</span>
-                                        {!canSendQuote && <span className='text-[10px] text-muted-foreground'>Déjà envoyé</span>}
-                                      </div>
+                                      <span>{isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}</span>
                                     </DropdownMenuItem>
                                   
                                     <DropdownMenuItem

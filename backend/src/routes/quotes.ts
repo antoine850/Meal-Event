@@ -140,6 +140,24 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
+    // B2B Validation: Check if contact has a company and if required fields are filled
+    const company = (contact as any).company
+    if (company) {
+      const missingFields: string[] = []
+      if (!company.name) missingFields.push('Raison sociale')
+      if (!company.billing_address) missingFields.push('Adresse')
+      if (!company.billing_postal_code) missingFields.push('Code postal')
+      if (!company.billing_city) missingFields.push('Ville')
+      if (!company.siret) missingFields.push('SIRET')
+
+      if (missingFields.length > 0) {
+        return res.status(400).json({ 
+          error: `Informations société manquantes pour un devis B2B : ${missingFields.join(', ')}. Veuillez compléter les informations de la société avant d'envoyer le devis.`,
+          missingFields 
+        })
+      }
+    }
+
     // Allow resending quote from any status (no restriction)
 
     // Get commercial (assigned_to) email for reply-to

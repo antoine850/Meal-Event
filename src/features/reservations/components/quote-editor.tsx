@@ -1577,6 +1577,23 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     disabled={isSendingEmail}
                     onClick={() => {
                       if (!quoteId) return
+                      
+                      // B2B Validation: Check if company info is complete
+                      const company = (contact as any)?.company
+                      if (company) {
+                        const missingFields: string[] = []
+                        if (!company.name) missingFields.push('Raison sociale')
+                        if (!company.billing_address) missingFields.push('Adresse')
+                        if (!company.billing_postal_code) missingFields.push('Code postal')
+                        if (!company.billing_city) missingFields.push('Ville')
+                        if (!company.siret) missingFields.push('SIRET')
+                        
+                        if (missingFields.length > 0) {
+                          toast.error(`Informations société manquantes : ${missingFields.join(', ')}. Veuillez compléter les informations de la société avant d'envoyer le devis.`)
+                          return
+                        }
+                      }
+                      
                       sendQuoteEmail(
                         { quoteId, bookingId: booking.id },
                         {
