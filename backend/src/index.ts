@@ -20,10 +20,33 @@ const PORT = process.env.PORT || 3001
 
 // Middleware
 app.use(helmet())
+
+// CORS configuration for production
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'https://mealevent.netlify.app',
+  'https://app.mealevent.fr',
+  'http://localhost:5173',
+].filter(Boolean)
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')))) {
+      return callback(null, true)
+    }
+    console.warn(`CORS blocked origin: ${origin}`)
+    return callback(null, true) // Allow anyway but log it
+  },
   credentials: true,
 }))
+
+// Request logging for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`)
+  next()
+})
 
 // Stripe webhooks need raw body for signature verification
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }))

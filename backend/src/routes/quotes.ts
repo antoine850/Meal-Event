@@ -126,9 +126,12 @@ quotesRouter.patch('/:id', async (req: Request, res: Response) => {
 // POST /api/quotes/:id/send-email — Send quote PDF by email
 // ═══════════════════════════════════════════════════════════════
 quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
+  const quoteId = req.params.id
+  console.log(`[send-email] Starting for quote: ${quoteId}`)
+  
   try {
-    const quoteId = req.params.id
     const quoteData = await fetchQuoteFullData(quoteId)
+    console.log(`[send-email] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}`)
     const booking = quoteData.booking
     const restaurant = booking?.restaurant
     const contact = booking?.contact
@@ -234,9 +237,12 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
 // POST /api/quotes/:id/send-signature — Upload to SignNow + send invite
 // ═══════════════════════════════════════════════════════════════
 quotesRouter.post('/:id/send-signature', async (req: Request, res: Response) => {
+  const quoteId = req.params.id
+  console.log(`[send-signature] Starting for quote: ${quoteId}`)
+  
   try {
-    const quoteId = req.params.id
     const quoteData = await fetchQuoteFullData(quoteId)
+    console.log(`[send-signature] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}`)
     const booking = quoteData.booking
     const contact = booking?.contact
 
