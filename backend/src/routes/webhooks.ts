@@ -154,15 +154,17 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
     }
 
     // Update existing pending payment to paid (created when link was sent)
+    console.log(`[Stripe] Looking for pending payment with stripe_payment_id: ${session.id}`)
     const { data: existingPayment, error: findError } = await supabase
       .from('payments')
-      .select('id')
+      .select('id, status, stripe_payment_id')
       .eq('stripe_payment_id', session.id)
-      .eq('status', 'pending')
       .single()
 
+    console.log(`[Stripe] Found payment:`, existingPayment, 'Error:', findError?.message)
+
     if (existingPayment) {
-      // Update existing payment
+      // Update existing payment (regardless of current status)
       const { error: updateError } = await supabase
         .from('payments')
         .update({
@@ -176,11 +178,11 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
       if (updateError) {
         console.error('Error updating payment:', updateError)
       } else {
-        console.log(`[Stripe] Updated payment ${existingPayment.id} to paid`)
+        console.log(`[Stripe] Updated payment ${existingPayment.id} from ${existingPayment.status} to paid`)
       }
     } else {
-      // Fallback: Create new payment if pending one not found
-      console.log('[Stripe] No pending payment found, creating new one')
+      // Fallback: Create new payment if not found
+      console.log('[Stripe] No existing payment found, creating new one')
       const { error: paymentError } = await supabase
         .from('payments')
         .insert({
