@@ -964,7 +964,8 @@ export const BookingDetail = forwardRef<
                         
                         // Conditions for actions
                         const canSendQuote = quote.status === 'draft'
-                        const canSendSignature = quote.status === 'draft' || quote.status === 'quote_sent'
+                        // Allow resending signature as long as quote is not yet signed
+                        const canSendSignature = !isQuoteSigned
                         const canSendDepositLink = isQuoteSigned && !isDepositPaid
                         const canSendBalanceInvoice = isQuoteSigned && isDepositPaid && !isBalanceSent
                         const canMarkComplete = isBalanceSent && !isBalancePaid

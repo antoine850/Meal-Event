@@ -1592,7 +1592,8 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     </DropdownMenuItem>
                   )}
                   
-                  {(quoteData?.status === 'draft' || quoteData?.status === 'quote_sent') && (
+                  {/* Allow resending signature as long as quote is not yet signed */}
+                  {!(quoteData as any)?.quote_signed_at && (
                     <DropdownMenuItem
                       disabled={isSendingSignature}
                       onClick={() => {

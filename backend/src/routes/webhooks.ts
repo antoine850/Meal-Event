@@ -80,8 +80,21 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
 
     console.log(`[SignNow Webhook] Event: ${eventType}, Document: ${documentId}`)
 
+    // SignNow events that indicate document is signed:
+    // - document.update with status change
+    // - invite.update when signer completes
+    // - document.complete (if using newer API)
     if (eventType === 'document.complete' || eventType === 'document_complete') {
       await handleSignNowDocumentComplete(documentId)
+    } else if (eventType === 'document.update' || eventType === 'invite.update') {
+      // Check if the document is fully signed
+      const status = payload.data?.status || payload.content?.status || payload.status || ''
+      console.log(`[SignNow Webhook] Document status: ${status}`)
+      
+      // SignNow uses "completed" or "signed" status when all signatures are done
+      if (status === 'completed' || status === 'signed' || status === 'document-signed') {
+        await handleSignNowDocumentComplete(documentId)
+      }
     }
 
     res.json({ received: true })
