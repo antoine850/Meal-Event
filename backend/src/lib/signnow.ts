@@ -1,5 +1,8 @@
 import axios, { type AxiosInstance } from 'axios'
 
+// SignNow API URLs:
+// - Production: https://api.signnow.com
+// - Sandbox/Eval: https://api-eval.signnow.com (NOT eval.signnow.com!)
 const SIGNNOW_API_BASE = process.env.SIGNNOW_API_BASE || 'https://api.signnow.com'
 const SIGNNOW_CLIENT_ID = process.env.SIGNNOW_CLIENT_ID || ''
 const SIGNNOW_CLIENT_SECRET = process.env.SIGNNOW_CLIENT_SECRET || ''
@@ -11,25 +14,35 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.token
   }
 
+  console.log(`[SignNow] Getting access token from: ${SIGNNOW_API_BASE}/oauth2/token`)
+  console.log(`[SignNow] Client ID: ${SIGNNOW_CLIENT_ID ? SIGNNOW_CLIENT_ID.substring(0, 8) + '...' : 'NOT SET'}`)
+
   const basicAuth = Buffer.from(`${SIGNNOW_CLIENT_ID}:${SIGNNOW_CLIENT_SECRET}`).toString('base64')
 
-  const response = await axios.post(
-    `${SIGNNOW_API_BASE}/oauth2/token`,
-    'grant_type=client_credentials',
-    {
-      headers: {
-        'Authorization': `Basic ${basicAuth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+  try {
+    const response = await axios.post(
+      `${SIGNNOW_API_BASE}/oauth2/token`,
+      'grant_type=client_credentials',
+      {
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    )
+
+    console.log(`[SignNow] Token obtained successfully`)
+
+    cachedToken = {
+      token: response.data.access_token,
+      expiresAt: Date.now() + (response.data.expires_in * 1000),
     }
-  )
 
-  cachedToken = {
-    token: response.data.access_token,
-    expiresAt: Date.now() + (response.data.expires_in * 1000),
+    return cachedToken.token
+  } catch (error: any) {
+    console.error(`[SignNow] OAuth error:`, error.response?.status, error.response?.data || error.message)
+    throw error
   }
-
-  return cachedToken.token
 }
 
 function getClient(): Promise<AxiosInstance> {

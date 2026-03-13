@@ -25,6 +25,7 @@ app.use(helmet())
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   'https://mealevent.netlify.app',
+  'https://charming-dragon-3e7915.netlify.app',
   'https://app.mealevent.fr',
   'http://localhost:5173',
 ].filter(Boolean)

@@ -1,6 +1,5 @@
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces'
 import { supabase } from './supabase.js'
-import path from 'path'
 
 // pdfmake uses a CJS default export — use require
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -105,6 +104,100 @@ interface QuoteData {
   } | null
 }
 
+// ── Labels by language (matching frontend) ──
+const labels = {
+  fr: {
+    quote: 'DEVIS',
+    depositInvoice: "FACTURE D'ACOMPTE",
+    balanceInvoice: 'FACTURE DE SOLDE',
+    dateOf: 'Date du',
+    dueDateLabel: 'Échéance',
+    issuer: 'ÉMETTEUR',
+    client: 'CLIENT',
+    companyName: 'Société',
+    name: 'Nom',
+    address: 'Adresse',
+    siretSiren: 'SIRET',
+    vatNumber: 'N° TVA',
+    email: 'Email',
+    phone: 'Tél',
+    billingAddress: 'Adresse facturation',
+    serviceDate: 'Date de prestation',
+    orderNumber: 'N° commande',
+    comments: 'Commentaires',
+    designation: 'Désignation',
+    quantity: 'Qté',
+    unitPriceHt: 'P.U. HT',
+    tvaRate: 'TVA',
+    totalHt: 'Total HT',
+    totalTtc: 'Total TTC',
+    subtotalHt: 'Sous-total HT',
+    totalTvaLabel: 'Total TVA',
+    paymentSchedule: 'ÉCHÉANCIER DE PAIEMENT',
+    bankDetails: 'COORDONNÉES BANCAIRES',
+    generalConditions: 'CONDITIONS GÉNÉRALES',
+    additionalConditions: 'CONDITIONS PARTICULIÈRES',
+    bankName: 'Banque',
+    iban: 'IBAN',
+    bic: 'BIC',
+    shareCapital: 'au capital de',
+    depositFor: "Acompte pour devis n°",
+    relatedQuote: 'Réf. devis',
+    depositPercent: 'Acompte',
+    balancePercent: 'Solde',
+    serviceItems: 'Prestation',
+    extras: 'Extras',
+    totalWithExtras: 'Total avec extras TTC',
+    depositPaid: 'Acompte versé',
+    remainingBalance: 'SOLDE RESTANT TTC',
+  },
+  en: {
+    quote: 'QUOTE',
+    depositInvoice: 'DEPOSIT INVOICE',
+    balanceInvoice: 'BALANCE INVOICE',
+    dateOf: 'Date of',
+    dueDateLabel: 'Due date',
+    issuer: 'ISSUER',
+    client: 'CLIENT',
+    companyName: 'Company',
+    name: 'Name',
+    address: 'Address',
+    siretSiren: 'SIRET',
+    vatNumber: 'VAT number',
+    email: 'Email',
+    phone: 'Phone',
+    billingAddress: 'Billing address',
+    serviceDate: 'Service date',
+    orderNumber: 'Order #',
+    comments: 'Comments',
+    designation: 'Description',
+    quantity: 'Qty',
+    unitPriceHt: 'Unit price',
+    tvaRate: 'VAT',
+    totalHt: 'Total excl. VAT',
+    totalTtc: 'Total incl. VAT',
+    subtotalHt: 'Subtotal excl. VAT',
+    totalTvaLabel: 'Total VAT',
+    paymentSchedule: 'PAYMENT SCHEDULE',
+    bankDetails: 'BANK DETAILS',
+    generalConditions: 'GENERAL CONDITIONS',
+    additionalConditions: 'SPECIAL TERMS',
+    bankName: 'Bank',
+    iban: 'IBAN',
+    bic: 'BIC',
+    shareCapital: 'share capital of',
+    depositFor: 'Deposit for quote #',
+    relatedQuote: 'Quote ref.',
+    depositPercent: 'Deposit',
+    balancePercent: 'Balance',
+    serviceItems: 'Service',
+    extras: 'Extras',
+    totalWithExtras: 'Total with extras incl. VAT',
+    depositPaid: 'Deposit paid',
+    remainingBalance: 'REMAINING BALANCE',
+  },
+}
+
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—'
   try {
@@ -128,6 +221,23 @@ function addDays(dateStr: string | null | undefined, days: number): string {
 
 function formatCurrency(amount: number): string {
   return `${amount.toFixed(2)} €`
+}
+
+// Helper to lighten a hex color
+function lightenColor(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const amt = Math.round(2.55 * percent)
+  const R = (num >> 16) + amt
+  const G = ((num >> 8) & 0x00ff) + amt
+  const B = (num & 0x0000ff) + amt
+  return `#${(
+    0x1000000 +
+    (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+    (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+    (B < 255 ? (B < 1 ? 0 : B) : 255)
+  )
+    .toString(16)
+    .slice(1)}`
 }
 
 export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
@@ -164,8 +274,9 @@ export async function generateQuotePdf(quoteId: string, documentType: DocumentTy
   const color = restaurant?.color || '#0d7377'
   const items = (quote.quote_items || []).filter(i => i.item_type === 'product')
   const extras = (quote.quote_items || []).filter(i => i.item_type === 'extra')
+  const lang = (quote.language === 'en' ? 'en' : 'fr') as 'fr' | 'en'
 
-  const docDefinition = buildDocDefinition(quote, restaurant, contact, items, extras, documentType, color)
+  const docDefinition = buildDocDefinition(quote, restaurant, contact, items, extras, documentType, color, lang)
 
   return new Promise<Buffer>((resolve, reject) => {
     const pdfDoc = printer.createPdfKitDocument(docDefinition)
@@ -186,67 +297,84 @@ function buildDocDefinition(
   items: QuoteData['quote_items'],
   extras: QuoteData['quote_items'],
   documentType: DocumentType,
-  color: string
+  color: string,
+  lang: 'fr' | 'en'
 ): TDocumentDefinitions {
   const content: Content[] = []
+  const l = labels[lang]
 
-  // ── Header ──
+  // ── Document titles ──
   const docTitles: Record<DocumentType, string> = {
-    devis: 'DEVIS',
-    acompte: "FACTURE D'ACOMPTE",
-    solde: 'FACTURE DE SOLDE',
+    devis: l.quote,
+    acompte: l.depositInvoice,
+    solde: l.balanceInvoice,
   }
 
   const dueDays = documentType === 'devis' ? quote.quote_due_days : quote.invoice_due_days
+  const docTitle = docTitles[documentType]
 
+  // ══════════════════════════════════════════════════════════════════
+  // HEADER - Colored banner with restaurant name and document info
+  // ══════════════════════════════════════════════════════════════════
   content.push({
-    columns: [
-      {
-        width: '*',
-        stack: [
-          { text: restaurant?.name || 'Restaurant', style: 'headerTitle', color },
-          { text: restaurant?.address || '', style: 'small', color: '#666' },
-          { text: `${restaurant?.postal_code || ''} ${restaurant?.city || ''}`, style: 'small', color: '#666' },
+    table: {
+      widths: ['*', 'auto'],
+      body: [
+        [
+          {
+            stack: [
+              { text: restaurant?.name || 'Restaurant', style: 'headerTitle', color: 'white' },
+            ],
+            fillColor: color,
+            margin: [12, 10, 12, 10] as [number, number, number, number],
+          },
+          {
+            stack: [
+              { text: `${docTitle} n°${quote.quote_number}`, style: 'headerDocTitle', color: 'white', alignment: 'right' as const },
+              { text: `${l.dateOf} ${docTitle.toLowerCase()} – ${formatDate(quote.quote_date)}`, style: 'headerSmall', color: 'white', alignment: 'right' as const },
+              { text: `${l.dueDateLabel} – ${addDays(quote.quote_date, dueDays)}`, style: 'headerSmall', color: 'white', alignment: 'right' as const },
+            ],
+            fillColor: color,
+            margin: [12, 10, 12, 10] as [number, number, number, number],
+          },
         ],
-      },
-      {
-        width: 'auto',
-        stack: [
-          { text: `${docTitles[documentType]} n°${quote.quote_number}`, style: 'docTitle', alignment: 'right' as const, color },
-          { text: `Date: ${formatDate(quote.quote_date)}`, style: 'small', alignment: 'right' as const },
-          { text: `Échéance: ${addDays(quote.quote_date, dueDays)}`, style: 'small', alignment: 'right' as const },
-        ],
-      },
-    ],
+      ],
+    },
+    layout: 'noBorders',
     margin: [0, 0, 0, 15] as [number, number, number, number],
   })
 
-  // ── Issuer / Client ──
+  // ══════════════════════════════════════════════════════════════════
+  // ISSUER / CLIENT BLOCK
+  // ══════════════════════════════════════════════════════════════════
   content.push({
     columns: [
       {
         width: '50%',
         stack: [
-          { text: 'ÉMETTEUR', style: 'sectionLabel' },
-          { text: restaurant?.legal_name || restaurant?.name || '', style: 'bold' },
-          { text: restaurant?.address || '', style: 'small' },
-          { text: `${restaurant?.postal_code || ''} ${restaurant?.city || ''}`, style: 'small' },
-          ...(restaurant?.siret ? [{ text: `SIRET: ${restaurant.siret}`, style: 'tiny' as const }] : []),
-          ...(restaurant?.tva_number ? [{ text: `TVA: ${restaurant.tva_number}`, style: 'tiny' as const }] : []),
-          ...(restaurant?.email ? [{ text: `Email: ${restaurant.email}`, style: 'tiny' as const }] : []),
+          { text: l.issuer, style: 'sectionLabel' },
+          ...(restaurant?.legal_name ? [{ text: `${l.companyName} – ${restaurant.legal_name}`, style: 'small' as const, color: '#666' }] : []),
+          { text: `${l.name} – ${restaurant?.name || ''}`, style: 'bold' },
+          ...(restaurant?.address ? [{ text: `${l.address} – ${restaurant.address}`, style: 'small' as const, color: '#666' }] : []),
+          ...(restaurant?.postal_code || restaurant?.city
+            ? [{ text: `${restaurant?.postal_code || ''} ${restaurant?.city || ''}`, style: 'small' as const, color: '#666' }]
+            : []),
+          ...(restaurant?.siret ? [{ text: `${l.siretSiren} – ${restaurant.siret}`, style: 'tiny' as const, color: '#888' }] : []),
+          ...(restaurant?.tva_number ? [{ text: `${l.vatNumber} – ${restaurant.tva_number}`, style: 'tiny' as const, color: '#888' }] : []),
+          ...(restaurant?.email ? [{ text: `${l.email} – ${restaurant.email}`, style: 'tiny' as const, color: '#888' }] : []),
         ],
       },
       {
         width: '50%',
         stack: [
-          { text: 'CLIENT', style: 'sectionLabel' },
+          { text: l.client, style: 'sectionLabel' },
           ...(contact?.company ? [{ text: contact.company.name, style: 'bold' as const }] : []),
-          { text: `${contact?.first_name || ''} ${contact?.last_name || ''}`, style: contact?.company ? 'normal' as const : 'bold' as const },
-          ...(contact?.email ? [{ text: `Email: ${contact.email}`, style: 'small' as const }] : []),
-          ...(contact?.phone ? [{ text: `Tél: ${contact.phone}`, style: 'small' as const }] : []),
-          ...(contact?.company?.billing_address ? [{ text: contact.company.billing_address, style: 'small' as const }] : []),
+          { text: `${l.name} – ${contact?.first_name || ''} ${contact?.last_name || ''}`, style: contact?.company ? 'small' as const : 'bold' as const, color: contact?.company ? '#666' : undefined },
+          ...(contact?.email ? [{ text: `${l.email} – ${contact.email}`, style: 'small' as const, color: '#666' }] : []),
+          ...(contact?.phone ? [{ text: `${l.phone} – ${contact.phone}`, style: 'small' as const, color: '#666' }] : []),
+          ...(contact?.company?.billing_address ? [{ text: `${l.billingAddress} – ${contact.company.billing_address}`, style: 'small' as const, color: '#666' }] : []),
           ...(contact?.company?.billing_postal_code || contact?.company?.billing_city
-            ? [{ text: `${contact?.company?.billing_postal_code || ''} ${contact?.company?.billing_city || ''}`, style: 'small' as const }]
+            ? [{ text: `${contact?.company?.billing_postal_code || ''} ${contact?.company?.billing_city || ''}`, style: 'small' as const, color: '#666' }]
             : []),
         ],
       },
@@ -254,60 +382,95 @@ function buildDocDefinition(
     margin: [0, 0, 0, 15] as [number, number, number, number],
   })
 
-  // ── Event title ──
+  // ══════════════════════════════════════════════════════════════════
+  // EVENT TITLE BLOCK (with left border)
+  // ══════════════════════════════════════════════════════════════════
   if (quote.title || quote.date_start) {
     content.push({
-      stack: [
-        ...(quote.title ? [{ text: quote.title, style: 'bold' as const }] : []),
-        ...(quote.date_start ? [{ text: `Date de prestation: ${formatDate(quote.date_start)}`, style: 'small' as const }] : []),
-        ...(quote.order_number ? [{ text: `N° commande: ${quote.order_number}`, style: 'small' as const }] : []),
-      ],
+      table: {
+        widths: [3, '*'],
+        body: [
+          [
+            { text: '', fillColor: color },
+            {
+              stack: [
+                ...(quote.title ? [{ text: quote.title, style: 'bold' as const }] : []),
+                ...(quote.date_start ? [{ text: `${l.serviceDate}: ${formatDate(quote.date_start)}${quote.date_end && quote.date_end !== quote.date_start ? ` — ${formatDate(quote.date_end)}` : ''}`, style: 'small' as const, color: '#666' }] : []),
+                ...(quote.order_number ? [{ text: `${l.orderNumber}: ${quote.order_number}`, style: 'tiny' as const, color: '#888' }] : []),
+              ],
+              fillColor: '#faf5f0',
+              margin: [8, 6, 8, 6] as [number, number, number, number],
+            },
+          ],
+        ],
+      },
+      layout: 'noBorders',
       margin: [0, 0, 0, 10] as [number, number, number, number],
-      fillColor: '#faf5f0',
-      padding: [8, 6, 8, 6] as unknown as number,
-    } as Content)
-  }
-
-  // ── Comments ──
-  const comments = quote.language === 'en' ? quote.comments_en : quote.comments_fr
-  if (comments) {
-    content.push({
-      text: comments,
-      style: 'small',
-      margin: [0, 0, 0, 10] as [number, number, number, number],
-      italics: true,
-      color: '#666',
     })
   }
 
-  // ── Products table ──
+  // ══════════════════════════════════════════════════════════════════
+  // COMMENTS BLOCK (amber/yellow background)
+  // ══════════════════════════════════════════════════════════════════
+  const comments = lang === 'en' ? quote.comments_en : quote.comments_fr
+  if (comments) {
+    content.push({
+      table: {
+        widths: ['*'],
+        body: [
+          [
+            {
+              stack: [
+                { text: l.comments, style: 'tiny' as const, bold: true, color: '#92400e' },
+                { text: comments, style: 'small' as const, color: '#666' },
+              ],
+              fillColor: '#fef3c7',
+              margin: [8, 6, 8, 6] as [number, number, number, number],
+            },
+          ],
+        ],
+      },
+      layout: {
+        hLineWidth: () => 1,
+        vLineWidth: () => 1,
+        hLineColor: () => '#fcd34d',
+        vLineColor: () => '#fcd34d',
+      },
+      margin: [0, 0, 0, 10] as [number, number, number, number],
+    })
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // PRODUCTS TABLE
+  // ══════════════════════════════════════════════════════════════════
   if (documentType === 'devis' || documentType === 'acompte') {
     if (items.length > 0) {
       const tableBody: TableCell[][] = [
         [
-          { text: 'Désignation', style: 'tableHeader', fillColor: color, color: 'white' },
-          { text: 'Qté', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
-          { text: 'P.U. HT', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-          { text: 'TVA', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
-          { text: 'Total HT', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-          { text: 'Total TTC', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+          { text: l.designation, style: 'tableHeader', fillColor: color, color: 'white' },
+          { text: l.quantity, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
+          { text: l.unitPriceHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+          { text: l.tvaRate, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
+          { text: l.totalHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+          { text: l.totalTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
         ],
       ]
 
       items.forEach((item, i) => {
+        const rowColor = i % 2 === 0 ? '#ffffff' : '#f9fafb'
         tableBody.push([
           {
             stack: [
-              { text: item.name, style: 'tableCell' },
-              ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#999' }] : []),
+              { text: item.name, style: 'tableCell', bold: true },
+              ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#888' }] : []),
             ],
-            fillColor: i % 2 === 0 ? '#fff' : '#f9f9f9',
+            fillColor: rowColor,
           },
-          { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const, fillColor: i % 2 === 0 ? '#fff' : '#f9f9f9' },
-          { text: formatCurrency(item.unit_price), style: 'tableCell', alignment: 'right' as const, fillColor: i % 2 === 0 ? '#fff' : '#f9f9f9' },
-          { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const, fillColor: i % 2 === 0 ? '#fff' : '#f9f9f9' },
-          { text: formatCurrency(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const, fillColor: i % 2 === 0 ? '#fff' : '#f9f9f9' },
-          { text: formatCurrency(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const, fillColor: i % 2 === 0 ? '#fff' : '#f9f9f9' },
+          { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
+          { text: formatCurrency(item.unit_price), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
+          { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
+          { text: formatCurrency(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
+          { text: formatCurrency(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
         ])
       })
 
@@ -317,88 +480,144 @@ function buildDocDefinition(
           widths: ['*', 35, 60, 35, 60, 60],
           body: tableBody,
         },
-        layout: 'lightHorizontalLines',
+        layout: {
+          hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: (i: number) => (i === 0 || i === 1) ? color : '#e5e7eb',
+          vLineColor: () => '#e5e7eb',
+          paddingLeft: () => 6,
+          paddingRight: () => 6,
+          paddingTop: () => 4,
+          paddingBottom: () => 4,
+        },
         margin: [0, 0, 0, 10] as [number, number, number, number],
       })
     }
   }
 
-  // ── Solde: combined products + extras ──
+  // ══════════════════════════════════════════════════════════════════
+  // SOLDE: Combined products + extras table
+  // ══════════════════════════════════════════════════════════════════
   if (documentType === 'solde') {
-    const allItems = [...items, ...extras]
-    if (allItems.length > 0) {
-      const tableBody: TableCell[][] = [
-        [
-          { text: 'Désignation', style: 'tableHeader', fillColor: color, color: 'white' },
-          { text: 'Qté', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
-          { text: 'P.U. HT', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-          { text: 'TVA', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
-          { text: 'Total HT', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-          { text: 'Total TTC', style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-        ],
-      ]
+    const tableBody: TableCell[][] = [
+      [
+        { text: l.designation, style: 'tableHeader', fillColor: color, color: 'white' },
+        { text: l.quantity, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
+        { text: l.unitPriceHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+        { text: l.tvaRate, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
+        { text: l.totalHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+        { text: l.totalTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+      ],
+    ]
 
-      if (items.length > 0) {
-        tableBody.push([{ text: 'Prestation', colSpan: 6, style: 'bold' as const, fillColor: '#f0f0f0', color } as TableCell, {}, {}, {}, {}, {}])
-        items.forEach((item, i) => {
-          tableBody.push([
-            { stack: [{ text: item.name, style: 'tableCell' }, ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#999' }] : [])] },
-            { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const },
-            { text: formatCurrency(item.unit_price), style: 'tableCell', alignment: 'right' as const },
-            { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
-            { text: formatCurrency(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
-            { text: formatCurrency(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
-          ])
-        })
-      }
+    if (items.length > 0) {
+      tableBody.push([
+        { text: l.serviceItems, colSpan: 6, style: 'bold' as const, fillColor: '#f3f4f6', color } as TableCell,
+        {}, {}, {}, {}, {},
+      ])
+      items.forEach((item) => {
+        tableBody.push([
+          { stack: [{ text: item.name, style: 'tableCell', bold: true }, ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#888' }] : [])] },
+          { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const },
+          { text: formatCurrency(item.unit_price), style: 'tableCell', alignment: 'right' as const },
+          { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
+          { text: formatCurrency(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
+          { text: formatCurrency(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
+        ])
+      })
+    }
 
-      if (extras.length > 0) {
-        tableBody.push([{ text: 'Extras', colSpan: 6, style: 'bold' as const, fillColor: '#fff8e1', color } as TableCell, {}, {}, {}, {}, {}])
-        extras.forEach((extra) => {
-          tableBody.push([
-            { stack: [{ text: extra.name, style: 'tableCell' }, ...(extra.description ? [{ text: extra.description, style: 'tiny' as const, color: '#999' }] : [])] },
-            { text: String(extra.quantity), style: 'tableCell', alignment: 'center' as const },
-            { text: formatCurrency(extra.unit_price), style: 'tableCell', alignment: 'right' as const },
-            { text: `${extra.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
-            { text: formatCurrency(extra.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
-            { text: formatCurrency(extra.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
-          ])
-        })
-      }
+    if (extras.length > 0) {
+      tableBody.push([
+        { text: l.extras, colSpan: 6, style: 'bold' as const, fillColor: '#fef3c7', color } as TableCell,
+        {}, {}, {}, {}, {},
+      ])
+      extras.forEach((extra) => {
+        tableBody.push([
+          { stack: [{ text: extra.name, style: 'tableCell', bold: true }, ...(extra.description ? [{ text: extra.description, style: 'tiny' as const, color: '#888' }] : [])] },
+          { text: String(extra.quantity), style: 'tableCell', alignment: 'center' as const },
+          { text: formatCurrency(extra.unit_price), style: 'tableCell', alignment: 'right' as const },
+          { text: `${extra.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
+          { text: formatCurrency(extra.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
+          { text: formatCurrency(extra.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
+        ])
+      })
+    }
 
+    if (tableBody.length > 1) {
       content.push({
         table: {
           headerRows: 1,
           widths: ['*', 35, 60, 35, 60, 60],
           body: tableBody,
         },
-        layout: 'lightHorizontalLines',
+        layout: {
+          hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: (i: number) => (i === 0 || i === 1) ? color : '#e5e7eb',
+          vLineColor: () => '#e5e7eb',
+          paddingLeft: () => 6,
+          paddingRight: () => 6,
+          paddingTop: () => 4,
+          paddingBottom: () => 4,
+        },
         margin: [0, 0, 0, 10] as [number, number, number, number],
       })
     }
   }
 
-  // ── Totals ──
+  // ══════════════════════════════════════════════════════════════════
+  // TOTALS SECTION with TVA breakdown
+  // ══════════════════════════════════════════════════════════════════
+  
+  // Calculate TVA by rate
+  const tvaByRate: Record<number, { ht: number; tva: number }> = {}
+  for (const item of items) {
+    const rate = item.tva_rate || 20
+    const ht = item.total_ht || 0
+    const tva = ht * (rate / 100)
+    if (!tvaByRate[rate]) tvaByRate[rate] = { ht: 0, tva: 0 }
+    tvaByRate[rate].ht += ht
+    tvaByRate[rate].tva += tva
+  }
+
   if (documentType === 'devis') {
+    const totalsStack: Content[] = [
+      { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+    ]
+
+    // Add TVA breakdown by rate
+    Object.entries(tvaByRate).forEach(([rate, val]) => {
+      totalsStack.push({
+        columns: [
+          { text: `TVA ${rate}%`, style: 'small', color: '#666' },
+          { text: formatCurrency(val.tva), alignment: 'right' as const, style: 'small' },
+        ],
+        margin: [0, 0, 0, 2] as [number, number, number, number],
+      })
+    })
+
+    totalsStack.push(
+      { columns: [{ text: l.totalTvaLabel, style: 'small', color: '#666' }, { text: formatCurrency(quote.total_tva), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 180, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      {
+        table: {
+          widths: ['*', 'auto'],
+          body: [[
+            { text: l.totalTtc, style: 'bold', color: 'white' },
+            { text: formatCurrency(quote.total_ttc), style: 'bold', color: 'white', alignment: 'right' as const },
+          ]],
+        },
+        layout: 'noBorders',
+        fillColor: color,
+        margin: [0, 0, 0, 0] as [number, number, number, number],
+      } as Content
+    )
+
     content.push({
       columns: [
         { width: '*', text: '' },
-        {
-          width: 200,
-          stack: [
-            { columns: [{ text: 'Total HT', style: 'small' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const, style: 'bold' }] },
-            { columns: [{ text: 'Total TVA', style: 'small' }, { text: formatCurrency(quote.total_tva), alignment: 'right' as const }] },
-            { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 0.5, lineColor: '#ccc' }], margin: [0, 3, 0, 3] as [number, number, number, number] },
-            {
-              columns: [
-                { text: 'TOTAL TTC', style: 'bold', color },
-                { text: formatCurrency(quote.total_ttc), alignment: 'right' as const, style: 'bold', color },
-              ],
-              fillColor: color + '15',
-              margin: [4, 4, 4, 4] as [number, number, number, number],
-            },
-          ],
-        },
+        { width: 180, stack: totalsStack },
       ],
       margin: [0, 0, 0, 15] as [number, number, number, number],
     })
@@ -414,16 +633,21 @@ function buildDocDefinition(
         {
           width: 200,
           stack: [
-            { columns: [{ text: `Acompte ${quote.deposit_percentage}%`, style: 'small' }, { text: formatCurrency(depositHt), alignment: 'right' as const }] },
-            { columns: [{ text: 'TVA', style: 'small' }, { text: formatCurrency(depositTva), alignment: 'right' as const }] },
-            { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 0.5, lineColor: '#ccc' }], margin: [0, 3, 0, 3] as [number, number, number, number] },
+            { columns: [{ text: `${l.depositPercent} ${quote.deposit_percentage}%`, style: 'small' }, { text: formatCurrency(depositHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+            { columns: [{ text: 'TVA', style: 'small' }, { text: formatCurrency(depositTva), alignment: 'right' as const }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+            { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
             {
-              columns: [
-                { text: 'TOTAL TTC', style: 'bold', color },
-                { text: formatCurrency(depositTtc), alignment: 'right' as const, style: 'bold', color },
-              ],
-            },
-            { text: `Réf. devis: ${quote.quote_number} — Total devis: ${formatCurrency(quote.total_ttc)}`, style: 'tiny', color: '#999', margin: [0, 4, 0, 0] as [number, number, number, number] },
+              table: {
+                widths: ['*', 'auto'],
+                body: [[
+                  { text: l.totalTtc, style: 'bold', color: 'white' },
+                  { text: formatCurrency(depositTtc), style: 'bold', color: 'white', alignment: 'right' as const },
+                ]],
+              },
+              layout: 'noBorders',
+              fillColor: color,
+            } as Content,
+            { text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatCurrency(quote.total_ttc)}`, style: 'tiny', color: '#888', margin: [0, 6, 0, 0] as [number, number, number, number] },
           ],
         },
       ],
@@ -436,7 +660,6 @@ function buildDocDefinition(
     const depositTtc = depositHt + depositHt * (avgTvaRate / 100)
     const extrasHt = extras.reduce((sum, e) => sum + (e.total_ht || 0), 0)
     const extrasTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
-    const totalWithExtrasHt = quote.total_ht + extrasHt
     const totalWithExtrasTtc = quote.total_ttc + extrasTtc
     const balanceTtc = totalWithExtrasTtc - depositTtc
 
@@ -446,19 +669,24 @@ function buildDocDefinition(
         {
           width: 220,
           stack: [
-            { columns: [{ text: 'Total prestation HT', style: 'small' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const }] },
+            { columns: [{ text: `Total ${l.serviceItems.toLowerCase()} HT`, style: 'small' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
             ...(extras.length > 0
-              ? [{ columns: [{ text: 'Total extras HT', style: 'small' }, { text: formatCurrency(extrasHt), alignment: 'right' as const }] }]
+              ? [{ columns: [{ text: `Total ${l.extras.toLowerCase()} HT`, style: 'small' }, { text: formatCurrency(extrasHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] }]
               : []),
-            { columns: [{ text: 'Total avec extras TTC', style: 'small' }, { text: formatCurrency(totalWithExtrasTtc), alignment: 'right' as const }] },
-            { columns: [{ text: `Acompte versé (${quote.deposit_percentage}%)`, style: 'small', color: '#4caf50' }, { text: `- ${formatCurrency(depositTtc)}`, alignment: 'right' as const, color: '#4caf50' }] },
-            { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 0.5, lineColor: '#ccc' }], margin: [0, 3, 0, 3] as [number, number, number, number] },
+            { columns: [{ text: l.totalWithExtras, style: 'small' }, { text: formatCurrency(totalWithExtrasTtc), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+            { columns: [{ text: `${l.depositPaid} (${quote.deposit_percentage}%)`, style: 'small', color: '#16a34a' }, { text: `- ${formatCurrency(depositTtc)}`, alignment: 'right' as const, color: '#16a34a' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+            { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
             {
-              columns: [
-                { text: 'SOLDE RESTANT TTC', style: 'bold', color },
-                { text: formatCurrency(balanceTtc), alignment: 'right' as const, style: 'bold', color },
-              ],
-            },
+              table: {
+                widths: ['*', 'auto'],
+                body: [[
+                  { text: l.remainingBalance, style: 'bold', color: 'white' },
+                  { text: formatCurrency(balanceTtc), style: 'bold', color: 'white', alignment: 'right' as const },
+                ]],
+              },
+              layout: 'noBorders',
+              fillColor: color,
+            } as Content,
           ],
         },
       ],
@@ -466,23 +694,25 @@ function buildDocDefinition(
     })
   }
 
-  // ── Payment schedule (devis only) ──
+  // ══════════════════════════════════════════════════════════════════
+  // PAYMENT SCHEDULE (devis only)
+  // ══════════════════════════════════════════════════════════════════
   if (documentType === 'devis') {
     const depositAmount = quote.total_ttc * (quote.deposit_percentage / 100)
     const balanceAmount = quote.total_ttc - depositAmount
 
     content.push({
       stack: [
-        { text: 'ÉCHÉANCIER DE PAIEMENT', style: 'sectionLabel' },
+        { text: l.paymentSchedule, style: 'sectionLabel' },
         {
           table: {
             widths: ['*', 50, 40, 80],
             body: [
               [
-                { text: quote.deposit_label || 'Acompte à signature', style: 'tableCell' },
-                { text: `${quote.deposit_percentage}%`, style: 'tableCell', alignment: 'center' as const },
-                { text: `J-${quote.deposit_days}`, style: 'tableCell', alignment: 'center' as const },
-                { text: formatCurrency(depositAmount), style: 'tableCell', alignment: 'right' as const, bold: true },
+                { text: quote.deposit_label || 'Acompte à signature', style: 'tableCell', fillColor: '#f9fafb' },
+                { text: `${quote.deposit_percentage}%`, style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
+                { text: `J-${quote.deposit_days}`, style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
+                { text: formatCurrency(depositAmount), style: 'tableCell', alignment: 'right' as const, bold: true, fillColor: '#f9fafb' },
               ],
               [
                 { text: quote.balance_label || 'Solde', style: 'tableCell' },
@@ -492,27 +722,59 @@ function buildDocDefinition(
               ],
             ],
           },
-          layout: 'lightHorizontalLines',
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#e5e7eb',
+            vLineColor: () => '#e5e7eb',
+            paddingLeft: () => 6,
+            paddingRight: () => 6,
+            paddingTop: () => 4,
+            paddingBottom: () => 4,
+          },
         },
       ],
       margin: [0, 0, 0, 15] as [number, number, number, number],
     })
   }
 
-  // ── Bank details ──
+  // ══════════════════════════════════════════════════════════════════
+  // BANK DETAILS
+  // ══════════════════════════════════════════════════════════════════
   if (restaurant?.iban || restaurant?.bic) {
     content.push({
       stack: [
-        { text: 'COORDONNÉES BANCAIRES', style: 'sectionLabel' },
-        ...(restaurant.bank_name ? [{ text: `Banque: ${restaurant.bank_name}`, style: 'small' as const }] : []),
-        ...(restaurant.iban ? [{ text: `IBAN: ${restaurant.iban}`, style: 'small' as const }] : []),
-        ...(restaurant.bic ? [{ text: `BIC: ${restaurant.bic}`, style: 'small' as const }] : []),
+        { text: l.bankDetails, style: 'sectionLabel' },
+        {
+          table: {
+            widths: ['*'],
+            body: [[
+              {
+                stack: [
+                  ...(restaurant.bank_name ? [{ text: `${l.bankName} : ${restaurant.bank_name}`, style: 'small' as const, bold: true }] : []),
+                  ...(restaurant.iban ? [{ text: `${l.iban} : ${restaurant.iban}`, style: 'small' as const }] : []),
+                  ...(restaurant.bic ? [{ text: `${l.bic} : ${restaurant.bic}`, style: 'small' as const }] : []),
+                ],
+                fillColor: '#f9fafb',
+                margin: [8, 6, 8, 6] as [number, number, number, number],
+              },
+            ]],
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#e5e7eb',
+            vLineColor: () => '#e5e7eb',
+          },
+        },
       ],
       margin: [0, 0, 0, 15] as [number, number, number, number],
     })
   }
 
-  // ── Conditions ──
+  // ══════════════════════════════════════════════════════════════════
+  // CONDITIONS
+  // ══════════════════════════════════════════════════════════════════
   let conditions = ''
   if (documentType === 'devis') {
     conditions = quote.conditions_devis || ''
@@ -525,8 +787,8 @@ function buildDocDefinition(
   if (conditions) {
     content.push({
       stack: [
-        { text: 'CONDITIONS GÉNÉRALES', style: 'sectionLabel' },
-        { text: conditions, style: 'tiny', color: '#666' },
+        { text: l.generalConditions, style: 'sectionLabel', color },
+        { text: conditions, style: 'conditions', color: '#666' },
       ],
       margin: [0, 10, 0, 0] as [number, number, number, number],
     })
@@ -535,31 +797,41 @@ function buildDocDefinition(
   if (quote.additional_conditions) {
     content.push({
       stack: [
-        { text: 'CONDITIONS PARTICULIÈRES', style: 'sectionLabel' },
-        { text: quote.additional_conditions, style: 'tiny', color: '#666' },
+        { text: l.additionalConditions, style: 'sectionLabel', color },
+        { text: quote.additional_conditions, style: 'conditions', color: '#666' },
       ],
       margin: [0, 10, 0, 0] as [number, number, number, number],
     })
   }
 
-  // ── Footer ──
-  const footerParts: string[] = []
-  if (restaurant?.legal_name || restaurant?.name) footerParts.push(restaurant.legal_name || restaurant.name || '')
-  if (restaurant?.legal_form) footerParts.push(restaurant.legal_form)
-  if (restaurant?.share_capital) footerParts.push(`Capital: ${restaurant.share_capital}`)
-  if (restaurant?.siren) footerParts.push(`SIREN: ${restaurant.siren}`)
-  if (restaurant?.rcs) footerParts.push(`RCS: ${restaurant.rcs}`)
-  if (restaurant?.siret) footerParts.push(`SIRET: ${restaurant.siret}`)
-  if (restaurant?.tva_number) footerParts.push(`TVA: ${restaurant.tva_number}`)
+  // ══════════════════════════════════════════════════════════════════
+  // FOOTER
+  // ══════════════════════════════════════════════════════════════════
+  const footerLine1Parts: string[] = []
+  if (restaurant?.legal_name || restaurant?.name) footerLine1Parts.push(restaurant.legal_name || restaurant.name || '')
+  if (restaurant?.legal_form) footerLine1Parts.push(restaurant.legal_form)
+  if (restaurant?.share_capital) footerLine1Parts.push(`${l.shareCapital} ${restaurant.share_capital}`)
+
+  const footerLine2Parts: string[] = []
+  if (restaurant?.siren) footerLine2Parts.push(`SIREN: ${restaurant.siren}`)
+  if (restaurant?.rcs) footerLine2Parts.push(`RCS: ${restaurant.rcs}`)
+  if (restaurant?.siret) footerLine2Parts.push(`SIRET: ${restaurant.siret}`)
+  if (restaurant?.tva_number) footerLine2Parts.push(`${l.vatNumber}: ${restaurant.tva_number}`)
+
+  const footerLine3Parts: string[] = []
+  if (restaurant?.email) footerLine3Parts.push(restaurant.email)
+  if (restaurant?.phone) footerLine3Parts.push(restaurant.phone)
 
   return {
     content,
     footer: {
-      text: footerParts.join(' — '),
-      style: 'tiny',
-      alignment: 'center' as const,
-      color: '#999',
-      margin: [20, 0, 20, 10] as [number, number, number, number],
+      stack: [
+        { canvas: [{ type: 'line' as const, x1: 30, y1: 0, x2: 565, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }] },
+        { text: footerLine1Parts.join(' — '), style: 'footer', alignment: 'center' as const, margin: [0, 4, 0, 0] as [number, number, number, number] },
+        { text: footerLine2Parts.join(' — '), style: 'footer', alignment: 'center' as const },
+        ...(footerLine3Parts.length > 0 ? [{ text: footerLine3Parts.join(' — '), style: 'footer', alignment: 'center' as const }] : []),
+      ],
+      margin: [30, 0, 30, 10] as [number, number, number, number],
     },
     defaultStyle: {
       font: 'Helvetica',
@@ -567,15 +839,18 @@ function buildDocDefinition(
     },
     styles: {
       headerTitle: { fontSize: 14, bold: true },
-      docTitle: { fontSize: 11, bold: true },
-      sectionLabel: { fontSize: 7, bold: true, color: '#999', margin: [0, 0, 0, 4] as [number, number, number, number] },
-      bold: { bold: true },
+      headerDocTitle: { fontSize: 10, bold: true },
+      headerSmall: { fontSize: 8 },
+      sectionLabel: { fontSize: 8, bold: true, color: '#9ca3af', margin: [0, 0, 0, 6] as [number, number, number, number] },
+      bold: { bold: true, fontSize: 9 },
       small: { fontSize: 8 },
       tiny: { fontSize: 7 },
       normal: { fontSize: 9 },
       tableHeader: { fontSize: 8, bold: true },
       tableCell: { fontSize: 8 },
+      conditions: { fontSize: 7, lineHeight: 1.3 },
+      footer: { fontSize: 7, color: '#9ca3af' },
     },
-    pageMargins: [30, 30, 30, 40] as [number, number, number, number],
+    pageMargins: [30, 30, 30, 50] as [number, number, number, number],
   }
 }
