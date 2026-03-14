@@ -1,34 +1,21 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import {
-  Plus,
-  Pencil,
   Trash2,
   Loader2,
   ChefHat,
+  Plus,
   Building2,
-  MoreHorizontal,
+  FileText,
+  Edit,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,122 +26,88 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
-  useMenuDimensions,
-  useCreateMenuDimension,
-  useDeleteMenuDimension,
-  type MenuDimensionWithOptions,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  useAllMenuForms,
+  useCreateMenuForm,
+  useUpdateMenuForm,
+  useDeleteMenuForm,
+  type MenuFormWithFields,
 } from '@/features/reservations/hooks/use-menu-forms'
 import { useRestaurants } from '@/features/settings/hooks/use-settings'
 
-type MenuOption = { label: string; description?: string }
-
 export function MenusPage() {
-  const { data: dimensions = [], isLoading } = useMenuDimensions()
-  const { data: restaurants = [] } = useRestaurants()
-  const { mutate: createDimension, isPending: isCreating } = useCreateMenuDimension()
-  const { mutate: deleteDimension, isPending: isDeleting } = useDeleteMenuDimension()
+  const navigate = useNavigate()
+  const { data: menuForms = [], isLoading } = useAllMenuForms()
+  const { mutate: deleteMenuForm, isPending: isDeleting } = useDeleteMenuForm()
 
-  const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [selectedDimension, setSelectedDimension] = useState<MenuDimensionWithOptions | null>(null)
+  const [selectedForm, setSelectedForm] = useState<MenuFormWithBooking | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
-  // Form state
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [selectedRestaurants, setSelectedRestaurants] = useState<string[]>([])
-  const [options, setOptions] = useState<MenuOption[]>([])
-  const [newOptionLabel, setNewOptionLabel] = useState('')
-  const [newOptionDesc, setNewOptionDesc] = useState('')
-
-  const resetForm = () => {
-    setName('')
-    setDescription('')
-    setSelectedRestaurants([])
-    setOptions([])
-    setNewOptionLabel('')
-    setNewOptionDesc('')
-    setSelectedDimension(null)
-  }
-
-  const openCreateDialog = () => {
-    resetForm()
-    setDialogOpen(true)
-  }
-
-  const openEditDialog = (dim: MenuDimensionWithOptions) => {
-    setSelectedDimension(dim)
-    setName(dim.name)
-    setDescription(dim.description || '')
-    setSelectedRestaurants(dim.menu_dimension_restaurants?.map(r => r.restaurant_id) || [])
-    setOptions(dim.menu_dimension_options?.map(o => ({ label: o.label, description: o.description || '' })) || [])
-    setDialogOpen(true)
-  }
-
-  const openDeleteDialog = (dim: MenuDimensionWithOptions) => {
-    setSelectedDimension(dim)
+  const openDeleteDialog = (form: MenuFormWithBooking) => {
+    setSelectedForm(form)
     setDeleteDialogOpen(true)
   }
 
-  const addOption = () => {
-    const text = newOptionLabel.trim()
-    if (!text) return
-    setOptions(prev => [...prev, { label: text, description: newOptionDesc.trim() || undefined }])
-    setNewOptionLabel('')
-    setNewOptionDesc('')
-  }
-
-  const removeOption = (idx: number) => {
-    setOptions(prev => prev.filter((_, i) => i !== idx))
-  }
-
-  const handleSubmit = () => {
-    if (!name.trim()) {
-      toast.error('Le nom est requis')
-      return
-    }
-    if (options.length === 0) {
-      toast.error('Ajoutez au moins une option')
-      return
-    }
-    if (selectedRestaurants.length === 0) {
-      toast.error('Sélectionnez au moins un restaurant')
-      return
-    }
-
-    createDimension({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      restaurantIds: selectedRestaurants,
-      options,
-    }, {
-      onSuccess: () => {
-        toast.success('Dimension de menu créée')
-        setDialogOpen(false)
-        resetForm()
-      },
-      onError: () => toast.error('Erreur lors de la création'),
-    })
-  }
-
   const handleDelete = () => {
-    if (!selectedDimension) return
-    deleteDimension(selectedDimension.id, {
+    if (!selectedForm) return
+    deleteMenuForm(selectedForm.id, {
       onSuccess: () => {
-        toast.success('Dimension supprimée')
+        toast.success('Formulaire supprimé')
         setDeleteDialogOpen(false)
-        setSelectedDimension(null)
+        setSelectedForm(null)
       },
       onError: () => toast.error('Erreur lors de la suppression'),
     })
   }
 
-  const toggleRestaurant = (id: string) => {
-    setSelectedRestaurants(prev =>
-      prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]
-    )
+  const copyShareLink = (token: string) => {
+    const url = `${window.location.origin}/menu-form/${token}`
+    navigator.clipboard.writeText(url)
+    toast.success('Lien copié !')
   }
+
+  const goToBooking = (bookingId: string, openMenuTab = false) => {
+    navigate({ 
+      to: '/evenements/booking/$id', 
+      params: { id: bookingId },
+      search: openMenuTab ? { tab: 'menu' } : undefined
+    })
+  }
+
+  const statusMap: Record<string, { label: string; color: string }> = {
+    draft: { label: 'Brouillon', color: 'bg-gray-500' },
+    shared: { label: 'Partagé', color: 'bg-blue-500' },
+    submitted: { label: 'Soumis', color: 'bg-green-500' },
+    locked: { label: 'Verrouillé', color: 'bg-gray-700' },
+  }
+
+  const filteredForms = statusFilter === 'all' 
+    ? menuForms 
+    : menuForms.filter(f => f.status === statusFilter)
 
   if (isLoading) {
     return (
@@ -171,232 +124,229 @@ export function MenusPage() {
         <div>
           <h2 className='text-2xl font-bold tracking-tight'>Formulaires de menu</h2>
           <p className='text-muted-foreground'>
-            Créez des formulaires de menu réutilisables pour vos événements.
+            Tous les formulaires de menu créés pour vos événements.
           </p>
         </div>
-        <Button onClick={openCreateDialog} className='gap-2'>
-          <Plus className='h-4 w-4' />
-          Nouveau formulaire
-        </Button>
+        <div className='flex items-center gap-2'>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className='w-[150px]'>
+              <SelectValue placeholder='Filtrer par statut' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='all'>Tous</SelectItem>
+              <SelectItem value='draft'>Brouillon</SelectItem>
+              <SelectItem value='shared'>Partagé</SelectItem>
+              <SelectItem value='submitted'>Soumis</SelectItem>
+              <SelectItem value='locked'>Verrouillé</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className='grid gap-4 md:grid-cols-4'>
+        <Card>
+          <CardContent className='p-4'>
+            <div className='flex items-center gap-3'>
+              <div className='p-2 bg-muted rounded-lg'>
+                <FileText className='h-5 w-5 text-muted-foreground' />
+              </div>
+              <div>
+                <p className='text-2xl font-bold'>{menuForms.length}</p>
+                <p className='text-xs text-muted-foreground'>Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className='p-4'>
+            <div className='flex items-center gap-3'>
+              <div className='p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg'>
+                <LinkIcon className='h-5 w-5 text-blue-600 dark:text-blue-400' />
+              </div>
+              <div>
+                <p className='text-2xl font-bold'>{menuForms.filter(f => f.status === 'shared').length}</p>
+                <p className='text-xs text-muted-foreground'>Partagés</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className='p-4'>
+            <div className='flex items-center gap-3'>
+              <div className='p-2 bg-green-100 dark:bg-green-900/30 rounded-lg'>
+                <ChefHat className='h-5 w-5 text-green-600 dark:text-green-400' />
+              </div>
+              <div>
+                <p className='text-2xl font-bold'>{menuForms.filter(f => f.status === 'submitted').length}</p>
+                <p className='text-xs text-muted-foreground'>Soumis</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className='p-4'>
+            <div className='flex items-center gap-3'>
+              <div className='p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg'>
+                <Users className='h-5 w-5 text-amber-600 dark:text-amber-400' />
+              </div>
+              <div>
+                <p className='text-2xl font-bold'>{menuForms.reduce((acc, f) => acc + f.guests_count, 0)}</p>
+                <p className='text-xs text-muted-foreground'>Convives total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* List */}
-      {dimensions.length === 0 ? (
+      {filteredForms.length === 0 ? (
         <Card className='border-dashed'>
           <CardContent className='py-12 text-center'>
             <ChefHat className='mx-auto h-12 w-12 text-muted-foreground/40' />
-            <h3 className='mt-4 text-lg font-semibold'>Aucun formulaire de menu</h3>
+            <h3 className='mt-4 text-lg font-semibold'>
+              {statusFilter === 'all' ? 'Aucun formulaire de menu' : `Aucun formulaire "${statusMap[statusFilter]?.label}"`}
+            </h3>
             <p className='mt-2 text-sm text-muted-foreground'>
-              Les formulaires de menu sont des choix prédéfinis (entrées, plats, desserts...) que vous pouvez réutiliser dans vos événements.
+              Les formulaires de menu sont créés depuis la page d'un événement, dans l'onglet "Menu".
             </p>
-            <Button onClick={openCreateDialog} className='mt-4 gap-2'>
-              <Plus className='h-4 w-4' />
-              Créer un formulaire
-            </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-          {dimensions.map(dim => {
-            const optionCount = dim.menu_dimension_options?.length || 0
-            const restaurantCount = dim.menu_dimension_restaurants?.length || 0
-            const restaurantNames = dim.menu_dimension_restaurants
-              ?.map(r => restaurants.find(rest => rest.id === r.restaurant_id)?.name)
-              .filter(Boolean)
-              .slice(0, 2)
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Formulaire</TableHead>
+                <TableHead>Événement</TableHead>
+                <TableHead>Restaurant</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Convives</TableHead>
+                <TableHead>Statut</TableHead>
+                <TableHead className='text-right'>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredForms.map((form) => {
+                const st = statusMap[form.status] || statusMap.draft
+                const booking = form.bookings
+                const contact = booking?.contacts
+                const restaurant = form.restaurants
 
-            return (
-              <Card key={dim.id} className='hover:shadow-md transition-shadow'>
-                <CardHeader className='pb-3'>
-                  <div className='flex items-start justify-between'>
-                    <div className='space-y-1'>
-                      <CardTitle className='text-base flex items-center gap-2'>
-                        <ChefHat className='h-4 w-4 text-muted-foreground' />
-                        {dim.name}
-                      </CardTitle>
-                      {dim.description && (
-                        <CardDescription className='text-xs line-clamp-2'>
-                          {dim.description}
-                        </CardDescription>
-                      )}
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
-                          <MoreHorizontal className='h-4 w-4' />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align='end'>
-                        <DropdownMenuItem onClick={() => openEditDialog(dim)}>
-                          <Pencil className='h-3.5 w-3.5 mr-2' />
-                          Modifier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className='text-destructive focus:text-destructive'
-                          onClick={() => openDeleteDialog(dim)}
-                        >
-                          <Trash2 className='h-3.5 w-3.5 mr-2' />
-                          Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent className='space-y-3'>
-                  {/* Options preview */}
-                  <div className='flex flex-wrap gap-1'>
-                    {dim.menu_dimension_options?.slice(0, 4).map((opt, i) => (
-                      <Badge key={i} variant='secondary' className='text-xs'>
-                        {opt.label}
-                      </Badge>
-                    ))}
-                    {optionCount > 4 && (
-                      <Badge variant='outline' className='text-xs'>
-                        +{optionCount - 4}
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Restaurants */}
-                  <div className='flex items-center gap-1 text-xs text-muted-foreground'>
-                    <Building2 className='h-3 w-3' />
-                    {restaurantNames?.join(', ')}
-                    {restaurantCount > 2 && ` +${restaurantCount - 2}`}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
-          <DialogHeader>
-            <DialogTitle>
-              {selectedDimension ? 'Modifier le formulaire' : 'Nouveau formulaire de menu'}
-            </DialogTitle>
-            <DialogDescription>
-              Un formulaire de menu regroupe des options de choix (ex: "Entrées" avec plusieurs plats) réutilisables dans vos événements.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className='space-y-6 py-4'>
-            {/* Name & Description */}
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <div className='space-y-2'>
-                <Label>Nom *</Label>
-                <Input
-                  placeholder='Ex: Entrées, Plats, Desserts...'
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label>Description</Label>
-                <Input
-                  placeholder='Description optionnelle...'
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Restaurants */}
-            <div className='space-y-2'>
-              <Label>Restaurants *</Label>
-              <p className='text-xs text-muted-foreground'>
-                Sélectionnez les restaurants où ce formulaire sera disponible.
-              </p>
-              <div className='grid gap-2 sm:grid-cols-2 mt-2'>
-                {restaurants.map(rest => (
-                  <div
-                    key={rest.id}
-                    className='flex items-center space-x-2 p-2 rounded-md border hover:bg-muted/50 cursor-pointer'
-                    onClick={() => toggleRestaurant(rest.id)}
-                  >
-                    <Checkbox
-                      checked={selectedRestaurants.includes(rest.id)}
-                      onCheckedChange={() => toggleRestaurant(rest.id)}
-                    />
-                    <span className='text-sm'>{rest.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Options */}
-            <div className='space-y-3'>
-              <Label>Options de choix *</Label>
-              <p className='text-xs text-muted-foreground'>
-                Ajoutez les différentes options que le client pourra choisir.
-              </p>
-
-              {/* Existing options */}
-              {options.length > 0 && (
-                <div className='space-y-2'>
-                  {options.map((opt, idx) => (
-                    <div key={idx} className='flex items-start gap-2 p-2 bg-muted/30 rounded-md'>
-                      <div className='flex-1'>
-                        <div className='font-medium text-sm'>{opt.label}</div>
-                        {opt.description && (
-                          <div className='text-xs text-muted-foreground'>{opt.description}</div>
-                        )}
+                return (
+                  <TableRow key={form.id}>
+                    <TableCell>
+                      <div className='space-y-1'>
+                        <div className='font-medium'>{form.title}</div>
+                        <div className='text-xs text-muted-foreground'>
+                          {form.menu_form_fields?.length || 0} champ{(form.menu_form_fields?.length || 0) > 1 ? 's' : ''}
+                        </div>
                       </div>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        className='h-7 w-7 p-0 text-destructive hover:text-destructive'
-                        onClick={() => removeOption(idx)}
-                      >
-                        <Trash2 className='h-3.5 w-3.5' />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add new option */}
-              <div className='space-y-2 p-3 border rounded-md'>
-                <Input
-                  placeholder="Nom de l'option..."
-                  value={newOptionLabel}
-                  onChange={e => setNewOptionLabel(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption() } }}
-                />
-                <Textarea
-                  placeholder='Description (optionnelle)...'
-                  value={newOptionDesc}
-                  onChange={e => setNewOptionDesc(e.target.value)}
-                  className='min-h-[60px]'
-                />
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  className='gap-1'
-                  onClick={addOption}
-                  disabled={!newOptionLabel.trim()}
-                >
-                  <Plus className='h-3 w-3' />
-                  Ajouter l'option
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant='outline' onClick={() => setDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button onClick={handleSubmit} disabled={isCreating}>
-              {isCreating && <Loader2 className='h-4 w-4 mr-2 animate-spin' />}
-              {selectedDimension ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                    </TableCell>
+                    <TableCell>
+                      {booking && contact ? (
+                        <button
+                          onClick={() => goToBooking(booking.id)}
+                          className='text-left hover:underline'
+                        >
+                          <div className='font-medium text-sm'>
+                            {contact.first_name} {contact.last_name}
+                          </div>
+                          {booking.occasion && (
+                            <div className='text-xs text-muted-foreground'>{booking.occasion}</div>
+                          )}
+                        </button>
+                      ) : (
+                        <span className='text-muted-foreground text-sm'>—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {restaurant ? (
+                        <div className='flex items-center gap-1 text-sm'>
+                          <Building2 className='h-3 w-3 text-muted-foreground' />
+                          {restaurant.name}
+                        </div>
+                      ) : (
+                        <span className='text-muted-foreground text-sm'>—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {booking?.event_date ? (
+                        <div className='flex items-center gap-1 text-sm'>
+                          <Calendar className='h-3 w-3 text-muted-foreground' />
+                          {format(new Date(booking.event_date), 'dd MMM yyyy', { locale: fr })}
+                        </div>
+                      ) : (
+                        <span className='text-muted-foreground text-sm'>—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className='flex items-center gap-1 text-sm'>
+                        <Users className='h-3 w-3 text-muted-foreground' />
+                        {form.guests_count}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`${st.color} text-white text-[10px]`}>{st.label}</Badge>
+                      {form.submitted_at && (
+                        <div className='text-[10px] text-muted-foreground mt-1'>
+                          {format(new Date(form.submitted_at), 'dd/MM/yyyy', { locale: fr })}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className='text-right'>
+                      <div className='flex items-center justify-end gap-1'>
+                        {booking && (
+                          <>
+                            <Button
+                              variant='ghost'
+                              size='sm'
+                              className='h-8 w-8 p-0'
+                              title='Éditer le formulaire'
+                              onClick={() => goToBooking(booking.id, true)}
+                            >
+                              <Edit className='h-4 w-4' />
+                            </Button>
+                            <Button
+                              variant='ghost'
+                              size='sm'
+                              className='h-8 w-8 p-0'
+                              title="Voir l'événement"
+                              onClick={() => goToBooking(booking.id)}
+                            >
+                              <Eye className='h-4 w-4' />
+                            </Button>
+                          </>
+                        )}
+                        {form.share_token && (form.status === 'shared' || form.status === 'submitted') && (
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            className='h-8 w-8 p-0'
+                            title='Copier le lien'
+                            onClick={() => copyShareLink(form.share_token!)}
+                          >
+                            <ExternalLink className='h-4 w-4' />
+                          </Button>
+                        )}
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          className='h-8 w-8 p-0 text-destructive hover:text-destructive'
+                          title='Supprimer'
+                          onClick={() => openDeleteDialog(form as MenuFormWithBooking)}
+                        >
+                          <Trash2 className='h-4 w-4' />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -404,7 +354,7 @@ export function MenusPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce formulaire ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le formulaire "{selectedDimension?.name}" et toutes ses options seront supprimés.
+              Le formulaire "{selectedForm?.title}" et toutes ses réponses seront supprimés.
               Cette action est irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>

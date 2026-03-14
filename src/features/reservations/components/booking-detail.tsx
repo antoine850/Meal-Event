@@ -95,7 +95,8 @@ import {
 } from '../hooks/use-documents'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
-import { useMenuFormsByBooking, useCreateMenuForm, useDeleteMenuForm, useMenuDimensionsByRestaurant } from '../hooks/use-menu-forms'
+import { useMenuFormsByBooking, useCreateMenuForm, useDeleteMenuForm } from '../hooks/use-menu-forms'
+import { useActivityLogs, useLogActivity, createActivityLogger, ACTION_ICONS, type ActivityActionType } from '../hooks/use-activity-logs'
 import { QuoteEditor } from './quote-editor'
 import { MenuFormBuilder } from './menu-form-builder'
 import { PaymentDialog } from './payment-dialog'
@@ -161,11 +162,14 @@ export const BookingDetail = forwardRef<
   const { data: menuForms = [] } = useMenuFormsByBooking(booking.id)
   const { mutate: createMenuForm, isPending: isCreatingMenuForm } = useCreateMenuForm()
   const { mutate: deleteMenuForm } = useDeleteMenuForm()
-  const { data: availableMenuDimensions = [] } = useMenuDimensionsByRestaurant(booking.restaurant_id)
   const [menuFormBuilderOpen, setMenuFormBuilderOpen] = useState(false)
   const [editingMenuFormId, setEditingMenuFormId] = useState<string | null>(null)
   const [showMenuFormSourceDialog, setShowMenuFormSourceDialog] = useState(false)
 
+  // Activity logs
+  const { data: activityLogs = [], isLoading: isLoadingLogs } = useActivityLogs(booking.id)
+  const { mutate: logActivity } = useLogActivity()
+  const activityLogger = createActivityLogger(logActivity)
 
   const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
 
@@ -294,6 +298,16 @@ export const BookingDetail = forwardRef<
       return
     }
 
+    // Detect status change for logging
+    const oldStatusId = booking.status_id
+    const newStatusId = data.status_id || null
+    const statusChanged = oldStatusId !== newStatusId
+
+    // Detect assignment change for logging
+    const oldAssignedTo = booking.assigned_to
+    const newAssignedTo = data.assigned_to || null
+    const assignmentChanged = oldAssignedTo !== newAssignedTo
+
     const updateData = {
       id: booking.id,
       contact_id: data.contact_id,
@@ -315,6 +329,38 @@ export const BookingDetail = forwardRef<
         form.reset(data, { keepValues: true })
         // Mark current eventForm as the new baseline
         initialEventFormRef.current = { ...eventForm }
+
+        // Log status change
+        if (statusChanged) {
+          const oldStatusName = statuses.find(s => s.id === oldStatusId)?.name || 'Non défini'
+          const newStatusName = statuses.find(s => s.id === newStatusId)?.name || 'Non défini'
+          activityLogger.bookingStatusChanged(booking.id, oldStatusName, newStatusName)
+        }
+        // Log assignment change
+        else if (assignmentChanged) {
+          const newUserName = users.find(u => u.id === newAssignedTo)?.first_name || null
+          activityLogger.bookingAssigned(booking.id, newUserName)
+        }
+        // Log general update if no specific change detected
+        else {
+          // Build changes object for detailed logging (skip if both values are empty/null)
+          const changes: Record<string, { old: unknown; new: unknown }> = {}
+          if (booking.guests_count !== eventForm.guests_count) {
+            changes['Convives'] = { old: booking.guests_count, new: eventForm.guests_count }
+          }
+          if (booking.event_date !== eventForm.event_date) {
+            changes['Date'] = { old: booking.event_date, new: eventForm.event_date }
+          }
+          // Only log occasion if there's an actual change (not empty to empty)
+          const oldOccasion = booking.occasion || ''
+          const newOccasion = data.occasion || ''
+          if (oldOccasion !== newOccasion && (oldOccasion || newOccasion)) {
+            changes['Occasion'] = { old: oldOccasion || null, new: newOccasion || null }
+          }
+          if (Object.keys(changes).length > 0) {
+            activityLogger.bookingUpdated(booking.id, changes)
+          }
+        }
       },
       onError: () => toast.error('Erreur lors de la mise à jour'),
     })
@@ -1008,7 +1054,10 @@ export const BookingDetail = forwardRef<
                                   disabled={isPrimary || isSettingPrimary}
                                   onClick={() => {
                                     setPrimaryQuote({ quoteId: quote.id, bookingId: booking.id }, {
-                                      onSuccess: () => toast.success('Devis défini comme actif'),
+                                      onSuccess: () => {
+                                        toast.success('Devis défini comme actif')
+                                        activityLogger.quoteSetPrimary(booking.id, quote.id, quote.title || undefined)
+                                      },
                                       onError: () => toast.error('Impossible de définir le devis actif'),
                                     })
                                   }}
@@ -1069,7 +1118,10 @@ export const BookingDetail = forwardRef<
                                         sendQuoteEmail(
                                           { quoteId: quote.id, bookingId: booking.id },
                                           {
-                                            onSuccess: () => toast.success('Devis envoyé par email'),
+                                            onSuccess: () => {
+                                              toast.success('Devis envoyé par email')
+                                              activityLogger.quoteEmailSent(booking.id, quote.id, fullContact?.email || undefined)
+                                            },
                                             onError: (err) => toast.error(`Erreur: ${err.message}`),
                                           }
                                         )
@@ -1086,7 +1138,10 @@ export const BookingDetail = forwardRef<
                                           sendSignature(
                                             { quoteId: quote.id, bookingId: booking.id },
                                             {
-                                              onSuccess: () => toast.success('Lien de signature envoyé'),
+                                              onSuccess: () => {
+                                                toast.success('Lien de signature envoyé')
+                                                activityLogger.quoteSignatureSent(booking.id, quote.id)
+                                              },
                                               onError: (err) => toast.error(`Erreur: ${err.message}`),
                                             }
                                           )
@@ -1108,7 +1163,10 @@ export const BookingDetail = forwardRef<
                                           sendDeposit(
                                             { quoteId: quote.id, bookingId: booking.id },
                                             {
-                                              onSuccess: () => toast.success('Facture d\'acompte envoyée avec lien de paiement'),
+                                              onSuccess: () => {
+                                                toast.success('Facture d\'acompte envoyée avec lien de paiement')
+                                                activityLogger.paymentDepositSent(booking.id, quote.id, (quote as any).deposit_amount || 0)
+                                              },
                                               onError: (err) => toast.error(`Erreur: ${err.message}`),
                                             }
                                           )
@@ -1131,7 +1189,10 @@ export const BookingDetail = forwardRef<
                                           sendBalance(
                                             { quoteId: quote.id, bookingId: booking.id },
                                             {
-                                              onSuccess: () => toast.success('Facture de solde envoyée'),
+                                              onSuccess: () => {
+                                                toast.success('Facture de solde envoyée')
+                                                activityLogger.paymentBalanceSent(booking.id, quote.id, quote.total_ttc - ((quote as any).deposit_amount || 0))
+                                              },
                                               onError: (err) => toast.error(`Erreur: ${err.message}`),
                                             }
                                           )
@@ -1549,84 +1610,41 @@ export const BookingDetail = forwardRef<
                   restaurantId={booking.restaurant_id}
                 />
 
-                {/* Menu Form Source Selection Dialog */}
+                {/* Menu Form Source Selection Dialog - simplified to just create empty form */}
                 <Dialog open={showMenuFormSourceDialog} onOpenChange={setShowMenuFormSourceDialog}>
                   <DialogContent className='max-w-md'>
                     <DialogHeader>
                       <DialogTitle>Nouveau formulaire de menu</DialogTitle>
                       <DialogDescription>
-                        Choisissez un formulaire existant comme modèle ou créez un formulaire vide.
+                        Créez un formulaire pour permettre au client de choisir ses menus.
                       </DialogDescription>
                     </DialogHeader>
                     <div className='space-y-4 py-4'>
-                      {/* Existing dimensions */}
-                      {availableMenuDimensions.length > 0 && (
-                        <div className='space-y-2'>
-                          <Label className='text-sm font-medium'>Formulaires disponibles</Label>
-                          <div className='space-y-2'>
-                            {availableMenuDimensions.map(dim => (
-                              <Button
-                                key={dim.id}
-                                variant='outline'
-                                className='w-full justify-start h-auto py-3 px-4'
-                                onClick={() => {
-                                  createMenuForm({
-                                    bookingId: booking.id,
-                                    guestsCount: booking.guests_count || 1,
-                                    title: dim.name,
-                                  }, {
-                                    onSuccess: (form) => {
-                                      setEditingMenuFormId(form.id)
-                                      setMenuFormBuilderOpen(true)
-                                      setShowMenuFormSourceDialog(false)
-                                      toast.success(`Formulaire créé depuis "${dim.name}"`)
-                                    },
-                                    onError: () => toast.error('Erreur lors de la création'),
-                                  })
-                                }}
-                                disabled={isCreatingMenuForm}
-                              >
-                                <div className='flex-1 text-left'>
-                                  <div className='font-medium'>{dim.name}</div>
-                                  {dim.description && (
-                                    <div className='text-xs text-muted-foreground mt-0.5'>{dim.description}</div>
-                                  )}
-                                  <div className='text-xs text-muted-foreground mt-1'>
-                                    {dim.menu_dimension_options?.length || 0} option(s)
-                                  </div>
-                                </div>
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Manual creation */}
-                      <div className='space-y-2'>
-                        <Label className='text-sm font-medium'>Ou créer un formulaire vide</Label>
-                        <Button
-                          variant='outline'
-                          className='w-full'
-                          onClick={() => {
-                            createMenuForm({
-                              bookingId: booking.id,
-                              guestsCount: booking.guests_count || 1,
-                            }, {
-                              onSuccess: (form) => {
-                                setEditingMenuFormId(form.id)
-                                setMenuFormBuilderOpen(true)
-                                setShowMenuFormSourceDialog(false)
-                                toast.success('Formulaire créé')
-                              },
-                              onError: () => toast.error('Erreur lors de la création'),
-                            })
-                          }}
-                          disabled={isCreatingMenuForm}
-                        >
-                          {isCreatingMenuForm ? <Loader2 className='h-4 w-4 mr-2 animate-spin' /> : <Plus className='h-4 w-4 mr-2' />}
-                          Créer un formulaire vide
-                        </Button>
-                      </div>
+                      <p className='text-sm text-muted-foreground'>
+                        Le formulaire sera créé avec {booking.guests_count || 1} convive{(booking.guests_count || 1) > 1 ? 's' : ''}.
+                        Vous pourrez ensuite ajouter les champs de choix (entrées, plats, desserts, etc.).
+                      </p>
+                      <Button
+                        className='w-full'
+                        onClick={() => {
+                          createMenuForm({
+                            bookingId: booking.id,
+                            guestsCount: booking.guests_count || 1,
+                          }, {
+                            onSuccess: (form) => {
+                              setEditingMenuFormId(form.id)
+                              setMenuFormBuilderOpen(true)
+                              setShowMenuFormSourceDialog(false)
+                              toast.success('Formulaire créé')
+                            },
+                            onError: () => toast.error('Erreur lors de la création'),
+                          })
+                        }}
+                        disabled={isCreatingMenuForm}
+                      >
+                        {isCreatingMenuForm ? <Loader2 className='h-4 w-4 mr-2 animate-spin' /> : <Plus className='h-4 w-4 mr-2' />}
+                        Créer le formulaire
+                      </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -1635,13 +1653,117 @@ export const BookingDetail = forwardRef<
 
             {/* ── Tab: Historique ── */}
             {activeTab === 'historique' && (
-              <div>
-                <Card>
-                  <CardContent className='py-8 text-center text-muted-foreground'>
-                    <History className='mx-auto h-8 w-8 mb-2 opacity-50' />
-                    {"L'historique sera disponible prochainement."}
-                  </CardContent>
-                </Card>
+              <div className='space-y-4'>
+                <div className='flex items-center justify-between'>
+                  <h3 className='text-lg font-semibold'>Historique des actions</h3>
+                  <Badge variant='secondary'>{activityLogs.length} action{activityLogs.length > 1 ? 's' : ''}</Badge>
+                </div>
+
+                {isLoadingLogs ? (
+                  <Card>
+                    <CardContent className='py-8 flex items-center justify-center'>
+                      <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
+                    </CardContent>
+                  </Card>
+                ) : activityLogs.length === 0 ? (
+                  <Card>
+                    <CardContent className='py-8 text-center text-muted-foreground'>
+                      <History className='mx-auto h-8 w-8 mb-2 opacity-50' />
+                      <p className='text-sm'>Aucune action enregistrée.</p>
+                      <p className='text-xs mt-1'>Les actions sur cet événement apparaîtront ici.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className='py-4'>
+                      <div className='relative'>
+                        {/* Timeline line */}
+                        <div className='absolute left-4 top-0 bottom-0 w-px bg-border' />
+                        
+                        {/* Timeline items */}
+                        <div className='space-y-4'>
+                          {activityLogs.map((log, index) => {
+                            const iconName = ACTION_ICONS[log.action_type as ActivityActionType] || 'Circle'
+                            const isFirst = index === 0
+                            
+                            // Determine icon color based on action type
+                            let iconColorClass = 'bg-muted text-muted-foreground'
+                            if (log.action_type.includes('created')) iconColorClass = 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                            else if (log.action_type.includes('deleted')) iconColorClass = 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                            else if (log.action_type.includes('sent') || log.action_type.includes('email')) iconColorClass = 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                            else if (log.action_type.includes('signed') || log.action_type.includes('received')) iconColorClass = 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                            else if (log.action_type.includes('updated') || log.action_type.includes('changed')) iconColorClass = 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+
+                            return (
+                              <div key={log.id} className='relative pl-10'>
+                                {/* Icon */}
+                                <div className={`absolute left-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColorClass} ${isFirst ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+                                  {iconName === 'Plus' && <Plus className='h-4 w-4' />}
+                                  {iconName === 'Edit' && <Edit className='h-4 w-4' />}
+                                  {iconName === 'Trash2' && <TrashIcon className='h-4 w-4' />}
+                                  {iconName === 'Mail' && <Mail className='h-4 w-4' />}
+                                  {iconName === 'Send' && <Send className='h-4 w-4' />}
+                                  {iconName === 'FileText' && <FileText className='h-4 w-4' />}
+                                  {iconName === 'FileSignature' && <FileSignature className='h-4 w-4' />}
+                                  {iconName === 'CheckCircle' && <CheckCircle className='h-4 w-4' />}
+                                  {iconName === 'CreditCard' && <CreditCard className='h-4 w-4' />}
+                                  {iconName === 'History' && <History className='h-4 w-4' />}
+                                  {!['Plus', 'Edit', 'Trash2', 'Mail', 'Send', 'FileText', 'FileSignature', 'CheckCircle', 'CreditCard', 'History'].includes(iconName) && <History className='h-4 w-4' />}
+                                </div>
+                                
+                                {/* Content */}
+                                <div className='min-h-[2rem] pb-2'>
+                                  <p className='text-sm font-medium leading-tight'>{log.action_label}</p>
+                                  <div className='flex items-center gap-2 mt-1 text-xs text-muted-foreground'>
+                                    <span>
+                                      {log.actor_type === 'user' && log.actor_name ? `par ${log.actor_name}` : 
+                                       log.actor_type === 'client' ? 'par le client' :
+                                       log.actor_type === 'webhook' ? `via ${log.actor_name || 'webhook'}` :
+                                       log.actor_type === 'system' ? 'automatique' : ''}
+                                    </span>
+                                    <span>·</span>
+                                    <span>{formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: fr })}</span>
+                                  </div>
+                                  
+                                  {/* Show metadata details if available */}
+                                  {log.metadata && typeof log.metadata === 'object' && Object.keys(log.metadata as object).length > 0 && (log.metadata as Record<string, unknown>).changes && (
+                                    <div className='mt-2 text-xs bg-muted/50 rounded p-2'>
+                                      <div className='space-y-1'>
+                                        {Object.entries((log.metadata as Record<string, unknown>).changes as Record<string, { old: unknown; new: unknown }>)
+                                          .filter(([, change]) => {
+                                            // Skip if both old and new are empty/null
+                                            const oldVal = change.old === null || change.old === undefined || change.old === '' ? null : change.old
+                                            const newVal = change.new === null || change.new === undefined || change.new === '' ? null : change.new
+                                            return oldVal !== null || newVal !== null
+                                          })
+                                          .slice(0, 3)
+                                          .map(([field, change]) => {
+                                            const oldDisplay = change.old === null || change.old === undefined || change.old === '' ? '(vide)' : String(change.old)
+                                            const newDisplay = change.new === null || change.new === undefined || change.new === '' ? '(vide)' : String(change.new)
+                                            return (
+                                              <div key={field} className='flex items-center gap-1 flex-wrap'>
+                                                <span className='text-muted-foreground'>{field}:</span>
+                                                <span className='line-through text-muted-foreground'>{oldDisplay}</span>
+                                                <span>→</span>
+                                                <span className='font-medium'>{newDisplay}</span>
+                                              </div>
+                                            )
+                                          })}
+                                        {Object.keys((log.metadata as Record<string, unknown>).changes as object).length > 3 && (
+                                          <span className='text-muted-foreground'>+{Object.keys((log.metadata as Record<string, unknown>).changes as object).length - 3} autres modifications</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
           </div>

@@ -1289,8 +1289,9 @@ export interface Database {
       menu_forms: {
         Row: {
           id: string
-          booking_id: string
+          booking_id: string | null
           organization_id: string | null
+          restaurant_id: string | null
           title: string
           description: string | null
           guests_count: number
@@ -1303,8 +1304,9 @@ export interface Database {
         }
         Insert: {
           id?: string
-          booking_id: string
+          booking_id?: string | null
           organization_id?: string | null
+          restaurant_id?: string | null
           title?: string
           description?: string | null
           guests_count?: number
@@ -1317,10 +1319,49 @@ export interface Database {
         }
         Update: {
           id?: string
-          booking_id?: string
+          booking_id?: string | null
           organization_id?: string | null
+          restaurant_id?: string | null
           title?: string
           description?: string | null
+          guests_count?: number
+          status?: string
+          share_token?: string | null
+          client_comment?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      booking_menu_forms: {
+        Row: {
+          id: string
+          booking_id: string
+          menu_form_id: string
+          guests_count: number
+          status: string
+          share_token: string | null
+          client_comment: string | null
+          submitted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id: string
+          menu_form_id: string
+          guests_count?: number
+          status?: string
+          share_token?: string | null
+          client_comment?: string | null
+          submitted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string
+          menu_form_id?: string
           guests_count?: number
           status?: string
           share_token?: string | null
@@ -1469,6 +1510,50 @@ export interface Database {
           updated_at?: string
         }
       }
+      activity_logs: {
+        Row: {
+          id: string
+          organization_id: string
+          booking_id: string
+          action_type: string
+          action_label: string
+          actor_type: string
+          actor_id: string | null
+          actor_name: string | null
+          entity_type: string | null
+          entity_id: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          booking_id: string
+          action_type: string
+          action_label: string
+          actor_type?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          entity_type?: string | null
+          entity_id?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          booking_id?: string
+          action_type?: string
+          action_label?: string
+          actor_type?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          entity_type?: string | null
+          entity_id?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -1515,9 +1600,8 @@ export type Settings = Tables<'settings'>
 export type MenuForm = Tables<'menu_forms'>
 export type MenuFormField = Tables<'menu_form_fields'>
 export type MenuFormResponse = Tables<'menu_form_responses'>
-export type MenuDimension = Tables<'menu_dimensions'>
-export type MenuDimensionRestaurant = Tables<'menu_dimension_restaurants'>
-export type MenuDimensionOption = Tables<'menu_dimension_options'>
+export type BookingMenuForm = Tables<'booking_menu_forms'>
+export type ActivityLog = Tables<'activity_logs'>
 
 // Extended types with relations
 export type ContactWithRelations = Contact & {
