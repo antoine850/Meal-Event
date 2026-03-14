@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import type { Quote, Payment } from '@/lib/supabase/types'
 
 export type BookingWithRelations = {
@@ -60,19 +61,6 @@ export type BookingWithRelations = {
   assigned_user?: { id: string; first_name: string; last_name: string } | null
 }
 
-async function getCurrentOrganizationId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data } = await supabase
-    .from('users')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  return (data as { organization_id: string } | null)?.organization_id || null
-}
-
 export function useBookings() {
   return useQuery({
     queryKey: ['bookings'],
@@ -131,6 +119,9 @@ export function useBookingsByContact(contactId: string | null | undefined) {
     queryFn: async () => {
       if (!contactId) return []
 
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
       const { data, error } = await supabase
         .from('bookings')
         .select(`
@@ -140,6 +131,7 @@ export function useBookingsByContact(contactId: string | null | undefined) {
           assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('contact_id', contactId)
+        .eq('organization_id', orgId)
         .order('event_date', { ascending: false })
 
       if (error) throw error

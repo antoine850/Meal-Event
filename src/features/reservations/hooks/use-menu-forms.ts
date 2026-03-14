@@ -1,19 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import type { MenuForm, MenuFormField, MenuFormResponse, BookingMenuForm } from '@/lib/supabase/types'
-
-async function getCurrentOrganizationId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data } = await supabase
-    .from('users')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  return (data as { organization_id: string } | null)?.organization_id || null
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -315,7 +303,7 @@ export function useBookingMenuFormByToken(token: string | null) {
           guests_count,
           occasion,
           event_type,
-          contacts(first_name, last_name, email, phone)
+          contact:contacts(first_name, last_name, email, phone)
         `)
         .eq('id', bmfData.booking_id)
         .single()

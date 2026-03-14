@@ -1,21 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { apiClient } from '@/lib/api-client'
+import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import type { Quote, QuoteItem } from '@/lib/supabase/types'
 import type { ProductWithRestaurants } from '@/features/settings/hooks/use-products'
-
-async function getCurrentOrganizationId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data } = await supabase
-    .from('users')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  return (data as { organization_id: string } | null)?.organization_id || null
-}
 
 // Set one quote as primary for a booking (single active quote)
 export function useSetPrimaryQuote() {
@@ -786,24 +774,39 @@ async function recalculateQuoteTotals(quoteId: string) {
 
   if (!items) return
 
+  // Only include product items — extras are added separately in balance calculations
+  const productItems = (items as any[]).filter((item: any) => item.item_type !== 'extra')
+
   let totalHt = 0
   let totalTva = 0
 
-  for (const item of items as any[]) {
+  for (const item of productItems) {
     const itemHt = (item.quantity || 0) * (item.unit_price || 0) - (item.discount_amount || 0)
     const itemTva = itemHt * ((item.tva_rate || 0) / 100)
     totalHt += itemHt
     totalTva += itemTva
   }
 
-  const totalTtc = totalHt + totalTva
+  // Apply discount_percentage
+  const { data: quote } = await supabase
+    .from('quotes')
+    .select('discount_percentage')
+    .eq('id', quoteId)
+    .single()
+
+  const discountPct = (quote as any)?.discount_percentage || 0
+  const discountMultiplier = discountPct > 0 ? (1 - discountPct / 100) : 1
+
+  const finalHt = Math.round(totalHt * discountMultiplier * 100) / 100
+  const finalTva = Math.round(totalTva * discountMultiplier * 100) / 100
+  const finalTtc = Math.round((finalHt + finalTva) * 100) / 100
 
   await supabase
     .from('quotes')
     .update({
-      total_ht: Math.round(totalHt * 100) / 100,
-      total_tva: Math.round(totalTva * 100) / 100,
-      total_ttc: Math.round(totalTtc * 100) / 100,
+      total_ht: finalHt,
+      total_tva: finalTva,
+      total_ttc: finalTtc,
     } as never)
     .eq('id', quoteId)
 }

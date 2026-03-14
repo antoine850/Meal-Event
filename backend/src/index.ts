@@ -3,6 +3,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
 
+import { requireAuth } from './lib/auth.js'
 import { organizationsRouter } from './routes/organizations.js'
 import { restaurantsRouter } from './routes/restaurants.js'
 import { contactsRouter } from './routes/contacts.js'
@@ -10,6 +11,7 @@ import { bookingsRouter } from './routes/bookings.js'
 import { quotesRouter } from './routes/quotes.js'
 import { paymentsRouter } from './routes/payments.js'
 import { webhooksRouter } from './routes/webhooks.js'
+import { membersRouter } from './routes/members.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -38,7 +40,7 @@ app.use(cors({
       return callback(null, true)
     }
     console.warn(`CORS blocked origin: ${origin}`)
-    return callback(null, true) // Allow anyway but log it
+    return callback(new Error(`Origin ${origin} not allowed by CORS`))
   },
   credentials: true,
 }))
@@ -59,14 +61,17 @@ app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// API Routes
-app.use('/api/organizations', organizationsRouter)
-app.use('/api/restaurants', restaurantsRouter)
-app.use('/api/contacts', contactsRouter)
-app.use('/api/bookings', bookingsRouter)
-app.use('/api/quotes', quotesRouter)
-app.use('/api/payments', paymentsRouter)
+// Webhooks (no auth — verified via their own signature mechanisms)
 app.use('/api/webhooks', webhooksRouter)
+
+// All other API routes require authentication
+app.use('/api/organizations', requireAuth, organizationsRouter)
+app.use('/api/restaurants', requireAuth, restaurantsRouter)
+app.use('/api/contacts', requireAuth, contactsRouter)
+app.use('/api/bookings', requireAuth, bookingsRouter)
+app.use('/api/quotes', requireAuth, quotesRouter)
+app.use('/api/payments', requireAuth, paymentsRouter)
+app.use('/api/members', requireAuth, membersRouter)
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

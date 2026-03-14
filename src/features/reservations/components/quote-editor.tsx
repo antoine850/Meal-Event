@@ -338,9 +338,12 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const products = items.filter(item => item.item_type !== 'extra')
   const extras = items.filter(item => item.item_type === 'extra')
 
-  // Calculate totals (products only, not extras)
-  const totalHt = products.reduce((sum, item) => sum + ((item.total_ht as number) || 0), 0)
-  const totalTtc = products.reduce((sum, item) => sum + ((item.total_ttc as number) || 0), 0)
+  // Calculate totals (products only, not extras), applying quote-level discount
+  const rawTotalHt = products.reduce((sum, item) => sum + ((item.total_ht as number) || 0), 0)
+  const rawTotalTtc = products.reduce((sum, item) => sum + ((item.total_ttc as number) || 0), 0)
+  const discountMultiplier = discountPercentage > 0 ? (1 - discountPercentage / 100) : 1
+  const totalHt = rawTotalHt * discountMultiplier
+  const totalTtc = rawTotalTtc * discountMultiplier
   const depositAmount = totalTtc * (depositPercentage / 100)
   const balanceAmount = totalTtc - depositAmount
 
@@ -414,6 +417,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
             } className={
               quoteData?.status === 'quote_signed' ? 'bg-green-100 text-green-800 border-green-200' :
               quoteData?.status === 'deposit_paid' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+              quoteData?.status === 'balance_paid' ? 'bg-purple-100 text-purple-800 border-purple-200' :
               quoteData?.status === 'completed' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
               ''
             }>
@@ -423,6 +427,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                quoteData?.status === 'deposit_sent' ? 'Acompte Envoyé' :
                quoteData?.status === 'deposit_paid' ? 'Paiement Reçu' :
                quoteData?.status === 'balance_sent' ? 'Solde Envoyé' :
+               quoteData?.status === 'balance_paid' ? 'Solde Payé' :
                quoteData?.status === 'completed' ? 'Terminé' :
                quoteData?.status || 'Brouillon'}
             </Badge>

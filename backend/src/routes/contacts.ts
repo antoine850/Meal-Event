@@ -3,6 +3,35 @@ import { supabase } from '../lib/supabase.js'
 
 export const contactsRouter = Router()
 
+// GET /api/contacts/stats/pipeline — MUST be before /:id to avoid matching "stats" as an id
+contactsRouter.get('/stats/pipeline', async (req: Request, res: Response) => {
+  try {
+    const organizationId = req.query.organization_id as string
+
+    if (!organizationId) {
+      return res.status(400).json({ error: 'organization_id is required' })
+    }
+
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('status_id, statuses!inner(name, slug, color, position)')
+      .eq('organization_id', organizationId)
+
+    if (error) throw error
+
+    const stats = data.reduce((acc: Record<string, number>, contact) => {
+      const statusId = contact.status_id || 'no_status'
+      acc[statusId] = (acc[statusId] || 0) + 1
+      return acc
+    }, {})
+
+    res.json(stats)
+  } catch (error) {
+    console.error('Error fetching contact stats:', error)
+    res.status(500).json({ error: 'Failed to fetch contact stats' })
+  }
+})
+
 // GET /api/contacts
 contactsRouter.get('/', async (req: Request, res: Response) => {
   try {
@@ -113,28 +142,3 @@ contactsRouter.delete('/:id', async (req: Request, res: Response) => {
   }
 })
 
-// GET /api/contacts/stats - Get contact statistics
-contactsRouter.get('/stats/pipeline', async (req: Request, res: Response) => {
-  try {
-    const organizationId = req.query.organization_id as string
-
-    const { data, error } = await supabase
-      .from('contacts')
-      .select('status_id, statuses!inner(name, slug, color, position)')
-      .eq('organization_id', organizationId)
-
-    if (error) throw error
-
-    // Group by status
-    const stats = data.reduce((acc: Record<string, number>, contact) => {
-      const statusId = contact.status_id || 'no_status'
-      acc[statusId] = (acc[statusId] || 0) + 1
-      return acc
-    }, {})
-
-    res.json(stats)
-  } catch (error) {
-    console.error('Error fetching contact stats:', error)
-    res.status(500).json({ error: 'Failed to fetch contact stats' })
-  }
-})

@@ -266,8 +266,8 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
   return data as unknown as QuoteData
 }
 
-export async function generateQuotePdf(quoteId: string, documentType: DocumentType): Promise<Buffer> {
-  const quote = await fetchQuoteFullData(quoteId)
+export async function generateQuotePdf(quoteId: string, documentType: DocumentType, prefetchedData?: QuoteData): Promise<Buffer> {
+  const quote = prefetchedData || await fetchQuoteFullData(quoteId)
   const booking = quote.booking
   const restaurant = booking?.restaurant ?? null
   const contact = booking?.contact ?? null
@@ -622,10 +622,10 @@ function buildDocDefinition(
       margin: [0, 0, 0, 15] as [number, number, number, number],
     })
   } else if (documentType === 'acompte') {
-    const depositHt = quote.total_ht * (quote.deposit_percentage / 100)
-    const avgTvaRate = quote.total_ht > 0 ? ((quote.total_ttc - quote.total_ht) / quote.total_ht) * 100 : 20
-    const depositTva = depositHt * (avgTvaRate / 100)
-    const depositTtc = depositHt + depositTva
+    // Direct TTC calculation (consistent with send-deposit route)
+    const depositTtc = Math.round(quote.total_ttc * (quote.deposit_percentage / 100) * 100) / 100
+    const depositHt = Math.round(quote.total_ht * (quote.deposit_percentage / 100) * 100) / 100
+    const depositTva = Math.round((depositTtc - depositHt) * 100) / 100
 
     content.push({
       columns: [
@@ -654,14 +654,12 @@ function buildDocDefinition(
       margin: [0, 0, 0, 15] as [number, number, number, number],
     })
   } else {
-    // Solde
-    const depositHt = quote.total_ht * (quote.deposit_percentage / 100)
-    const avgTvaRate = quote.total_ht > 0 ? ((quote.total_ttc - quote.total_ht) / quote.total_ht) * 100 : 20
-    const depositTtc = depositHt + depositHt * (avgTvaRate / 100)
+    // Solde — use direct TTC calculation (consistent with send-balance route)
+    const depositTtc = Math.round(quote.total_ttc * (quote.deposit_percentage / 100) * 100) / 100
     const extrasHt = extras.reduce((sum, e) => sum + (e.total_ht || 0), 0)
     const extrasTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
     const totalWithExtrasTtc = quote.total_ttc + extrasTtc
-    const balanceTtc = totalWithExtrasTtc - depositTtc
+    const balanceTtc = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
 
     content.push({
       columns: [

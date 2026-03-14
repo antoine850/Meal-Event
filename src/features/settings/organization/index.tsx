@@ -27,6 +27,7 @@ const organizationSchema = z.object({
   website: z.string().optional(),
   siret: z.string().optional(),
   tva_number: z.string().optional(),
+  facturation_email: z.string().email('Email invalide').optional().or(z.literal('')),
 })
 
 type OrganizationFormData = z.infer<typeof organizationSchema>
@@ -46,6 +47,7 @@ export function OrganizationSettings() {
       website: organization?.website || '',
       siret: organization?.siret || '',
       tva_number: organization?.tva_number || '',
+      facturation_email: organization?.facturation_email || '',
     },
   })
 
@@ -140,6 +142,20 @@ export function OrganizationSettings() {
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name='facturation_email'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email de facturation (reply-to)</FormLabel>
+                    <FormControl>
+                      <Input type='email' placeholder='facturation@votreorganisation.com' {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

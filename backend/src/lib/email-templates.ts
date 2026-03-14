@@ -219,7 +219,7 @@ export function buildDepositEmailHtml(params: {
       Bonjour <strong>${contact.first_name}${contact.last_name ? ' ' + contact.last_name : ''}</strong>,
     </p>
     <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#444;">
-      Merci d'avoir signé votre devis <strong>n°${quoteNumber}</strong>. Veuillez trouver ci-joint votre facture d'acompte.
+      Veuillez trouver ci-dessous votre facture d'acompte pour le devis <strong>n°${quoteNumber}</strong>.
     </p>
 
     <!-- Amount card -->

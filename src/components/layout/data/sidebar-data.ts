@@ -15,6 +15,7 @@ import {
   Building,
   ShoppingCart,
   ChefHat,
+  UserPlus,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -109,9 +110,9 @@ export const sidebarData: SidebarData = {
           ],
         },
         {
-          title: 'Utilisateurs',
-          url: '/users',
-          icon: Users,
+          title: 'Membres',
+          url: '/settings/members',
+          icon: UserPlus,
         },
         {
           title: 'Aide',

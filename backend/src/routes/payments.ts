@@ -101,8 +101,8 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
         quote_id: quote_id || '',
         link_type,
       },
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${booking_id}?payment=success`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/bookings/${booking_id}?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking_id}?payment=success&type=${link_type}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking_id}?payment=cancelled`,
     })
 
     const paymentLink = { url: session.url, id: session.id }
@@ -123,6 +123,21 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+
+    // Create pending payment record so Stripe webhook can find and update it
+    await supabase
+      .from('payments')
+      .insert({
+        organization_id: (booking as any).organization_id,
+        booking_id,
+        quote_id: quote_id || null,
+        amount,
+        payment_type: link_type || 'full',
+        payment_method: 'stripe',
+        stripe_payment_id: session.id,
+        status: 'pending',
+      })
+
     res.status(201).json(data)
   } catch (error) {
     console.error('Error creating payment link:', error)

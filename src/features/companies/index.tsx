@@ -24,20 +24,28 @@ import { ConfigDrawer } from '@/components/config-drawer'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { useCompanies, useDeleteCompany, type Company } from './hooks/use-companies'
 import { CompanyDialog } from './company-dialog'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 
 export function CompaniesPage() {
   const { data: companies = [], isLoading } = useCompanies()
-  const { mutate: deleteCompany } = useDeleteCompany()
+  const { mutate: deleteCompany, isPending: isDeleting } = useDeleteCompany()
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const handleDelete = (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette société ?')) {
-      deleteCompany(id, {
-        onSuccess: () => toast.success('Société supprimée'),
-        onError: () => toast.error('Erreur lors de la suppression'),
-      })
-    }
+    setDeleteTarget(id)
+  }
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return
+    deleteCompany(deleteTarget, {
+      onSuccess: () => {
+        toast.success('Société supprimée')
+        setDeleteTarget(null)
+      },
+      onError: () => toast.error('Erreur lors de la suppression'),
+    })
   }
 
   const handleEdit = (company: Company) => {
@@ -138,6 +146,18 @@ export function CompaniesPage() {
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         company={editingCompany}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title='Supprimer la société'
+        desc='Êtes-vous sûr de vouloir supprimer cette société ?'
+        confirmText='Supprimer'
+        cancelBtnText='Annuler'
+        destructive
+        isLoading={isDeleting}
+        handleConfirm={confirmDelete}
       />
     </>
   )

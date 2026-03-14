@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -37,8 +37,6 @@ type Props = {
 }
 
 export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
-  if (!formId) return null
-
   const { data: formData } = useMenuFormFull(formId)
   const { mutate: updateForm } = useUpdateMenuForm()
   const { mutate: addField } = useAddMenuFormField()
@@ -47,6 +45,16 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+
+  // Initialize title/description from formData when it loads
+  useEffect(() => {
+    if (formData) {
+      setTitle(formData.title || '')
+      setDescription(formData.description || '')
+    }
+  }, [formData])
+
+  if (!formId) return null
 
   const fields = (formData?.menu_form_fields || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
 
@@ -113,7 +121,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
             <div className='space-y-2'>
               <Label>Titre</Label>
               <Input
-                value={title || formData.title}
+                value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={handleSaveSettings}
               />
@@ -121,7 +129,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
             <div className='space-y-2'>
               <Label>Description</Label>
               <Input
-                value={description || formData.description || ''}
+                value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onBlur={handleSaveSettings}
               />

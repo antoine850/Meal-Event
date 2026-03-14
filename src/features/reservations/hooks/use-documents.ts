@@ -1,19 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import type { Document } from '@/lib/supabase/types'
-
-async function getCurrentOrganizationId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data } = await supabase
-    .from('users')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  return (data as any)?.organization_id || null
-}
 
 export function useDocumentsByBooking(bookingId: string) {
   return useQuery<Document[]>({

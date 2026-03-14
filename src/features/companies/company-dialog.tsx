@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -64,8 +64,8 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
     },
   })
 
-  useState(() => {
-    if (company) {
+  useEffect(() => {
+    if (open && company) {
       form.reset({
         name: company.name,
         phone: company.phone || '',
@@ -77,8 +77,20 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
         siret: company.siret || '',
         tva_number: company.tva_number || '',
       })
+    } else if (open && !company) {
+      form.reset({
+        name: '',
+        phone: '',
+        billing_address: '',
+        billing_postal_code: '',
+        billing_city: '',
+        billing_country: 'France',
+        billing_email: '',
+        siret: '',
+        tva_number: '',
+      })
     }
-  })
+  }, [open, company, form])
 
   const onSubmit = (data: CompanyFormData) => {
     const payload = {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, forwardRef, useImperativeHandle } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useBlocker } from '@tanstack/react-router'
+import { useBlocker, useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { Link } from '@tanstack/react-router'
 import { format } from 'date-fns'
@@ -66,6 +66,7 @@ export const ContactDetail = forwardRef<
   { submitForm: () => void; deleteContact: () => void },
   ContactDetailProps
 >(function ContactDetail({ contact, activeTab, onDirtyChange }, ref) {
+  const navigate = useNavigate()
   const { mutate: updateContact, isPending: _isPending } = useUpdateContact()
   const { data: bookings = [], isLoading: isLoadingBookings } = useBookingsByContact(contact.id)
   const { mutate: deleteContactMutation, isPending: _isDeleting } = useDeleteContact()
@@ -156,7 +157,7 @@ export const ContactDetail = forwardRef<
     deleteContactMutation(contact.id, {
       onSuccess: () => {
         toast.success('Contact supprimé')
-        window.history.back()
+        navigate({ to: '/contacts' })
       },
       onError: () => toast.error('Erreur lors de la suppression'),
     })

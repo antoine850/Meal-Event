@@ -1,23 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import type { Contact } from '@/lib/supabase/types'
 
 export type ContactWithRelations = Contact & {
   company?: { id: string; name: string } | null
   assigned_user?: { id: string; first_name: string; last_name: string } | null
-}
-
-async function getCurrentOrganizationId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data } = await supabase
-    .from('users')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  return (data as { organization_id: string } | null)?.organization_id || null
 }
 
 export function useContacts() {

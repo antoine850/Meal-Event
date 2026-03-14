@@ -397,7 +397,7 @@ export const BookingDetail = forwardRef<
   useImperativeHandle(ref, () => ({
     submitForm: () => form.handleSubmit(onSubmit)(),
     deleteBooking: () => handleDelete(),
-    getIsDirty: () => form.formState.isDirty,
+    getIsDirty: () => form.formState.isDirty || isEventFormDirty,
   }), [form, onSubmit])
 
   const sourceOptions = [

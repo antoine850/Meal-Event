@@ -16,6 +16,38 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 export const quotesRouter = Router()
 
+// Shared helper to get organization facturation email (used as reply-to)
+async function getOrgFacturationEmail(organizationId: string | null): Promise<string | null> {
+  if (!organizationId) return null
+  const { data } = await supabase
+    .from('organizations')
+    .select('facturation_email')
+    .eq('id', organizationId)
+    .single()
+  return (data as any)?.facturation_email || null
+}
+
+// Shared helper to get commercial info from a booking
+async function getCommercialInfo(bookingId: string): Promise<{ name: string | null; email: string | null }> {
+  const { data: bookingFull } = await supabase
+    .from('bookings')
+    .select('assigned_to')
+    .eq('id', bookingId)
+    .single()
+
+  if (bookingFull?.assigned_to) {
+    const { data: user } = await supabase
+      .from('users')
+      .select('first_name, last_name, email')
+      .eq('id', bookingFull.assigned_to)
+      .single()
+    if (user) {
+      return { name: `${user.first_name} ${user.last_name}`, email: user.email }
+    }
+  }
+  return { name: null, email: null }
+}
+
 // GET /api/quotes
 quotesRouter.get('/', async (req: Request, res: Response) => {
   try {
@@ -161,32 +193,14 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
     // Allow resending quote from any status (no restriction)
 
     // Get commercial (assigned_to) email for reply-to
-    let commercialName: string | null = null
-    let commercialEmail: string | null = null
-    if (booking) {
-      const { data: bookingFull } = await supabase
-        .from('bookings')
-        .select('assigned_to')
-        .eq('id', booking.id)
-        .single()
+    const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+    const commercialName = commercial.name
+    const commercialEmail = commercial.email
 
-      if (bookingFull?.assigned_to) {
-        const { data: user } = await supabase
-          .from('users')
-          .select('first_name, last_name, email')
-          .eq('id', bookingFull.assigned_to)
-          .single()
-        if (user) {
-          commercialName = `${user.first_name} ${user.last_name}`
-          commercialEmail = user.email
-        }
-      }
-    }
-
-    // Generate PDF with error handling
+    // Generate PDF with pre-fetched data (avoids double fetch)
     let pdfBuffer: Buffer
     try {
-      pdfBuffer = await generateQuotePdf(quoteId, 'devis')
+      pdfBuffer = await generateQuotePdf(quoteId, 'devis', quoteData)
     } catch (pdfError) {
       console.error('Error generating PDF:', pdfError)
       return res.status(500).json({ error: 'Erreur lors de la génération du PDF' })
@@ -205,12 +219,16 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
 
     const subject = buildQuoteEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
 
+    // Get org-level facturation email for reply-to
+    const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+
     // Send via Resend
     const emailResult = await sendEmail({
       to: contact.email,
       subject,
       html,
       replyTo: commercialEmail || restaurant?.email || undefined,
+      facturationEmail: facturationEmail || undefined,
       attachments: [{
         filename: `${quoteData.quote_number}.pdf`,
         content: pdfBuffer,
@@ -339,33 +357,36 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
-    // Allow resending deposit from any status (no restriction)
+    // Idempotency guard: check if a pending deposit payment already exists
+    // Also expire stale pending payments (older than 24h — Stripe sessions expire)
+    const { data: existingDeposit } = await supabase
+      .from('payments')
+      .select('id, created_at')
+      .eq('quote_id', quoteId)
+      .eq('payment_type', 'deposit')
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    if (existingDeposit) {
+      const createdAt = new Date(existingDeposit.created_at || 0)
+      const hoursOld = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
+      if (hoursOld < 24) {
+        return res.status(409).json({ error: 'Un lien de paiement d\'acompte est déjà en cours pour ce devis.' })
+      }
+      // Expire stale pending payment so a new one can be created
+      await supabase
+        .from('payments')
+        .update({ status: 'expired' })
+        .eq('id', existingDeposit.id)
+    }
 
     // Calculate deposit amount
     const depositAmount = quoteData.total_ttc * (quoteData.deposit_percentage / 100)
 
     // Get commercial info
-    let commercialName: string | null = null
-    let commercialEmail: string | null = null
-    if (booking) {
-      const { data: bookingFull } = await supabase
-        .from('bookings')
-        .select('assigned_to')
-        .eq('id', booking.id)
-        .single()
-
-      if (bookingFull?.assigned_to) {
-        const { data: user } = await supabase
-          .from('users')
-          .select('first_name, last_name, email')
-          .eq('id', bookingFull.assigned_to)
-          .single()
-        if (user) {
-          commercialName = `${user.first_name} ${user.last_name}`
-          commercialEmail = user.email
-        }
-      }
-    }
+    const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+    const commercialName = commercial.name
+    const commercialEmail = commercial.email
 
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -394,7 +415,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     // Generate deposit invoice PDF with error handling
     let pdfBuffer: Buffer
     try {
-      pdfBuffer = await generateQuotePdf(quoteId, 'acompte')
+      pdfBuffer = await generateQuotePdf(quoteId, 'acompte', quoteData)
     } catch (pdfError) {
       console.error('Error generating deposit PDF:', pdfError)
       return res.status(500).json({ error: 'Erreur lors de la génération du PDF d\'acompte' })
@@ -415,12 +436,16 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
 
     const subject = buildDepositEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
 
+    // Get org-level facturation email for reply-to
+    const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+
     // Send email
     const emailResult = await sendEmail({
       to: contact.email,
       subject,
       html,
       replyTo: commercialEmail || restaurant?.email || undefined,
+      facturationEmail: facturationEmail || undefined,
       attachments: [{
         filename: `facture-acompte-${quoteData.quote_number}.pdf`,
         content: pdfBuffer,
@@ -503,39 +528,54 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
-    // Allow resending balance from any status (no restriction)
+    // Verify deposit has been paid before sending balance
+    const { data: depositPayment } = await supabase
+      .from('payments')
+      .select('id, status')
+      .eq('quote_id', quoteId)
+      .eq('payment_type', 'deposit')
+      .eq('status', 'paid')
+      .maybeSingle()
 
-    // Calculate balance: total + extras - deposit already paid
-    const items = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'product')
+    if (!depositPayment) {
+      return res.status(400).json({ error: 'L\'acompte n\'a pas encore été payé. Veuillez attendre le paiement de l\'acompte avant d\'envoyer le solde.' })
+    }
+
+    // Idempotency guard: check if a pending balance payment already exists
+    // Also expire stale pending payments (older than 24h — Stripe sessions expire)
+    const { data: existingBalance } = await supabase
+      .from('payments')
+      .select('id, created_at')
+      .eq('quote_id', quoteId)
+      .eq('payment_type', 'balance')
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    if (existingBalance) {
+      const createdAt = new Date(existingBalance.created_at || 0)
+      const hoursOld = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
+      if (hoursOld < 24) {
+        return res.status(409).json({ error: 'Un lien de paiement de solde est déjà en cours pour ce devis.' })
+      }
+      // Expire stale pending payment so a new one can be created
+      await supabase
+        .from('payments')
+        .update({ status: 'expired' })
+        .eq('id', existingBalance.id)
+    }
+
+    // Calculate balance: total_ttc (products only, discount already applied) + extras - deposit
     const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
-    const extrasHt = extras.reduce((sum: number, e: any) => sum + (e.total_ht || 0), 0)
     const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
     const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
-    const depositTtc = quoteData.total_ttc * (quoteData.deposit_percentage / 100)
-    const balanceAmount = totalWithExtrasTtc - depositTtc
+    // Use same direct TTC formula as send-deposit for consistency
+    const depositTtc = Math.round(quoteData.total_ttc * (quoteData.deposit_percentage / 100) * 100) / 100
+    const balanceAmount = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
 
     // Get commercial info
-    let commercialName: string | null = null
-    let commercialEmail: string | null = null
-    if (booking) {
-      const { data: bookingFull } = await supabase
-        .from('bookings')
-        .select('assigned_to')
-        .eq('id', booking.id)
-        .single()
-
-      if (bookingFull?.assigned_to) {
-        const { data: user } = await supabase
-          .from('users')
-          .select('first_name, last_name, email')
-          .eq('id', bookingFull.assigned_to)
-          .single()
-        if (user) {
-          commercialName = `${user.first_name} ${user.last_name}`
-          commercialEmail = user.email
-        }
-      }
-    }
+    const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+    const commercialName = commercial.name
+    const commercialEmail = commercial.email
 
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -564,7 +604,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     // Generate balance invoice PDF with error handling
     let pdfBuffer: Buffer
     try {
-      pdfBuffer = await generateQuotePdf(quoteId, 'solde')
+      pdfBuffer = await generateQuotePdf(quoteId, 'solde', quoteData)
     } catch (pdfError) {
       console.error('Error generating balance PDF:', pdfError)
       return res.status(500).json({ error: 'Erreur lors de la génération du PDF de solde' })
@@ -584,12 +624,16 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
 
     const subject = buildBalanceEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
 
+    // Get org-level facturation email for reply-to
+    const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+
     // Send email
     const emailResult = await sendEmail({
       to: contact.email,
       subject,
       html,
       replyTo: commercialEmail || restaurant?.email || undefined,
+      facturationEmail: facturationEmail || undefined,
       attachments: [{
         filename: `facture-solde-${quoteData.quote_number}.pdf`,
         content: pdfBuffer,
@@ -677,7 +721,49 @@ quotesRouter.post('/:id/items', async (req: Request, res: Response) => {
   }
 })
 
-// Helper function to recalculate quote totals
+// PATCH /api/quotes/:id/items/:itemId - Update a quote item
+quotesRouter.patch('/:id/items/:itemId', async (req: Request, res: Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('quote_items')
+      .update(req.body)
+      .eq('id', req.params.itemId)
+      .eq('quote_id', req.params.id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    await recalculateQuoteTotals(req.params.id)
+
+    res.json(data)
+  } catch (error) {
+    console.error('Error updating quote item:', error)
+    res.status(500).json({ error: 'Failed to update quote item' })
+  }
+})
+
+// DELETE /api/quotes/:id/items/:itemId - Remove a quote item
+quotesRouter.delete('/:id/items/:itemId', async (req: Request, res: Response) => {
+  try {
+    const { error } = await supabase
+      .from('quote_items')
+      .delete()
+      .eq('id', req.params.itemId)
+      .eq('quote_id', req.params.id)
+
+    if (error) throw error
+
+    await recalculateQuoteTotals(req.params.id)
+
+    res.status(204).send()
+  } catch (error) {
+    console.error('Error deleting quote item:', error)
+    res.status(500).json({ error: 'Failed to delete quote item' })
+  }
+})
+
+// Helper function to recalculate quote totals (products only, excludes extras)
 async function recalculateQuoteTotals(quoteId: string) {
   const { data: items } = await supabase
     .from('quote_items')
@@ -686,22 +772,39 @@ async function recalculateQuoteTotals(quoteId: string) {
 
   if (!items) return
 
+  // Only include product items — extras are added separately in balance calculations
+  const productItems = items.filter((item: any) => item.item_type !== 'extra')
+
   let totalHt = 0
   let totalTva = 0
 
-  for (const item of items) {
+  for (const item of productItems) {
     const itemTotalHt = (item.unit_price * item.quantity) - (item.discount_amount || 0)
     const itemTva = itemTotalHt * (item.tva_rate / 100)
     totalHt += itemTotalHt
     totalTva += itemTva
   }
 
+  // Apply discount_percentage
+  const { data: quote } = await supabase
+    .from('quotes')
+    .select('discount_percentage')
+    .eq('id', quoteId)
+    .single()
+
+  const discountPct = (quote as any)?.discount_percentage || 0
+  const discountMultiplier = discountPct > 0 ? (1 - discountPct / 100) : 1
+
+  const finalHt = Math.round(totalHt * discountMultiplier * 100) / 100
+  const finalTva = Math.round(totalTva * discountMultiplier * 100) / 100
+  const finalTtc = Math.round((finalHt + finalTva) * 100) / 100
+
   await supabase
     .from('quotes')
     .update({
-      total_ht: totalHt,
-      total_tva: totalTva,
-      total_ttc: totalHt + totalTva,
+      total_ht: finalHt,
+      total_tva: finalTva,
+      total_ttc: finalTtc,
     })
     .eq('id', quoteId)
 }

@@ -90,20 +90,64 @@ export function Onboarding() {
       if (orgError) throw orgError
       const organization = orgData as { id: string; name: string; slug: string }
 
-      // Create admin role for this organization
-      const { data: newRole, error: roleError } = await supabase
+      // Create all roles for this organization
+      const rolesToCreate = [
+        { organization_id: organization.id, name: 'Administrateur', slug: 'admin', description: 'Accès complet à toutes les fonctionnalités', is_default: true },
+        { organization_id: organization.id, name: 'Commercial', slug: 'commercial', description: 'Gestion des contacts et réservations de ses restaurants', is_default: true },
+        { organization_id: organization.id, name: 'Gérant Restaurant', slug: 'gerant', description: 'Accès aux événements de son/ses restaurant(s) uniquement', is_default: true },
+      ]
+
+      const { data: newRoles, error: roleError } = await supabase
         .from('roles')
-        .insert({
-          organization_id: organization.id,
-          name: 'Administrateur',
-          slug: 'admin',
-          is_default: true,
-        } as never)
+        .insert(rolesToCreate as never)
         .select()
-        .single()
 
       if (roleError) throw roleError
-      const roleId = (newRole as { id: string })?.id
+      const roles = newRoles as { id: string; slug: string }[]
+      const adminRole = roles.find(r => r.slug === 'admin')
+      const commercialRole = roles.find(r => r.slug === 'commercial')
+      const gerantRole = roles.find(r => r.slug === 'gerant')
+      const roleId = adminRole?.id
+
+      // Assign permissions to roles
+      const { data: allPermissions } = await supabase
+        .from('permissions')
+        .select('id, slug')
+
+      if (allPermissions && allPermissions.length > 0) {
+        const perms = allPermissions as { id: string; slug: string }[]
+        const rolePermsToInsert: { role_id: string; permission_id: string }[] = []
+
+        // Admin: all permissions
+        if (adminRole) {
+          perms.forEach(p => rolePermsToInsert.push({ role_id: adminRole.id, permission_id: p.id }))
+        }
+
+        // Commercial: contacts, bookings, quotes, payments, restaurants.view, dashboard, settings.view
+        const commercialPerms = [
+          'dashboard.view', 'dashboard.commercial.view',
+          'contacts.view', 'contacts.create', 'contacts.update',
+          'bookings.view', 'bookings.create', 'bookings.update',
+          'quotes.view', 'quotes.create', 'quotes.update', 'quotes.send',
+          'payments.view', 'payments.create', 'payments.remind',
+          'restaurants.view', 'settings.view',
+        ]
+        if (commercialRole) {
+          perms.filter(p => commercialPerms.includes(p.slug)).forEach(p =>
+            rolePermsToInsert.push({ role_id: commercialRole.id, permission_id: p.id })
+          )
+        }
+
+        // Gérant: bookings.view, restaurants.view, dashboard
+        const gerantPerms = ['dashboard.view', 'dashboard.restaurant.view', 'bookings.view', 'restaurants.view']
+        if (gerantRole) {
+          perms.filter(p => gerantPerms.includes(p.slug)).forEach(p =>
+            rolePermsToInsert.push({ role_id: gerantRole.id, permission_id: p.id })
+          )
+        }
+
+        await supabase.from('role_permissions').insert(rolePermsToInsert as never)
+      }
 
       // Create user profile
       const { error: userError } = await supabase
@@ -139,9 +183,13 @@ export function Onboarding() {
         { name: 'Attente paiement', slug: 'attente_paiement', color: '#8b5cf6', type: 'contact', position: 8 },
         { name: 'Relance paiement', slug: 'relance_paiement', color: '#ec4899', type: 'contact', position: 9 },
         // Booking statuses
-        { name: 'En attente', slug: 'pending', color: '#eab308', type: 'booking', position: 1 },
-        { name: 'Confirmée', slug: 'confirmed', color: '#22c55e', type: 'booking', position: 2 },
-        { name: 'Annulée', slug: 'cancelled', color: '#ef4444', type: 'booking', position: 3 },
+        { name: 'En attente', slug: 'en-attente', color: '#F59E0B', type: 'booking', position: 1 },
+        { name: 'Devis envoyé', slug: 'devis-envoye', color: '#8B5CF6', type: 'booking', position: 2 },
+        { name: 'Devis signé', slug: 'devis-signe', color: '#3B82F6', type: 'booking', position: 3 },
+        { name: 'Acompte payé', slug: 'acompte-paye', color: '#22C55E', type: 'booking', position: 4 },
+        { name: 'Confirmé', slug: 'confirme', color: '#10B981', type: 'booking', position: 5 },
+        { name: 'Terminé', slug: 'termine', color: '#6B7280', type: 'booking', position: 6 },
+        { name: 'Annulé', slug: 'annule', color: '#EF4444', type: 'booking', position: 7 },
       ]
 
       await supabase
