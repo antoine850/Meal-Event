@@ -1084,7 +1084,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <PopoverContent className='w-[400px] p-0' align='start'>
                         <Command>
                           <CommandInput placeholder='Rechercher un produit...' className='text-xs' />
-                          <CommandList className='max-h-[300px] overflow-y-auto'>
+                          <CommandList>
                             <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
                               Aucun produit trouvé.
                             </CommandEmpty>
@@ -1128,7 +1128,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <PopoverContent className='w-[400px] p-0' align='start'>
                         <Command>
                           <CommandInput placeholder='Rechercher un package...' className='text-xs' />
-                          <CommandList className='max-h-[300px] overflow-y-auto'>
+                          <CommandList>
                             <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
                               Aucun package trouvé.
                             </CommandEmpty>
