@@ -211,17 +211,21 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
     // Store receipt as document if URL available
     if (receiptUrl && booking_id) {
       const docName = link_type === 'deposit' ? 'Reçu Stripe - Acompte' : link_type === 'balance' ? 'Reçu Stripe - Solde' : 'Reçu Stripe'
-      await supabase
+      const { error: docError } = await supabase
         .from('documents')
         .insert({
           organization_id: booking?.organization_id || null,
           booking_id,
           name: docName,
-          type: 'receipt',
-          url: receiptUrl,
-          mime_type: 'text/html',
+          file_type: 'receipt',
+          file_path: receiptUrl,
+          file_url: receiptUrl,
         })
-      console.log(`[Stripe] Stored receipt document for booking ${booking_id}`)
+      if (docError) {
+        console.error(`[Stripe] Failed to store receipt document:`, docError)
+      } else {
+        console.log(`[Stripe] ✅ Stored receipt document for booking ${booking_id}`)
+      }
     }
 
     // Update payment link as used
@@ -255,8 +259,17 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
     if (link_type === 'balance' || link_type === 'full') {
       newStatusSlug = 'confirme'
     }
+    console.log(`[Stripe] Looking for status slug '${newStatusSlug}' for org ${booking?.organization_id}`)
 
     if (booking) {
+      // List all available booking statuses for debugging
+      const { data: allStatuses } = await supabase
+        .from('statuses')
+        .select('id, slug, name')
+        .eq('organization_id', booking.organization_id)
+        .eq('type', 'booking')
+      console.log(`[Stripe] Available booking statuses for org:`, allStatuses?.map(s => s.slug).join(', '))
+
       const { data: status } = await supabase
         .from('statuses')
         .select('id')
@@ -270,6 +283,7 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
           .from('bookings')
           .update({ status_id: status.id })
           .eq('id', booking_id)
+        console.log(`[Stripe] ✅ Booking ${booking_id} status updated to '${newStatusSlug}'`)
       } else {
         console.warn(`[Stripe] Status slug '${newStatusSlug}' not found for org ${booking.organization_id} — booking status not updated`)
       }
@@ -404,14 +418,20 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
 
     // Store signed PDF as document
     if (signedPdfUrl) {
-      await supabase.from('documents').insert({
+      const storagePath = `quotes/${quote.id}/signed-${quote.quote_number}.pdf`
+      const { error: docError } = await supabase.from('documents').insert({
         organization_id: quote.organization_id,
         booking_id: quote.booking_id,
         name: `Devis signé - ${quote.quote_number}`,
-        type: 'signed_quote',
-        url: signedPdfUrl,
-        mime_type: 'application/pdf',
+        file_type: 'pdf',
+        file_path: storagePath,
+        file_url: signedPdfUrl,
       })
+      if (docError) {
+        console.error(`[SignNow] Failed to store signed PDF document:`, docError)
+      } else {
+        console.log(`[SignNow] ✅ Stored signed PDF document for booking ${quote.booking_id}`)
+      }
     }
 
     // Update quote as signed
@@ -596,6 +616,31 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         content: pdfBuffer,
       }],
     })
+
+    // Save acompte PDF to storage and documents table
+    const storagePath = `${quote.organization_id}/quotes/${quoteId}/facture-acompte-${quote.quote_number}.pdf`
+    try {
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
+      if (uploadError) {
+        console.error('[PDF Save] Auto-deposit storage upload error:', uploadError)
+      } else {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(uploadData?.path || storagePath)
+        await supabase.from('documents').insert({
+          organization_id: quote.organization_id,
+          booking_id: booking.id,
+          name: `Facture acompte - ${quote.quote_number}`,
+          file_type: 'pdf',
+          file_size: pdfBuffer.length,
+          file_path: storagePath,
+          file_url: urlData?.publicUrl || '',
+        })
+        console.log(`[PDF Save] ✅ Saved acompte PDF for booking ${booking.id}`)
+      }
+    } catch (saveErr) {
+      console.error('[PDF Save] Error saving auto-deposit PDF:', saveErr)
+    }
 
     // Update quote
     await supabase

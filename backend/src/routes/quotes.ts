@@ -16,6 +16,59 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 export const quotesRouter = Router()
 
+// Helper: save a generated PDF to Supabase Storage and create a document record
+async function savePdfAsDocument(
+  pdfBuffer: Buffer,
+  fileName: string,
+  storagePath: string,
+  docName: string,
+  organizationId: string | null,
+  bookingId: string | null
+) {
+  try {
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error(`[PDF Save] Storage upload error for ${fileName}:`, uploadError)
+      return
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('documents')
+      .getPublicUrl(uploadData?.path || storagePath)
+
+    const fileUrl = urlData?.publicUrl || ''
+
+    // Create document record
+    const { error: docError } = await supabase
+      .from('documents')
+      .insert({
+        organization_id: organizationId,
+        booking_id: bookingId,
+        name: docName,
+        file_type: 'pdf',
+        file_size: pdfBuffer.length,
+        file_path: storagePath,
+        file_url: fileUrl,
+      })
+
+    if (docError) {
+      console.error(`[PDF Save] Document record error for ${fileName}:`, docError)
+    } else {
+      console.log(`[PDF Save] ✅ Saved ${docName} for booking ${bookingId}`)
+    }
+  } catch (err) {
+    console.error(`[PDF Save] Error saving ${fileName}:`, err)
+  }
+}
+
 // Shared helper to get organization facturation email (used as reply-to)
 async function getOrgFacturationEmail(organizationId: string | null): Promise<string | null> {
   if (!organizationId) return null
@@ -235,6 +288,16 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       }],
     })
 
+    // Save devis PDF to storage and documents table
+    await savePdfAsDocument(
+      pdfBuffer,
+      `${quoteData.quote_number}.pdf`,
+      `${quoteData.organization_id}/quotes/${quoteId}/devis-${quoteData.quote_number}.pdf`,
+      `Devis - ${quoteData.quote_number}`,
+      quoteData.organization_id,
+      booking?.id || null
+    )
+
     // Update quote status
     await supabase
       .from('quotes')
@@ -259,6 +322,7 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
         status: 'sent',
       })
 
+    console.log(`[send-email] ✅ Quote ${quoteData.quote_number} sent to ${contact.email}`)
     res.json({ success: true, emailId: emailResult.id })
   } catch (error) {
     console.error('Error sending quote email:', error)
@@ -348,12 +412,15 @@ quotesRouter.post('/:id/send-signature', async (req: Request, res: Response) => 
 quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
   try {
     const quoteId = req.params.id
+    console.log(`[send-deposit] Starting for quote: ${quoteId}`)
     const quoteData = await fetchQuoteFullData(quoteId)
+    console.log(`[send-deposit] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}, total_ttc: ${quoteData.total_ttc}`)
     const booking = quoteData.booking
     const restaurant = booking?.restaurant
     const contact = booking?.contact
 
     if (!contact?.email) {
+      console.warn(`[send-deposit] No contact email for quote ${quoteId}`)
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
@@ -452,6 +519,16 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       }],
     })
 
+    // Save acompte PDF to storage and documents table
+    await savePdfAsDocument(
+      pdfBuffer,
+      `facture-acompte-${quoteData.quote_number}.pdf`,
+      `${quoteData.organization_id}/quotes/${quoteId}/facture-acompte-${quoteData.quote_number}.pdf`,
+      `Facture acompte - ${quoteData.quote_number}`,
+      quoteData.organization_id,
+      booking?.id || null
+    )
+
     // Update quote
     await supabase
       .from('quotes')
@@ -519,9 +596,10 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       metadata: { amount: depositAmount },
     })
 
+    console.log(`[send-deposit] ✅ Deposit for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${depositAmount}€, Stripe session: ${session.id}`)
     res.json({ success: true, sessionId: session.id, paymentUrl: session.url })
   } catch (error) {
-    console.error('Error sending deposit:', error)
+    console.error('[send-deposit] ❌ Error:', error)
     res.status(500).json({ error: 'Failed to send deposit invoice' })
   }
 })
@@ -532,12 +610,15 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
 quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
   try {
     const quoteId = req.params.id
+    console.log(`[send-balance] Starting for quote: ${quoteId}`)
     const quoteData = await fetchQuoteFullData(quoteId)
+    console.log(`[send-balance] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}, total_ttc: ${quoteData.total_ttc}`)
     const booking = quoteData.booking
     const restaurant = booking?.restaurant
     const contact = booking?.contact
 
     if (!contact?.email) {
+      console.warn(`[send-balance] No contact email for quote ${quoteId}`)
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
@@ -635,6 +716,16 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       }],
     })
 
+    // Save solde PDF to storage and documents table
+    await savePdfAsDocument(
+      pdfBuffer,
+      `facture-solde-${quoteData.quote_number}.pdf`,
+      `${quoteData.organization_id}/quotes/${quoteId}/facture-solde-${quoteData.quote_number}.pdf`,
+      `Facture solde - ${quoteData.quote_number}`,
+      quoteData.organization_id,
+      booking?.id || null
+    )
+
     // Update quote
     await supabase
       .from('quotes')
@@ -701,9 +792,10 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       metadata: { amount: balanceAmount },
     })
 
+    console.log(`[send-balance] ✅ Balance for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${balanceAmount}€, Stripe session: ${session.id}`)
     res.json({ success: true, sessionId: session.id, paymentUrl: session.url })
   } catch (error) {
-    console.error('Error sending balance:', error)
+    console.error('[send-balance] ❌ Error:', error)
     res.status(500).json({ error: 'Failed to send balance invoice' })
   }
 })

@@ -1,13 +1,12 @@
+import { useMemo } from 'react'
 import {
-  Bar,
-  BarChart,
   ResponsiveContainer,
-  XAxis,
-  YAxis,
   Tooltip,
-  Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts'
-import { Euro, TrendingUp, Users, Utensils } from 'lucide-react'
+import { Euro, TrendingUp, Users, Utensils, Loader2 } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -16,45 +15,78 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import {
-  globalKPIs,
-  monthlySalesByRestaurant,
-  restaurantKPIs,
-  recentBookings,
-} from '../data/mock-data'
+  type DashboardTabProps,
+  calcRevenue,
+  calcAvgTicket,
+  calcConversionRate,
+  groupByRestaurant,
+} from '../hooks/use-dashboard-data'
 
-export function GeneralTab() {
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#a855f7']
+
+export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabProps) {
+  const totalRevenue = useMemo(() => calcRevenue(bookings), [bookings])
+  const avgTicket = useMemo(() => calcAvgTicket(bookings), [bookings])
+  const conversionRate = useMemo(() => calcConversionRate(bookings), [bookings])
+
+  const restaurantKPIs = useMemo(() => {
+    const groups = groupByRestaurant(bookings)
+    return Object.entries(groups)
+      .map(([name, items]) => ({
+        name,
+        revenue: calcRevenue(items),
+        bookings: items.length,
+        avgTicket: calcAvgTicket(items),
+        color: restaurants.find(r => r.name === name)?.color || null,
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+  }, [bookings, restaurants])
+
+  const pieData = useMemo(() =>
+    restaurantKPIs.map(r => ({ name: r.name, value: r.revenue })),
+    [restaurantKPIs]
+  )
+
+  const recentBookings = useMemo(() =>
+    [...bookings]
+      .sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime())
+      .slice(0, 5),
+    [bookings]
+  )
+
+  if (isLoading) {
+    return (
+      <div className='flex items-center justify-center py-20'>
+        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      </div>
+    )
+  }
+
   return (
     <div className='space-y-4'>
       {/* KPI Cards */}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Chiffre d'affaires total
-            </CardTitle>
+            <CardTitle className='text-sm font-medium'>Chiffre d'affaires total</CardTitle>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>
-              {globalKPIs.totalRevenue.toLocaleString('fr-FR')} €
-            </div>
-            <p className='text-xs text-muted-foreground'>
-              <span className='text-green-600'>+{globalKPIs.revenueGrowth}%</span> vs mois dernier
-            </p>
+            <div className='text-2xl font-bold'>{totalRevenue.toLocaleString('fr-FR')} €</div>
+            <p className='text-xs text-muted-foreground'>{bookings.length} événements</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Événements
-            </CardTitle>
+            <CardTitle className='text-sm font-medium'>Événements</CardTitle>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{globalKPIs.totalBookings}</div>
+            <div className='text-2xl font-bold'>{bookings.length}</div>
             <p className='text-xs text-muted-foreground'>
-              <span className='text-green-600'>+{globalKPIs.bookingsGrowth}%</span> vs mois dernier
+              {bookings.reduce((sum, b) => sum + (b.guests_count || 0), 0).toLocaleString('fr-FR')} convives au total
             </p>
           </CardContent>
         </Card>
@@ -64,26 +96,18 @@ export function GeneralTab() {
             <Utensils className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>
-              {globalKPIs.averageTicket.toLocaleString('fr-FR')} €
-            </div>
-            <p className='text-xs text-muted-foreground'>
-              <span className='text-green-600'>+{globalKPIs.ticketGrowth}%</span> vs mois dernier
-            </p>
+            <div className='text-2xl font-bold'>{avgTicket.toLocaleString('fr-FR')} €</div>
+            <p className='text-xs text-muted-foreground'>Par événement</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Taux de conversion
-            </CardTitle>
+            <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{globalKPIs.conversionRate}%</div>
-            <p className='text-xs text-muted-foreground'>
-              <span className='text-green-600'>+{globalKPIs.conversionGrowth}%</span> vs mois dernier
-            </p>
+            <div className='text-2xl font-bold'>{conversionRate}%</div>
+            <p className='text-xs text-muted-foreground'>Événements confirmés / total</p>
           </CardContent>
         </Card>
       </div>
@@ -93,36 +117,33 @@ export function GeneralTab() {
         <Card className='col-span-1 lg:col-span-4'>
           <CardHeader>
             <CardTitle>CA par restaurant</CardTitle>
-            <CardDescription>Évolution mensuelle du chiffre d'affaires</CardDescription>
+            <CardDescription>Répartition du chiffre d'affaires</CardDescription>
           </CardHeader>
-          <CardContent className='ps-2'>
-            <ResponsiveContainer width='100%' height={350}>
-              <BarChart data={monthlySalesByRestaurant}>
-                <XAxis
-                  dataKey='month'
-                  stroke='#888888'
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke='#888888'
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k€`}
-                />
-                <Tooltip
-                  formatter={(value) => [`${(value ?? 0).toLocaleString('fr-FR')} €`, '']}
-                  labelStyle={{ color: '#000' }}
-                />
-                <Legend />
-                <Bar dataKey='Le Petit Bistro' fill='#3b82f6' radius={[4, 4, 0, 0]} />
-                <Bar dataKey='La Grande Table' fill='#10b981' radius={[4, 4, 0, 0]} />
-                <Bar dataKey='Chez Marcel' fill='#f59e0b' radius={[4, 4, 0, 0]} />
-                <Bar dataKey="L'Atelier Gourmand" fill='#8b5cf6' radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent>
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width='100%' height={350}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx='50%'
+                    cy='50%'
+                    innerRadius={80}
+                    outerRadius={120}
+                    paddingAngle={4}
+                    dataKey='value'
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={restaurants.find(r => r.name === pieData[index].name)?.color || COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [`${Number(value ?? 0).toLocaleString('fr-FR')} €`, 'CA']} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className='text-sm text-muted-foreground text-center py-10'>Aucune donnée</p>
+            )}
           </CardContent>
         </Card>
 
@@ -133,7 +154,7 @@ export function GeneralTab() {
           </CardHeader>
           <CardContent>
             <div className='space-y-4'>
-              {restaurantKPIs.map((restaurant) => (
+              {restaurantKPIs.length > 0 ? restaurantKPIs.map((restaurant) => (
                 <div key={restaurant.name} className='flex items-center gap-4'>
                   <Avatar className='h-9 w-9'>
                     <AvatarFallback className='bg-primary/10 text-primary'>
@@ -142,11 +163,9 @@ export function GeneralTab() {
                   </Avatar>
                   <div className='flex flex-1 flex-wrap items-center justify-between gap-2'>
                     <div className='space-y-1'>
-                      <p className='text-sm font-medium leading-none'>
-                        {restaurant.name}
-                      </p>
+                      <p className='text-sm font-medium leading-none'>{restaurant.name}</p>
                       <p className='text-xs text-muted-foreground'>
-                        {restaurant.bookings} événements • Ø {restaurant.avgTicket.toLocaleString('fr-FR')} €
+                        {restaurant.bookings} événements  Ø {restaurant.avgTicket.toLocaleString('fr-FR')} €
                       </p>
                     </div>
                     <div className='font-medium text-green-600'>
@@ -154,7 +173,9 @@ export function GeneralTab() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <p className='text-sm text-muted-foreground text-center py-4'>Aucune donnée</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -168,39 +189,46 @@ export function GeneralTab() {
         </CardHeader>
         <CardContent>
           <div className='space-y-4'>
-            {recentBookings.map((booking) => (
-              <div key={booking.id} className='flex items-center gap-4'>
-                <Avatar className='h-9 w-9'>
-                  <AvatarFallback>
-                    {booking.client.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div className='flex flex-1 flex-wrap items-center justify-between gap-2'>
-                  <div className='space-y-1'>
-                    <p className='text-sm font-medium leading-none'>
-                      {booking.client}
-                    </p>
-                    <p className='text-xs text-muted-foreground'>
-                      {booking.restaurant} • {booking.source}
-                    </p>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                      booking.status === 'paid' 
-                        ? 'bg-green-100 text-green-700' 
-                        : booking.status === 'confirmed'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {booking.status === 'paid' ? 'Payé' : booking.status === 'confirmed' ? 'Confirmé' : 'En attente'}
-                    </span>
-                    <span className='font-medium'>
-                      {booking.amount.toLocaleString('fr-FR')} €
-                    </span>
+            {recentBookings.length > 0 ? recentBookings.map((booking) => {
+              const contactName = booking.contact
+                ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`.trim()
+                : 'Sans contact'
+              return (
+                <div key={booking.id} className='flex items-center gap-4'>
+                  <Avatar className='h-9 w-9'>
+                    <AvatarFallback>
+                      {contactName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className='flex flex-1 flex-wrap items-center justify-between gap-2'>
+                    <div className='space-y-1'>
+                      <p className='text-sm font-medium leading-none'>{contactName}</p>
+                      <p className='text-xs text-muted-foreground'>
+                        {booking.restaurant?.name || 'Sans restaurant'} • {booking.occasion || booking.event_type || ''}
+                      </p>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      {booking.status && (
+                        <Badge
+                          variant='outline'
+                          style={{
+                            borderColor: booking.status.color,
+                            color: booking.status.color,
+                          }}
+                        >
+                          {booking.status.name}
+                        </Badge>
+                      )}
+                      <span className='font-medium'>
+                        {(booking.total_amount || 0).toLocaleString('fr-FR')} €
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            }) : (
+              <p className='text-sm text-muted-foreground text-center py-4'>Aucun événement</p>
+            )}
           </div>
         </CardContent>
       </Card>

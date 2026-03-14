@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -223,12 +224,11 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
 
           {/* Paid At */}
           <div className='space-y-2'>
-            <Label htmlFor='paidAt'>Date de paiement</Label>
-            <Input
-              id='paidAt'
-              type='date'
+            <Label>Date de paiement</Label>
+            <DatePicker
               value={paidAt}
-              onChange={e => setPaidAt(e.target.value)}
+              onChange={setPaidAt}
+              placeholder='Sélectionner...'
             />
           </div>
 

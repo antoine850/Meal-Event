@@ -1,6 +1,7 @@
-import { format } from 'date-fns'
+import { useMemo } from 'react'
+import { format, parseISO, isAfter } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Calendar, CheckCircle, Clock, TrendingUp, Users } from 'lucide-react'
+import { Calendar, CheckCircle, Clock, TrendingUp, Users, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -16,65 +17,52 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import {
+  type DashboardTabProps,
+  getReservationsByDayOfWeek,
+  getReservationsByType,
+  getMonthlyTrend,
+} from '../hooks/use-dashboard-data'
 
-// Mock data for reservations
-const reservationStats = {
-  totalReservations: 156,
-  confirmedReservations: 98,
-  pendingReservations: 42,
-  cancelledReservations: 16,
-  totalGuests: 2840,
-  avgGuestsPerReservation: 18,
-}
+export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
+  const stats = useMemo(() => {
+    const confirmed = bookings.filter(b =>
+      b.status?.slug === 'confirme' || b.status?.slug === 'acompte-paye' || b.status?.slug === 'termine' || b.status?.slug === 'solde-paye'
+    ).length
+    const pending = bookings.filter(b =>
+      b.status?.slug === 'nouveau' || b.status?.slug === 'option' || b.status?.slug === 'devis-envoye' || b.status?.slug === 'devis-signe'
+    ).length
+    const totalGuests = bookings.reduce((sum, b) => sum + (b.guests_count || 0), 0)
 
-const reservationsByDay = [
-  { day: 'Lun', reservations: 12, guests: 180 },
-  { day: 'Mar', reservations: 8, guests: 120 },
-  { day: 'Mer', reservations: 15, guests: 240 },
-  { day: 'Jeu', reservations: 18, guests: 320 },
-  { day: 'Ven', reservations: 28, guests: 520 },
-  { day: 'Sam', reservations: 45, guests: 890 },
-  { day: 'Dim', reservations: 30, guests: 570 },
-]
+    return {
+      total: bookings.length,
+      confirmed,
+      pending,
+      totalGuests,
+      avgGuests: bookings.length > 0 ? Math.round(totalGuests / bookings.length) : 0,
+    }
+  }, [bookings])
 
-const reservationsByType = [
-  { name: 'Anniversaire', value: 35, color: '#f97316' },
-  { name: 'Mariage', value: 22, color: '#ec4899' },
-  { name: 'Séminaire', value: 28, color: '#3b82f6' },
-  { name: 'Dîner équipe', value: 18, color: '#22c55e' },
-  { name: 'Autre', value: 53, color: '#8b5cf6' },
-]
+  const byDayOfWeek = useMemo(() => getReservationsByDayOfWeek(bookings), [bookings])
+  const byType = useMemo(() => getReservationsByType(bookings), [bookings])
+  const monthlyTrend = useMemo(() => getMonthlyTrend(bookings), [bookings])
 
-const monthlyTrend = [
-  { month: 'Jan', reservations: 120, revenue: 85000 },
-  { month: 'Fév', reservations: 135, revenue: 92000 },
-  { month: 'Mar', reservations: 148, revenue: 105000 },
-  { month: 'Avr', reservations: 142, revenue: 98000 },
-  { month: 'Mai', reservations: 165, revenue: 118000 },
-  { month: 'Juin', reservations: 156, revenue: 112000 },
-]
+  const upcomingBookings = useMemo(() => {
+    const now = new Date()
+    return bookings
+      .filter(b => isAfter(parseISO(b.event_date), now))
+      .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+      .slice(0, 5)
+  }, [bookings])
 
-const upcomingReservations = [
-  { id: 'RES-001', company: 'Société ABC', date: new Date(2024, 0, 25), time: '19:30', guests: 25, status: 'confirmed', type: 'Séminaire' },
-  { id: 'RES-002', company: 'Famille Dupont', date: new Date(2024, 0, 26), time: '12:00', guests: 45, status: 'confirmed', type: 'Anniversaire' },
-  { id: 'RES-003', company: 'Tech Corp', date: new Date(2024, 0, 27), time: '20:00', guests: 18, status: 'pending', type: 'Dîner équipe' },
-  { id: 'RES-004', company: 'Wedding Martin', date: new Date(2024, 0, 28), time: '18:00', guests: 80, status: 'confirmed', type: 'Mariage' },
-  { id: 'RES-005', company: 'Startup XYZ', date: new Date(2024, 0, 29), time: '19:00', guests: 12, status: 'pending', type: 'Dîner équipe' },
-]
+  if (isLoading) {
+    return (
+      <div className='flex items-center justify-center py-20'>
+        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      </div>
+    )
+  }
 
-const statusColors = {
-  confirmed: 'bg-green-100 text-green-700 border-green-200',
-  pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  cancelled: 'bg-red-100 text-red-700 border-red-200',
-}
-
-const statusLabels = {
-  confirmed: 'Confirmé',
-  pending: 'En attente',
-  cancelled: 'Annulé',
-}
-
-export function ReservationsTab() {
   return (
     <div className='space-y-4'>
       {/* KPI Cards */}
@@ -85,8 +73,8 @@ export function ReservationsTab() {
             <Calendar className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{reservationStats.totalReservations}</div>
-            <p className='text-xs text-muted-foreground'>Ce mois-ci</p>
+            <div className='text-2xl font-bold'>{stats.total}</div>
+            <p className='text-xs text-muted-foreground'>Sur la période sélectionnée</p>
           </CardContent>
         </Card>
         <Card>
@@ -95,9 +83,9 @@ export function ReservationsTab() {
             <CheckCircle className='h-4 w-4 text-green-500' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold text-green-600'>{reservationStats.confirmedReservations}</div>
+            <div className='text-2xl font-bold text-green-600'>{stats.confirmed}</div>
             <p className='text-xs text-muted-foreground'>
-              {((reservationStats.confirmedReservations / reservationStats.totalReservations) * 100).toFixed(0)}% du total
+              {stats.total > 0 ? ((stats.confirmed / stats.total) * 100).toFixed(0) : 0}% du total
             </p>
           </CardContent>
         </Card>
@@ -107,7 +95,7 @@ export function ReservationsTab() {
             <Clock className='h-4 w-4 text-yellow-500' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold text-yellow-600'>{reservationStats.pendingReservations}</div>
+            <div className='text-2xl font-bold text-yellow-600'>{stats.pending}</div>
             <p className='text-xs text-muted-foreground'>À confirmer</p>
           </CardContent>
         </Card>
@@ -117,9 +105,9 @@ export function ReservationsTab() {
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{reservationStats.totalGuests.toLocaleString('fr-FR')}</div>
+            <div className='text-2xl font-bold'>{stats.totalGuests.toLocaleString('fr-FR')}</div>
             <p className='text-xs text-muted-foreground'>
-              Moy. {reservationStats.avgGuestsPerReservation} pers./résa
+              Moy. {stats.avgGuests} pers./événement
             </p>
           </CardContent>
         </Card>
@@ -134,10 +122,10 @@ export function ReservationsTab() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width='100%' height={250}>
-              <BarChart data={reservationsByDay}>
+              <BarChart data={byDayOfWeek}>
                 <XAxis dataKey='day' fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value, name) => [
                     name === 'reservations' ? `${value ?? 0} événements` : `${value ?? 0} convives`,
                     name === 'reservations' ? 'Événements' : 'Convives'
@@ -155,26 +143,30 @@ export function ReservationsTab() {
             <CardTitle className='text-base'>Par type d'événement</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width='100%' height={250}>
-              <PieChart>
-                <Pie
-                  data={reservationsByType}
-                  cx='50%'
-                  cy='50%'
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={3}
-                  dataKey='value'
-                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {reservationsByType.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => [`${value ?? 0} événements`, '']} />
-              </PieChart>
-            </ResponsiveContainer>
+            {byType.length > 0 ? (
+              <ResponsiveContainer width='100%' height={250}>
+                <PieChart>
+                  <Pie
+                    data={byType}
+                    cx='50%'
+                    cy='50%'
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey='value'
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {byType.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [`${value ?? 0} événements`, '']} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className='text-sm text-muted-foreground text-center py-10'>Aucune donnée</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -192,9 +184,9 @@ export function ReservationsTab() {
               <LineChart data={monthlyTrend}>
                 <XAxis dataKey='month' fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value, name) => [
-                    name === 'reservations' ? `${value ?? 0} événements` : `${(value ?? 0).toLocaleString('fr-FR')} €`,
+                    name === 'reservations' ? `${value ?? 0} événements` : `${(Number(value) ?? 0).toLocaleString('fr-FR')} €`,
                     name === 'reservations' ? 'Événements' : 'CA'
                   ]}
                 />
@@ -211,28 +203,53 @@ export function ReservationsTab() {
             <CardTitle className='text-base'>Prochains événements</CardTitle>
           </CardHeader>
           <CardContent className='space-y-3'>
-            {upcomingReservations.map((reservation) => (
-              <div key={reservation.id} className='flex items-center justify-between border-b pb-3 last:border-0 last:pb-0'>
-                <div className='flex-1 min-w-0'>
-                  <p className='font-medium text-sm truncate'>{reservation.company}</p>
-                  <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-                    <span>{format(reservation.date, 'EEE d MMM', { locale: fr })}</span>
-                    <span>•</span>
-                    <span>{reservation.time}</span>
-                    <span>•</span>
-                    <span>{reservation.guests} pers.</span>
+            {upcomingBookings.length > 0 ? upcomingBookings.map((booking) => {
+              const contactName = booking.contact
+                ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`.trim()
+                : booking.contact_sur_place_societe || 'Sans contact'
+              return (
+                <div key={booking.id} className='flex items-center justify-between border-b pb-3 last:border-0 last:pb-0'>
+                  <div className='flex-1 min-w-0'>
+                    <p className='font-medium text-sm truncate'>{contactName}</p>
+                    <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+                      <span>{format(parseISO(booking.event_date), 'EEE d MMM', { locale: fr })}</span>
+                      {booking.start_time && (
+                        <>
+                          <span>•</span>
+                          <span>{booking.start_time.slice(0, 5)}</span>
+                        </>
+                      )}
+                      {booking.guests_count && (
+                        <>
+                          <span>•</span>
+                          <span>{booking.guests_count} pers.</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    {(booking.occasion || booking.event_type) && (
+                      <Badge variant='outline' className='text-xs'>
+                        {booking.occasion || booking.event_type}
+                      </Badge>
+                    )}
+                    {booking.status && (
+                      <Badge
+                        variant='outline'
+                        style={{
+                          borderColor: booking.status.color,
+                          color: booking.status.color,
+                        }}
+                      >
+                        {booking.status.name}
+                      </Badge>
+                    )}
                   </div>
                 </div>
-                <div className='flex items-center gap-2'>
-                  <Badge variant='outline' className='text-xs'>
-                    {reservation.type}
-                  </Badge>
-                  <Badge variant='outline' className={statusColors[reservation.status as keyof typeof statusColors]}>
-                    {statusLabels[reservation.status as keyof typeof statusLabels]}
-                  </Badge>
-                </div>
-              </div>
-            ))}
+              )
+            }) : (
+              <p className='text-sm text-muted-foreground text-center py-4'>Aucun événement à venir</p>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -27,6 +27,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { TimePicker } from '@/components/ui/time-picker'
 import {
   Popover,
   PopoverContent,
@@ -262,7 +263,11 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                   <FormItem>
                     <FormLabel>Heure début *</FormLabel>
                     <FormControl>
-                      <Input type='time' {...field} />
+                      <TimePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder='HH:MM'
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -275,7 +280,11 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                   <FormItem>
                     <FormLabel>Heure fin</FormLabel>
                     <FormControl>
-                      <Input type='time' {...field} />
+                      <TimePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder='HH:MM'
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

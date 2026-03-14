@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Bar,
   BarChart,
@@ -10,7 +11,7 @@ import {
   PieChart,
   Pie,
 } from 'recharts'
-import { Euro, Target, TrendingUp, Users } from 'lucide-react'
+import { Euro, Target, TrendingUp, Users, Loader2 } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -18,25 +19,72 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import {
-  salesByCommercial,
-  monthlyPerformanceByCommercial,
-  commercials,
-} from '../data/mock-data'
+  type DashboardTabProps,
+  calcRevenue,
+  calcConversionRate,
+  groupByUser,
+  getMonthlyRevenueByCommercial,
+} from '../hooks/use-dashboard-data'
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#a855f7']
 
-export function CommercialTab() {
-  const totalSales = salesByCommercial.reduce((acc, c) => acc + c.sales, 0)
-  const totalBookings = salesByCommercial.reduce((acc, c) => acc + c.bookings, 0)
-  const avgConversion = (salesByCommercial.reduce((acc, c) => acc + c.conversionRate, 0) / salesByCommercial.length).toFixed(1)
+export function CommercialTab({ bookings, isLoading }: DashboardTabProps) {
+  const commercialStats = useMemo(() => {
+    const groups = groupByUser(bookings)
+    return Object.entries(groups)
+      .filter(([key]) => key !== 'unassigned')
+      .map(([, data]) => ({
+        name: data.user ? `${data.user.first_name} ${data.user.last_name}` : 'Inconnu',
+        initials: data.user ? `${data.user.first_name[0]}${data.user.last_name[0]}` : '??',
+        sales: calcRevenue(data.bookings),
+        bookings: data.bookings.length,
+        conversionRate: calcConversionRate(data.bookings),
+      }))
+      .sort((a, b) => b.sales - a.sales)
+  }, [bookings])
 
-  const pieData = salesByCommercial.map((c) => ({
-    name: c.name,
-    value: c.sales,
-  }))
+  const totalSales = useMemo(() => commercialStats.reduce((acc, c) => acc + c.sales, 0), [commercialStats])
+  const totalBookings = useMemo(() => commercialStats.reduce((acc, c) => acc + c.bookings, 0), [commercialStats])
+  const avgConversion = useMemo(() => {
+    if (commercialStats.length === 0) return 0
+    return (commercialStats.reduce((acc, c) => acc + c.conversionRate, 0) / commercialStats.length).toFixed(1)
+  }, [commercialStats])
+
+  const bestPerformer = commercialStats[0]
+
+  const pieData = useMemo(() =>
+    commercialStats.map(c => ({ name: c.name, value: c.sales })),
+    [commercialStats]
+  )
+
+  const monthlyData = useMemo(() => getMonthlyRevenueByCommercial(bookings), [bookings])
+  const commercialNames = useMemo(() => commercialStats.map(c => c.name), [commercialStats])
+
+  // Dynamic target: max commercial sales * 1.2 rounded to nearest 10k
+  const target = useMemo(() => {
+    if (commercialStats.length === 0) return 100000
+    const maxSales = Math.max(...commercialStats.map(c => c.sales))
+    return Math.ceil((maxSales * 1.2) / 10000) * 10000
+  }, [commercialStats])
+
+  if (isLoading) {
+    return (
+      <div className='flex items-center justify-center py-20'>
+        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      </div>
+    )
+  }
+
+  if (commercialStats.length === 0) {
+    return (
+      <div className='flex items-center justify-center py-20'>
+        <p className='text-muted-foreground'>Aucune donnée commerciale disponible</p>
+      </div>
+    )
+  }
 
   return (
     <div className='space-y-4'>
@@ -44,31 +92,25 @@ export function CommercialTab() {
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              CA Total Équipe
-            </CardTitle>
+            <CardTitle className='text-sm font-medium'>CA Total Équipe</CardTitle>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>
-              {totalSales.toLocaleString('fr-FR')} €
-            </div>
+            <div className='text-2xl font-bold'>{totalSales.toLocaleString('fr-FR')} €</div>
             <p className='text-xs text-muted-foreground'>
-              Réparti sur {commercials.length} commerciaux
+              Réparti sur {commercialStats.length} commerciaux
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Événements traités
-            </CardTitle>
+            <CardTitle className='text-sm font-medium'>Événements traités</CardTitle>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{totalBookings}</div>
             <p className='text-xs text-muted-foreground'>
-              Ø {Math.round(totalBookings / commercials.length)} par commercial
+              Ø {commercialStats.length > 0 ? Math.round(totalBookings / commercialStats.length) : 0} par commercial
             </p>
           </CardContent>
         </Card>
@@ -79,22 +121,18 @@ export function CommercialTab() {
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{avgConversion}%</div>
-            <p className='text-xs text-muted-foreground'>
-              Leads → Événements confirmés
-            </p>
+            <p className='text-xs text-muted-foreground'>Leads → Événements confirmés</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Meilleur performeur
-            </CardTitle>
+            <CardTitle className='text-sm font-medium'>Meilleur performeur</CardTitle>
             <Target className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>Sophie Martin</div>
+            <div className='text-2xl font-bold truncate'>{bestPerformer?.name || '-'}</div>
             <p className='text-xs text-muted-foreground'>
-              156 000 € de CA ce mois
+              {bestPerformer ? `${bestPerformer.sales.toLocaleString('fr-FR')} € de CA` : '-'}
             </p>
           </CardContent>
         </Card>
@@ -109,30 +147,16 @@ export function CommercialTab() {
           </CardHeader>
           <CardContent className='ps-2'>
             <ResponsiveContainer width='100%' height={350}>
-              <BarChart data={monthlyPerformanceByCommercial}>
-                <XAxis
-                  dataKey='month'
-                  stroke='#888888'
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke='#888888'
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
+              <BarChart data={monthlyData}>
+                <XAxis dataKey='month' stroke='#888888' fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke='#888888' fontSize={12} tickLine={false} axisLine={false}
                   tickFormatter={(value) => `${(value / 1000).toFixed(0)}k€`}
                 />
-                <Tooltip
-                  formatter={(value) => [`${Number(value ?? 0).toLocaleString('fr-FR')} €`, '']}
-                  labelStyle={{ color: '#000' }}
-                />
+                <Tooltip formatter={(value) => [`${Number(value ?? 0).toLocaleString('fr-FR')} €`, '']} />
                 <Legend />
-                <Bar dataKey='Sophie Martin' fill='#3b82f6' radius={[4, 4, 0, 0]} />
-                <Bar dataKey='Lucas Dubois' fill='#10b981' radius={[4, 4, 0, 0]} />
-                <Bar dataKey='Emma Bernard' fill='#f59e0b' radius={[4, 4, 0, 0]} />
-                <Bar dataKey='Thomas Petit' fill='#8b5cf6' radius={[4, 4, 0, 0]} />
+                {commercialNames.map((name, i) => (
+                  <Bar key={name} dataKey={name} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -176,23 +200,19 @@ export function CommercialTab() {
         </CardHeader>
         <CardContent>
           <div className='space-y-6'>
-            {salesByCommercial.map((commercial, index) => {
-              const target = 180000
-              const progress = (commercial.sales / target) * 100
+            {commercialStats.map((commercial, index) => {
+              const progress = target > 0 ? (commercial.sales / target) * 100 : 0
               return (
                 <div key={commercial.name} className='space-y-2'>
                   <div className='flex items-center gap-4'>
                     <Avatar className='h-10 w-10'>
-                      <AvatarImage src={commercials[index]?.avatar} alt={commercial.name} />
-                      <AvatarFallback style={{ backgroundColor: COLORS[index] + '20', color: COLORS[index] }}>
-                        {commercials[index]?.initials}
+                      <AvatarFallback style={{ backgroundColor: COLORS[index % COLORS.length] + '20', color: COLORS[index % COLORS.length] }}>
+                        {commercial.initials}
                       </AvatarFallback>
                     </Avatar>
                     <div className='flex flex-1 flex-wrap items-center justify-between gap-2'>
                       <div className='space-y-1'>
-                        <p className='text-sm font-medium leading-none'>
-                          {commercial.name}
-                        </p>
+                        <p className='text-sm font-medium leading-none'>{commercial.name}</p>
                         <p className='text-xs text-muted-foreground'>
                           {commercial.bookings} événements • {commercial.conversionRate}% conversion
                         </p>
@@ -208,7 +228,7 @@ export function CommercialTab() {
                     </div>
                   </div>
                   <div className='flex items-center gap-2'>
-                    <Progress value={progress} className='h-2' />
+                    <Progress value={Math.min(progress, 100)} className='h-2' />
                     <span className='text-xs text-muted-foreground w-12'>
                       {progress.toFixed(0)}%
                     </span>

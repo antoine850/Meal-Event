@@ -40,6 +40,8 @@ export type QuotePreviewData = {
   totalHt: number
   totalTtc: number
   totalTva: number
+  rawTotalHt?: number
+  rawTotalTtc?: number
   discountPercentage: number
   orderNumber: string
   commentsFr: string
@@ -436,22 +438,30 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             </div>
           )}
 
-          {/* Discount */}
-          {data.discountPercentage > 0 && (
-            <div className='flex justify-end'>
-              <div className='text-right text-[10px] text-gray-600'>
-                {l.discount}: -{data.discountPercentage}%
-              </div>
-            </div>
-          )}
-
           {/* Totals */}
           <div className='flex justify-end'>
             <div className='w-56 space-y-1'>
-              <div className='flex justify-between text-[10px]'>
-                <span className='text-gray-600'>{l.subtotalHt}</span>
-                <span className='font-medium'>{data.totalHt.toFixed(2)} €</span>
-              </div>
+              {data.discountPercentage > 0 && data.rawTotalHt ? (
+                <>
+                  <div className='flex justify-between text-[10px]'>
+                    <span className='text-gray-600'>{l.subtotalHt}</span>
+                    <span className='font-medium line-through text-gray-400'>{data.rawTotalHt.toFixed(2)} €</span>
+                  </div>
+                  <div className='flex justify-between text-[10px]'>
+                    <span className='text-red-600'>{l.discount} {data.discountPercentage}%</span>
+                    <span className='font-medium text-red-600'>- {(data.rawTotalHt - data.totalHt).toFixed(2)} €</span>
+                  </div>
+                  <div className='flex justify-between text-[10px]'>
+                    <span className='text-gray-600'>{l.subtotalHt} après remise</span>
+                    <span className='font-medium'>{data.totalHt.toFixed(2)} €</span>
+                  </div>
+                </>
+              ) : (
+                <div className='flex justify-between text-[10px]'>
+                  <span className='text-gray-600'>{l.subtotalHt}</span>
+                  <span className='font-medium'>{data.totalHt.toFixed(2)} €</span>
+                </div>
+              )}
               {Object.entries(tvaByRate).map(([rate, val]) => (
                 <div key={rate} className='flex justify-between text-[10px]'>
                   <span className='text-gray-600'>TVA {rate}%</span>

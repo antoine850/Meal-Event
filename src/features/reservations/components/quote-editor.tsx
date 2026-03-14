@@ -56,6 +56,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -400,6 +401,8 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     totalHt,
     totalTtc,
     totalTva: totalTtc - totalHt,
+    rawTotalHt,
+    rawTotalTtc,
     discountPercentage,
     orderNumber,
     commentsFr,
@@ -524,23 +527,23 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                   <div className='grid grid-cols-2 gap-3'>
                     <div>
                       <Label className='text-xs'>Date début prestation</Label>
-                      <Input
-                        type='date'
-                        value={dateStart}
-                        onChange={e => setDateStart(e.target.value)}
-                        onBlur={() => saveQuoteField('date_start', dateStart || null)}
-                        className='mt-1'
-                      />
+                      <div className='mt-1'>
+                        <DatePicker
+                          value={dateStart}
+                          onChange={(v) => { setDateStart(v); saveQuoteField('date_start', v || null) }}
+                          placeholder='Début'
+                        />
+                      </div>
                     </div>
                     <div>
                       <Label className='text-xs'>Date fin prestation</Label>
-                      <Input
-                        type='date'
-                        value={dateEnd}
-                        onChange={e => setDateEnd(e.target.value)}
-                        onBlur={() => saveQuoteField('date_end', dateEnd || null)}
-                        className='mt-1'
-                      />
+                      <div className='mt-1'>
+                        <DatePicker
+                          value={dateEnd}
+                          onChange={(v) => { setDateEnd(v); saveQuoteField('date_end', v || null) }}
+                          placeholder='Fin'
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -656,13 +659,13 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     <div className='grid grid-cols-3 gap-3'>
                       <div>
                         <Label className='text-xs'>Date du devis</Label>
-                        <Input
-                          type='date'
-                          value={quoteDate}
-                          onChange={e => setQuoteDate(e.target.value)}
-                          onBlur={() => saveQuoteField('quote_date', quoteDate || null)}
-                          className='mt-1'
-                        />
+                        <div className='mt-1'>
+                          <DatePicker
+                            value={quoteDate}
+                            onChange={(v) => { setQuoteDate(v); saveQuoteField('quote_date', v || null) }}
+                            placeholder='Date'
+                          />
+                        </div>
                       </div>
                       <div>
                         <Label className='text-xs'>Échéance devis (J+)</Label>

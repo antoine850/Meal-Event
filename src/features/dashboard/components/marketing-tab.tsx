@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Bar,
   BarChart,
@@ -9,7 +10,7 @@ import {
   Line,
   LineChart,
 } from 'recharts'
-import { Instagram, Facebook, Globe, MessageCircle, Users, TrendingUp } from 'lucide-react'
+import { Instagram, Facebook, Globe, MessageCircle, Users, TrendingUp, Loader2 } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -19,14 +20,16 @@ import {
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import {
-  marketingBySource,
-  monthlyLeadsBySource,
-} from '../data/mock-data'
+  type DashboardTabProps,
+  getContactsBySource,
+  getMonthlyLeadsBySource,
+} from '../hooks/use-dashboard-data'
 
 const sourceIcons: Record<string, React.ReactNode> = {
   Instagram: <Instagram className='h-4 w-4' style={{ color: '#E4405F' }} />,
   Facebook: <Facebook className='h-4 w-4' style={{ color: '#1877F2' }} />,
   'Google Ads': <Globe className='h-4 w-4' style={{ color: '#4285F4' }} />,
+  Google: <Globe className='h-4 w-4' style={{ color: '#4285F4' }} />,
   WhatsApp: <MessageCircle className='h-4 w-4' style={{ color: '#25D366' }} />,
   Organique: <Users className='h-4 w-4' style={{ color: '#6B7280' }} />,
   Parrainage: <TrendingUp className='h-4 w-4' style={{ color: '#8B5CF6' }} />,
@@ -36,19 +39,48 @@ const sourceColors: Record<string, string> = {
   Instagram: '#E4405F',
   Facebook: '#1877F2',
   'Google Ads': '#4285F4',
+  Google: '#4285F4',
   WhatsApp: '#25D366',
   Organique: '#6B7280',
   Parrainage: '#8B5CF6',
+  Autre: '#9CA3AF',
 }
 
-export function MarketingTab() {
-  const totalLeads = marketingBySource.reduce((acc, s) => acc + s.leads, 0)
-  const totalBookings = marketingBySource.reduce((acc, s) => acc + s.bookings, 0)
-  const avgConversion = ((totalBookings / totalLeads) * 100).toFixed(1)
+const DEFAULT_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#a855f7']
 
-  const bestSource = marketingBySource.reduce((best, current) => 
-    current.conversionRate > best.conversionRate ? current : best
+export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProps) {
+  const marketingBySource = useMemo(() => getContactsBySource(contacts, bookings), [contacts, bookings])
+  const monthlyLeads = useMemo(() => getMonthlyLeadsBySource(contacts), [contacts])
+
+  const totalLeads = useMemo(() => marketingBySource.reduce((acc, s) => acc + s.leads, 0), [marketingBySource])
+  const totalBookings = useMemo(() => marketingBySource.reduce((acc, s) => acc + s.bookings, 0), [marketingBySource])
+  const avgConversion = useMemo(() => totalLeads > 0 ? ((totalBookings / totalLeads) * 100).toFixed(1) : '0', [totalLeads, totalBookings])
+
+  const bestSource = useMemo(() =>
+    marketingBySource.reduce((best, current) =>
+      current.conversionRate > (best?.conversionRate || 0) ? current : best,
+      marketingBySource[0]
+    ),
+    [marketingBySource]
   )
+
+  const sourceNames = useMemo(() => marketingBySource.map(s => s.source), [marketingBySource])
+
+  if (isLoading) {
+    return (
+      <div className='flex items-center justify-center py-20'>
+        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      </div>
+    )
+  }
+
+  if (marketingBySource.length === 0) {
+    return (
+      <div className='flex items-center justify-center py-20'>
+        <p className='text-muted-foreground'>Aucune donnée marketing disponible</p>
+      </div>
+    )
+  }
 
   return (
     <div className='space-y-4'>
@@ -56,30 +88,22 @@ export function MarketingTab() {
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Total Leads
-            </CardTitle>
+            <CardTitle className='text-sm font-medium'>Total Leads</CardTitle>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{totalLeads}</div>
-            <p className='text-xs text-muted-foreground'>
-              Depuis toutes les sources
-            </p>
+            <p className='text-xs text-muted-foreground'>Depuis toutes les sources</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Événements
-            </CardTitle>
+            <CardTitle className='text-sm font-medium'>Événements</CardTitle>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{totalBookings}</div>
-            <p className='text-xs text-muted-foreground'>
-              Leads convertis en événements
-            </p>
+            <p className='text-xs text-muted-foreground'>Leads convertis en événements</p>
           </CardContent>
         </Card>
         <Card>
@@ -89,22 +113,18 @@ export function MarketingTab() {
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{avgConversion}%</div>
-            <p className='text-xs text-muted-foreground'>
-              Moyenne toutes sources
-            </p>
+            <p className='text-xs text-muted-foreground'>Moyenne toutes sources</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>
-              Meilleure source
-            </CardTitle>
-            {sourceIcons[bestSource.source]}
+            <CardTitle className='text-sm font-medium'>Meilleure source</CardTitle>
+            {bestSource && (sourceIcons[bestSource.source] || <Globe className='h-4 w-4 text-muted-foreground' />)}
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{bestSource.source}</div>
+            <div className='text-2xl font-bold'>{bestSource?.source || '-'}</div>
             <p className='text-xs text-muted-foreground'>
-              {bestSource.conversionRate}% de conversion
+              {bestSource ? `${bestSource.conversionRate}% de conversion` : '-'}
             </p>
           </CardContent>
         </Card>
@@ -119,28 +139,21 @@ export function MarketingTab() {
           </CardHeader>
           <CardContent className='ps-2'>
             <ResponsiveContainer width='100%' height={350}>
-              <LineChart data={monthlyLeadsBySource}>
-                <XAxis
-                  dataKey='month'
-                  stroke='#888888'
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke='#888888'
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
+              <LineChart data={monthlyLeads}>
+                <XAxis dataKey='month' stroke='#888888' fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke='#888888' fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip />
                 <Legend />
-                <Line type='monotone' dataKey='Instagram' stroke='#E4405F' strokeWidth={2} dot={false} />
-                <Line type='monotone' dataKey='Facebook' stroke='#1877F2' strokeWidth={2} dot={false} />
-                <Line type='monotone' dataKey='Google Ads' stroke='#4285F4' strokeWidth={2} dot={false} />
-                <Line type='monotone' dataKey='WhatsApp' stroke='#25D366' strokeWidth={2} dot={false} />
-                <Line type='monotone' dataKey='Organique' stroke='#6B7280' strokeWidth={2} dot={false} />
-                <Line type='monotone' dataKey='Parrainage' stroke='#8B5CF6' strokeWidth={2} dot={false} />
+                {sourceNames.map((name, i) => (
+                  <Line
+                    key={name}
+                    type='monotone'
+                    dataKey={name}
+                    stroke={sourceColors[name] || DEFAULT_COLORS[i % DEFAULT_COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -155,15 +168,7 @@ export function MarketingTab() {
             <ResponsiveContainer width='100%' height={350}>
               <BarChart data={marketingBySource} layout='vertical'>
                 <XAxis type='number' stroke='#888888' fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis 
-                  type='category' 
-                  dataKey='source' 
-                  stroke='#888888' 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false}
-                  width={80}
-                />
+                <YAxis type='category' dataKey='source' stroke='#888888' fontSize={12} tickLine={false} axisLine={false} width={80} />
                 <Tooltip />
                 <Legend />
                 <Bar dataKey='leads' fill='#94a3b8' name='Leads' radius={[0, 4, 4, 0]} />
@@ -184,21 +189,20 @@ export function MarketingTab() {
           <div className='space-y-6'>
             {marketingBySource.map((source) => {
               const maxLeads = Math.max(...marketingBySource.map(s => s.leads))
-              const progress = (source.leads / maxLeads) * 100
+              const progress = maxLeads > 0 ? (source.leads / maxLeads) * 100 : 0
+              const color = sourceColors[source.source] || '#6B7280'
               return (
                 <div key={source.source} className='space-y-2'>
                   <div className='flex items-center gap-4'>
-                    <div 
+                    <div
                       className='flex h-10 w-10 items-center justify-center rounded-full'
-                      style={{ backgroundColor: sourceColors[source.source] + '20' }}
+                      style={{ backgroundColor: color + '20' }}
                     >
-                      {sourceIcons[source.source]}
+                      {sourceIcons[source.source] || <Globe className='h-4 w-4' style={{ color }} />}
                     </div>
                     <div className='flex flex-1 flex-wrap items-center justify-between gap-2'>
                       <div className='space-y-1'>
-                        <p className='text-sm font-medium leading-none'>
-                          {source.source}
-                        </p>
+                        <p className='text-sm font-medium leading-none'>{source.source}</p>
                         <p className='text-xs text-muted-foreground'>
                           {source.leads} leads • {source.bookings} événements • {source.conversionRate}% conversion
                         </p>
@@ -207,16 +211,11 @@ export function MarketingTab() {
                         <p className='font-medium text-green-600'>
                           {source.revenue.toLocaleString('fr-FR')} €
                         </p>
-                        <p className='text-xs text-muted-foreground'>
-                          CA généré
-                        </p>
+                        <p className='text-xs text-muted-foreground'>CA généré</p>
                       </div>
                     </div>
                   </div>
-                  <Progress 
-                    value={progress} 
-                    className='h-2'
-                                      />
+                  <Progress value={progress} className='h-2' />
                 </div>
               )
             })}
