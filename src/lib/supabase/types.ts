@@ -1376,6 +1376,7 @@ export interface Database {
           id: string
           menu_form_id: string
           label: string
+          description: string | null
           field_type: string
           options: Json
           is_per_person: boolean
@@ -1388,6 +1389,7 @@ export interface Database {
           id?: string
           menu_form_id: string
           label: string
+          description?: string | null
           field_type?: string
           options?: Json
           is_per_person?: boolean
@@ -1400,6 +1402,7 @@ export interface Database {
           id?: string
           menu_form_id?: string
           label?: string
+          description?: string | null
           field_type?: string
           options?: Json
           is_per_person?: boolean

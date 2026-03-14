@@ -23,6 +23,9 @@ DROP TABLE IF EXISTS booking_menu_forms CASCADE;
 -- Step 3: Add restaurant_id to menu_forms if not exists
 ALTER TABLE menu_forms ADD COLUMN IF NOT EXISTS restaurant_id UUID REFERENCES restaurants(id) ON DELETE SET NULL;
 
+-- Step 3b: Add description column to menu_form_fields if not exists
+ALTER TABLE menu_form_fields ADD COLUMN IF NOT EXISTS description TEXT;
+
 -- Step 4: Remove booking_id from menu_forms (make forms reusable)
 -- First, we need to handle existing data - keep forms but remove the direct booking link
 -- The booking_id will be moved to booking_menu_forms

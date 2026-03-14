@@ -62,24 +62,30 @@ export function useAllMenuForms() {
   })
 }
 
-// Get menu forms for a specific restaurant
-export function useMenuFormsByRestaurant(restaurantId: string | null) {
+// Get menu forms for a specific restaurant (includes forms with matching restaurant_id OR null restaurant_id)
+export function useMenuFormsByRestaurant(restaurantId: string | null | undefined) {
   return useQuery({
     queryKey: ['menu_forms', 'restaurant', restaurantId],
     enabled: !!restaurantId,
     queryFn: async () => {
       const organizationId = await getCurrentOrganizationId()
-      if (!organizationId) return []
+      if (!organizationId || !restaurantId) return []
 
+      // Get forms for this specific restaurant OR global forms (restaurant_id is null)
       const { data, error } = await (supabase
         .from('menu_forms') as any)
         .select('*, menu_form_fields(*), restaurants(id, name)')
         .eq('organization_id', organizationId)
-        .eq('restaurant_id', restaurantId!)
         .order('title')
 
       if (error) throw error
-      return (data || []) as MenuFormWithFields[]
+      
+      // Filter client-side: forms for this restaurant OR global forms
+      const filtered = (data || []).filter((form: any) => 
+        form.restaurant_id === restaurantId || form.restaurant_id === null
+      )
+      
+      return filtered as MenuFormWithFields[]
     },
   })
 }
@@ -395,9 +401,10 @@ export function useAddMenuFormField() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ menuFormId, label, fieldType, options, isPerPerson, isRequired, sortOrder }: {
+    mutationFn: async ({ menuFormId, label, description, fieldType, options, isPerPerson, isRequired, sortOrder }: {
       menuFormId: string
       label: string
+      description?: string | null
       fieldType?: string
       options?: { label: string; description?: string }[]
       isPerPerson?: boolean
@@ -409,6 +416,7 @@ export function useAddMenuFormField() {
         .insert({
           menu_form_id: menuFormId,
           label,
+          description: description || null,
           field_type: fieldType || 'select',
           options: JSON.stringify(options || []),
           is_per_person: isPerPerson ?? true,

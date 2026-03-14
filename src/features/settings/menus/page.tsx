@@ -57,6 +57,7 @@ import {
   type MenuFormWithFields,
 } from '@/features/reservations/hooks/use-menu-forms'
 import { useRestaurants } from '@/features/settings/hooks/use-settings'
+import { MenuFormBuilder } from '@/features/reservations/components/menu-form-builder'
 
 export function MenusPage() {
   const { data: menuForms = [], isLoading } = useAllMenuForms()
@@ -79,10 +80,14 @@ export function MenusPage() {
   // Filter
   const [restaurantFilter, setRestaurantFilter] = useState<string>('all')
 
+  // Form builder state
+  const [formBuilderOpen, setFormBuilderOpen] = useState(false)
+  const [editingFormId, setEditingFormId] = useState<string | null>(null)
+
   const resetFormState = () => {
     setFormTitle('')
     setFormDescription('')
-    setFormRestaurantId('')
+    setFormRestaurantId('__all__')
   }
 
   const openCreateDialog = () => {
@@ -94,7 +99,7 @@ export function MenusPage() {
     setSelectedForm(form)
     setFormTitle(form.title)
     setFormDescription(form.description || '')
-    setFormRestaurantId(form.restaurant_id || '')
+    setFormRestaurantId(form.restaurant_id || '__all__')
     setEditDialogOpen(true)
   }
 
@@ -111,7 +116,7 @@ export function MenusPage() {
     createMenuForm({
       title: formTitle.trim(),
       description: formDescription.trim() || undefined,
-      restaurantId: formRestaurantId || null,
+      restaurantId: formRestaurantId === '__all__' ? null : (formRestaurantId || null),
     }, {
       onSuccess: () => {
         toast.success('Formulaire créé')
@@ -128,7 +133,7 @@ export function MenusPage() {
       id: selectedForm.id,
       title: formTitle.trim(),
       description: formDescription.trim() || null,
-      restaurant_id: formRestaurantId || null,
+      restaurant_id: formRestaurantId === '__all__' ? null : (formRestaurantId || null),
     }, {
       onSuccess: () => {
         toast.success('Formulaire mis à jour')
@@ -306,10 +311,23 @@ export function MenusPage() {
                     <TableCell className='text-right'>
                       <div className='flex items-center justify-end gap-1'>
                         <Button
+                          variant='outline'
+                          size='sm'
+                          className='h-8 gap-1'
+                          title='Éditer les champs'
+                          onClick={() => {
+                            setEditingFormId(form.id)
+                            setFormBuilderOpen(true)
+                          }}
+                        >
+                          <ChefHat className='h-3.5 w-3.5' />
+                          Champs
+                        </Button>
+                        <Button
                           variant='ghost'
                           size='sm'
                           className='h-8 w-8 p-0'
-                          title='Modifier'
+                          title='Modifier infos'
                           onClick={() => openEditDialog(form)}
                         >
                           <Edit className='h-4 w-4' />
@@ -369,7 +387,7 @@ export function MenusPage() {
                   <SelectValue placeholder='Tous les restaurants' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value=''>Tous les restaurants</SelectItem>
+                  <SelectItem value='__all__'>Tous les restaurants</SelectItem>
                   {restaurants.map(r => (
                     <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                   ))}
@@ -428,7 +446,7 @@ export function MenusPage() {
                   <SelectValue placeholder='Tous les restaurants' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value=''>Tous les restaurants</SelectItem>
+                  <SelectItem value='__all__'>Tous les restaurants</SelectItem>
                   {restaurants.map(r => (
                     <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                   ))}
@@ -471,6 +489,16 @@ export function MenusPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Form Builder */}
+      <MenuFormBuilder
+        formId={editingFormId}
+        open={formBuilderOpen}
+        onOpenChange={(open) => {
+          setFormBuilderOpen(open)
+          if (!open) setEditingFormId(null)
+        }}
+      />
     </div>
   )
 }

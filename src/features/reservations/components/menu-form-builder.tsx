@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
@@ -164,6 +165,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
 
 function FieldEditor({ field, onUpdate, onDelete }: any) {
   const [label, setLabel] = useState(field.label)
+  const [description, setDescription] = useState(field.description || '')
   const [fieldType, setFieldType] = useState(field.field_type)
   const [isPerPerson, setIsPerPerson] = useState(field.is_per_person)
   const [isRequired, setIsRequired] = useState(field.is_required)
@@ -171,6 +173,7 @@ function FieldEditor({ field, onUpdate, onDelete }: any) {
   const handleSave = () => {
     onUpdate(field.id, {
       label,
+      description: description || null,
       field_type: fieldType,
       is_per_person: isPerPerson,
       is_required: isRequired,
@@ -202,6 +205,18 @@ function FieldEditor({ field, onUpdate, onDelete }: any) {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className='space-y-2'>
+          <Label className='text-xs'>Description (optionnelle)</Label>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleSave}
+            placeholder="Ex: Choisissez votre entrée parmi les options suivantes..."
+            rows={2}
+            className='text-sm'
+          />
         </div>
 
         <div className='flex items-center gap-4'>
