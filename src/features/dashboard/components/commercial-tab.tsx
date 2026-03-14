@@ -38,7 +38,7 @@ export function CommercialTab({ bookings, isLoading }: DashboardTabProps) {
       .filter(([key]) => key !== 'unassigned')
       .map(([, data]) => ({
         name: data.user ? `${data.user.first_name} ${data.user.last_name}` : 'Inconnu',
-        initials: data.user ? `${data.user.first_name[0]}${data.user.last_name[0]}` : '??',
+        initials: data.user ? `${data.user.first_name?.[0] || ''}${data.user.last_name?.[0] || ''}`.toUpperCase() || '??' : '??',
         sales: calcRevenue(data.bookings),
         bookings: data.bookings.length,
         conversionRate: calcConversionRate(data.bookings),

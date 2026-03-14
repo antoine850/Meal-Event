@@ -94,7 +94,8 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
     if (defaultDate) {
       form.setValue('event_date', defaultDate)
     }
-  }, [defaultDate, form])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultDate])
 
   const onSubmit = (data: BookingFormData) => {
     createBooking(

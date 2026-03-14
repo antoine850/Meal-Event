@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { type DateRange } from 'react-day-picker'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -40,13 +40,13 @@ export function Dashboard() {
   const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
   const [selectedClientType, setSelectedClientType] = useState<Set<string>>(new Set())
 
-  const filters: DashboardFilters = {
+  const filters: DashboardFilters = useMemo(() => ({
     dateRange: dateRange?.from && dateRange?.to ? { from: dateRange.from, to: dateRange.to } : undefined,
     restaurants: selectedRestaurants,
     statuses: selectedStatuses,
     commercials: selectedCommercials,
     clientType: selectedClientType,
-  }
+  }), [dateRange, selectedRestaurants, selectedStatuses, selectedCommercials, selectedClientType])
 
   const { bookings, contacts, restaurants, users, statuses, isAdmin, userName, isLoading } = useDashboardData(filters)
 

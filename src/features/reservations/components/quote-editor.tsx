@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   ChevronDown,
@@ -181,6 +181,9 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     name: restaurant?.name || null,
   }), [restaurant])
 
+  // Track which quote ID we already replaced placeholders for, to avoid infinite loop
+  const replacedPlaceholdersRef = useRef<string | null>(null)
+
   // Initialize from quote data
   useEffect(() => {
     if (quoteData) {
@@ -200,11 +203,14 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       setCommentsFr(quoteData.comments_fr || '')
       setCommentsEn(quoteData.comments_en || '')
       // If conditions still have {{placeholders}}, replace them with restaurant billing info
+      // Use ref to avoid infinite loop: updateQuote invalidates quoteData → effect re-runs
       const needsReplacement = (s: string | null) => s?.includes('{{')
-      if (needsReplacement(quoteData.conditions_devis) ||
+      const hasPlaceholders = needsReplacement(quoteData.conditions_devis) ||
           needsReplacement(quoteData.conditions_facture) ||
           needsReplacement(quoteData.conditions_acompte) ||
-          needsReplacement(quoteData.conditions_solde)) {
+          needsReplacement(quoteData.conditions_solde)
+      if (hasPlaceholders && replacedPlaceholdersRef.current !== quoteData.id) {
+        replacedPlaceholdersRef.current = quoteData.id
         const cgv = {
           conditionsDevis: generateCGV(quoteData.conditions_devis || '', restaurantBillingInfo),
           conditionsFacture: generateCGV(quoteData.conditions_facture || '', restaurantBillingInfo),
@@ -225,7 +231,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
             conditions_solde: cgv.conditionsSolde,
           } as any)
         }
-      } else {
+      } else if (!hasPlaceholders) {
         setConditionsDevis(quoteData.conditions_devis || '')
         setConditionsFacture(quoteData.conditions_facture || '')
         setConditionsAcompte(quoteData.conditions_acompte || '')
@@ -259,6 +265,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     })
   }, [quoteId, updateQuote])
 
+  // Use a ref for items length to avoid unnecessary callback recreations
+  const itemsLengthRef = useRef(items.length)
+  itemsLengthRef.current = items.length
+
   // Add product from catalog (via combobox)
   const handleAddProductFromCatalog = useCallback((productId: string) => {
     if (!quoteId) return
@@ -272,7 +282,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       quantity: product.price_per_person ? (booking.guests_count || 1) : 1,
       unitPrice: product.unit_price_ht,
       tvaRate: product.tva_rate,
-      position: items.length,
+      position: itemsLengthRef.current,
     }, {
       onSuccess: () => {
         setProductPopoverOpen(false)
@@ -280,7 +290,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       },
       onError: () => toast.error('Erreur lors de l\'ajout'),
     })
-  }, [quoteId, catalogProducts, addQuoteItem, items.length, booking.guests_count])
+  }, [quoteId, catalogProducts, addQuoteItem, booking.guests_count])
 
   // Add package from catalog (via combobox)
   const handleAddPackageFromCatalog = useCallback((packageId: string) => {
@@ -289,7 +299,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     if (!pkg) return
 
     // Build description from package products
-    const productsDesc = pkg.package_products?.map(pp => 
+    const productsDesc = pkg.package_products?.map(pp =>
       `${pp.product?.name || 'Produit'} ×${pp.quantity}`
     ).join(', ') || ''
     const fullDescription = [pkg.description, productsDesc].filter(Boolean).join(' — ')
@@ -301,7 +311,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       quantity: pkg.price_per_person ? (booking.guests_count || 1) : 1,
       unitPrice: pkg.unit_price_ht,
       tvaRate: pkg.tva_rate,
-      position: items.length,
+      position: itemsLengthRef.current,
     }, {
       onSuccess: () => {
         setPackagePopoverOpen(false)
@@ -309,7 +319,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       },
       onError: () => toast.error('Erreur lors de l\'ajout'),
     })
-  }, [quoteId, catalogPackages, addQuoteItem, items.length, booking.guests_count])
+  }, [quoteId, catalogPackages, addQuoteItem, booking.guests_count])
 
   // Change contact on the quote
   const handleChangeContact = useCallback((contactId: string) => {
