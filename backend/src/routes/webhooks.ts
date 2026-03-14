@@ -285,6 +285,19 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
       console.log(`[Stripe] Quote ${quote_id} marked as completed after balance payment`)
     }
 
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      organization_id: booking?.organization_id,
+      booking_id,
+      action_type: 'payment.received',
+      action_label: `Paiement de ${((session.amount_total || 0) / 100).toLocaleString('fr-FR')} \u20AC reçu via Stripe`,
+      actor_type: 'webhook',
+      actor_name: 'Stripe',
+      entity_type: 'payment',
+      entity_id: existingPayment?.id || null,
+      metadata: { amount: (session.amount_total || 0) / 100, method: 'stripe', payment_type: link_type },
+    })
+
     console.log(`Payment successful for booking ${booking_id}, type: ${link_type}`)
   } catch (error) {
     console.error('Error handling payment success:', error)
@@ -389,6 +402,18 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
       console.error('⚠️ Failed to download/store signed PDF (continuing workflow):', downloadErr?.message || downloadErr)
     }
 
+    // Store signed PDF as document
+    if (signedPdfUrl) {
+      await supabase.from('documents').insert({
+        organization_id: quote.organization_id,
+        booking_id: quote.booking_id,
+        name: `Devis signé - ${quote.quote_number}`,
+        type: 'signed_quote',
+        url: signedPdfUrl,
+        mime_type: 'application/pdf',
+      })
+    }
+
     // Update quote as signed
     await supabase
       .from('quotes')
@@ -398,6 +423,18 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
         signed_pdf_url: signedPdfUrl,
       })
       .eq('id', quote.id)
+
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      organization_id: quote.organization_id,
+      booking_id: quote.booking_id,
+      action_type: 'quote.signed',
+      action_label: `Devis ${quote.quote_number} signé`,
+      actor_type: 'client',
+      actor_name: 'Client',
+      entity_type: 'quote',
+      entity_id: quote.id,
+    })
 
     console.log(`Quote ${quote.quote_number} signed via SignNow`)
 
@@ -507,8 +544,8 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         link_type: 'deposit',
       },
       customer_email: contact.email,
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking.id}?payment=success&type=deposit`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking.id}?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?type=deposit&booking=${booking.id}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?status=cancelled`,
     })
     
     console.log(`[Stripe] Session created: ${session.id}, URL: ${session.url}`)
@@ -613,6 +650,19 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         resend_message_id: emailResult.id,
         status: 'sent',
       })
+
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      organization_id: quote.organization_id,
+      booking_id: booking.id,
+      action_type: 'payment.deposit_sent',
+      action_label: `Lien acompte de ${depositAmount.toLocaleString('fr-FR')} \u20AC envoyé automatiquement après signature`,
+      actor_type: 'system',
+      actor_name: 'Système',
+      entity_type: 'quote',
+      entity_id: quoteId,
+      metadata: { amount: depositAmount, auto: true },
+    })
 
     console.log(`✅ Auto-sent deposit email for quote ${quote.quote_number} after signature`)
   } catch (error: any) {

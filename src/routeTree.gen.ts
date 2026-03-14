@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
@@ -53,6 +54,11 @@ import { Route as AuthenticatedReservationsBookingIdRouteImport } from './routes
 import { Route as AuthenticatedEvenementsBookingIdRouteImport } from './routes/_authenticated/evenements/booking.$id'
 import { Route as AuthenticatedContactsContactIdRouteImport } from './routes/_authenticated/contacts/contact.$id'
 
+const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
+  id: '/payment-success',
+  path: '/payment-success',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -290,6 +296,7 @@ const AuthenticatedContactsContactIdRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/payment-success': typeof PaymentSuccessRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/accept-invite': typeof authAcceptInviteRoute
   '/forgot-password': typeof authForgotPasswordRoute
@@ -333,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
 }
 export interface FileRoutesByTo {
+  '/payment-success': typeof PaymentSuccessRoute
   '/accept-invite': typeof authAcceptInviteRoute
   '/forgot-password': typeof authForgotPasswordRoute
   '/onboarding': typeof authOnboardingRoute
@@ -378,6 +386,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/(auth)': typeof authRouteRouteWithChildren
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/payment-success': typeof PaymentSuccessRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/(auth)/accept-invite': typeof authAcceptInviteRoute
   '/(auth)/forgot-password': typeof authForgotPasswordRoute
@@ -423,6 +432,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/payment-success'
     | '/settings'
     | '/accept-invite'
     | '/forgot-password'
@@ -466,6 +476,7 @@ export interface FileRouteTypes {
     | '/tasks/contact/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/payment-success'
     | '/accept-invite'
     | '/forgot-password'
     | '/onboarding'
@@ -510,6 +521,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/(auth)'
     | '/_authenticated'
+    | '/payment-success'
     | '/_authenticated/settings'
     | '/(auth)/accept-invite'
     | '/(auth)/forgot-password'
@@ -556,6 +568,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   authRouteRoute: typeof authRouteRouteWithChildren
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  PaymentSuccessRoute: typeof PaymentSuccessRoute
   errors401Route: typeof errors401Route
   errors403Route: typeof errors403Route
   errors404Route: typeof errors404Route
@@ -566,6 +579,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/payment-success': {
+      id: '/payment-success'
+      path: '/payment-success'
+      fullPath: '/payment-success'
+      preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -978,6 +998,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   authRouteRoute: authRouteRouteWithChildren,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  PaymentSuccessRoute: PaymentSuccessRoute,
   errors401Route: errors401Route,
   errors403Route: errors403Route,
   errors404Route: errors404Route,

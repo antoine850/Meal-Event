@@ -101,8 +101,8 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
         quote_id: quote_id || '',
         link_type,
       },
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking_id}?payment=success&type=${link_type}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking_id}?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?type=${link_type}&booking=${booking_id}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?status=cancelled`,
     })
 
     const paymentLink = { url: session.url, id: session.id }
@@ -137,6 +137,17 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
         stripe_payment_id: session.id,
         status: 'pending',
       })
+
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      organization_id: (booking as any).organization_id,
+      booking_id,
+      action_type: link_type === 'deposit' ? 'payment.deposit_sent' : 'payment.balance_sent',
+      action_label: `Lien de paiement ${link_type || 'full'} de ${amount} \u20AC créé`,
+      actor_type: 'user',
+      entity_type: 'payment',
+      metadata: { amount, link_type },
+    })
 
     res.status(201).json(data)
   } catch (error) {

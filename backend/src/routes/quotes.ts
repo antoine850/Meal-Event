@@ -408,8 +408,8 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
         link_type: 'deposit',
       },
       customer_email: contact.email,
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=success&type=deposit`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?type=deposit&booking=${booking?.id}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?status=cancelled`,
     })
 
     // Generate deposit invoice PDF with error handling
@@ -506,6 +506,19 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
         status: 'sent',
       })
 
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      organization_id: quoteData.organization_id,
+      booking_id: booking?.id,
+      action_type: 'payment.deposit_sent',
+      action_label: `Lien acompte de ${depositAmount.toLocaleString('fr-FR')} \u20AC envoyé`,
+      actor_type: 'user',
+      actor_id: req.body.userId || null,
+      entity_type: 'quote',
+      entity_id: quoteId,
+      metadata: { amount: depositAmount },
+    })
+
     res.json({ success: true, sessionId: session.id, paymentUrl: session.url })
   } catch (error) {
     console.error('Error sending deposit:', error)
@@ -541,28 +554,10 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'L\'acompte n\'a pas encore été payé. Veuillez attendre le paiement de l\'acompte avant d\'envoyer le solde.' })
     }
 
-    // Idempotency guard: check if a pending balance payment already exists
-    // Also expire stale pending payments (older than 24h — Stripe sessions expire)
-    const { data: existingBalance } = await supabase
-      .from('payments')
-      .select('id, created_at')
-      .eq('quote_id', quoteId)
-      .eq('payment_type', 'balance')
-      .eq('status', 'pending')
-      .maybeSingle()
-
-    if (existingBalance) {
-      const createdAt = new Date(existingBalance.created_at || 0)
-      const hoursOld = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
-      if (hoursOld < 24) {
-        return res.status(409).json({ error: 'Un lien de paiement de solde est déjà en cours pour ce devis.' })
-      }
-      // Expire stale pending payment so a new one can be created
-      await supabase
-        .from('payments')
-        .update({ status: 'expired' })
-        .eq('id', existingBalance.id)
-    }
+    // Expire old balance payment links and pending payments to allow re-sending
+    await supabase.from('payment_links').update({ is_active: false }).eq('quote_id', quoteId).eq('link_type', 'balance').eq('is_active', true)
+    // Also expire old pending balance payments (but not paid ones)
+    await supabase.from('payments').delete().eq('quote_id', quoteId).eq('payment_type', 'balance').eq('status', 'pending')
 
     // Calculate balance: total_ttc (products only, discount already applied) + extras - deposit
     const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
@@ -597,8 +592,8 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         link_type: 'balance',
       },
       customer_email: contact.email,
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=success&type=balance`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/evenements/booking/${booking?.id}?payment=cancelled`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?type=balance&booking=${booking?.id}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?status=cancelled`,
     })
 
     // Generate balance invoice PDF with error handling
@@ -692,6 +687,19 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         resend_message_id: emailResult.id,
         status: 'sent',
       })
+
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      organization_id: quoteData.organization_id,
+      booking_id: booking?.id,
+      action_type: 'payment.balance_sent',
+      action_label: `Lien solde de ${balanceAmount.toLocaleString('fr-FR')} \u20AC envoyé`,
+      actor_type: 'user',
+      actor_id: req.body.userId || null,
+      entity_type: 'quote',
+      entity_id: quoteId,
+      metadata: { amount: balanceAmount },
+    })
 
     res.json({ success: true, sessionId: session.id, paymentUrl: session.url })
   } catch (error) {
