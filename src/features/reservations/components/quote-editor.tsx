@@ -1092,7 +1092,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                               {catalogProducts.map(p => (
                                 <CommandItem
                                   key={p.id}
-                                  value={`${p.name} ${p.type}`}
+                                  value={[p.name, p.type, p.description].filter(Boolean).join(' ')}
                                   onSelect={() => handleAddProductFromCatalog(p.id)}
                                   className='text-xs cursor-pointer'
                                 >

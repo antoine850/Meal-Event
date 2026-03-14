@@ -839,6 +839,9 @@ export function useProductsByRestaurant(restaurantId: string | null) {
     queryFn: async () => {
       if (!restaurantId) return []
 
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return []
+
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -848,6 +851,7 @@ export function useProductsByRestaurant(restaurantId: string | null) {
             restaurant:restaurants(id, name, color)
           )
         `)
+        .eq('organization_id', orgId)
         .eq('is_active', true)
         .order('name', { ascending: true })
 
@@ -889,6 +893,9 @@ export function usePackagesByRestaurant(restaurantId: string | null) {
     queryFn: async () => {
       if (!restaurantId) return []
 
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return []
+
       const { data, error } = await supabase
         .from('packages')
         .select(`
@@ -903,6 +910,7 @@ export function usePackagesByRestaurant(restaurantId: string | null) {
             restaurant:restaurants(id, name, color)
           )
         `)
+        .eq('organization_id', orgId)
         .eq('is_active', true)
         .order('name', { ascending: true })
 
