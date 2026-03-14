@@ -5,7 +5,6 @@ import {
   HelpCircle,
   Bell,
   Settings,
-  Users,
   Command,
   CalendarDays,
   FileText,

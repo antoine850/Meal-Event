@@ -82,7 +82,7 @@ const roleColors: Record<string, string> = {
 const inviteSchema = z.object({
   email: z.string().email('Email invalide'),
   role_id: z.string().min(1, 'Le rôle est requis'),
-  restaurant_ids: z.array(z.string()).default([]),
+  restaurant_ids: z.array(z.string()),
 })
 type InviteFormData = z.infer<typeof inviteSchema>
 

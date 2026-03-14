@@ -97,13 +97,13 @@ export function Contacts() {
     if (dateRange?.from) {
       const fromDate = new Date(dateRange.from)
       fromDate.setHours(0, 0, 0, 0)
-      result = result.filter(c => new Date(c.created_at) >= fromDate)
+      result = result.filter(c => c.created_at && new Date(c.created_at) >= fromDate)
     }
-    
+
     if (dateRange?.to) {
       const toDate = new Date(dateRange.to)
       toDate.setHours(23, 59, 59, 999)
-      result = result.filter(c => new Date(c.created_at) <= toDate)
+      result = result.filter(c => c.created_at && new Date(c.created_at) <= toDate)
     }
 
     if (searchValue) {

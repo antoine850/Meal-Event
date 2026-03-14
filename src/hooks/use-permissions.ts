@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId } from '@/lib/get-current-org'
 
 export type UserPermissions = {
   role: { id: string; name: string; slug: string } | null

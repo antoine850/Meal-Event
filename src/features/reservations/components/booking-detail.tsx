@@ -65,7 +65,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
+// import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -99,7 +99,7 @@ import {
   useBookingMenuForms, 
   useLinkMenuFormToBooking, 
   useUnlinkMenuFormFromBooking,
-  useAllMenuForms,
+  // useAllMenuForms,
   useMenuFormsByRestaurant,
 } from '../hooks/use-menu-forms'
 import { useActivityLogs, useLogActivity, createActivityLogger, ACTION_ICONS, type ActivityActionType } from '../hooks/use-activity-logs'
@@ -1026,8 +1026,6 @@ export const BookingDetail = forwardRef<
                         const isPrimary = !!(quote as any).primary_quote
                         
                         // Conditions for actions
-                        // Allow resending quote email anytime (no restriction)
-                        const canSendQuote = true
                         // Allow resending signature as long as quote is not yet signed
                         const canSendSignature = !isQuoteSigned
                         const canSendDepositLink = isQuoteSigned && !isDepositPaid
@@ -1042,7 +1040,7 @@ export const BookingDetail = forwardRef<
                                 <div className='flex items-center gap-2'>
                                   <p className='font-medium text-sm'>{quote.quote_number}</p>
                                   <Badge variant='outline' className='text-[10px] text-muted-foreground'>
-                                    {format(new Date(quote.created_at), 'dd/MM/yyyy', { locale: fr })}
+                                    {quote.created_at ? format(new Date(quote.created_at), 'dd/MM/yyyy', { locale: fr }) : '-'}
                                   </Badge>
                                   {isPrimary && (
                                     <Badge variant='default' className='text-[10px] bg-emerald-600 hover:bg-emerald-600'>Actif</Badge>
@@ -1198,7 +1196,7 @@ export const BookingDetail = forwardRef<
                                             {
                                               onSuccess: () => {
                                                 toast.success('Facture de solde envoyée')
-                                                activityLogger.paymentBalanceSent(booking.id, quote.id, quote.total_ttc - ((quote as any).deposit_amount || 0))
+                                                activityLogger.paymentBalanceSent(booking.id, quote.id, (quote.total_ttc || 0) - ((quote as any).deposit_amount || 0))
                                               },
                                               onError: (err) => toast.error(`Erreur: ${err.message}`),
                                             }
@@ -1315,7 +1313,7 @@ export const BookingDetail = forwardRef<
                   {/* Payment Balance Summary */}
                   {(() => {
                     // Get the most advanced quote (by status progression)
-                    const primaryQuote = quotes.find(q => ['deposit_paid', 'balance_sent', 'balance_paid'].includes(q.status)) || quotes.find(q => q.status === 'quote_signed') || quotes.find(q => q.status === 'deposit_sent') || quotes[0]
+                    const primaryQuote = quotes.find(q => ['deposit_paid', 'balance_sent', 'balance_paid'].includes(q.status || '')) || quotes.find(q => q.status === 'quote_signed') || quotes.find(q => q.status === 'deposit_sent') || quotes[0]
                     const totalDevisTtc = primaryQuote?.total_ttc || 0
                     // Only count payments with status 'paid' (from Stripe webhook) or 'completed' (manual)
                     const paiementsRecus = payments
@@ -1756,11 +1754,11 @@ export const BookingDetail = forwardRef<
                                        log.actor_type === 'system' ? 'automatique' : ''}
                                     </span>
                                     <span>·</span>
-                                    <span>{formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: fr })}</span>
+                                    <span>{log.created_at ? formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: fr }) : ''}</span>
                                   </div>
                                   
                                   {/* Show metadata details if available */}
-                                  {log.metadata && typeof log.metadata === 'object' && Object.keys(log.metadata as object).length > 0 && (log.metadata as Record<string, unknown>).changes && (
+                                  {log.metadata && typeof log.metadata === 'object' && Object.keys(log.metadata as object).length > 0 && !!(log.metadata as Record<string, unknown>).changes && (
                                     <div className='mt-2 text-xs bg-muted/50 rounded p-2'>
                                       <div className='space-y-1'>
                                         {Object.entries((log.metadata as Record<string, unknown>).changes as Record<string, { old: unknown; new: unknown }>)
@@ -1784,7 +1782,7 @@ export const BookingDetail = forwardRef<
                                             )
                                           })}
                                         {Object.keys((log.metadata as Record<string, unknown>).changes as object).length > 3 && (
-                                          <span className='text-muted-foreground'>+{Object.keys((log.metadata as Record<string, unknown>).changes as object).length - 3} autres modifications</span>
+                                          <span className='text-muted-foreground'>+{String(Object.keys((log.metadata as Record<string, unknown>).changes as object).length - 3)} autres modifications</span>
                                         )}
                                       </div>
                                     </div>

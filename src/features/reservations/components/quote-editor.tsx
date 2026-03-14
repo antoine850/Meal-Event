@@ -1190,10 +1190,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                 <Input
                                   type='number'
                                   min={1}
-                                  defaultValue={item.quantity}
+                                  defaultValue={item.quantity ?? 1}
                                   onBlur={e => {
                                     const v = parseInt(e.target.value) || 1
-                                    if (v !== item.quantity) {
+                                    if (v !== (item.quantity ?? 1)) {
                                       handleUpdateItem(item.id, 'quantity', v)
                                     }
                                   }}
@@ -1204,10 +1204,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                 <Input
                                   type='number'
                                   step='0.01'
-                                  defaultValue={item.unit_price}
+                                  defaultValue={item.unit_price ?? 0}
                                   onBlur={e => {
                                     const v = parseFloat(e.target.value) || 0
-                                    if (v !== item.unit_price) {
+                                    if (v !== (item.unit_price ?? 0)) {
                                       handleUpdateItem(item.id, 'unit_price', v)
                                     }
                                   }}
@@ -1218,10 +1218,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                 <Input
                                   type='number'
                                   step='0.01'
-                                  defaultValue={item.tva_rate}
+                                  defaultValue={item.tva_rate ?? 20}
                                   onBlur={e => {
                                     const v = parseFloat(e.target.value) || 20
-                                    if (v !== item.tva_rate) {
+                                    if (v !== (item.tva_rate ?? 20)) {
                                       handleUpdateItem(item.id, 'tva_rate', v)
                                     }
                                   }}
@@ -1455,9 +1455,9 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                       setEditingExtra(extra)
                                       setExtraName(extra.name)
                                       setExtraDescription(extra.description || '')
-                                      setExtraQuantity(extra.quantity)
-                                      setExtraUnitPrice(extra.unit_price)
-                                      setExtraTvaRate(extra.tva_rate)
+                                      setExtraQuantity(extra.quantity ?? 1)
+                                      setExtraUnitPrice(extra.unit_price ?? 0)
+                                      setExtraTvaRate(extra.tva_rate ?? 20)
                                     }}
                                   >
                                     <ReceiptText className='h-3 w-3' />
@@ -1487,7 +1487,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <div className='border-t px-4 py-2 space-y-1'>
                         <div className='flex justify-between text-xs'>
                           <span className='text-muted-foreground'>Total Extras HT</span>
-                          <span className='font-medium'>{extras.reduce((sum, e) => sum + (e.quantity * e.unit_price), 0).toFixed(2)} €</span>
+                          <span className='font-medium'>{extras.reduce((sum, e) => sum + ((e.quantity ?? 1) * (e.unit_price ?? 0)), 0).toFixed(2)} €</span>
                         </div>
                         <div className='flex justify-between text-sm font-semibold'>
                           <span>Total Extras TTC</span>

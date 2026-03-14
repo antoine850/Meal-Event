@@ -6,7 +6,6 @@ export type {
   Role,
   Permission,
   Restaurant,
-  TimeSlot,
   Space,
   Status,
   Company,

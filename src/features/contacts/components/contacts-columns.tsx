@@ -112,12 +112,12 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
     },
   },
   {
-    accessorKey: 'restaurant_id',
+    id: 'restaurant_id',
     header: () => null,
     cell: () => null,
     enableHiding: true,
     filterFn: (row, _id, value) => {
-      return value.includes(row.original.restaurant_id)
+      return value.includes(row.original.restaurant?.id)
     },
     meta: {
       className: 'hidden',
@@ -139,7 +139,7 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
     ),
     cell: ({ row }) => (
       <span className='text-sm text-muted-foreground'>
-        {format(new Date(row.original.created_at), 'dd/MM/yyyy', { locale: fr })}
+        {row.original.created_at ? format(new Date(row.original.created_at), 'dd/MM/yyyy', { locale: fr }) : '-'}
       </span>
     ),
   },

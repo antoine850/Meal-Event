@@ -14,7 +14,7 @@ import { sidebarData } from './data/sidebar-data'
 import { NavGroup } from './nav-group'
 import { NavUser } from './nav-user'
 import { TeamSwitcher } from './team-switcher'
-import type { NavItem, NavGroup as NavGroupType } from './types'
+import type { NavItem } from './types'
 
 // Map sidebar URLs to required permissions
 const routePermissions: Record<string, string> = {

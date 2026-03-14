@@ -114,7 +114,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
         notes: notes || null,
         file: file || undefined,
         removeAttachment,
-        currentAttachmentPath: payment.attachment_path,
+        currentAttachmentPath: (payment as any).attachment_path,
       }, {
         onSuccess: () => {
           toast.success('Paiement mis à jour')
@@ -262,7 +262,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
             />
             
             {/* Show existing attachment or new file */}
-            {(payment?.attachment_url && !removeAttachment && !file) ? (
+            {((payment as any)?.attachment_url && !removeAttachment && !file) ? (
               <div className='flex items-center gap-2 p-2 border rounded-md bg-muted/50'>
                 <Paperclip className='h-4 w-4 text-muted-foreground' />
                 <span className='text-sm flex-1 truncate'>Fichier attaché</span>
@@ -271,7 +271,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
                   variant='ghost'
                   size='sm'
                   className='h-7 w-7 p-0'
-                  onClick={() => window.open(payment.attachment_url!, '_blank')}
+                  onClick={() => window.open((payment as any).attachment_url!, '_blank')}
                 >
                   <ExternalLink className='h-3.5 w-3.5' />
                 </Button>
