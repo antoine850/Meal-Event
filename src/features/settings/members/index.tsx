@@ -130,16 +130,20 @@ export function MembersSettings() {
   const selectedInviteRoleSlug = roles?.find(r => r.id === inviteForm.watch('role_id'))?.slug
 
   const handleInvite = (values: InviteFormData) => {
-    inviteMember(values, {
-      onSuccess: () => {
-        toast.success('Invitation envoyée')
-        setInviteOpen(false)
-        inviteForm.reset()
-      },
-      onError: (err) => {
-        toast.error(err.message)
-      },
-    })
+    try {
+      inviteMember(values, {
+        onSuccess: () => {
+          toast.success('Invitation envoyée')
+          setInviteOpen(false)
+          inviteForm.reset()
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || 'Erreur lors de l\'envoi de l\'invitation')
+        },
+      })
+    } catch (err: any) {
+      toast.error(err?.message || 'Erreur inattendue')
+    }
   }
 
   const handleUpdateRole = (memberId: string, roleId: string, restaurantIds?: string[]) => {
@@ -418,14 +422,14 @@ export function MembersSettings() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Rôle</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder='Sélectionner un rôle' />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {roles?.map(role => {
+                        {(roles || []).map(role => {
                           const Icon = roleIcons[role.slug] || UserCog
                           return (
                             <SelectItem key={role.id} value={role.id}>
@@ -581,12 +585,12 @@ function EditRoleDialog({
         <div className='space-y-4'>
           <div>
             <label className='text-sm font-medium'>Rôle</label>
-            <Select value={roleId} onValueChange={setRoleId}>
+            <Select value={roleId || undefined} onValueChange={setRoleId}>
               <SelectTrigger className='mt-1'>
                 <SelectValue placeholder='Sélectionner un rôle' />
               </SelectTrigger>
               <SelectContent>
-                {roles.map(role => {
+                {(roles || []).map(role => {
                   const Icon = roleIcons[role.slug] || UserCog
                   return (
                     <SelectItem key={role.id} value={role.id}>
@@ -601,7 +605,7 @@ function EditRoleDialog({
             </Select>
           </div>
 
-          {(selectedRoleSlug === 'commercial' || selectedRoleSlug === 'gerant') && restaurants.length > 0 && (
+          {(selectedRoleSlug === 'commercial' || selectedRoleSlug === 'gerant') && restaurants?.length > 0 && (
             <div>
               <label className='text-sm font-medium'>Restaurants assignés</label>
               <div className='space-y-2 mt-1'>
