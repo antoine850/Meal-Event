@@ -292,11 +292,16 @@ export const BookingDetail = forwardRef<
   }
 
   const onSubmit = (data: BookingDetailFormData) => {
-    // Convert empty strings to null for numeric fields
+    // Convert empty strings to null for numeric and date/time fields
     const cleanEventForm = {
       ...eventForm,
       guests_count: eventForm.guests_count === '' ? null : eventForm.guests_count,
       budget_client: eventForm.budget_client === '' ? null : eventForm.budget_client,
+      event_date: eventForm.event_date === '' ? null : eventForm.event_date,
+      start_time: eventForm.start_time === '' ? null : eventForm.start_time,
+      end_time: eventForm.end_time === '' ? null : eventForm.end_time,
+      date_signature_devis: eventForm.date_signature_devis === '' ? null : eventForm.date_signature_devis,
+      space_id: eventForm.space_id === '' ? null : eventForm.space_id,
     }
 
     // Check if anything actually changed
