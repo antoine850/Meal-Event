@@ -155,14 +155,6 @@ export function MembersSettings() {
     )
   }
 
-  if (isLoading) {
-    return (
-      <div className='flex items-center justify-center py-10'>
-        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
-      </div>
-    )
-  }
-
   const membersColumns = useMemo<ColumnDef<Member>[]>(() => [
     {
       id: 'member',
@@ -264,6 +256,14 @@ export function MembersSettings() {
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   })
+
+  if (isLoading) {
+    return (
+      <div className='flex items-center justify-center py-10'>
+        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      </div>
+    )
+  }
 
   return (
     <ContentSection
