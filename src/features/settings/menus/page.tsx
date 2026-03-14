@@ -1,18 +1,28 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import {
+  type ColumnDef,
+  type SortingState,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import {
   Trash2,
   Loader2,
   ChefHat,
   Plus,
   Building2,
-  FileText,
   Edit,
+  MoreHorizontal,
+  Copy,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -50,6 +60,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { DataTablePagination, DataTableColumnHeader } from '@/components/data-table'
+import {
   useAllMenuForms,
   useCreateMenuForm,
   useUpdateMenuForm,
@@ -79,6 +97,10 @@ export function MenusPage() {
 
   // Filter
   const [restaurantFilter, setRestaurantFilter] = useState<string>('all')
+  const [search, setSearch] = useState('')
+
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([])
 
   // Form builder state
   const [formBuilderOpen, setFormBuilderOpen] = useState(false)
@@ -157,9 +179,140 @@ export function MenusPage() {
     })
   }
 
-  const filteredForms = restaurantFilter === 'all'
-    ? menuForms
-    : menuForms.filter(f => f.restaurant_id === restaurantFilter)
+  const handleDuplicate = (form: MenuFormWithFields) => {
+    createMenuForm({
+      title: `${form.title} (copie)`,
+      description: form.description || undefined,
+      restaurantId: form.restaurant_id || null,
+    }, {
+      onSuccess: () => toast.success('Formulaire dupliqué'),
+      onError: () => toast.error('Erreur lors de la duplication'),
+    })
+  }
+
+  const filteredForms = useMemo(() => {
+    let result = menuForms
+    if (restaurantFilter !== 'all') {
+      result = result.filter(f => f.restaurant_id === restaurantFilter)
+    }
+    if (search) {
+      const q = search.toLowerCase()
+      result = result.filter(f =>
+        f.title.toLowerCase().includes(q) ||
+        (f.description || '').toLowerCase().includes(q)
+      )
+    }
+    return result
+  }, [menuForms, restaurantFilter, search])
+
+  const columns = useMemo<ColumnDef<MenuFormWithFields>[]>(() => [
+    {
+      accessorKey: 'title',
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Formulaire' />,
+      cell: ({ row }) => (
+        <div className='space-y-0.5'>
+          <div className='font-medium'>{row.original.title}</div>
+          {row.original.description && (
+            <div className='text-xs text-muted-foreground line-clamp-1'>
+              {row.original.description}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'restaurant',
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Restaurant' />,
+      accessorFn: (row) => (row as any).restaurants?.name || '',
+      cell: ({ row }) => {
+        const restaurant = (row.original as any).restaurants
+        return restaurant ? (
+          <Badge variant='outline' className='gap-1 font-normal'>
+            <Building2 className='h-3 w-3' />
+            {restaurant.name}
+          </Badge>
+        ) : (
+          <span className='text-muted-foreground text-sm'>Tous</span>
+        )
+      },
+    },
+    {
+      id: 'fields_count',
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Champs' />,
+      accessorFn: (row) => row.menu_form_fields?.length || 0,
+      cell: ({ row }) => {
+        const count = row.original.menu_form_fields?.length || 0
+        return (
+          <Badge variant='secondary'>
+            {count} champ{count > 1 ? 's' : ''}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: 'created_at',
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Créé le' />,
+      cell: ({ row }) => (
+        <div className='text-sm text-muted-foreground'>
+          {format(new Date(row.original.created_at), 'dd MMM yyyy', { locale: fr })}
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const form = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
+                <MoreHorizontal className='h-4 w-4' />
+                <span className='sr-only'>Actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              <DropdownMenuItem
+                onClick={() => {
+                  setEditingFormId(form.id)
+                  setFormBuilderOpen(true)
+                }}
+              >
+                <ChefHat className='h-4 w-4 mr-2' />
+                Éditer les champs
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openEditDialog(form)}>
+                <Edit className='h-4 w-4 mr-2' />
+                Modifier les infos
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDuplicate(form)}>
+                <Copy className='h-4 w-4 mr-2' />
+                Dupliquer
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className='text-destructive focus:text-destructive'
+                onClick={() => openDeleteDialog(form)}
+              >
+                <Trash2 className='h-4 w-4 mr-2' />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+      meta: { className: 'w-[50px]' },
+    },
+  ], [])
+
+  const table = useReactTable({
+    data: filteredForms,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
 
   if (isLoading) {
     return (
@@ -170,7 +323,7 @@ export function MenusPage() {
   }
 
   return (
-    <div className='space-y-6 p-6'>
+    <div className='space-y-4 p-6'>
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
@@ -179,177 +332,76 @@ export function MenusPage() {
             Créez des formulaires réutilisables pour collecter les choix de menu de vos clients.
           </p>
         </div>
-        <div className='flex items-center gap-2'>
-          <Select value={restaurantFilter} onValueChange={setRestaurantFilter}>
-            <SelectTrigger className='w-[180px]'>
-              <SelectValue placeholder='Filtrer par restaurant' />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='all'>Tous les restaurants</SelectItem>
-              {restaurants.map(r => (
-                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={openCreateDialog}>
-            <Plus className='h-4 w-4 mr-2' />
-            Nouveau formulaire
-          </Button>
-        </div>
+        <Button onClick={openCreateDialog}>
+          <Plus className='h-4 w-4 mr-2' />
+          Nouveau formulaire
+        </Button>
       </div>
 
-      {/* Stats */}
-      <div className='grid gap-4 md:grid-cols-3'>
-        <Card>
-          <CardContent className='p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='p-2 bg-muted rounded-lg'>
-                <FileText className='h-5 w-5 text-muted-foreground' />
-              </div>
-              <div>
-                <p className='text-2xl font-bold'>{menuForms.length}</p>
-                <p className='text-xs text-muted-foreground'>Formulaires</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className='p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg'>
-                <Building2 className='h-5 w-5 text-blue-600 dark:text-blue-400' />
-              </div>
-              <div>
-                <p className='text-2xl font-bold'>
-                  {new Set(menuForms.filter(f => f.restaurant_id).map(f => f.restaurant_id)).size}
-                </p>
-                <p className='text-xs text-muted-foreground'>Restaurants</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className='p-4'>
-            <div className='flex items-center gap-3'>
-              <div className='p-2 bg-green-100 dark:bg-green-900/30 rounded-lg'>
-                <ChefHat className='h-5 w-5 text-green-600 dark:text-green-400' />
-              </div>
-              <div>
-                <p className='text-2xl font-bold'>
-                  {menuForms.reduce((acc, f) => acc + (f.menu_form_fields?.length || 0), 0)}
-                </p>
-                <p className='text-xs text-muted-foreground'>Champs total</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Filters */}
+      <div className='flex flex-wrap items-center gap-2'>
+        <Input
+          placeholder='Rechercher un formulaire...'
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className='h-8 w-full sm:w-[200px] lg:w-[250px]'
+        />
+        <Select value={restaurantFilter} onValueChange={setRestaurantFilter}>
+          <SelectTrigger className='h-8 w-[180px]'>
+            <SelectValue placeholder='Filtrer par restaurant' />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>Tous les restaurants</SelectItem>
+            {restaurants.map(r => (
+              <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* List */}
-      {filteredForms.length === 0 ? (
-        <Card className='border-dashed'>
-          <CardContent className='py-12 text-center'>
-            <ChefHat className='mx-auto h-12 w-12 text-muted-foreground/40' />
-            <h3 className='mt-4 text-lg font-semibold'>Aucun formulaire de menu</h3>
-            <p className='mt-2 text-sm text-muted-foreground'>
-              Créez un formulaire pour commencer à collecter les choix de menu.
-            </p>
-            <Button className='mt-4' onClick={openCreateDialog}>
-              <Plus className='h-4 w-4 mr-2' />
-              Créer un formulaire
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
+      {/* Table */}
+      <div className='flex flex-1 flex-col gap-4'>
+        <div className='overflow-hidden rounded-md border'>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Formulaire</TableHead>
-                <TableHead>Restaurant</TableHead>
-                <TableHead>Champs</TableHead>
-                <TableHead>Créé le</TableHead>
-                <TableHead className='text-right'>Actions</TableHead>
-              </TableRow>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} colSpan={header.colSpan} className={header.column.columnDef.meta?.className as string}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
             </TableHeader>
             <TableBody>
-              {filteredForms.map((form) => {
-                const restaurant = form.restaurants
-
-                return (
-                  <TableRow key={form.id}>
-                    <TableCell>
-                      <div className='space-y-1'>
-                        <div className='font-medium'>{form.title}</div>
-                        {form.description && (
-                          <div className='text-xs text-muted-foreground line-clamp-1'>
-                            {form.description}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {restaurant ? (
-                        <div className='flex items-center gap-1 text-sm'>
-                          <Building2 className='h-3 w-3 text-muted-foreground' />
-                          {restaurant.name}
-                        </div>
-                      ) : (
-                        <span className='text-muted-foreground text-sm'>Tous</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className='text-sm'>
-                        {form.menu_form_fields?.length || 0} champ{(form.menu_form_fields?.length || 0) > 1 ? 's' : ''}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className='text-sm text-muted-foreground'>
-                        {format(new Date(form.created_at), 'dd MMM yyyy', { locale: fr })}
-                      </div>
-                    </TableCell>
-                    <TableCell className='text-right'>
-                      <div className='flex items-center justify-end gap-1'>
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          className='h-8 gap-1'
-                          title='Éditer les champs'
-                          onClick={() => {
-                            setEditingFormId(form.id)
-                            setFormBuilderOpen(true)
-                          }}
-                        >
-                          <ChefHat className='h-3.5 w-3.5' />
-                          Champs
-                        </Button>
-                        <Button
-                          variant='ghost'
-                          size='sm'
-                          className='h-8 w-8 p-0'
-                          title='Modifier infos'
-                          onClick={() => openEditDialog(form)}
-                        >
-                          <Edit className='h-4 w-4' />
-                        </Button>
-                        <Button
-                          variant='ghost'
-                          size='sm'
-                          className='h-8 w-8 p-0 text-destructive hover:text-destructive'
-                          title='Supprimer'
-                          onClick={() => openDeleteDialog(form)}
-                        >
-                          <Trash2 className='h-4 w-4' />
-                        </Button>
-                      </div>
-                    </TableCell>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className={cell.column.columnDef.meta?.className as string}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
                   </TableRow>
-                )
-              })}
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className='h-24 text-center'>
+                    <div className='flex flex-col items-center gap-2'>
+                      <ChefHat className='h-8 w-8 text-muted-foreground/40' />
+                      <span className='text-muted-foreground'>Aucun formulaire trouvé</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
-        </Card>
-      )}
+        </div>
+        <DataTablePagination table={table} />
+      </div>
 
       {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>

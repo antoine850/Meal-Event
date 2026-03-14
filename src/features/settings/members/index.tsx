@@ -1,7 +1,16 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import {
+  type ColumnDef,
+  type SortingState,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import {
   Crown,
   Briefcase,
@@ -18,7 +27,6 @@ import {
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogClose,
@@ -52,8 +60,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { DataTablePagination } from '@/components/data-table'
 import { ContentSection } from '../components/content-section'
 import {
   useMembers,
@@ -96,6 +113,7 @@ export function MembersSettings() {
   const { mutate: revokeInvitation } = useRevokeInvitation()
   const { mutate: resendInvitation } = useResendInvitation()
 
+  const [sorting, setSorting] = useState<SortingState>([])
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editMember, setEditMember] = useState<Member | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
@@ -145,160 +163,227 @@ export function MembersSettings() {
     )
   }
 
+  const membersColumns = useMemo<ColumnDef<Member>[]>(() => [
+    {
+      id: 'member',
+      header: 'Membre',
+      cell: ({ row }) => {
+        const member = row.original
+        return (
+          <div className='flex items-center gap-3'>
+            <Avatar className='h-9 w-9'>
+              <AvatarFallback className='text-xs'>
+                {member.first_name?.[0]}{member.last_name?.[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <span className='font-medium text-sm'>
+                {member.first_name} {member.last_name}
+              </span>
+              <p className='text-xs text-muted-foreground'>{member.email}</p>
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      id: 'role',
+      header: 'Rôle',
+      cell: ({ row }) => {
+        const roleSlug = row.original.role?.slug || 'member'
+        const RoleIcon = roleIcons[roleSlug] || UserCog
+        return (
+          <Badge variant='outline' className={`text-xs ${roleColors[roleSlug] || ''}`}>
+            <RoleIcon className='mr-1 h-3 w-3' />
+            {row.original.role?.name || 'Membre'}
+          </Badge>
+        )
+      },
+    },
+    {
+      id: 'restaurants',
+      header: 'Restaurants',
+      cell: ({ row }) => {
+        const memberRestaurantIds = row.original.user_restaurants?.map(ur => ur.restaurant_id) || []
+        if (memberRestaurantIds.length === 0 || !restaurants) return <span className='text-muted-foreground text-sm'>Tous</span>
+        return (
+          <div className='flex flex-wrap gap-1'>
+            {memberRestaurantIds.map(rid => {
+              const rest = restaurants.find(r => r.id === rid)
+              return rest ? (
+                <Badge key={rid} variant='secondary' className='text-[10px] px-1.5 py-0'>
+                  {rest.name}
+                </Badge>
+              ) : null
+            })}
+          </div>
+        )
+      },
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const member = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
+                <MoreHorizontal className='h-4 w-4' />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              <DropdownMenuItem onClick={() => setEditMember(member)}>
+                <UserCog className='mr-2 h-4 w-4' />
+                Modifier le rôle
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className='text-destructive'
+                onClick={() => setDeleteConfirm({
+                  id: member.id,
+                  name: `${member.first_name} ${member.last_name || ''}`.trim(),
+                })}
+              >
+                <Trash2 className='mr-2 h-4 w-4' />
+                Retirer de l'organisation
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+      meta: { className: 'w-[50px]' },
+    },
+  ], [restaurants])
+
+  const membersTable = useReactTable({
+    data: members,
+    columns: membersColumns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
+
   return (
     <ContentSection
       title='Membres'
       desc='Gérez les membres de votre organisation et leurs rôles.'
     >
-      {/* Members list */}
-      <Card>
-        <CardHeader className='flex flex-row items-center justify-between'>
-          <div>
-            <CardTitle>Équipe ({members.length})</CardTitle>
-            <CardDescription>
-              Membres actifs de votre organisation
-            </CardDescription>
-          </div>
-          <Button onClick={() => setInviteOpen(true)}>
-            <MailPlus className='mr-2 h-4 w-4' />
-            Inviter
-          </Button>
-        </CardHeader>
-        <CardContent className='space-y-2'>
-          {members.map((member) => {
-            const roleSlug = member.role?.slug || 'member'
-            const RoleIcon = roleIcons[roleSlug] || UserCog
-            const memberRestaurantIds = member.user_restaurants?.map(ur => ur.restaurant_id) || []
+      {/* Header */}
+      <div className='flex items-center justify-between mb-4'>
+        <h3 className='text-base font-semibold'>Équipe ({members.length})</h3>
+        <Button onClick={() => setInviteOpen(true)}>
+          <MailPlus className='mr-2 h-4 w-4' />
+          Inviter
+        </Button>
+      </div>
 
-            return (
-              <div
-                key={member.id}
-                className='flex items-center justify-between rounded-lg border p-3'
-              >
-                <div className='flex items-center gap-3'>
-                  <Avatar className='h-9 w-9'>
-                    <AvatarFallback className='text-xs'>
-                      {member.first_name?.[0]}{member.last_name?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className='flex items-center gap-2'>
-                      <span className='font-medium text-sm'>
-                        {member.first_name} {member.last_name}
-                      </span>
-                      <Badge
-                        variant='outline'
-                        className={`text-xs ${roleColors[roleSlug] || ''}`}
-                      >
-                        <RoleIcon className='mr-1 h-3 w-3' />
-                        {member.role?.name || 'Membre'}
-                      </Badge>
-                    </div>
-                    <p className='text-xs text-muted-foreground'>{member.email}</p>
-                    {memberRestaurantIds.length > 0 && restaurants && (
-                      <div className='flex gap-1 mt-1'>
-                        {memberRestaurantIds.map(rid => {
-                          const rest = restaurants.find(r => r.id === rid)
-                          return rest ? (
-                            <Badge key={rid} variant='secondary' className='text-[10px] px-1.5 py-0'>
-                              {rest.name}
-                            </Badge>
-                          ) : null
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant='ghost' size='icon' className='h-8 w-8'>
-                      <MoreHorizontal className='h-4 w-4' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align='end'>
-                    <DropdownMenuItem onClick={() => setEditMember(member)}>
-                      <UserCog className='mr-2 h-4 w-4' />
-                      Modifier le rôle
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className='text-destructive'
-                      onClick={() => setDeleteConfirm({
-                        id: member.id,
-                        name: `${member.first_name} ${member.last_name || ''}`.trim(),
-                      })}
-                    >
-                      <Trash2 className='mr-2 h-4 w-4' />
-                      Retirer de l'organisation
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )
-          })}
-
-          {members.length === 0 && (
-            <p className='text-center text-sm text-muted-foreground py-6'>
-              Aucun membre pour le moment
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Members table */}
+      <div className='flex flex-col gap-4'>
+        <div className='overflow-hidden rounded-md border'>
+          <Table>
+            <TableHeader>
+              {membersTable.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} className={header.column.columnDef.meta?.className as string}>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {membersTable.getRowModel().rows?.length ? (
+                membersTable.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className={cell.column.columnDef.meta?.className as string}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={membersColumns.length} className='h-24 text-center text-muted-foreground'>
+                    Aucun membre pour le moment
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <DataTablePagination table={membersTable} />
+      </div>
 
       {/* Pending invitations */}
       {invitations.length > 0 && (
-        <Card className='mt-4'>
-          <CardHeader>
-            <CardTitle className='text-base'>
-              <Clock className='inline mr-2 h-4 w-4' />
-              Invitations en attente ({invitations.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className='space-y-2'>
-            {invitations.map((inv) => (
-              <div
-                key={inv.id}
-                className='flex items-center justify-between rounded-lg border border-dashed p-3'
-              >
-                <div>
-                  <div className='flex items-center gap-2'>
-                    <span className='text-sm font-medium'>{inv.email}</span>
-                    <Badge variant='outline' className='text-xs'>
-                      {inv.role?.name || 'Membre'}
-                    </Badge>
-                  </div>
-                  <p className='text-xs text-muted-foreground'>
-                    Invité par {inv.invited_by_user ? `${inv.invited_by_user.first_name} ${inv.invited_by_user.last_name || ''}`.trim() : '—'}
-                    {' · '}Expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}
-                  </p>
-                </div>
-                <div className='flex gap-1'>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-8 w-8'
-                    title='Renvoyer'
-                    onClick={() => resendInvitation(inv.id, {
-                      onSuccess: () => toast.success('Invitation renvoyée'),
-                      onError: (err) => toast.error(err.message),
-                    })}
-                  >
-                    <RefreshCw className='h-4 w-4' />
-                  </Button>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-8 w-8 text-destructive'
-                    title='Révoquer'
-                    onClick={() => setRevokeConfirm(inv.id)}
-                  >
-                    <Trash2 className='h-4 w-4' />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <div className='mt-6'>
+          <h3 className='text-base font-semibold mb-3 flex items-center gap-2'>
+            <Clock className='h-4 w-4' />
+            Invitations en attente ({invitations.length})
+          </h3>
+          <div className='overflow-hidden rounded-md border'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Rôle</TableHead>
+                  <TableHead>Détails</TableHead>
+                  <TableHead className='w-[80px]' />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invitations.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className='font-medium text-sm'>{inv.email}</TableCell>
+                    <TableCell>
+                      <Badge variant='outline' className='text-xs'>
+                        {inv.role?.name || 'Membre'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className='text-xs text-muted-foreground'>
+                        Invité par {inv.invited_by_user ? `${inv.invited_by_user.first_name} ${inv.invited_by_user.last_name || ''}`.trim() : '—'}
+                        {' · '}Expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
+                            <MoreHorizontal className='h-4 w-4' />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align='end'>
+                          <DropdownMenuItem
+                            onClick={() => resendInvitation(inv.id, {
+                              onSuccess: () => toast.success('Invitation renvoyée'),
+                              onError: (err: any) => toast.error(err.message),
+                            })}
+                          >
+                            <RefreshCw className='mr-2 h-4 w-4' />
+                            Renvoyer
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className='text-destructive'
+                            onClick={() => setRevokeConfirm(inv.id)}
+                          >
+                            <Trash2 className='mr-2 h-4 w-4' />
+                            Révoquer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       )}
 
       {/* Invite dialog */}

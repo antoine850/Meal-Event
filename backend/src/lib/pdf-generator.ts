@@ -255,7 +255,8 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
         restaurant:restaurants(
           id, name, address, city, postal_code, phone, email,
           logo_url, color, siret, tva_number, iban, bic, bank_name,
-          legal_name, legal_form, share_capital, rcs, siren
+          legal_name, legal_form, share_capital, rcs, siren,
+          company_name, billing_address, billing_postal_code, billing_city, billing_email
         )
       )
     `)
@@ -833,6 +834,22 @@ function buildDocDefinition(
     conditions = quote.conditions_acompte || ''
   } else {
     conditions = quote.conditions_solde || ''
+  }
+
+  // Safety: replace any remaining {{placeholders}} with restaurant data
+  if (conditions.includes('{{')) {
+    const r = quote.booking?.restaurant
+    conditions = conditions
+      .replace(/\{\{company_name\}\}/g, (r as any)?.company_name || (r as any)?.legal_name || r?.name || '')
+      .replace(/\{\{legal_form\}\}/g, r?.legal_form || '')
+      .replace(/\{\{billing_address\}\}/g, (r as any)?.billing_address || r?.address || '')
+      .replace(/\{\{billing_postal_code\}\}/g, (r as any)?.billing_postal_code || r?.postal_code || '')
+      .replace(/\{\{billing_city\}\}/g, (r as any)?.billing_city || r?.city || '')
+      .replace(/\{\{rcs\}\}/g, r?.rcs || '')
+      .replace(/\{\{siren\}\}/g, r?.siren || '')
+      .replace(/\{\{siret\}\}/g, r?.siret || '')
+      .replace(/\{\{share_capital\}\}/g, r?.share_capital || '')
+      .replace(/\{\{billing_email\}\}/g, (r as any)?.billing_email || r?.email || '')
   }
 
   if (conditions) {

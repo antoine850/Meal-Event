@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
   DialogContent,
@@ -28,6 +30,11 @@ import {
   useUpdateMenuFormField,
   useDeleteMenuFormField,
 } from '../hooks/use-menu-forms'
+
+type MenuOption = {
+  label: string
+  description?: string
+}
 
 type Props = {
   formId: string | null
@@ -76,8 +83,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
 
   const handleUpdateField = (fieldId: string, updates: any) => {
     updateField({ id: fieldId, ...updates }, {
-      onSuccess: () => toast.success('Champ mis à jour'),
-      onError: () => toast.error('Erreur'),
+      onError: () => toast.error('Erreur lors de la sauvegarde'),
     })
   }
 
@@ -91,7 +97,6 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
   const handleSaveSettings = () => {
     if (!formId) return
     updateForm({ id: formId, title, description } as any, {
-      onSuccess: () => toast.success('Formulaire sauvegardé'),
       onError: () => toast.error('Erreur'),
     })
   }
@@ -106,7 +111,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
             <div>
               <DialogTitle>Éditeur de formulaire</DialogTitle>
               <DialogDescription>
-                Configurez les champs du formulaire de menu
+                Configurez les champs et les options du formulaire de menu
               </DialogDescription>
             </div>
             <Button variant='ghost' size='sm' onClick={() => onOpenChange(false)}>
@@ -119,27 +124,37 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
           {/* Settings */}
           <div className='space-y-4'>
             <div className='space-y-2'>
-              <Label>Titre</Label>
+              <Label>Titre du formulaire</Label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={handleSaveSettings}
+                placeholder='Ex: Menu mariage, Brunch corporate...'
               />
             </div>
             <div className='space-y-2'>
-              <Label>Description</Label>
-              <Input
+              <Label>Description du formulaire</Label>
+              <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onBlur={handleSaveSettings}
+                placeholder='Ex: Veuillez sélectionner vos choix pour chaque convive...'
+                rows={2}
               />
             </div>
           </div>
 
+          <Separator />
+
           {/* Fields */}
           <div className='space-y-4'>
             <div className='flex items-center justify-between'>
-              <h3 className='text-sm font-semibold'>Champs</h3>
+              <div>
+                <h3 className='text-sm font-semibold'>Champs du formulaire</h3>
+                <p className='text-xs text-muted-foreground mt-0.5'>
+                  Ajoutez des choix (liste déroulante) ou des champs texte libre
+                </p>
+              </div>
               <Button size='sm' onClick={handleAddField}>
                 <Plus className='h-4 w-4 mr-2' />
                 Ajouter un champ
@@ -147,7 +162,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
             </div>
 
             {fields.length === 0 ? (
-              <Card>
+              <Card className='border-dashed'>
                 <CardContent className='py-8 text-center text-muted-foreground'>
                   Aucun champ. Ajoutez-en un pour commencer.
                 </CardContent>
@@ -171,14 +186,39 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
   )
 }
 
-function FieldEditor({ field, onUpdate, onDelete }: any) {
+// Parse options from JSONB (handles both string[] and {label,description}[] formats)
+function parseOptions(options: any): MenuOption[] {
+  if (!options) return []
+  try {
+    const parsed = typeof options === 'string' ? JSON.parse(options) : options
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((opt: any) => {
+      if (typeof opt === 'string') return { label: opt }
+      return { label: opt.label || '', description: opt.description || '' }
+    })
+  } catch {
+    return []
+  }
+}
+
+function FieldEditor({ field, onUpdate, onDelete }: {
+  field: any
+  onUpdate: (id: string, updates: any) => void
+  onDelete: (id: string) => void
+}) {
   const [label, setLabel] = useState(field.label)
   const [description, setDescription] = useState(field.description || '')
   const [fieldType, setFieldType] = useState(field.field_type)
   const [isPerPerson, setIsPerPerson] = useState(field.is_per_person)
   const [isRequired, setIsRequired] = useState(field.is_required)
+  const [options, setOptions] = useState<MenuOption[]>(() => parseOptions(field.options))
 
-  const handleSave = () => {
+  // Sync options from server
+  useEffect(() => {
+    setOptions(parseOptions(field.options))
+  }, [field.options])
+
+  const saveFieldMeta = useCallback(() => {
     onUpdate(field.id, {
       label,
       description: description || null,
@@ -186,73 +226,193 @@ function FieldEditor({ field, onUpdate, onDelete }: any) {
       is_per_person: isPerPerson,
       is_required: isRequired,
     })
+  }, [field.id, label, description, fieldType, isPerPerson, isRequired, onUpdate])
+
+  const saveOptions = useCallback((newOptions: MenuOption[]) => {
+    setOptions(newOptions)
+    onUpdate(field.id, {
+      options: JSON.stringify(newOptions),
+    })
+  }, [field.id, onUpdate])
+
+  const handleAddOption = () => {
+    const newOptions = [...options, { label: '', description: '' }]
+    saveOptions(newOptions)
+  }
+
+  const handleUpdateOption = (index: number, updates: Partial<MenuOption>) => {
+    const newOptions = options.map((opt, i) =>
+      i === index ? { ...opt, ...updates } : opt
+    )
+    setOptions(newOptions)
+  }
+
+  const handleSaveOption = (index: number) => {
+    // Save current options state to DB
+    onUpdate(field.id, {
+      options: JSON.stringify(options),
+    })
+  }
+
+  const handleRemoveOption = (index: number) => {
+    const newOptions = options.filter((_, i) => i !== index)
+    saveOptions(newOptions)
+  }
+
+  const handleFieldTypeChange = (newType: string) => {
+    setFieldType(newType)
+    onUpdate(field.id, {
+      field_type: newType,
+      is_per_person: newType === 'select' ? isPerPerson : false,
+    })
   }
 
   return (
     <Card>
-      <CardContent className='p-4 space-y-3'>
-        <div className='grid grid-cols-2 gap-3'>
-          <div className='space-y-2'>
-            <Label className='text-xs'>Nom du champ</Label>
-            <Input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              onBlur={handleSave}
-              className='h-9'
-            />
-          </div>
-          <div className='space-y-2'>
-            <Label className='text-xs'>Type</Label>
-            <Select value={fieldType} onValueChange={(v) => { setFieldType(v); handleSave() }}>
-              <SelectTrigger className='h-9'>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='select'>Liste de choix</SelectItem>
-                <SelectItem value='text'>Texte libre</SelectItem>
-              </SelectContent>
-            </Select>
+      <CardContent className='p-4 space-y-4'>
+        {/* Field header */}
+        <div className='flex items-start justify-between gap-2'>
+          <div className='flex-1 grid grid-cols-[1fr_auto] gap-3'>
+            <div className='space-y-1.5'>
+              <Label className='text-xs text-muted-foreground'>Nom du champ</Label>
+              <Input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                onBlur={saveFieldMeta}
+                className='h-9 font-medium'
+                placeholder='Ex: Entrée, Plat principal, Dessert...'
+              />
+            </div>
+            <div className='space-y-1.5'>
+              <Label className='text-xs text-muted-foreground'>Type</Label>
+              <Select value={fieldType} onValueChange={handleFieldTypeChange}>
+                <SelectTrigger className='h-9 w-[160px]'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='select'>Liste de choix</SelectItem>
+                  <SelectItem value='text'>Texte libre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
-        <div className='space-y-2'>
-          <Label className='text-xs'>Description (optionnelle)</Label>
+        {/* Field description */}
+        <div className='space-y-1.5'>
+          <Label className='text-xs text-muted-foreground'>Description du champ (optionnelle)</Label>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            onBlur={handleSave}
-            placeholder="Ex: Choisissez votre entrée parmi les options suivantes..."
+            onBlur={saveFieldMeta}
+            placeholder='Ex: Choisissez votre entrée parmi les options suivantes...'
             rows={2}
             className='text-sm'
           />
         </div>
 
-        <div className='flex items-center gap-4'>
-          <div className='flex items-center gap-2'>
-            <Switch
-              checked={isPerPerson}
-              onCheckedChange={(v) => { setIsPerPerson(v); handleSave() }}
-            />
-            <Label className='text-xs'>Par personne</Label>
-          </div>
-          <div className='flex items-center gap-2'>
-            <Switch
-              checked={isRequired}
-              onCheckedChange={(v) => { setIsRequired(v); handleSave() }}
-            />
-            <Label className='text-xs'>Requis</Label>
-          </div>
-        </div>
+        {/* Options editor (only for select fields) */}
+        {fieldType === 'select' && (
+          <div className='space-y-3'>
+            <div className='flex items-center justify-between'>
+              <div className='flex items-center gap-2'>
+                <Label className='text-xs text-muted-foreground'>Options</Label>
+                <Badge variant='secondary' className='text-xs'>
+                  {options.length} option{options.length > 1 ? 's' : ''}
+                </Badge>
+              </div>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                className='h-7 text-xs gap-1'
+                onClick={handleAddOption}
+              >
+                <Plus className='h-3 w-3' />
+                Ajouter une option
+              </Button>
+            </div>
 
-        <div className='flex justify-end'>
+            {options.length === 0 ? (
+              <div className='border border-dashed rounded-lg p-4 text-center text-sm text-muted-foreground'>
+                Aucune option. Ajoutez des options pour que les clients puissent choisir.
+              </div>
+            ) : (
+              <div className='space-y-2'>
+                {options.map((option, index) => (
+                  <div
+                    key={index}
+                    className='group flex items-start gap-2 bg-muted/50 rounded-lg p-2.5'
+                  >
+                    <div className='pt-2 text-muted-foreground/50'>
+                      <GripVertical className='h-4 w-4' />
+                    </div>
+                    <div className='flex-1 space-y-1.5'>
+                      <Input
+                        value={option.label}
+                        onChange={(e) => handleUpdateOption(index, { label: e.target.value })}
+                        onBlur={() => handleSaveOption(index)}
+                        className='h-8 text-sm bg-background'
+                        placeholder={`Option ${index + 1} (ex: Salade César, Tartare de boeuf...)`}
+                      />
+                      <Input
+                        value={option.description || ''}
+                        onChange={(e) => handleUpdateOption(index, { description: e.target.value })}
+                        onBlur={() => handleSaveOption(index)}
+                        className='h-7 text-xs bg-background text-muted-foreground'
+                        placeholder='Description (optionnelle) — ex: Avec copeaux de parmesan et croûtons'
+                      />
+                    </div>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='sm'
+                      className='h-8 w-8 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity'
+                      onClick={() => handleRemoveOption(index)}
+                    >
+                      <Trash2 className='h-3.5 w-3.5' />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <Separator />
+
+        {/* Field settings */}
+        <div className='flex items-center justify-between'>
+          <div className='flex items-center gap-4'>
+            <div className='flex items-center gap-2'>
+              <Switch
+                checked={isPerPerson}
+                onCheckedChange={(v) => {
+                  setIsPerPerson(v)
+                  onUpdate(field.id, { is_per_person: v })
+                }}
+              />
+              <Label className='text-xs'>Par personne</Label>
+            </div>
+            <div className='flex items-center gap-2'>
+              <Switch
+                checked={isRequired}
+                onCheckedChange={(v) => {
+                  setIsRequired(v)
+                  onUpdate(field.id, { is_required: v })
+                }}
+              />
+              <Label className='text-xs'>Requis</Label>
+            </div>
+          </div>
           <Button
             variant='ghost'
             size='sm'
-            className='text-destructive hover:text-destructive'
+            className='text-destructive hover:text-destructive text-xs'
             onClick={() => onDelete(field.id)}
           >
-            <Trash2 className='h-4 w-4 mr-2' />
-            Supprimer
+            <Trash2 className='h-3.5 w-3.5 mr-1.5' />
+            Supprimer le champ
           </Button>
         </div>
       </CardContent>

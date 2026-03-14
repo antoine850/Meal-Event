@@ -553,6 +553,24 @@ export function useCreateQuote() {
       const shortId = Math.random().toString(36).substring(2, 6)
       const quoteNumber = `${prefix}-${year}-${month}-${shortId}-v1`
 
+      // Build restaurant billing info for CGV placeholder replacement
+      const billingInfo: RestaurantBillingInfo = {
+        company_name: (restaurant as any)?.company_name || null,
+        legal_form: (restaurant as any)?.legal_form || null,
+        billing_address: (restaurant as any)?.billing_address || null,
+        billing_postal_code: (restaurant as any)?.billing_postal_code || null,
+        billing_city: (restaurant as any)?.billing_city || null,
+        rcs: (restaurant as any)?.rcs || null,
+        siren: (restaurant as any)?.siren || null,
+        siret: (restaurant as any)?.siret || null,
+        share_capital: (restaurant as any)?.share_capital || null,
+        billing_email: (restaurant as any)?.billing_email || (restaurant as any)?.email || null,
+        name: (restaurant as any)?.name || null,
+      }
+
+      // Generate CGV with restaurant data (replaces {{placeholders}})
+      const defaultCGV = generateAllCGV('fr', billingInfo)
+
       const { data, error } = await supabase
         .from('quotes')
         .insert({
@@ -574,10 +592,10 @@ export function useCreateQuote() {
           invoice_due_days: invoiceDueDays ?? (restaurant as any)?.invoice_due_days ?? 0,
           comments_fr: commentsFr ?? (restaurant as any)?.quote_comments_fr ?? null,
           comments_en: commentsEn ?? (restaurant as any)?.quote_comments_en ?? null,
-          conditions_devis: conditionsDevis ?? DEFAULT_CONDITIONS_DEVIS,
-          conditions_facture: conditionsFacture ?? DEFAULT_CONDITIONS_FACTURE,
-          conditions_acompte: conditionsAcompte ?? DEFAULT_CONDITIONS_ACOMPTE,
-          conditions_solde: conditionsSolde ?? DEFAULT_CONDITIONS_SOLDE,
+          conditions_devis: conditionsDevis ?? defaultCGV.conditionsDevis,
+          conditions_facture: conditionsFacture ?? defaultCGV.conditionsFacture,
+          conditions_acompte: conditionsAcompte ?? defaultCGV.conditionsAcompte,
+          conditions_solde: conditionsSolde ?? defaultCGV.conditionsSolde,
           additional_conditions: additionalConditions ?? null,
           language: 'fr',
           version: 1,

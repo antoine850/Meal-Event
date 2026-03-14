@@ -81,6 +81,7 @@ import {
   useSendDeposit,
   useSendBalance,
   generateAllCGV,
+  generateCGV,
   type RestaurantBillingInfo,
 } from '../hooks/use-quotes'
 import { QuotePreview, type DocumentType } from './quote-preview'
@@ -164,6 +165,21 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     ? allContacts.find(c => c.id === quoteContactId) || contact
     : contact
 
+  // Get restaurant billing info for CGV generation
+  const restaurantBillingInfo: RestaurantBillingInfo = useMemo(() => ({
+    company_name: (restaurant as any)?.company_name || null,
+    legal_form: (restaurant as any)?.legal_form || null,
+    billing_address: (restaurant as any)?.billing_address || null,
+    billing_postal_code: (restaurant as any)?.billing_postal_code || null,
+    billing_city: (restaurant as any)?.billing_city || null,
+    rcs: (restaurant as any)?.rcs || null,
+    siren: (restaurant as any)?.siren || null,
+    siret: (restaurant as any)?.siret || restaurant?.siret || null,
+    share_capital: (restaurant as any)?.share_capital || null,
+    billing_email: (restaurant as any)?.billing_email || restaurant?.email || null,
+    name: restaurant?.name || null,
+  }), [restaurant])
+
   // Initialize from quote data
   useEffect(() => {
     if (quoteData) {
@@ -182,14 +198,42 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       setInvoiceDueDays(quoteData.invoice_due_days || 0)
       setCommentsFr(quoteData.comments_fr || '')
       setCommentsEn(quoteData.comments_en || '')
-      setConditionsDevis(quoteData.conditions_devis || '')
-      setConditionsFacture(quoteData.conditions_facture || '')
-      setConditionsAcompte(quoteData.conditions_acompte || '')
-      setConditionsSolde(quoteData.conditions_solde || '')
+      // If conditions still have {{placeholders}}, replace them with restaurant billing info
+      const needsReplacement = (s: string | null) => s?.includes('{{')
+      if (needsReplacement(quoteData.conditions_devis) ||
+          needsReplacement(quoteData.conditions_facture) ||
+          needsReplacement(quoteData.conditions_acompte) ||
+          needsReplacement(quoteData.conditions_solde)) {
+        const cgv = {
+          conditionsDevis: generateCGV(quoteData.conditions_devis || '', restaurantBillingInfo),
+          conditionsFacture: generateCGV(quoteData.conditions_facture || '', restaurantBillingInfo),
+          conditionsAcompte: generateCGV(quoteData.conditions_acompte || '', restaurantBillingInfo),
+          conditionsSolde: generateCGV(quoteData.conditions_solde || '', restaurantBillingInfo),
+        }
+        setConditionsDevis(cgv.conditionsDevis)
+        setConditionsFacture(cgv.conditionsFacture)
+        setConditionsAcompte(cgv.conditionsAcompte)
+        setConditionsSolde(cgv.conditionsSolde)
+        // Also save replaced conditions to the database
+        if (quoteData.id) {
+          updateQuote({
+            id: quoteData.id,
+            conditions_devis: cgv.conditionsDevis,
+            conditions_facture: cgv.conditionsFacture,
+            conditions_acompte: cgv.conditionsAcompte,
+            conditions_solde: cgv.conditionsSolde,
+          } as any)
+        }
+      } else {
+        setConditionsDevis(quoteData.conditions_devis || '')
+        setConditionsFacture(quoteData.conditions_facture || '')
+        setConditionsAcompte(quoteData.conditions_acompte || '')
+        setConditionsSolde(quoteData.conditions_solde || '')
+      }
       setAdditionalConditions(quoteData.additional_conditions || '')
       setLanguage((quoteData.language as 'fr' | 'en') || 'fr')
     }
-  }, [quoteData])
+  }, [quoteData, restaurantBillingInfo])
 
   // Initialize billing form from company data
   useEffect(() => {
@@ -291,20 +335,6 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     })
   }, [quoteId, deleteQuoteItem])
 
-  // Get restaurant billing info for CGV generation
-  const restaurantBillingInfo: RestaurantBillingInfo = useMemo(() => ({
-    company_name: (restaurant as any)?.company_name || null,
-    legal_form: (restaurant as any)?.legal_form || null,
-    billing_address: (restaurant as any)?.billing_address || null,
-    billing_postal_code: (restaurant as any)?.billing_postal_code || null,
-    billing_city: (restaurant as any)?.billing_city || null,
-    rcs: (restaurant as any)?.rcs || null,
-    siren: (restaurant as any)?.siren || null,
-    siret: (restaurant as any)?.siret || restaurant?.siret || null,
-    share_capital: (restaurant as any)?.share_capital || null,
-    billing_email: (restaurant as any)?.billing_email || restaurant?.email || null,
-    name: restaurant?.name || null,
-  }), [restaurant])
 
   // Load default conditions with dynamic restaurant info
   const handleLoadDefaultConditions = useCallback((lang: 'fr' | 'en' = language) => {

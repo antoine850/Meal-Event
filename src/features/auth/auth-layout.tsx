@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { Logo } from '@/assets/logo'
 import { cn } from '@/lib/utils'
 import dashboardDark from './sign-in/assets/dashboard-dark.png'
@@ -15,10 +16,10 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
       {/* Left side - Form */}
       <div className='lg:p-8'>
         <div className='mx-auto flex w-full flex-col justify-center space-y-2 py-8 sm:w-[480px] sm:p-8'>
-          <div className='mb-4 flex items-center justify-center'>
+          <Link to='/sign-in' className='mb-4 flex items-center justify-center gap-2 hover:opacity-80 transition-opacity'>
             <Logo className='me-2' />
             <h1 className='text-xl font-medium'>MealEvent</h1>
-          </div>
+          </Link>
         </div>
         <div className='mx-auto flex w-full max-w-sm flex-col justify-center space-y-4'>
           {(title || subtitle) && (

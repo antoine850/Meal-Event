@@ -16,11 +16,10 @@ export function ForgotPassword() {
       <Card className='gap-4'>
         <CardHeader>
           <CardTitle className='text-lg tracking-tight'>
-            Forgot Password
+            Mot de passe oublié
           </CardTitle>
           <CardDescription>
-            Enter your registered email and <br /> we will send you a link to
-            reset your password.
+            Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -28,14 +27,12 @@ export function ForgotPassword() {
         </CardContent>
         <CardFooter>
           <p className='mx-auto px-8 text-center text-sm text-balance text-muted-foreground'>
-            Don't have an account?{' '}
             <Link
-              to='/sign-up'
+              to='/sign-in'
               className='underline underline-offset-4 hover:text-primary'
             >
-              Sign up
+              Retour à la connexion
             </Link>
-            .
           </p>
         </CardFooter>
       </Card>

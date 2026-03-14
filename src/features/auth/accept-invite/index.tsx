@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const signUpSchema = z.object({
   email: z.string().email('Email invalide'),
-  password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
+  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
   first_name: z.string().min(1, 'Le prénom est requis'),
   last_name: z.string().optional(),
   phone: z.string().optional(),
@@ -257,10 +257,10 @@ export function AcceptInvite() {
   return (
     <div className='min-h-svh bg-muted/30 flex flex-col'>
       <header className='border-b bg-background px-6 py-4'>
-        <div className='flex items-center gap-2'>
+        <Link to='/sign-in' className='flex items-center gap-2 hover:opacity-80 transition-opacity'>
           <Logo className='h-8 w-8' />
           <span className='text-xl font-bold'>MealEvent</span>
-        </div>
+        </Link>
       </header>
 
       <main className='flex-1 flex items-center justify-center p-6'>
@@ -367,7 +367,7 @@ export function AcceptInvite() {
                             <FormItem>
                               <FormLabel>Mot de passe</FormLabel>
                               <FormControl>
-                                <Input type='password' placeholder='6 caractères minimum' {...field} />
+                                <Input type='password' placeholder='8 caractères minimum' {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
