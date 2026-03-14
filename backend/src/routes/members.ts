@@ -3,6 +3,36 @@ import { supabase } from '../lib/supabase.js'
 import { sendEmail } from '../lib/resend.js'
 
 export const membersRouter = Router()
+export const membersPublicRouter = Router()
+
+// ═══════════════════════════════════════════════════════════════
+// PUBLIC: GET /api/invitations/:token — Get invitation info (no auth required)
+// ═══════════════════════════════════════════════════════════════
+membersPublicRouter.get('/:token', async (req: Request, res: Response) => {
+  try {
+    const { data: invitation, error } = await supabase
+      .from('invitations')
+      .select('email, status, expires_at, organization:organizations(name)')
+      .eq('token', req.params.token)
+      .single()
+
+    if (error || !invitation) {
+      return res.status(404).json({ error: 'Invitation non trouvée' })
+    }
+
+    const inv = invitation as any
+    res.json({
+      email: inv.email,
+      status: inv.status,
+      expires_at: inv.expires_at,
+      organization_name: inv.organization?.name || null,
+      is_expired: new Date(inv.expires_at) < new Date(),
+    })
+  } catch (error) {
+    console.error('Error fetching invitation:', error)
+    res.status(500).json({ error: 'Failed to fetch invitation' })
+  }
+})
 
 // Helper: get org_id from authenticated user
 async function getOrgId(req: Request): Promise<string | null> {
@@ -172,25 +202,10 @@ membersRouter.post('/invite', async (req: Request, res: Response) => {
 
     if (invError) throw invError
 
-    // Use Supabase Admin to invite user via email (creates auth user + sends magic link)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
     const inviteRedirectUrl = `${frontendUrl}/accept-invite?token=${(invitation as any).token}`
 
-    const { error: authError } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo: inviteRedirectUrl,
-      data: {
-        invitation_token: (invitation as any).token,
-        organization_id: orgId,
-        role_id,
-      },
-    })
-
-    if (authError) {
-      console.error('Supabase auth invite error:', authError)
-      // Still keep the invitation record — send manual email as fallback
-    }
-
-    // Send invitation email via Resend
+    // Send invitation email via Resend only (no Supabase inviteUserByEmail to avoid duplicate emails)
     const orgName = (org as any)?.name || 'MealEvent'
     const inviterName = inviter ? `${(inviter as any).first_name} ${(inviter as any).last_name || ''}`.trim() : 'Un administrateur'
     const roleName = (roleData as any)?.name || 'Membre'

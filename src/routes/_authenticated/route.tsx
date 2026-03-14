@@ -24,8 +24,10 @@ export const Route = createFileRoute('/_authenticated')({
 
     const user = dbUser as { id: string; organization_id: string | null } | null
     if (!user || !user.organization_id) {
+      // User exists in auth but has no organization — check for pending invitation
+      // If they have an invitation, they should use the accept-invite flow
       throw redirect({
-        to: '/onboarding',
+        to: '/sign-in',
       })
     }
 

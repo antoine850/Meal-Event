@@ -11,7 +11,7 @@ import { bookingsRouter } from './routes/bookings.js'
 import { quotesRouter } from './routes/quotes.js'
 import { paymentsRouter } from './routes/payments.js'
 import { webhooksRouter } from './routes/webhooks.js'
-import { membersRouter } from './routes/members.js'
+import { membersRouter, membersPublicRouter } from './routes/members.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -61,8 +61,9 @@ app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// Webhooks (no auth — verified via their own signature mechanisms)
+// Public routes (no auth required)
 app.use('/api/webhooks', webhooksRouter)
+app.use('/api/invitations', membersPublicRouter)
 
 // All other API routes require authentication
 app.use('/api/organizations', requireAuth, organizationsRouter)

@@ -119,15 +119,7 @@ export function UserAuthForm({
           Se connecter
         </Button>
 
-        <p className='text-center text-sm text-muted-foreground'>
-          Pas encore de compte ?{' '}
-          <Link
-            to='/sign-up'
-            className='font-medium text-primary hover:underline'
-          >
-            Créer un compte
-          </Link>
-        </p>
+        {/* Account creation is by invitation only */}
       </form>
     </Form>
   )
