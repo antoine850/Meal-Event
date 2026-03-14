@@ -247,7 +247,7 @@ function FieldEditor({ field, onUpdate, onDelete }: {
     setOptions(newOptions)
   }
 
-  const handleSaveOption = (index: number) => {
+  const handleSaveOption = (_index: number) => {
     // Save current options state to DB
     onUpdate(field.id, {
       options: JSON.stringify(options),
