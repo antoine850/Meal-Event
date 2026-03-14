@@ -56,8 +56,8 @@ export function useMembers() {
 
       if (membersError) throw membersError
 
-      // Fetch pending invitations
-      const { data: invitations, error: invError } = await supabase
+      // Fetch pending invitations (cast to any because 'invitations' table may not be in generated types)
+      const { data: invitations, error: invError } = await (supabase as any)
         .from('invitations')
         .select(`
           id, email, status, restaurant_ids, created_at, expires_at,
@@ -72,7 +72,7 @@ export function useMembers() {
 
       return {
         members: (members || []) as Member[],
-        invitations: (invitations || []) as Invitation[],
+        invitations: (invitations || []) as unknown as Invitation[],
       }
     },
   })
