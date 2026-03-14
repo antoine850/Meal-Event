@@ -1,4 +1,14 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import {
+  type ColumnDef,
+  type SortingState,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
 import {
   Crown,
   Briefcase,
@@ -10,8 +20,8 @@ import {
   Send,
   Trash2,
   UserCog,
-  Clock,
 } from 'lucide-react'
+import { Cross2Icon as RadixCross2Icon } from '@radix-ui/react-icons'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -59,6 +69,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { DataTablePagination, FacetedFilter } from '@/components/data-table'
 import {
   useMembers,
   useOrgRoles,
@@ -84,6 +95,25 @@ const roleColors: Record<string, string> = {
   gerant: 'bg-green-100 text-green-800 border-green-200',
 }
 
+// Unified row type for members + invitations
+type MemberRow = {
+  id: string
+  email: string
+  name: string
+  firstName: string
+  lastName: string | null
+  roleId: string | null
+  roleName: string | null
+  roleSlug: string | null
+  restaurantIds: string[]
+  status: 'active' | 'pending'
+  createdAt: string
+  expiresAt?: string
+  invitedByName?: string
+  raw: Member | null
+  rawInvitationId?: string
+}
+
 export function MembersSettings() {
   const { data, isLoading } = useMembers()
   const { data: roles = [] } = useOrgRoles()
@@ -97,9 +127,87 @@ export function MembersSettings() {
   const [editMember, setEditMember] = useState<Member | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
   const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null)
+  const [searchValue, setSearchValue] = useState('')
+  const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set())
+  const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(new Set())
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set())
+  const [sorting, setSorting] = useState<SortingState>([])
 
-  const members = data?.members?.filter(m => m.is_active) || []
-  const invitations = data?.invitations || []
+  // Combine members + invitations into unified rows
+  const allRows = useMemo<MemberRow[]>(() => {
+    const memberRows: MemberRow[] = (data?.members?.filter(m => m.is_active) || []).map(m => ({
+      id: m.id,
+      email: m.email,
+      name: `${m.first_name} ${m.last_name || ''}`.trim(),
+      firstName: m.first_name,
+      lastName: m.last_name,
+      roleId: m.role?.id || null,
+      roleName: m.role?.name || null,
+      roleSlug: m.role?.slug || null,
+      restaurantIds: m.user_restaurants?.map(ur => ur.restaurant_id) || [],
+      status: 'active' as const,
+      createdAt: m.created_at,
+      raw: m,
+    }))
+
+    const invitationRows: MemberRow[] = (data?.invitations || []).map(inv => ({
+      id: `inv-${inv.id}`,
+      email: inv.email,
+      name: inv.email,
+      firstName: inv.email,
+      lastName: null,
+      roleId: inv.role?.id || null,
+      roleName: inv.role?.name || null,
+      roleSlug: inv.role?.slug || null,
+      restaurantIds: inv.restaurant_ids || [],
+      status: 'pending' as const,
+      createdAt: inv.created_at,
+      expiresAt: inv.expires_at,
+      invitedByName: inv.invited_by_user
+        ? `${inv.invited_by_user.first_name} ${inv.invited_by_user.last_name || ''}`.trim()
+        : undefined,
+      raw: null,
+      rawInvitationId: inv.id,
+    }))
+
+    return [...memberRows, ...invitationRows]
+  }, [data])
+
+  // Filter rows
+  const filteredRows = useMemo(() => {
+    let result = allRows
+
+    if (searchValue) {
+      const q = searchValue.toLowerCase()
+      result = result.filter(r =>
+        r.name.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q)
+      )
+    }
+
+    if (selectedRoles.size > 0) {
+      result = result.filter(r => r.roleSlug && selectedRoles.has(r.roleSlug))
+    }
+
+    if (selectedRestaurants.size > 0) {
+      result = result.filter(r => r.restaurantIds.some(id => selectedRestaurants.has(id)))
+    }
+
+    if (selectedStatuses.size > 0) {
+      result = result.filter(r => selectedStatuses.has(r.status))
+    }
+
+    return result
+  }, [allRows, searchValue, selectedRoles, selectedRestaurants, selectedStatuses])
+
+  const hasActiveFilters = !!(searchValue || selectedRoles.size || selectedRestaurants.size || selectedStatuses.size)
+
+  const handleResetFilters = () => {
+    setSearchValue('')
+    setSelectedRoles(new Set())
+    setSelectedRestaurants(new Set())
+    setSelectedStatuses(new Set())
+  }
 
   const handleUpdateRole = (memberId: string, roleId: string, restaurantIds?: string[]) => {
     updateRole(
@@ -114,33 +222,187 @@ export function MembersSettings() {
     )
   }
 
-  const handleDelete = (id: string, name: string) => {
-    setDeleteConfirm({ id, name })
-  }
+  const columns: ColumnDef<MemberRow>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Membre',
+      cell: ({ row }) => {
+        const r = row.original
+        if (r.status === 'pending') {
+          return (
+            <div className='flex items-center gap-3'>
+              <Avatar className='h-9 w-9'>
+                <AvatarFallback className='text-xs bg-muted'>
+                  <MailPlus className='h-4 w-4 text-muted-foreground' />
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <span className='font-medium text-sm'>{r.email}</span>
+                {r.invitedByName && (
+                  <p className='text-xs text-muted-foreground'>Invité par {r.invitedByName}</p>
+                )}
+              </div>
+            </div>
+          )
+        }
+        return (
+          <div className='flex items-center gap-3'>
+            <Avatar className='h-9 w-9'>
+              <AvatarFallback className='text-xs'>
+                {r.firstName?.[0]}{r.lastName?.[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <span className='font-medium text-sm'>{r.name}</span>
+              <p className='text-xs text-muted-foreground'>{r.email}</p>
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'roleSlug',
+      header: 'Rôle',
+      cell: ({ row }) => {
+        const r = row.original
+        if (!r.roleName) return <span className='text-muted-foreground text-sm'>—</span>
+        const slug = r.roleSlug || ''
+        const RoleIcon = roleIcons[slug] || UserCog
+        return (
+          <Badge variant='outline' className={`text-xs ${roleColors[slug] || ''}`}>
+            <RoleIcon className='mr-1 h-3 w-3' />
+            {r.roleName}
+          </Badge>
+        )
+      },
+    },
+    {
+      id: 'restaurants',
+      header: 'Restaurants',
+      cell: ({ row }) => {
+        const r = row.original
+        if (r.restaurantIds.length === 0) {
+          return <span className='text-muted-foreground text-sm'>Tous</span>
+        }
+        return (
+          <div className='flex flex-wrap gap-1'>
+            {r.restaurantIds.map(rid => {
+              const rest = restaurants.find(rt => rt.id === rid)
+              return rest ? (
+                <Badge key={rid} variant='secondary' className='text-[10px] px-1.5 py-0'>
+                  {rest.name}
+                </Badge>
+              ) : null
+            })}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: 'Statut',
+      cell: ({ row }) => {
+        const r = row.original
+        if (r.status === 'pending') {
+          return (
+            <Badge variant='outline' className='text-xs bg-orange-50 text-orange-700 border-orange-200'>
+              En attente
+            </Badge>
+          )
+        }
+        return (
+          <Badge variant='outline' className='text-xs bg-emerald-50 text-emerald-700 border-emerald-200'>
+            Actif
+          </Badge>
+        )
+      },
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const r = row.original
+        if (r.status === 'pending') {
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant='ghost' size='icon' className='h-8 w-8'>
+                  <MoreHorizontal className='h-4 w-4' />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                <DropdownMenuItem
+                  onClick={() => resendInvitation(r.rawInvitationId!, {
+                    onSuccess: () => toast.success('Invitation renvoyée'),
+                    onError: (err: any) => toast.error(err.message),
+                  })}
+                >
+                  <RefreshCw className='mr-2 h-4 w-4' />
+                  Renvoyer
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className='text-destructive'
+                  onClick={() => setRevokeConfirm(r.rawInvitationId!)}
+                >
+                  <Trash2 className='mr-2 h-4 w-4' />
+                  Révoquer
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        }
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant='ghost' size='icon' className='h-8 w-8'>
+                <MoreHorizontal className='h-4 w-4' />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              <DropdownMenuItem onClick={() => setEditMember(r.raw!)}>
+                <UserCog className='mr-2 h-4 w-4' />
+                Modifier le rôle
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className='text-destructive'
+                onClick={() => setDeleteConfirm({ id: r.id, name: r.name })}
+              >
+                <Trash2 className='mr-2 h-4 w-4' />
+                Retirer de l'organisation
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
 
-  const handleConfirmDelete = () => {
-    if (deleteConfirm) {
-      removeMember(deleteConfirm.id, {
-        onSuccess: () => {
-          toast.success('Membre retiré')
-          setDeleteConfirm(null)
-        },
-        onError: (err) => toast.error(err.message),
-      })
-    }
-  }
+  const table = useReactTable({
+    data: filteredRows,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+  })
 
-  const handleRevokeConfirm = () => {
-    if (revokeConfirm) {
-      revokeInvitation(revokeConfirm, {
-        onSuccess: () => {
-          toast.success('Invitation révoquée')
-          setRevokeConfirm(null)
-        },
-        onError: (err) => toast.error(err.message),
-      })
-    }
-  }
+  const roleOptions = useMemo(() =>
+    roles.map(r => ({ label: r.name, value: r.slug })),
+    [roles]
+  )
+
+  const restaurantOptions = useMemo(() =>
+    restaurants.map(r => ({ label: r.name, value: r.id })),
+    [restaurants]
+  )
+
+  const statusOptions = [
+    { label: 'Actif', value: 'active' },
+    { label: 'En attente', value: 'pending' },
+  ]
 
   if (isLoading) {
     return (
@@ -152,7 +414,6 @@ export function MembersSettings() {
 
   return (
     <div className='flex flex-1 flex-col w-full'>
-      {/* Page header */}
       <div className='flex-none'>
         <h3 className='text-lg font-medium'>Membres</h3>
         <p className='text-sm text-muted-foreground'>Gérez les membres de votre organisation et leurs rôles.</p>
@@ -160,174 +421,85 @@ export function MembersSettings() {
       <Separator className='my-4 flex-none' />
 
       {/* Toolbar */}
-      <div className='flex items-center justify-between mb-4'>
-        <h3 className='text-base font-semibold'>Équipe ({members.length})</h3>
-        <Button onClick={() => setInviteOpen(true)}>
-          <MailPlus className='mr-2 h-4 w-4' />
-          Inviter
-        </Button>
-      </div>
-
-      {/* Members table — simple pattern like restaurants page */}
-      <div className='rounded-md border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Membre</TableHead>
-              <TableHead>Rôle</TableHead>
-              <TableHead className='hidden md:table-cell'>Restaurants</TableHead>
-              <TableHead className='w-[50px]' />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {members.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className='text-center text-muted-foreground py-8'>
-                  Aucun membre pour le moment
-                </TableCell>
-              </TableRow>
-            ) : (
-              members.map((member) => {
-                const roleSlug = member.role?.slug || 'member'
-                const RoleIcon = roleIcons[roleSlug] || UserCog
-                const memberRestaurantIds = member.user_restaurants?.map(ur => ur.restaurant_id) || []
-                return (
-                  <TableRow key={member.id}>
-                    <TableCell>
-                      <div className='flex items-center gap-3'>
-                        <Avatar className='h-9 w-9'>
-                          <AvatarFallback className='text-xs'>
-                            {member.first_name?.[0]}{member.last_name?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <span className='font-medium text-sm'>
-                            {member.first_name} {member.last_name}
-                          </span>
-                          <p className='text-xs text-muted-foreground'>{member.email}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant='outline' className={`text-xs ${roleColors[roleSlug] || ''}`}>
-                        <RoleIcon className='mr-1 h-3 w-3' />
-                        {member.role?.name || 'Membre'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className='hidden md:table-cell'>
-                      {memberRestaurantIds.length === 0 ? (
-                        <span className='text-muted-foreground text-sm'>Tous</span>
-                      ) : (
-                        <div className='flex flex-wrap gap-1'>
-                          {memberRestaurantIds.map(rid => {
-                            const rest = restaurants.find(r => r.id === rid)
-                            return rest ? (
-                              <Badge key={rid} variant='secondary' className='text-[10px] px-1.5 py-0'>
-                                {rest.name}
-                              </Badge>
-                            ) : null
-                          })}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant='ghost' size='icon' className='h-8 w-8'>
-                            <MoreHorizontal className='h-4 w-4' />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
-                          <DropdownMenuItem onClick={() => setEditMember(member)}>
-                            <UserCog className='mr-2 h-4 w-4' />
-                            Modifier le rôle
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className='text-destructive'
-                            onClick={() => handleDelete(member.id, `${member.first_name} ${member.last_name || ''}`.trim())}
-                          >
-                            <Trash2 className='mr-2 h-4 w-4' />
-                            Retirer de l'organisation
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pending invitations */}
-      {invitations.length > 0 && (
-        <div className='mt-6'>
-          <h3 className='text-base font-semibold mb-3 flex items-center gap-2'>
-            <Clock className='h-4 w-4' />
-            Invitations en attente ({invitations.length})
-          </h3>
-          <div className='rounded-md border'>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead className='hidden sm:table-cell'>Détails</TableHead>
-                  <TableHead className='w-[50px]' />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invitations.map((inv) => (
-                  <TableRow key={inv.id}>
-                    <TableCell className='font-medium text-sm'>{inv.email}</TableCell>
-                    <TableCell>
-                      <Badge variant='outline' className='text-xs'>
-                        {inv.role?.name || 'Membre'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className='hidden sm:table-cell'>
-                      <span className='text-xs text-muted-foreground'>
-                        Invité par {inv.invited_by_user ? `${inv.invited_by_user.first_name} ${inv.invited_by_user.last_name || ''}`.trim() : '—'}
-                        {' · '}Expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant='ghost' size='icon' className='h-8 w-8'>
-                            <MoreHorizontal className='h-4 w-4' />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end'>
-                          <DropdownMenuItem
-                            onClick={() => resendInvitation(inv.id, {
-                              onSuccess: () => toast.success('Invitation renvoyée'),
-                              onError: (err: any) => toast.error(err.message),
-                            })}
-                          >
-                            <RefreshCw className='mr-2 h-4 w-4' />
-                            Renvoyer
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className='text-destructive'
-                            onClick={() => setRevokeConfirm(inv.id)}
-                          >
-                            <Trash2 className='mr-2 h-4 w-4' />
-                            Révoquer
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+      <div className='flex flex-wrap items-center gap-2 mb-4'>
+        <Input
+          placeholder='Rechercher par nom ou email...'
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          className='h-8 w-full sm:w-[200px] lg:w-[250px]'
+        />
+        <div className='flex flex-wrap gap-2'>
+          <FacetedFilter
+            title='Rôle'
+            options={roleOptions}
+            selected={selectedRoles}
+            onSelectionChange={setSelectedRoles}
+          />
+          <FacetedFilter
+            title='Restaurant'
+            options={restaurantOptions}
+            selected={selectedRestaurants}
+            onSelectionChange={setSelectedRestaurants}
+          />
+          <FacetedFilter
+            title='Statut'
+            options={statusOptions}
+            selected={selectedStatuses}
+            onSelectionChange={setSelectedStatuses}
+          />
         </div>
-      )}
+        {hasActiveFilters && (
+          <Button variant='ghost' onClick={handleResetFilters} className='h-8 px-2 lg:px-3'>
+            Reset
+            <RadixCross2Icon className='ms-2 h-4 w-4' />
+          </Button>
+        )}
+        <div className='ml-auto'>
+          <Button size='sm' onClick={() => setInviteOpen(true)}>
+            <MailPlus className='mr-2 h-4 w-4' />
+            Inviter
+          </Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className='flex flex-1 flex-col gap-4'>
+        <div className='overflow-hidden rounded-md border'>
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className='h-24 text-center text-muted-foreground'>
+                    Aucun résultat.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <DataTablePagination table={table} className='mt-auto' />
+      </div>
 
       {/* Invite dialog */}
       <InviteDialog
@@ -359,7 +531,17 @@ export function MembersSettings() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirm) {
+                  removeMember(deleteConfirm.id, {
+                    onSuccess: () => { toast.success('Membre retiré'); setDeleteConfirm(null) },
+                    onError: (err) => toast.error(err.message),
+                  })
+                }
+              }}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            >
               Retirer
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -377,7 +559,17 @@ export function MembersSettings() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRevokeConfirm} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+            <AlertDialogAction
+              onClick={() => {
+                if (revokeConfirm) {
+                  revokeInvitation(revokeConfirm, {
+                    onSuccess: () => { toast.success('Invitation révoquée'); setRevokeConfirm(null) },
+                    onError: (err) => toast.error(err.message),
+                  })
+                }
+              }}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            >
               Révoquer
             </AlertDialogAction>
           </AlertDialogFooter>
