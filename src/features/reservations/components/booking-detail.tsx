@@ -1320,6 +1320,7 @@ export const BookingDetail = forwardRef<
                     // Get the most advanced quote (by status progression)
                     const primaryQuote = quotes.find(q => ['deposit_paid', 'balance_sent', 'balance_paid'].includes(q.status || '')) || quotes.find(q => q.status === 'quote_signed') || quotes.find(q => q.status === 'deposit_sent') || quotes[0]
                     const totalDevisTtc = primaryQuote?.total_ttc || 0
+                    const discountPct = (primaryQuote as any)?.discount_percentage || 0
                     // Only count payments with status 'paid' (from Stripe webhook) or 'completed' (manual)
                     const paiementsRecus = payments
                       .filter(p => p.status === 'paid' || p.status === 'completed')
@@ -1327,10 +1328,26 @@ export const BookingDetail = forwardRef<
                     const soldeRestant = totalDevisTtc - paiementsRecus
 
                     if (totalDevisTtc > 0 || paiementsRecus > 0) {
+                      // Calculate pre-discount total if discount is applied
+                      const totalAvantRemise = discountPct > 0 ? Math.round(totalDevisTtc / (1 - discountPct / 100) * 100) / 100 : 0
+                      const montantRemise = discountPct > 0 ? Math.round((totalAvantRemise - totalDevisTtc) * 100) / 100 : 0
+
                       return (
                         <div className='mt-3 p-2 sm:p-3 bg-muted/50 rounded-lg space-y-1 text-xs'>
+                          {discountPct > 0 && (
+                            <>
+                              <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
+                                <span className='text-muted-foreground'>Total avant remise</span>
+                                <span className='font-medium line-through text-muted-foreground'>{totalAvantRemise.toFixed(2)} €</span>
+                              </div>
+                              <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
+                                <span className='text-red-600'>Remise {discountPct}%</span>
+                                <span className='font-medium text-red-600'>- {montantRemise.toFixed(2)} €</span>
+                              </div>
+                            </>
+                          )}
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
-                            <span className='text-muted-foreground'>Total Devis TTC</span>
+                            <span className='text-muted-foreground'>Total Devis TTC{discountPct > 0 ? ' après remise' : ''}</span>
                             <span className='font-medium'>{totalDevisTtc.toFixed(2)} €</span>
                           </div>
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>

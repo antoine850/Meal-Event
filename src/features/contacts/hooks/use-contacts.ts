@@ -19,7 +19,7 @@ export function useContacts() {
         .from('contacts')
         .select(`
           *,
-          company:companies(id, name),
+          company:companies(id, name, billing_address, billing_city, billing_postal_code, siret, tva_number),
           assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('organization_id', orgId)
@@ -125,7 +125,7 @@ export function useContact(id: string) {
         .from('contacts')
         .select(`
           *,
-          company:companies(id, name),
+          company:companies(id, name, billing_address, billing_city, billing_postal_code, siret, tva_number),
           assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
         `)
         .eq('id', id)

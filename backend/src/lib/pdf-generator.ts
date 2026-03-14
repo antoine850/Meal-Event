@@ -582,16 +582,33 @@ function buildDocDefinition(
   }
 
   if (documentType === 'devis') {
-    const totalsStack: Content[] = [
-      { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-    ]
+    const totalsStack: Content[] = []
+    const discountPct = quote.discount_percentage || 0
+
+    if (discountPct > 0) {
+      // Show pre-discount subtotal, then discount line
+      const rawHt = Math.round(quote.total_ht / (1 - discountPct / 100) * 100) / 100
+      const discountAmount = Math.round((rawHt - quote.total_ht) * 100) / 100
+      totalsStack.push(
+        { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatCurrency(rawHt), alignment: 'right' as const, style: 'small', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatCurrency(discountAmount)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `${l.subtotalHt} ${lang === 'fr' ? 'après remise' : 'after discount'}`, style: 'small', color: '#666' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      )
+    } else {
+      totalsStack.push(
+        { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      )
+    }
 
     // Add TVA breakdown by rate
     Object.entries(tvaByRate).forEach(([rate, val]) => {
+      // Apply discount to TVA display if applicable
+      const discountMult = discountPct > 0 ? (1 - discountPct / 100) : 1
+      const tvaAmount = Math.round(val.tva * discountMult * 100) / 100
       totalsStack.push({
         columns: [
           { text: `TVA ${rate}%`, style: 'small', color: '#666' },
-          { text: formatCurrency(val.tva), alignment: 'right' as const, style: 'small' },
+          { text: formatCurrency(tvaAmount), alignment: 'right' as const, style: 'small' },
         ],
         margin: [0, 0, 0, 2] as [number, number, number, number],
       })
@@ -626,29 +643,44 @@ function buildDocDefinition(
     const depositTtc = Math.round(quote.total_ttc * (quote.deposit_percentage / 100) * 100) / 100
     const depositHt = Math.round(quote.total_ht * (quote.deposit_percentage / 100) * 100) / 100
     const depositTva = Math.round((depositTtc - depositHt) * 100) / 100
+    const discountPct = quote.discount_percentage || 0
+
+    const acompteStack: Content[] = []
+
+    // Show discount context if applicable
+    if (discountPct > 0) {
+      const rawTtc = Math.round(quote.total_ttc / (1 - discountPct / 100) * 100) / 100
+      acompteStack.push(
+        { columns: [{ text: `Total ${lang === 'fr' ? 'avant remise' : 'before discount'}`, style: 'small', color: '#999' }, { text: formatCurrency(rawTtc), alignment: 'right' as const, style: 'small', color: '#999', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatCurrency(Math.round((rawTtc - quote.total_ttc) * 100) / 100)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `Total TTC ${lang === 'fr' ? 'après remise' : 'after discount'}`, style: 'small' }, { text: formatCurrency(quote.total_ttc), alignment: 'right' as const, style: 'small' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      )
+    }
+
+    acompteStack.push(
+      { columns: [{ text: `${l.depositPercent} ${quote.deposit_percentage}%`, style: 'small' }, { text: formatCurrency(depositHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      { columns: [{ text: 'TVA', style: 'small' }, { text: formatCurrency(depositTva), alignment: 'right' as const }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      {
+        table: {
+          widths: ['*', 'auto'],
+          body: [[
+            { text: l.totalTtc, style: 'bold', color: 'white' },
+            { text: formatCurrency(depositTtc), style: 'bold', color: 'white', alignment: 'right' as const },
+          ]],
+        },
+        layout: 'noBorders',
+        fillColor: color,
+      } as Content,
+      { text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatCurrency(quote.total_ttc)}`, style: 'tiny', color: '#888', margin: [0, 6, 0, 0] as [number, number, number, number] },
+    )
 
     content.push({
       columns: [
         { width: '*', text: '' },
         {
           width: 200,
-          stack: [
-            { columns: [{ text: `${l.depositPercent} ${quote.deposit_percentage}%`, style: 'small' }, { text: formatCurrency(depositHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-            { columns: [{ text: 'TVA', style: 'small' }, { text: formatCurrency(depositTva), alignment: 'right' as const }], margin: [0, 0, 0, 4] as [number, number, number, number] },
-            { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
-            {
-              table: {
-                widths: ['*', 'auto'],
-                body: [[
-                  { text: l.totalTtc, style: 'bold', color: 'white' },
-                  { text: formatCurrency(depositTtc), style: 'bold', color: 'white', alignment: 'right' as const },
-                ]],
-              },
-              layout: 'noBorders',
-              fillColor: color,
-            } as Content,
-            { text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatCurrency(quote.total_ttc)}`, style: 'tiny', color: '#888', margin: [0, 6, 0, 0] as [number, number, number, number] },
-          ],
+          stack: acompteStack,
         },
       ],
       margin: [0, 0, 0, 15] as [number, number, number, number],
@@ -660,32 +692,53 @@ function buildDocDefinition(
     const extrasTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
     const totalWithExtrasTtc = quote.total_ttc + extrasTtc
     const balanceTtc = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
+    const discountPct = quote.discount_percentage || 0
+
+    const soldeStack: Content[] = []
+
+    // Show discount context if applicable
+    if (discountPct > 0) {
+      const rawHt = Math.round(quote.total_ht / (1 - discountPct / 100) * 100) / 100
+      const rawTtc = Math.round(quote.total_ttc / (1 - discountPct / 100) * 100) / 100
+      soldeStack.push(
+        { columns: [{ text: `Total ${l.serviceItems.toLowerCase()} HT ${lang === 'fr' ? 'avant remise' : 'before discount'}`, style: 'small', color: '#999' }, { text: formatCurrency(rawHt), alignment: 'right' as const, style: 'small', color: '#999', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatCurrency(Math.round((rawTtc - quote.total_ttc) * 100) / 100)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      )
+    }
+
+    soldeStack.push(
+      { columns: [{ text: `Total ${l.serviceItems.toLowerCase()} HT${discountPct > 0 ? (lang === 'fr' ? ' après remise' : ' after discount') : ''}`, style: 'small' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+    )
+
+    if (extras.length > 0) {
+      soldeStack.push(
+        { columns: [{ text: `Total ${l.extras.toLowerCase()} HT`, style: 'small' }, { text: formatCurrency(extrasHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      )
+    }
+
+    soldeStack.push(
+      { columns: [{ text: l.totalWithExtras, style: 'small' }, { text: formatCurrency(totalWithExtrasTtc), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      { columns: [{ text: `${l.depositPaid} (${quote.deposit_percentage}%)`, style: 'small', color: '#16a34a' }, { text: `- ${formatCurrency(depositTtc)}`, alignment: 'right' as const, color: '#16a34a' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      {
+        table: {
+          widths: ['*', 'auto'],
+          body: [[
+            { text: l.remainingBalance, style: 'bold', color: 'white' },
+            { text: formatCurrency(balanceTtc), style: 'bold', color: 'white', alignment: 'right' as const },
+          ]],
+        },
+        layout: 'noBorders',
+        fillColor: color,
+      } as Content,
+    )
 
     content.push({
       columns: [
         { width: '*', text: '' },
         {
           width: 220,
-          stack: [
-            { columns: [{ text: `Total ${l.serviceItems.toLowerCase()} HT`, style: 'small' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-            ...(extras.length > 0
-              ? [{ columns: [{ text: `Total ${l.extras.toLowerCase()} HT`, style: 'small' }, { text: formatCurrency(extrasHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] }]
-              : []),
-            { columns: [{ text: l.totalWithExtras, style: 'small' }, { text: formatCurrency(totalWithExtrasTtc), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-            { columns: [{ text: `${l.depositPaid} (${quote.deposit_percentage}%)`, style: 'small', color: '#16a34a' }, { text: `- ${formatCurrency(depositTtc)}`, alignment: 'right' as const, color: '#16a34a' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
-            { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
-            {
-              table: {
-                widths: ['*', 'auto'],
-                body: [[
-                  { text: l.remainingBalance, style: 'bold', color: 'white' },
-                  { text: formatCurrency(balanceTtc), style: 'bold', color: 'white', alignment: 'right' as const },
-                ]],
-              },
-              layout: 'noBorders',
-              fillColor: color,
-            } as Content,
-          ],
+          stack: soldeStack,
         },
       ],
       margin: [0, 0, 0, 15] as [number, number, number, number],

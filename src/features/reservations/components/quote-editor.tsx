@@ -1251,10 +1251,27 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
 
                       {/* Totals */}
                       <div className='border-t px-4 py-2 space-y-1'>
-                        <div className='flex justify-between text-xs'>
-                          <span className='text-muted-foreground'>Total HT</span>
-                          <span className='font-medium'>{totalHt.toFixed(2)} €</span>
-                        </div>
+                        {discountPercentage > 0 ? (
+                          <>
+                            <div className='flex justify-between text-xs'>
+                              <span className='text-muted-foreground'>Sous-total HT</span>
+                              <span className='font-medium line-through text-muted-foreground'>{rawTotalHt.toFixed(2)} €</span>
+                            </div>
+                            <div className='flex justify-between text-xs'>
+                              <span className='text-muted-foreground text-red-600'>Remise {discountPercentage}%</span>
+                              <span className='font-medium text-red-600'>- {(rawTotalHt - totalHt).toFixed(2)} €</span>
+                            </div>
+                            <div className='flex justify-between text-xs'>
+                              <span className='text-muted-foreground'>Total HT après remise</span>
+                              <span className='font-medium'>{totalHt.toFixed(2)} €</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className='flex justify-between text-xs'>
+                            <span className='text-muted-foreground'>Total HT</span>
+                            <span className='font-medium'>{totalHt.toFixed(2)} €</span>
+                          </div>
+                        )}
                         <div className='flex justify-between text-xs'>
                           <span className='text-muted-foreground'>TVA</span>
                           <span className='font-medium'>{(totalTtc - totalHt).toFixed(2)} €</span>
