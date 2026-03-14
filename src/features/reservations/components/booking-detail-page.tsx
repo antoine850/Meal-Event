@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useBooking, useQuotesByBooking, usePaymentsByBooking } from '../hooks/use-bookings'
 import { useDocumentsByBooking } from '../hooks/use-documents'
-import { useMenuFormsByBooking } from '../hooks/use-menu-forms'
+import { useBookingMenuForms } from '../hooks/use-menu-forms'
 import { BookingDetail } from './booking-detail'
 
 export function BookingDetailPage() {
@@ -35,7 +35,7 @@ export function BookingDetailPage() {
   const { data: quotes = [] } = useQuotesByBooking(id)
   const { data: payments = [] } = usePaymentsByBooking(id)
   const { data: documents = [] } = useDocumentsByBooking(id)
-  const { data: menuForms = [] } = useMenuFormsByBooking(id)
+  const { data: menuForms = [] } = useBookingMenuForms(id)
   const [activeTab, setActiveTab] = useState(initialTab)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)

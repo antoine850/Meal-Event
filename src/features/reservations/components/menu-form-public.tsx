@@ -23,8 +23,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  useMenuFormByToken,
-  useSubmitMenuForm,
+  useBookingMenuFormByToken,
+  useSubmitBookingMenuForm,
 } from '../hooks/use-menu-forms'
 
 type Props = {
@@ -32,8 +32,8 @@ type Props = {
 }
 
 export function MenuFormPublic({ token }: Props) {
-  const { data: formData, isLoading, error } = useMenuFormByToken(token)
-  const { mutate: submitForm, isPending: isSubmitting } = useSubmitMenuForm()
+  const { data: formData, isLoading, error } = useBookingMenuFormByToken(token)
+  const { mutate: submitForm, isPending: isSubmitting } = useSubmitBookingMenuForm()
 
   // Local state: quantities[fieldId][optionValue] = count
   const [quantities, setQuantities] = useState<Record<string, Record<string, number>>>({})
@@ -147,7 +147,8 @@ export function MenuFormPublic({ token }: Props) {
   }
 
   const isSubmitted = formData.status === 'submitted' || formData.status === 'locked'
-  const fields = (formData.menu_form_fields || []).sort((a, b) => a.sort_order - b.sort_order)
+  const menuForm = formData.menu_forms
+  const fields = (menuForm?.menu_form_fields || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
   const guestsCount = formData.guests_count || 1
 
   const handleSubmit = () => {
@@ -215,7 +216,7 @@ export function MenuFormPublic({ token }: Props) {
     }
 
     submitForm({
-      formId: formData.id,
+      bookingMenuFormId: formData.id,
       clientComment: clientComment || undefined,
       responses: flatResponses,
     }, {
@@ -328,9 +329,9 @@ export function MenuFormPublic({ token }: Props) {
           <Card>
             <CardHeader>
               <div className='space-y-2'>
-                <CardTitle className='text-xl'>{formData.title}</CardTitle>
-                {formData.description && (
-                  <p className='text-sm text-muted-foreground'>{formData.description}</p>
+                <CardTitle className='text-xl'>{menuForm?.title || 'Formulaire de menu'}</CardTitle>
+                {menuForm?.description && (
+                  <p className='text-sm text-muted-foreground'>{menuForm.description}</p>
                 )}
                 <div className='flex items-center gap-2'>
                   <Badge variant='outline' className='gap-1'>
