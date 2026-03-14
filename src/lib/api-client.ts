@@ -1,6 +1,10 @@
 import { supabase } from '@/lib/supabase'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+// In development, use Vite proxy (same-origin, no CORS issues)
+// In production, use the configured API URL
+const API_BASE_URL = import.meta.env.DEV
+  ? ''  // Empty = same origin, goes through Vite proxy
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3001')
 
 export async function apiClient<T = any>(
   path: string,

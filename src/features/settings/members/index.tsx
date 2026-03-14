@@ -1,16 +1,4 @@
-import { useState, useMemo } from 'react'
-import { z } from 'zod'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  type ColumnDef,
-  type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { useState } from 'react'
 import {
   Crown,
   Briefcase,
@@ -43,15 +31,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -68,10 +47,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { ConfirmDialog } from '@/components/confirm-dialog'
-import { DataTablePagination } from '@/components/data-table'
-import { ContentSection } from '../components/content-section'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   useMembers,
   useOrgRoles,
@@ -81,8 +68,9 @@ import {
   useRevokeInvitation,
   useResendInvitation,
   type Member,
+  type MemberRole,
 } from '../hooks/use-members'
-import { useRestaurants } from '../hooks/use-settings'
+import { useRestaurants, type Restaurant } from '../hooks/use-settings'
 
 const roleIcons: Record<string, typeof Crown> = {
   admin: Crown,
@@ -96,24 +84,15 @@ const roleColors: Record<string, string> = {
   gerant: 'bg-green-100 text-green-800 border-green-200',
 }
 
-const inviteSchema = z.object({
-  email: z.string().email('Email invalide'),
-  role_id: z.string().min(1, 'Le rôle est requis'),
-  restaurant_ids: z.array(z.string()),
-})
-type InviteFormData = z.infer<typeof inviteSchema>
-
 export function MembersSettings() {
   const { data, isLoading } = useMembers()
-  const { data: roles } = useOrgRoles()
-  const { data: restaurants } = useRestaurants()
-  const { mutate: inviteMember, isPending: isInviting } = useInviteMember()
+  const { data: roles = [] } = useOrgRoles()
+  const { data: restaurants = [] } = useRestaurants()
   const { mutate: updateRole } = useUpdateMemberRole()
   const { mutate: removeMember } = useRemoveMember()
   const { mutate: revokeInvitation } = useRevokeInvitation()
   const { mutate: resendInvitation } = useResendInvitation()
 
-  const [sorting, setSorting] = useState<SortingState>([])
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editMember, setEditMember] = useState<Member | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
@@ -121,30 +100,6 @@ export function MembersSettings() {
 
   const members = data?.members?.filter(m => m.is_active) || []
   const invitations = data?.invitations || []
-
-  const inviteForm = useForm<InviteFormData>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: { email: '', role_id: '', restaurant_ids: [] },
-  })
-
-  const selectedInviteRoleSlug = roles?.find(r => r.id === inviteForm.watch('role_id'))?.slug
-
-  const handleInvite = (values: InviteFormData) => {
-    try {
-      inviteMember(values, {
-        onSuccess: () => {
-          toast.success('Invitation envoyée')
-          setInviteOpen(false)
-          inviteForm.reset()
-        },
-        onError: (err: any) => {
-          toast.error(err?.message || 'Erreur lors de l\'envoi de l\'invitation')
-        },
-      })
-    } catch (err: any) {
-      toast.error(err?.message || 'Erreur inattendue')
-    }
-  }
 
   const handleUpdateRole = (memberId: string, roleId: string, restaurantIds?: string[]) => {
     updateRole(
@@ -159,107 +114,33 @@ export function MembersSettings() {
     )
   }
 
-  const membersColumns = useMemo<ColumnDef<Member>[]>(() => [
-    {
-      id: 'member',
-      header: 'Membre',
-      cell: ({ row }) => {
-        const member = row.original
-        return (
-          <div className='flex items-center gap-3'>
-            <Avatar className='h-9 w-9'>
-              <AvatarFallback className='text-xs'>
-                {member.first_name?.[0]}{member.last_name?.[0]}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <span className='font-medium text-sm'>
-                {member.first_name} {member.last_name}
-              </span>
-              <p className='text-xs text-muted-foreground'>{member.email}</p>
-            </div>
-          </div>
-        )
-      },
-    },
-    {
-      id: 'role',
-      header: 'Rôle',
-      cell: ({ row }) => {
-        const roleSlug = row.original.role?.slug || 'member'
-        const RoleIcon = roleIcons[roleSlug] || UserCog
-        return (
-          <Badge variant='outline' className={`text-xs ${roleColors[roleSlug] || ''}`}>
-            <RoleIcon className='mr-1 h-3 w-3' />
-            {row.original.role?.name || 'Membre'}
-          </Badge>
-        )
-      },
-    },
-    {
-      id: 'restaurants',
-      header: 'Restaurants',
-      cell: ({ row }) => {
-        const memberRestaurantIds = row.original.user_restaurants?.map(ur => ur.restaurant_id) || []
-        if (memberRestaurantIds.length === 0 || !restaurants) return <span className='text-muted-foreground text-sm'>Tous</span>
-        return (
-          <div className='flex flex-wrap gap-1'>
-            {memberRestaurantIds.map(rid => {
-              const rest = restaurants.find(r => r.id === rid)
-              return rest ? (
-                <Badge key={rid} variant='secondary' className='text-[10px] px-1.5 py-0'>
-                  {rest.name}
-                </Badge>
-              ) : null
-            })}
-          </div>
-        )
-      },
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const member = row.original
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
-                <MoreHorizontal className='h-4 w-4' />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='end'>
-              <DropdownMenuItem onClick={() => setEditMember(member)}>
-                <UserCog className='mr-2 h-4 w-4' />
-                Modifier le rôle
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className='text-destructive'
-                onClick={() => setDeleteConfirm({
-                  id: member.id,
-                  name: `${member.first_name} ${member.last_name || ''}`.trim(),
-                })}
-              >
-                <Trash2 className='mr-2 h-4 w-4' />
-                Retirer de l'organisation
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
-      },
-      meta: { className: 'w-[50px]' },
-    },
-  ], [restaurants])
+  const handleDelete = (id: string, name: string) => {
+    setDeleteConfirm({ id, name })
+  }
 
-  const membersTable = useReactTable({
-    data: members,
-    columns: membersColumns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  })
+  const handleConfirmDelete = () => {
+    if (deleteConfirm) {
+      removeMember(deleteConfirm.id, {
+        onSuccess: () => {
+          toast.success('Membre retiré')
+          setDeleteConfirm(null)
+        },
+        onError: (err) => toast.error(err.message),
+      })
+    }
+  }
+
+  const handleRevokeConfirm = () => {
+    if (revokeConfirm) {
+      revokeInvitation(revokeConfirm, {
+        onSuccess: () => {
+          toast.success('Invitation révoquée')
+          setRevokeConfirm(null)
+        },
+        onError: (err) => toast.error(err.message),
+      })
+    }
+  }
 
   if (isLoading) {
     return (
@@ -270,11 +151,15 @@ export function MembersSettings() {
   }
 
   return (
-    <ContentSection
-      title='Membres'
-      desc='Gérez les membres de votre organisation et leurs rôles.'
-    >
-      {/* Header */}
+    <div className='flex flex-1 flex-col w-full'>
+      {/* Page header */}
+      <div className='flex-none'>
+        <h3 className='text-lg font-medium'>Membres</h3>
+        <p className='text-sm text-muted-foreground'>Gérez les membres de votre organisation et leurs rôles.</p>
+      </div>
+      <Separator className='my-4 flex-none' />
+
+      {/* Toolbar */}
       <div className='flex items-center justify-between mb-4'>
         <h3 className='text-base font-semibold'>Équipe ({members.length})</h3>
         <Button onClick={() => setInviteOpen(true)}>
@@ -283,43 +168,97 @@ export function MembersSettings() {
         </Button>
       </div>
 
-      {/* Members table */}
-      <div className='flex flex-col gap-4'>
-        <div className='overflow-hidden rounded-md border'>
-          <Table>
-            <TableHeader>
-              {membersTable.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className={header.column.columnDef.meta?.className as string}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {membersTable.getRowModel().rows?.length ? (
-                membersTable.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className={cell.column.columnDef.meta?.className as string}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
+      {/* Members table — simple pattern like restaurants page */}
+      <div className='rounded-md border'>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Membre</TableHead>
+              <TableHead>Rôle</TableHead>
+              <TableHead className='hidden md:table-cell'>Restaurants</TableHead>
+              <TableHead className='w-[50px]' />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {members.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className='text-center text-muted-foreground py-8'>
+                  Aucun membre pour le moment
+                </TableCell>
+              </TableRow>
+            ) : (
+              members.map((member) => {
+                const roleSlug = member.role?.slug || 'member'
+                const RoleIcon = roleIcons[roleSlug] || UserCog
+                const memberRestaurantIds = member.user_restaurants?.map(ur => ur.restaurant_id) || []
+                return (
+                  <TableRow key={member.id}>
+                    <TableCell>
+                      <div className='flex items-center gap-3'>
+                        <Avatar className='h-9 w-9'>
+                          <AvatarFallback className='text-xs'>
+                            {member.first_name?.[0]}{member.last_name?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <span className='font-medium text-sm'>
+                            {member.first_name} {member.last_name}
+                          </span>
+                          <p className='text-xs text-muted-foreground'>{member.email}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant='outline' className={`text-xs ${roleColors[roleSlug] || ''}`}>
+                        <RoleIcon className='mr-1 h-3 w-3' />
+                        {member.role?.name || 'Membre'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className='hidden md:table-cell'>
+                      {memberRestaurantIds.length === 0 ? (
+                        <span className='text-muted-foreground text-sm'>Tous</span>
+                      ) : (
+                        <div className='flex flex-wrap gap-1'>
+                          {memberRestaurantIds.map(rid => {
+                            const rest = restaurants.find(r => r.id === rid)
+                            return rest ? (
+                              <Badge key={rid} variant='secondary' className='text-[10px] px-1.5 py-0'>
+                                {rest.name}
+                              </Badge>
+                            ) : null
+                          })}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant='ghost' size='icon' className='h-8 w-8'>
+                            <MoreHorizontal className='h-4 w-4' />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align='end'>
+                          <DropdownMenuItem onClick={() => setEditMember(member)}>
+                            <UserCog className='mr-2 h-4 w-4' />
+                            Modifier le rôle
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className='text-destructive'
+                            onClick={() => handleDelete(member.id, `${member.first_name} ${member.last_name || ''}`.trim())}
+                          >
+                            <Trash2 className='mr-2 h-4 w-4' />
+                            Retirer de l'organisation
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={membersColumns.length} className='h-24 text-center text-muted-foreground'>
-                    Aucun membre pour le moment
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <DataTablePagination table={membersTable} />
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       {/* Pending invitations */}
@@ -329,14 +268,14 @@ export function MembersSettings() {
             <Clock className='h-4 w-4' />
             Invitations en attente ({invitations.length})
           </h3>
-          <div className='overflow-hidden rounded-md border'>
+          <div className='rounded-md border'>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Email</TableHead>
                   <TableHead>Rôle</TableHead>
-                  <TableHead>Détails</TableHead>
-                  <TableHead className='w-[80px]' />
+                  <TableHead className='hidden sm:table-cell'>Détails</TableHead>
+                  <TableHead className='w-[50px]' />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -348,7 +287,7 @@ export function MembersSettings() {
                         {inv.role?.name || 'Membre'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className='hidden sm:table-cell'>
                       <span className='text-xs text-muted-foreground'>
                         Invité par {inv.invited_by_user ? `${inv.invited_by_user.first_name} ${inv.invited_by_user.last_name || ''}`.trim() : '—'}
                         {' · '}Expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}
@@ -357,7 +296,7 @@ export function MembersSettings() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
+                          <Button variant='ghost' size='icon' className='h-8 w-8'>
                             <MoreHorizontal className='h-4 w-4' />
                           </Button>
                         </DropdownMenuTrigger>
@@ -391,162 +330,215 @@ export function MembersSettings() {
       )}
 
       {/* Invite dialog */}
-      <Dialog open={inviteOpen} onOpenChange={(open) => { setInviteOpen(open); if (!open) inviteForm.reset() }}>
-        <DialogContent className='sm:max-w-md'>
-          <DialogHeader>
-            <DialogTitle className='flex items-center gap-2'>
-              <MailPlus className='h-5 w-5' /> Inviter un membre
-            </DialogTitle>
-            <DialogDescription>
-              Envoyez une invitation par email pour rejoindre votre organisation.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...inviteForm}>
-            <form id='invite-form' onSubmit={inviteForm.handleSubmit(handleInvite)} className='space-y-4'>
-              <FormField
-                control={inviteForm.control}
-                name='email'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type='email' placeholder='nom@exemple.com' {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={inviteForm.control}
-                name='role_id'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Rôle</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Sélectionner un rôle' />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {(roles || []).map(role => {
-                          const Icon = roleIcons[role.slug] || UserCog
-                          return (
-                            <SelectItem key={role.id} value={role.id}>
-                              <span className='flex items-center gap-2'>
-                                <Icon className='h-4 w-4' />
-                                {role.name}
-                              </span>
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {selectedInviteRoleSlug === 'admin' && "Accès complet à toute l'organisation"}
-                      {selectedInviteRoleSlug === 'commercial' && 'Contacts, réservations et devis de ses restaurants'}
-                      {selectedInviteRoleSlug === 'gerant' && 'Événements de son/ses restaurant(s) uniquement'}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {(selectedInviteRoleSlug === 'commercial' || selectedInviteRoleSlug === 'gerant') && restaurants && restaurants.length > 0 && (
-                <FormField
-                  control={inviteForm.control}
-                  name='restaurant_ids'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Restaurants assignés</FormLabel>
-                      <div className='space-y-2'>
-                        {restaurants.map(rest => (
-                          <label key={rest.id} className='flex items-center gap-2 cursor-pointer'>
-                            <input
-                              type='checkbox'
-                              checked={field.value.includes(rest.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  field.onChange([...field.value, rest.id])
-                                } else {
-                                  field.onChange(field.value.filter((id: string) => id !== rest.id))
-                                }
-                              }}
-                              className='rounded border-gray-300'
-                            />
-                            <span className='text-sm'>{rest.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-            </form>
-          </Form>
-          <DialogFooter className='gap-y-2'>
-            <DialogClose asChild>
-              <Button variant='outline'>Annuler</Button>
-            </DialogClose>
-            <Button type='submit' form='invite-form' disabled={isInviting}>
-              {isInviting ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : <Send className='mr-2 h-4 w-4' />}
-              Inviter
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <InviteDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        roles={roles}
+        restaurants={restaurants}
+      />
 
       {/* Edit role dialog */}
       {editMember && (
         <EditRoleDialog
           member={editMember}
-          roles={roles || []}
-          restaurants={restaurants || []}
+          roles={roles}
+          restaurants={restaurants}
           onClose={() => setEditMember(null)}
           onSave={handleUpdateRole}
         />
       )}
 
       {/* Delete confirmation */}
-      <ConfirmDialog
-        open={!!deleteConfirm}
-        onOpenChange={() => setDeleteConfirm(null)}
-        title='Retirer un membre'
-        desc={`Voulez-vous vraiment retirer ${deleteConfirm?.name} de l'organisation ? Cette action est irréversible.`}
-        confirmText='Retirer'
-        handleConfirm={() => {
-          if (deleteConfirm) {
-            removeMember(deleteConfirm.id, {
-              onSuccess: () => {
-                toast.success('Membre retiré')
-                setDeleteConfirm(null)
-              },
-              onError: (err) => toast.error(err.message),
-            })
-          }
-        }}
-      />
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Retirer un membre</AlertDialogTitle>
+            <AlertDialogDescription>
+              Voulez-vous vraiment retirer {deleteConfirm?.name} de l'organisation ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+              Retirer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {/* Revoke invitation confirmation */}
-      <ConfirmDialog
-        open={!!revokeConfirm}
-        onOpenChange={() => setRevokeConfirm(null)}
-        title="Révoquer l'invitation"
-        desc='Voulez-vous vraiment révoquer cette invitation ?'
-        confirmText='Révoquer'
-        handleConfirm={() => {
-          if (revokeConfirm) {
-            revokeInvitation(revokeConfirm, {
-              onSuccess: () => {
-                toast.success('Invitation révoquée')
-                setRevokeConfirm(null)
-              },
-              onError: (err) => toast.error(err.message),
-            })
-          }
-        }}
-      />
-    </ContentSection>
+      {/* Revoke confirmation */}
+      <AlertDialog open={!!revokeConfirm} onOpenChange={() => setRevokeConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Révoquer l'invitation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Voulez-vous vraiment révoquer cette invitation ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRevokeConfirm} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+              Révoquer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Invite Dialog
+// ═══════════════════════════════════════════════════════════════
+function InviteDialog({
+  open,
+  onOpenChange,
+  roles,
+  restaurants,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  roles: MemberRole[]
+  restaurants: Restaurant[]
+}) {
+  const { mutate: inviteMember, isPending: isInviting } = useInviteMember()
+
+  const [email, setEmail] = useState('')
+  const [roleId, setRoleId] = useState('')
+  const [restaurantIds, setRestaurantIds] = useState<string[]>([])
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const selectedRoleSlug = roles.find(r => r.id === roleId)?.slug
+
+  const handleClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setEmail('')
+      setRoleId('')
+      setRestaurantIds([])
+      setErrors({})
+    }
+    onOpenChange(isOpen)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const newErrors: Record<string, string> = {}
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = 'Email invalide'
+    }
+    if (!roleId) {
+      newErrors.role_id = 'Le rôle est requis'
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+    setErrors({})
+
+    inviteMember(
+      { email, role_id: roleId, restaurant_ids: restaurantIds },
+      {
+        onSuccess: () => {
+          toast.success('Invitation envoyée')
+          handleClose(false)
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || "Erreur lors de l'envoi de l'invitation")
+        },
+      }
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader>
+          <DialogTitle className='flex items-center gap-2'>
+            <MailPlus className='h-5 w-5' /> Inviter un membre
+          </DialogTitle>
+          <DialogDescription>
+            Envoyez une invitation par email pour rejoindre votre organisation.
+          </DialogDescription>
+        </DialogHeader>
+        <form id='invite-form' onSubmit={handleSubmit} className='space-y-4'>
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>Email</label>
+            <Input
+              type='email'
+              placeholder='nom@exemple.com'
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setErrors(prev => ({ ...prev, email: '' })) }}
+            />
+            {errors.email && <p className='text-sm text-destructive'>{errors.email}</p>}
+          </div>
+
+          <div className='space-y-2'>
+            <label className='text-sm font-medium'>Rôle</label>
+            <Select
+              value={roleId || undefined}
+              onValueChange={(v) => { setRoleId(v); setErrors(prev => ({ ...prev, role_id: '' })) }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder='Sélectionner un rôle' />
+              </SelectTrigger>
+              <SelectContent>
+                {roles.map(role => {
+                  const Icon = roleIcons[role.slug] || UserCog
+                  return (
+                    <SelectItem key={role.id} value={role.id}>
+                      <span className='flex items-center gap-2'>
+                        <Icon className='h-4 w-4' />
+                        {role.name}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+            <p className='text-sm text-muted-foreground'>
+              {selectedRoleSlug === 'admin' && "Accès complet à toute l'organisation"}
+              {selectedRoleSlug === 'commercial' && 'Contacts, réservations et devis de ses restaurants'}
+              {selectedRoleSlug === 'gerant' && 'Événements de son/ses restaurant(s) uniquement'}
+            </p>
+            {errors.role_id && <p className='text-sm text-destructive'>{errors.role_id}</p>}
+          </div>
+
+          {(selectedRoleSlug === 'commercial' || selectedRoleSlug === 'gerant') && restaurants.length > 0 && (
+            <div className='space-y-2'>
+              <label className='text-sm font-medium'>Restaurants assignés</label>
+              <div className='space-y-2'>
+                {restaurants.map(rest => (
+                  <label key={rest.id} className='flex items-center gap-2 cursor-pointer'>
+                    <input
+                      type='checkbox'
+                      checked={restaurantIds.includes(rest.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setRestaurantIds(prev => [...prev, rest.id])
+                        } else {
+                          setRestaurantIds(prev => prev.filter(id => id !== rest.id))
+                        }
+                      }}
+                      className='rounded border-gray-300'
+                    />
+                    <span className='text-sm'>{rest.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </form>
+        <DialogFooter className='gap-y-2'>
+          <DialogClose asChild>
+            <Button variant='outline'>Annuler</Button>
+          </DialogClose>
+          <Button type='submit' form='invite-form' disabled={isInviting}>
+            {isInviting ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : <Send className='mr-2 h-4 w-4' />}
+            Inviter
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -561,8 +553,8 @@ function EditRoleDialog({
   onSave,
 }: {
   member: Member
-  roles: { id: string; name: string; slug: string }[]
-  restaurants: { id: string; name: string }[]
+  roles: MemberRole[]
+  restaurants: Restaurant[]
   onClose: () => void
   onSave: (memberId: string, roleId: string, restaurantIds?: string[]) => void
 }) {
@@ -590,7 +582,7 @@ function EditRoleDialog({
                 <SelectValue placeholder='Sélectionner un rôle' />
               </SelectTrigger>
               <SelectContent>
-                {(roles || []).map(role => {
+                {roles.map(role => {
                   const Icon = roleIcons[role.slug] || UserCog
                   return (
                     <SelectItem key={role.id} value={role.id}>
@@ -605,7 +597,7 @@ function EditRoleDialog({
             </Select>
           </div>
 
-          {(selectedRoleSlug === 'commercial' || selectedRoleSlug === 'gerant') && restaurants?.length > 0 && (
+          {(selectedRoleSlug === 'commercial' || selectedRoleSlug === 'gerant') && restaurants.length > 0 && (
             <div>
               <label className='text-sm font-medium'>Restaurants assignés</label>
               <div className='space-y-2 mt-1'>
