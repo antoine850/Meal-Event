@@ -7,15 +7,12 @@ import {
   Package,
   Plus,
   ReceiptText,
+  Save,
   Trash2,
   User,
   ExternalLink,
   RotateCcw,
   Download,
-  Send,
-  FileSignature,
-  CreditCard,
-  Receipt,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -41,12 +38,15 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Command,
   CommandEmpty,
@@ -77,10 +77,6 @@ import {
   useProductsByRestaurant,
   usePackagesByRestaurant,
   useQuoteWithItems,
-  useSendQuoteEmail,
-  useSendSignature,
-  useSendDeposit,
-  useSendBalance,
   generateAllCGV,
   generateCGV,
   type RestaurantBillingInfo,
@@ -88,7 +84,6 @@ import {
 import { QuotePreview, type DocumentType } from './quote-preview'
 import { useContacts } from '@/features/contacts/hooks/use-contacts'
 import { useUpdateCompany } from '@/features/companies/hooks/use-companies'
-// QuotePdfExportButton replaced by inline dropdown actions
 
 type Props = {
   open: boolean
@@ -108,10 +103,6 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const { data: catalogProducts = [] } = useProductsByRestaurant(restaurant?.id || null)
   const { data: catalogPackages = [] } = usePackagesByRestaurant(restaurant?.id || null)
   const { mutate: updateCompany, isPending: isUpdatingCompany } = useUpdateCompany()
-  const { mutate: sendQuoteEmail, isPending: isSendingEmail } = useSendQuoteEmail()
-  const { mutate: sendSignature, isPending: isSendingSignature } = useSendSignature()
-  const { mutate: sendDeposit, isPending: isSendingDeposit } = useSendDeposit()
-  const { mutate: sendBalance, isPending: isSendingBalance } = useSendBalance()
   
   // Extras state (using quote_items with item_type='extra')
   const [editingExtra, setEditingExtra] = useState<QuoteItem | null>(null)
@@ -157,6 +148,16 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
   const [packagePopoverOpen, setPackagePopoverOpen] = useState(false)
   const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+
+  // Wrapper to mark dirty on any field change
+  const dirty = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>) => {
+    return (value: T | ((prev: T) => T)) => {
+      setter(value)
+      setIsDirty(true)
+    }
+  }, [])
 
   const { data: allContacts = [] } = useContacts()
 
@@ -257,13 +258,57 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
 
   const items = quoteData?.quote_items || []
 
-  // Auto-save quote fields on blur
+  // Save a single quote field (used for contact change, language change, conditions reload)
   const saveQuoteField = useCallback((field: string, value: any) => {
     if (!quoteId) return
     updateQuote({ id: quoteId, [field]: value } as any, {
       onError: () => toast.error('Erreur lors de la sauvegarde'),
     })
   }, [quoteId, updateQuote])
+
+  // Save all local fields at once
+  const saveAllFields = useCallback(() => {
+    if (!quoteId) return
+    updateQuote({
+      id: quoteId,
+      title,
+      date_start: dateStart || null,
+      date_end: dateEnd || null,
+      order_number: orderNumber || null,
+      discount_percentage: discountPercentage,
+      deposit_percentage: depositPercentage,
+      deposit_label: depositLabel,
+      deposit_days: depositDays,
+      balance_label: balanceLabel,
+      balance_days: balanceDays,
+      quote_date: quoteDate || null,
+      quote_due_days: quoteDueDays,
+      invoice_due_days: invoiceDueDays,
+      comments_fr: commentsFr,
+      comments_en: commentsEn,
+      conditions_devis: conditionsDevis,
+      conditions_facture: conditionsFacture,
+      conditions_acompte: conditionsAcompte,
+      conditions_solde: conditionsSolde,
+      additional_conditions: additionalConditions,
+      language,
+    } as any, {
+      onSuccess: () => {
+        toast.success('Modifications enregistrées')
+        setIsDirty(false)
+      },
+      onError: () => toast.error('Erreur lors de la sauvegarde'),
+    })
+  }, [quoteId, updateQuote, title, dateStart, dateEnd, orderNumber, discountPercentage, depositPercentage, depositLabel, depositDays, balanceLabel, balanceDays, quoteDate, quoteDueDays, invoiceDueDays, commentsFr, commentsEn, conditionsDevis, conditionsFacture, conditionsAcompte, conditionsSolde, additionalConditions, language])
+
+  // Handle quit with dirty check
+  const handleQuit = useCallback(() => {
+    if (isDirty) {
+      setShowQuitConfirm(true)
+    } else {
+      onOpenChange(false)
+    }
+  }, [isDirty, onOpenChange])
 
   // Use a ref for items length to avoid unnecessary callback recreations
   const itemsLengthRef = useRef(items.length)
@@ -440,7 +485,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleQuit(); else onOpenChange(true) }}>
       <DialogContent className='sm:max-w-[95vw] h-[95vh] p-0 gap-0' showCloseButton={false} aria-describedby={undefined}>
         {/* Header */}
         <div className='flex items-center justify-between px-6 py-3 border-b'>
@@ -479,8 +524,14 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
             <span className='text-sm font-semibold'>
               Total TTC: {totalTtc.toFixed(2)} €
             </span>
-            <Button variant='outline' size='sm' onClick={() => onOpenChange(false)}>
-              Fermer
+            {isDirty && (
+              <Button size='sm' onClick={saveAllFields}>
+                <Save className='mr-1.5 h-3.5 w-3.5' />
+                Sauvegarder
+              </Button>
+            )}
+            <Button variant='outline' size='sm' onClick={handleQuit}>
+              Quitter
             </Button>
           </div>
         </div>
@@ -527,8 +578,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     <Label className='text-xs'>Titre</Label>
                     <Input
                       value={title}
-                      onChange={e => setTitle(e.target.value)}
-                      onBlur={() => saveQuoteField('title', title)}
+                      onChange={e => dirty(setTitle)(e.target.value)}
                       placeholder={`Votre événement | ${booking.occasion || ''}`}
                       className='mt-1'
                     />
@@ -540,7 +590,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <div className='mt-1'>
                         <DatePicker
                           value={dateStart}
-                          onChange={(v) => { setDateStart(v); saveQuoteField('date_start', v || null) }}
+                          onChange={(v) => { setDateStart(v); setIsDirty(true) }}
                           placeholder='Début'
                         />
                       </div>
@@ -550,7 +600,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <div className='mt-1'>
                         <DatePicker
                           value={dateEnd}
-                          onChange={(v) => { setDateEnd(v); saveQuoteField('date_end', v || null) }}
+                          onChange={(v) => { setDateEnd(v); setIsDirty(true) }}
                           placeholder='Fin'
                         />
                       </div>
@@ -562,8 +612,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <Label className='text-xs'>N° bon de commande</Label>
                       <Input
                         value={orderNumber}
-                        onChange={e => setOrderNumber(e.target.value)}
-                        onBlur={() => saveQuoteField('order_number', orderNumber || null)}
+                        onChange={e => dirty(setOrderNumber)(e.target.value)}
                         placeholder='Optionnel'
                         className='mt-1'
                       />
@@ -576,8 +625,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         max={100}
                         step={0.01}
                         value={discountPercentage}
-                        onChange={e => setDiscountPercentage(parseFloat(e.target.value) || 0)}
-                        onBlur={() => saveQuoteField('discount_percentage', discountPercentage)}
+                        onChange={e => dirty(setDiscountPercentage)(parseFloat(e.target.value) || 0)}
                         className='mt-1'
                       />
                     </div>
@@ -599,8 +647,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             <Label className='text-[10px]'>Label</Label>
                             <Input
                               value={depositLabel}
-                              onChange={e => setDepositLabel(e.target.value)}
-                              onBlur={() => saveQuoteField('deposit_label', depositLabel)}
+                              onChange={e => dirty(setDepositLabel)(e.target.value)}
                               className='mt-0.5 h-8 text-xs'
                             />
                           </div>
@@ -611,8 +658,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                               min={0}
                               max={100}
                               value={depositPercentage}
-                              onChange={e => setDepositPercentage(parseFloat(e.target.value) || 0)}
-                              onBlur={() => saveQuoteField('deposit_percentage', depositPercentage)}
+                              onChange={e => dirty(setDepositPercentage)(parseFloat(e.target.value) || 0)}
                               className='mt-0.5 h-8 text-xs'
                             />
                           </div>
@@ -621,8 +667,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             <Input
                               type='number'
                               value={depositDays}
-                              onChange={e => setDepositDays(parseInt(e.target.value) || 0)}
-                              onBlur={() => saveQuoteField('deposit_days', depositDays)}
+                              onChange={e => dirty(setDepositDays)(parseInt(e.target.value) || 0)}
                               className='mt-0.5 h-8 text-xs'
                             />
                           </div>
@@ -641,8 +686,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             <Label className='text-[10px]'>Label</Label>
                             <Input
                               value={balanceLabel}
-                              onChange={e => setBalanceLabel(e.target.value)}
-                              onBlur={() => saveQuoteField('balance_label', balanceLabel)}
+                              onChange={e => dirty(setBalanceLabel)(e.target.value)}
                               className='mt-0.5 h-8 text-xs'
                             />
                           </div>
@@ -651,8 +695,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             <Input
                               type='number'
                               value={balanceDays}
-                              onChange={e => setBalanceDays(parseInt(e.target.value) || 0)}
-                              onBlur={() => saveQuoteField('balance_days', balanceDays)}
+                              onChange={e => dirty(setBalanceDays)(parseInt(e.target.value) || 0)}
                               className='mt-0.5 h-8 text-xs'
                             />
                           </div>
@@ -672,7 +715,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         <div className='mt-1'>
                           <DatePicker
                             value={quoteDate}
-                            onChange={(v) => { setQuoteDate(v); saveQuoteField('quote_date', v || null) }}
+                            onChange={(v) => { setQuoteDate(v); setIsDirty(true) }}
                             placeholder='Date'
                           />
                         </div>
@@ -682,8 +725,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         <Input
                           type='number'
                           value={quoteDueDays}
-                          onChange={e => setQuoteDueDays(parseInt(e.target.value) || 0)}
-                          onBlur={() => saveQuoteField('quote_due_days', quoteDueDays)}
+                          onChange={e => dirty(setQuoteDueDays)(parseInt(e.target.value) || 0)}
                           className='mt-1'
                         />
                       </div>
@@ -692,8 +734,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         <Input
                           type='number'
                           value={invoiceDueDays}
-                          onChange={e => setInvoiceDueDays(parseInt(e.target.value) || 0)}
-                          onBlur={() => saveQuoteField('invoice_due_days', invoiceDueDays)}
+                          onChange={e => dirty(setInvoiceDueDays)(parseInt(e.target.value) || 0)}
                           className='mt-1'
                         />
                       </div>
@@ -713,8 +754,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <TabsContent value='fr' className='mt-2'>
                         <Textarea
                           value={commentsFr}
-                          onChange={e => setCommentsFr(e.target.value)}
-                          onBlur={() => saveQuoteField('comments_fr', commentsFr || null)}
+                          onChange={e => dirty(setCommentsFr)(e.target.value)}
                           placeholder='Commentaires en français...'
                           className='min-h-[80px] text-xs resize-none'
                         />
@@ -722,8 +762,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <TabsContent value='en' className='mt-2'>
                         <Textarea
                           value={commentsEn}
-                          onChange={e => setCommentsEn(e.target.value)}
-                          onBlur={() => saveQuoteField('comments_en', commentsEn || null)}
+                          onChange={e => dirty(setCommentsEn)(e.target.value)}
                           placeholder='Comments in English...'
                           className='min-h-[80px] text-xs resize-none'
                         />
@@ -1019,8 +1058,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     {activeCondition === 'devis' && (
                       <Textarea
                         value={conditionsDevis}
-                        onChange={e => setConditionsDevis(e.target.value)}
-                        onBlur={() => saveQuoteField('conditions_devis', conditionsDevis || null)}
+                        onChange={e => dirty(setConditionsDevis)(e.target.value)}
                         placeholder='Conditions générales de vente — Devis'
                         className='h-full text-xs resize-none font-mono'
                       />
@@ -1028,8 +1066,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     {activeCondition === 'facture' && (
                       <Textarea
                         value={conditionsFacture}
-                        onChange={e => setConditionsFacture(e.target.value)}
-                        onBlur={() => saveQuoteField('conditions_facture', conditionsFacture || null)}
+                        onChange={e => dirty(setConditionsFacture)(e.target.value)}
                         placeholder='Conditions générales — Facture'
                         className='h-full text-xs resize-none font-mono'
                       />
@@ -1037,8 +1074,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     {activeCondition === 'acompte' && (
                       <Textarea
                         value={conditionsAcompte}
-                        onChange={e => setConditionsAcompte(e.target.value)}
-                        onBlur={() => saveQuoteField('conditions_acompte', conditionsAcompte || null)}
+                        onChange={e => dirty(setConditionsAcompte)(e.target.value)}
                         placeholder='Conditions — Acompte'
                         className='h-full text-xs resize-none font-mono'
                       />
@@ -1046,8 +1082,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     {activeCondition === 'solde' && (
                       <Textarea
                         value={conditionsSolde}
-                        onChange={e => setConditionsSolde(e.target.value)}
-                        onBlur={() => saveQuoteField('conditions_solde', conditionsSolde || null)}
+                        onChange={e => dirty(setConditionsSolde)(e.target.value)}
                         placeholder='Conditions — Solde / Balance'
                         className='h-full text-xs resize-none font-mono'
                       />
@@ -1055,8 +1090,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     {activeCondition === 'additional' && (
                       <Textarea
                         value={additionalConditions}
-                        onChange={e => setAdditionalConditions(e.target.value)}
-                        onBlur={() => saveQuoteField('additional_conditions', additionalConditions || null)}
+                        onChange={e => dirty(setAdditionalConditions)(e.target.value)}
                         placeholder='Conditions supplémentaires personnalisées...'
                         className='h-full text-xs resize-none font-mono'
                       />
@@ -1596,160 +1630,35 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                   </Button>
                 </div>
               </div>
-              {/* Actions Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant='outline' size='sm' className='gap-1.5 text-xs h-7'>
-                    <Download className='h-3 w-3' />
-                    Actions
-                    <ChevronDown className='h-3 w-3' />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align='end' className='w-56'>
-                  {/* PDF Downloads */}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      const element = document.getElementById('quote-preview-content')
-                      if (!element) {
-                        toast.error('Aperçu non disponible')
-                        return
-                      }
-                      // Trigger PDF export
-                      import('html2pdf.js').then(({ default: html2pdf }) => {
-                        html2pdf()
-                          .set({
-                            margin: [5, 5, 10, 5],
-                            filename: `${quoteData?.quote_number || 'devis'}.pdf`,
-                            image: { type: 'jpeg', quality: 0.98 },
-                            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                          })
-                          .from(element)
-                          .save()
-                          .then(() => toast.success('PDF téléchargé'))
-                          .catch(() => toast.error('Erreur lors de l\'export PDF'))
+              <Button
+                variant='outline'
+                size='sm'
+                className='gap-1.5 text-xs h-7'
+                onClick={() => {
+                  const element = document.getElementById('quote-preview-content')
+                  if (!element) {
+                    toast.error('Aperçu non disponible')
+                    return
+                  }
+                  import('html2pdf.js').then(({ default: html2pdf }) => {
+                    html2pdf()
+                      .set({
+                        margin: [5, 5, 10, 5],
+                        filename: `${quoteData?.quote_number || 'devis'}.pdf`,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                       })
-                    }}
-                  >
-                    <Download className='h-3.5 w-3.5 mr-2' />
-                    Télécharger PDF
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuSeparator />
-                  
-                  {/* Workflow Actions - Allow resending quote email anytime */}
-                  <DropdownMenuItem
-                    disabled={isSendingEmail}
-                    onClick={() => {
-                      if (!quoteId) return
-                      
-                      // B2B Validation: Check if company info is complete
-                      const company = (contact as any)?.company
-                      if (company) {
-                        const missingFields: string[] = []
-                        if (!company.name) missingFields.push('Raison sociale')
-                        if (!company.billing_address) missingFields.push('Adresse')
-                        if (!company.billing_postal_code) missingFields.push('Code postal')
-                        if (!company.billing_city) missingFields.push('Ville')
-                        if (!company.siret) missingFields.push('SIRET')
-                        
-                        if (missingFields.length > 0) {
-                          toast.error(`Informations société manquantes : ${missingFields.join(', ')}. Veuillez compléter les informations de la société avant d'envoyer le devis.`)
-                          return
-                        }
-                      }
-                      
-                      sendQuoteEmail(
-                        { quoteId, bookingId: booking.id },
-                        {
-                          onSuccess: () => toast.success('Devis envoyé par email'),
-                          onError: (err) => toast.error(`Erreur: ${err.message}`),
-                        }
-                      )
-                    }}
-                  >
-                    <Send className='h-3.5 w-3.5 mr-2' />
-                    {isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}
-                  </DropdownMenuItem>
-                  
-                  {/* Allow resending signature as long as quote is not yet signed */}
-                  {!(quoteData as any)?.quote_signed_at && (
-                    <DropdownMenuItem
-                      disabled={isSendingSignature}
-                      onClick={() => {
-                        if (!quoteId) return
-                        sendSignature(
-                          { quoteId, bookingId: booking.id },
-                          {
-                            onSuccess: () => toast.success('Lien de signature envoyé'),
-                            onError: (err) => toast.error(`Erreur: ${err.message}`),
-                          }
-                        )
-                      }}
-                    >
-                      <FileSignature className='h-3.5 w-3.5 mr-2' />
-                      {isSendingSignature ? 'Envoi en cours...' : 'Envoyer Lien de Signature'}
-                    </DropdownMenuItem>
-                  )}
-                  
-                  {quoteData?.status === 'quote_signed' && (
-                    <DropdownMenuItem
-                      disabled={isSendingDeposit}
-                      onClick={() => {
-                        if (!quoteId) return
-                        sendDeposit(
-                          { quoteId, bookingId: booking.id },
-                          {
-                            onSuccess: () => toast.success('Facture d\'acompte envoyée avec lien de paiement'),
-                            onError: (err) => toast.error(`Erreur: ${err.message}`),
-                          }
-                        )
-                      }}
-                    >
-                      <CreditCard className='h-3.5 w-3.5 mr-2' />
-                      {isSendingDeposit ? 'Envoi en cours...' : 'Envoyer Lien Paiement Acompte'}
-                    </DropdownMenuItem>
-                  )}
-                  
-                  {quoteData?.status === 'deposit_sent' && (
-                    <DropdownMenuItem
-                      disabled={isSendingDeposit}
-                      onClick={() => {
-                        if (!quoteId) return
-                        sendDeposit(
-                          { quoteId, bookingId: booking.id },
-                          {
-                            onSuccess: () => toast.success('Lien de paiement renvoyé'),
-                            onError: (err) => toast.error(`Erreur: ${err.message}`),
-                          }
-                        )
-                      }}
-                    >
-                      <CreditCard className='h-3.5 w-3.5 mr-2' />
-                      {isSendingDeposit ? 'Envoi en cours...' : 'Renvoyer Lien de Paiement'}
-                    </DropdownMenuItem>
-                  )}
-                  
-                  {quoteData?.status === 'deposit_paid' && (
-                    <DropdownMenuItem
-                      disabled={isSendingBalance}
-                      onClick={() => {
-                        if (!quoteId) return
-                        sendBalance(
-                          { quoteId, bookingId: booking.id },
-                          {
-                            onSuccess: () => toast.success('Facture de solde envoyée'),
-                            onError: (err) => toast.error(`Erreur: ${err.message}`),
-                          }
-                        )
-                      }}
-                    >
-                      <Receipt className='h-3.5 w-3.5 mr-2' />
-                      {isSendingBalance ? 'Envoi en cours...' : 'Envoyer Facture de Solde'}
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      .from(element)
+                      .save()
+                      .then(() => toast.success('PDF téléchargé'))
+                      .catch(() => toast.error("Erreur lors de l'export PDF"))
+                  })
+                }}
+              >
+                <Download className='h-3 w-3' />
+                Télécharger PDF
+              </Button>
             </div>
             <div className='flex-1 overflow-auto'>
               <div className='p-4'>
@@ -1759,6 +1668,31 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
           </div>
         </div>
       </DialogContent>
+
+      {/* Quit confirmation */}
+      <AlertDialog open={showQuitConfirm} onOpenChange={setShowQuitConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Quitter sans sauvegarder ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vous avez des modifications non sauvegardées. Voulez-vous quitter sans les enregistrer ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowQuitConfirm(false)
+                setIsDirty(false)
+                onOpenChange(false)
+              }}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            >
+              Quitter sans sauvegarder
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }
