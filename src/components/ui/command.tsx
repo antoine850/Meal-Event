@@ -1,6 +1,5 @@
 import * as React from 'react'
 import { Command as CommandPrimitive } from 'cmdk'
-import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area'
 import { SearchIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -89,22 +88,12 @@ function CommandList({
     <CommandPrimitive.List
       data-slot='command-list'
       className={cn(
-        'max-h-[300px] overflow-hidden',
+        'max-h-[300px] overflow-y-auto overflow-x-hidden',
         className
       )}
       {...props}
     >
-      <ScrollAreaPrimitive.Root className='h-full overflow-hidden'>
-        <ScrollAreaPrimitive.Viewport className='h-full max-h-[inherit]'>
-          {children}
-        </ScrollAreaPrimitive.Viewport>
-        <ScrollAreaPrimitive.ScrollAreaScrollbar
-          orientation='vertical'
-          className='flex w-2.5 touch-none border-l border-l-transparent p-px select-none transition-colors'
-        >
-          <ScrollAreaPrimitive.ScrollAreaThumb className='relative flex-1 rounded-full bg-border' />
-        </ScrollAreaPrimitive.ScrollAreaScrollbar>
-      </ScrollAreaPrimitive.Root>
+      {children}
     </CommandPrimitive.List>
   )
 }

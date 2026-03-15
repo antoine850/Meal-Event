@@ -146,7 +146,9 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const [activeCondition, setActiveCondition] = useState('devis')
   const [documentType, setDocumentType] = useState<DocumentType>('devis')
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
+  const [productSearch, setProductSearch] = useState('')
   const [packagePopoverOpen, setPackagePopoverOpen] = useState(false)
+  const [packageSearch, setPackageSearch] = useState('')
   const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
@@ -923,7 +925,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             <ExternalLink className='h-3 w-3' />
                             Ouvrir la fiche
                           </Button>
-                          <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
+                          <Popover modal={false} open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
                             <PopoverTrigger asChild>
                               <Button variant='outline' size='sm' className='gap-1.5 text-xs'>
                                 <User className='h-3 w-3' />
@@ -972,7 +974,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     <Card>
                       <CardContent className='p-4 space-y-3'>
                         <p className='text-sm text-muted-foreground text-center'>Aucun contact associé.</p>
-                        <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
+                        <Popover modal={false} open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
                           <PopoverTrigger asChild>
                             <Button variant='outline' size='sm' className='w-full gap-1.5 text-xs'>
                               <User className='h-3 w-3' />
@@ -1103,7 +1105,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                 <TabsContent value='produits' className='mt-0 space-y-3'>
                   {/* Add product/package controls */}
                   <div className='flex items-center gap-2'>
-                    <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
+                    <Popover modal={false} open={productPopoverOpen} onOpenChange={(o) => { setProductPopoverOpen(o); if (!o) setProductSearch('') }}>
                       <PopoverTrigger asChild>
                         <Button
                           size='sm'
@@ -1116,38 +1118,53 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                           <ChevronDown className='h-3 w-3 ml-auto opacity-50' />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className='w-[400px] p-0' align='start'>
-                        <Command>
-                          <CommandInput placeholder='Rechercher un produit...' className='text-xs' />
-                          <CommandList>
-                            <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
-                              Aucun produit trouvé.
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {catalogProducts.map(p => (
-                                <CommandItem
-                                  key={p.id}
-                                  value={[p.name, p.type, p.description].filter(Boolean).join(' ')}
-                                  onSelect={() => handleAddProductFromCatalog(p.id)}
-                                  className='text-xs cursor-pointer'
-                                >
-                                  <div className='flex items-center justify-between w-full'>
-                                    <div>
-                                      <span className='font-medium'>{p.name}</span>
-                                      {p.description && (
-                                        <span className='block text-[10px] text-muted-foreground truncate max-w-[250px]'>{p.description}</span>
-                                      )}
-                                    </div>
-                                    <span className='text-muted-foreground shrink-0 ml-2'>{p.unit_price_ht.toFixed(2)}€ HT</span>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
+                      <PopoverContent className='w-[400px] p-0' align='start' onOpenAutoFocus={e => e.preventDefault()}>
+                        <div className='p-2 border-b'>
+                          <Input
+                            placeholder='Rechercher un produit...'
+                            value={productSearch}
+                            onChange={e => setProductSearch(e.target.value)}
+                            className='h-8 text-xs'
+                            autoFocus
+                          />
+                        </div>
+                        <div
+                          className='max-h-[280px] overflow-y-auto overscroll-contain p-1'
+                          style={{ scrollbarColor: '#888 transparent' }}
+                          onWheel={e => e.stopPropagation()}
+                          onTouchMove={e => e.stopPropagation()}
+                        >
+                          {(() => {
+                            const q = productSearch.toLowerCase()
+                            const filtered = catalogProducts.filter(p =>
+                              !q || p.name.toLowerCase().includes(q) ||
+                              (p.type || '').toLowerCase().includes(q) ||
+                              (p.description || '').toLowerCase().includes(q)
+                            )
+                            if (filtered.length === 0) {
+                              return <p className='py-3 text-center text-xs text-muted-foreground'>Aucun produit trouvé.</p>
+                            }
+                            return filtered.map(p => (
+                              <button
+                                key={p.id}
+                                type='button'
+                                className='flex items-center justify-between w-full rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors'
+                                onClick={() => handleAddProductFromCatalog(p.id)}
+                              >
+                                <div className='text-left'>
+                                  <span className='font-medium'>{p.name}</span>
+                                  {p.description && (
+                                    <span className='block text-[10px] text-muted-foreground truncate max-w-[250px]'>{p.description}</span>
+                                  )}
+                                </div>
+                                <span className='text-muted-foreground shrink-0 ml-2'>{p.unit_price_ht.toFixed(2)}€ HT</span>
+                              </button>
+                            ))
+                          })()}
+                        </div>
                       </PopoverContent>
                     </Popover>
-                    <Popover open={packagePopoverOpen} onOpenChange={setPackagePopoverOpen}>
+                    <Popover modal={false} open={packagePopoverOpen} onOpenChange={(o) => { setPackagePopoverOpen(o); if (!o) setPackageSearch('') }}>
                       <PopoverTrigger asChild>
                         <Button
                           size='sm'
@@ -1160,43 +1177,57 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                           <ChevronDown className='h-3 w-3 ml-auto opacity-50' />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className='w-[400px] p-0' align='start'>
-                        <Command>
-                          <CommandInput placeholder='Rechercher un package...' className='text-xs' />
-                          <CommandList>
-                            <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
-                              Aucun package trouvé.
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {catalogPackages.map(pkg => (
-                                <CommandItem
-                                  key={pkg.id}
-                                  value={pkg.name}
-                                  onSelect={() => handleAddPackageFromCatalog(pkg.id)}
-                                  className='text-xs cursor-pointer'
-                                >
-                                  <div className='flex items-center justify-between w-full'>
-                                    <div>
-                                      <div className='flex items-center gap-1.5'>
-                                        <span className='font-medium'>{pkg.name}</span>
-                                        {pkg.price_per_person && (
-                                          <span className='text-[9px] bg-muted px-1 rounded'>par pers.</span>
-                                        )}
-                                      </div>
-                                      {pkg.description && (
-                                        <span className='block text-[10px] text-muted-foreground truncate max-w-[250px]'>{pkg.description}</span>
-                                      )}
-                                      <span className='block text-[10px] text-muted-foreground'>
-                                        {pkg.package_products?.length || 0} produits inclus
-                                      </span>
-                                    </div>
-                                    <span className='text-muted-foreground shrink-0 ml-2'>{pkg.unit_price_ht.toFixed(2)}€ HT</span>
+                      <PopoverContent className='w-[400px] p-0' align='start' onOpenAutoFocus={e => e.preventDefault()}>
+                        <div className='p-2 border-b'>
+                          <Input
+                            placeholder='Rechercher un package...'
+                            value={packageSearch}
+                            onChange={e => setPackageSearch(e.target.value)}
+                            className='h-8 text-xs'
+                            autoFocus
+                          />
+                        </div>
+                        <div
+                          className='max-h-[280px] overflow-y-auto overscroll-contain p-1'
+                          style={{ scrollbarColor: '#888 transparent' }}
+                          onWheel={e => e.stopPropagation()}
+                          onTouchMove={e => e.stopPropagation()}
+                        >
+                          {(() => {
+                            const q = packageSearch.toLowerCase()
+                            const filtered = catalogPackages.filter(pkg =>
+                              !q || pkg.name.toLowerCase().includes(q) ||
+                              (pkg.description || '').toLowerCase().includes(q)
+                            )
+                            if (filtered.length === 0) {
+                              return <p className='py-3 text-center text-xs text-muted-foreground'>Aucun package trouvé.</p>
+                            }
+                            return filtered.map(pkg => (
+                              <button
+                                key={pkg.id}
+                                type='button'
+                                className='flex items-center justify-between w-full rounded-sm px-2 py-1.5 text-xs cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors'
+                                onClick={() => handleAddPackageFromCatalog(pkg.id)}
+                              >
+                                <div className='text-left'>
+                                  <div className='flex items-center gap-1.5'>
+                                    <span className='font-medium'>{pkg.name}</span>
+                                    {pkg.price_per_person && (
+                                      <span className='text-[9px] bg-muted px-1 rounded'>par pers.</span>
+                                    )}
                                   </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
+                                  {pkg.description && (
+                                    <span className='block text-[10px] text-muted-foreground truncate max-w-[250px]'>{pkg.description}</span>
+                                  )}
+                                  <span className='block text-[10px] text-muted-foreground'>
+                                    {pkg.package_products?.length || 0} produits inclus
+                                  </span>
+                                </div>
+                                <span className='text-muted-foreground shrink-0 ml-2'>{pkg.unit_price_ht.toFixed(2)}€ HT</span>
+                              </button>
+                            ))
+                          })()}
+                        </div>
                       </PopoverContent>
                     </Popover>
                     <Button
