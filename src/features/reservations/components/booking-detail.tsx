@@ -1034,7 +1034,7 @@ export const BookingDetail = forwardRef<
                         // Allow resending signature as long as quote is not yet signed
                         const canSendSignature = !isQuoteSigned
                         const canSendDepositLink = isQuoteSigned && !isDepositPaid
-                        const canSendBalanceInvoice = isQuoteSigned && isDepositPaid && !isBalanceSent
+                        const canSendBalanceInvoice = isQuoteSigned && isDepositPaid && !isBalancePaid
                         const canMarkComplete = isBalanceSent && !isBalancePaid
                         
                         return (
@@ -1050,6 +1050,9 @@ export const BookingDetail = forwardRef<
                                   {isPrimary && (
                                     <Badge variant='default' className='text-[10px] bg-emerald-600 hover:bg-emerald-600'>Actif</Badge>
                                   )}
+                                  <Badge variant='outline' className='text-[10px] px-1.5 py-0 h-5'>
+                                    {(quote as any).language === 'en' ? '🇬🇧 EN' : '🇫🇷 FR'}
+                                  </Badge>
                                 </div>
                                 <div className='flex items-center gap-2 text-xs text-muted-foreground'>
                                   <span className='font-medium'>TTC: {(quote.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
@@ -1186,7 +1189,7 @@ export const BookingDetail = forwardRef<
                                     >
                                       <CreditCard className='h-3.5 w-3.5 mr-2' />
                                       <div className='flex flex-col'>
-                                        <span>{isSendingDeposit ? 'Envoi en cours...' : 'Envoyer Lien Paiement Acompte'}</span>
+                                        <span>{isSendingDeposit ? 'Envoi en cours...' : (quote as any).deposit_sent_at ? 'Renvoyer Lien Paiement Acompte' : 'Envoyer Lien Paiement Acompte'}</span>
                                         {!canSendDepositLink && !isQuoteSigned && <span className='text-[10px] text-muted-foreground'>Devis non signé</span>}
                                         {!canSendDepositLink && isDepositPaid && <span className='text-[10px] text-muted-foreground'>Acompte déjà payé</span>}
                                       </div>
@@ -1212,10 +1215,10 @@ export const BookingDetail = forwardRef<
                                     >
                                       <Receipt className='h-3.5 w-3.5 mr-2' />
                                       <div className='flex flex-col'>
-                                        <span>{isSendingBalance ? 'Envoi en cours...' : 'Envoyer Facture de Solde'}</span>
+                                        <span>{isSendingBalance ? 'Envoi en cours...' : isBalanceSent ? 'Renvoyer Facture de Solde' : 'Envoyer Facture de Solde'}</span>
                                         {!canSendBalanceInvoice && !isQuoteSigned && <span className='text-[10px] text-muted-foreground'>Devis non signé</span>}
                                         {!canSendBalanceInvoice && isQuoteSigned && !isDepositPaid && <span className='text-[10px] text-muted-foreground'>Acompte non payé</span>}
-                                        {!canSendBalanceInvoice && isBalanceSent && <span className='text-[10px] text-muted-foreground'>Déjà envoyée</span>}
+                                        {!canSendBalanceInvoice && isBalancePaid && <span className='text-[10px] text-muted-foreground'>Déjà payé</span>}
                                       </div>
                                     </DropdownMenuItem>
                                   
@@ -1376,6 +1379,7 @@ export const BookingDetail = forwardRef<
                             <th className='text-left py-2 px-2 font-medium text-xs'>Montant</th>
                             <th className='text-left py-2 px-2 font-medium text-xs'>Méthode</th>
                             <th className='text-left py-2 px-2 font-medium text-xs'>Payé le</th>
+                            <th className='text-left py-2 px-2 font-medium text-xs'>Reçu</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1401,6 +1405,20 @@ export const BookingDetail = forwardRef<
                               <td className='py-2 px-2 text-xs capitalize'>{payment.payment_method || payment.payment_type || '—'}</td>
                               <td className='py-2 px-2 text-xs text-muted-foreground'>
                                 {payment.paid_at ? format(new Date(payment.paid_at), 'dd/MM/yyyy', { locale: fr }) : '—'}
+                              </td>
+                              <td className='py-2 px-2 text-xs'>
+                                {(payment as any).receipt_url ? (
+                                  <a
+                                    href={(payment as any).receipt_url}
+                                    target='_blank'
+                                    rel='noopener noreferrer'
+                                    className='text-blue-600 hover:underline inline-flex items-center gap-1'
+                                    onClick={e => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className='h-3 w-3' />
+                                    Voir
+                                  </a>
+                                ) : '—'}
                               </td>
                             </tr>
                           ))}

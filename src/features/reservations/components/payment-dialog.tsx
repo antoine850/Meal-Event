@@ -67,6 +67,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isEditing = !!payment
+  const isStripePayment = isEditing && payment?.payment_method === 'stripe'
   const isPending = isCreating || isUpdating || isDeleting
 
   // Reset form when dialog opens or payment changes
@@ -158,8 +159,14 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-[425px]'>
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Modifier le paiement' : 'Ajouter un paiement'}</DialogTitle>
+          <DialogTitle>{isStripePayment ? 'Détails du paiement Stripe' : isEditing ? 'Modifier le paiement' : 'Ajouter un paiement'}</DialogTitle>
         </DialogHeader>
+
+        {isStripePayment && (
+          <p className='text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2'>
+            Ce paiement a été créé automatiquement via Stripe et ne peut pas être modifié.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className='space-y-4'>
           {/* Amount */}
@@ -174,13 +181,14 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
               onChange={e => setAmount(e.target.value)}
               placeholder='0.00'
               required
+              disabled={isStripePayment}
             />
           </div>
 
           {/* Payment Type */}
           <div className='space-y-2'>
             <Label>Type de paiement *</Label>
-            <Select value={paymentType} onValueChange={setPaymentType}>
+            <Select value={paymentType} onValueChange={setPaymentType} disabled={isStripePayment}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -195,7 +203,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
           {/* Payment Modality */}
           <div className='space-y-2'>
             <Label>Modalité *</Label>
-            <Select value={paymentModality} onValueChange={setPaymentModality}>
+            <Select value={paymentModality} onValueChange={setPaymentModality} disabled={isStripePayment}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -210,7 +218,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
           {/* Status */}
           <div className='space-y-2'>
             <Label>Statut *</Label>
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={setStatus} disabled={isStripePayment}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -229,6 +237,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
               value={paidAt}
               onChange={setPaidAt}
               placeholder='Sélectionner...'
+              disabled={isStripePayment}
             />
           </div>
 
@@ -241,6 +250,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
               onChange={e => setNotes(e.target.value)}
               placeholder='Notes optionnelles...'
               className='min-h-[80px]'
+              disabled={isStripePayment}
             />
           </div>
 
@@ -317,28 +327,39 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment }: Props)
 
           {/* Actions */}
           <div className='flex justify-between pt-4'>
-            {isEditing ? (
-              <Button
-                type='button'
-                variant='destructive'
-                onClick={handleDelete}
-                disabled={isPending}
-              >
-                {isDeleting ? <Loader2 className='h-4 w-4 animate-spin' /> : 'Supprimer'}
-              </Button>
+            {isStripePayment ? (
+              <>
+                <div />
+                <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
+                  Fermer
+                </Button>
+              </>
             ) : (
-              <div />
+              <>
+                {isEditing ? (
+                  <Button
+                    type='button'
+                    variant='destructive'
+                    onClick={handleDelete}
+                    disabled={isPending}
+                  >
+                    {isDeleting ? <Loader2 className='h-4 w-4 animate-spin' /> : 'Supprimer'}
+                  </Button>
+                ) : (
+                  <div />
+                )}
+                <div className='flex gap-2'>
+                  <Button type='button' variant='outline' onClick={() => onOpenChange(false)} disabled={isPending}>
+                    Annuler
+                  </Button>
+                  <Button type='submit' disabled={isPending}>
+                    {(isCreating || isUpdating) ? (
+                      <Loader2 className='h-4 w-4 animate-spin' />
+                    ) : isEditing ? 'Mettre à jour' : 'Ajouter'}
+                  </Button>
+                </div>
+              </>
             )}
-            <div className='flex gap-2'>
-              <Button type='button' variant='outline' onClick={() => onOpenChange(false)} disabled={isPending}>
-                Annuler
-              </Button>
-              <Button type='submit' disabled={isPending}>
-                {(isCreating || isUpdating) ? (
-                  <Loader2 className='h-4 w-4 animate-spin' />
-                ) : isEditing ? 'Mettre à jour' : 'Ajouter'}
-              </Button>
-            </div>
           </div>
         </form>
       </DialogContent>

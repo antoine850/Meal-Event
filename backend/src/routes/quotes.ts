@@ -424,27 +424,64 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
     }
 
-    // Idempotency guard: check if a pending deposit payment already exists
-    // Also expire stale pending payments (older than 24h — Stripe sessions expire)
+    // Check if a pending deposit payment already exists with a valid Stripe link
     const { data: existingDeposit } = await supabase
       .from('payments')
-      .select('id, created_at')
+      .select('id, created_at, stripe_payment_id')
       .eq('quote_id', quoteId)
       .eq('payment_type', 'deposit')
       .eq('status', 'pending')
       .maybeSingle()
 
     if (existingDeposit) {
+      // Check if the link has expired (14 days)
       const createdAt = new Date(existingDeposit.created_at || 0)
-      const hoursOld = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
-      if (hoursOld < 24) {
-        return res.status(409).json({ error: 'Un lien de paiement d\'acompte est déjà en cours pour ce devis.' })
+      const daysOld = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
+
+      if (daysOld >= 14) {
+        // Expire the old payment — a new Stripe session will be created below
+        await supabase.from('payments').update({ status: 'expired' }).eq('id', existingDeposit.id)
+      } else {
+      // Reuse the existing Stripe session URL — resend the email with the same link
+      const { data: existingQuote } = await supabase
+        .from('quotes')
+        .select('stripe_deposit_url')
+        .eq('id', quoteId)
+        .single()
+
+      if (existingQuote?.stripe_deposit_url) {
+        console.log(`[send-deposit] Reusing existing Stripe deposit link for quote ${quoteId}`)
+        // Just resend the email with existing link — no new Stripe session
+        const depositAmount = quoteData.total_ttc * (quoteData.deposit_percentage / 100)
+        const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+
+        const html = buildDepositEmailHtml({
+          restaurant: restaurant as any,
+          contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
+          quoteNumber: quoteData.quote_number,
+          depositPercentage: quoteData.deposit_percentage,
+          depositAmount,
+          totalTtc: quoteData.total_ttc,
+          stripePaymentUrl: existingQuote.stripe_deposit_url,
+          eventDate: quoteData.date_start || booking?.event_date || null,
+          commercialName: commercial.name,
+        })
+
+        const subject = buildDepositEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
+        const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+
+        await sendEmail({
+          to: contact.email,
+          subject,
+          html,
+          replyTo: commercial.email || restaurant?.email || undefined,
+          facturationEmail: facturationEmail || undefined,
+        })
+
+        console.log(`[send-deposit] ✅ Resent deposit link to ${contact.email}`)
+        return res.json({ success: true, sessionId: existingDeposit.stripe_payment_id, paymentUrl: existingQuote.stripe_deposit_url, resent: true })
       }
-      // Expire stale pending payment so a new one can be created
-      await supabase
-        .from('payments')
-        .update({ status: 'expired' })
-        .eq('id', existingDeposit.id)
+      }
     }
 
     // Calculate deposit amount
@@ -458,6 +495,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      expires_at: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60, // 14 days
       line_items: [{
         price_data: {
           currency: 'eur',
@@ -562,6 +600,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
         quote_id: quoteId,
         amount: depositAmount,
         payment_type: 'deposit',
+        payment_modality: 'acompte',
         payment_method: 'stripe',
         stripe_payment_id: session.id,
         status: 'pending',
@@ -635,10 +674,66 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'L\'acompte n\'a pas encore été payé. Veuillez attendre le paiement de l\'acompte avant d\'envoyer le solde.' })
     }
 
-    // Expire old balance payment links and pending payments to allow re-sending
-    await supabase.from('payment_links').update({ is_active: false }).eq('quote_id', quoteId).eq('link_type', 'balance').eq('is_active', true)
-    // Also expire old pending balance payments (but not paid ones)
-    await supabase.from('payments').delete().eq('quote_id', quoteId).eq('payment_type', 'balance').eq('status', 'pending')
+    // Check if a pending balance payment already exists with a valid Stripe link
+    const { data: existingBalance } = await supabase
+      .from('payments')
+      .select('id, created_at, stripe_payment_id')
+      .eq('quote_id', quoteId)
+      .eq('payment_type', 'balance')
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    if (existingBalance) {
+      const createdAt = new Date(existingBalance.created_at || 0)
+      const daysOld = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
+
+      if (daysOld >= 14) {
+        // Expire the old payment — a new Stripe session will be created below
+        await supabase.from('payments').update({ status: 'expired' }).eq('id', existingBalance.id)
+      } else {
+      const { data: existingQuote } = await supabase
+        .from('quotes')
+        .select('stripe_balance_url')
+        .eq('id', quoteId)
+        .single()
+
+      if (existingQuote?.stripe_balance_url) {
+        console.log(`[send-balance] Reusing existing Stripe balance link for quote ${quoteId}`)
+        const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
+        const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
+        const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
+        const depositTtc = Math.round(quoteData.total_ttc * (quoteData.deposit_percentage / 100) * 100) / 100
+        const balanceAmount = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
+
+        const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+
+        const html = buildBalanceEmailHtml({
+          restaurant: restaurant as any,
+          contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
+          quoteNumber: quoteData.quote_number,
+          balanceAmount,
+          totalTtc: totalWithExtrasTtc,
+          stripePaymentUrl: existingQuote.stripe_balance_url,
+          eventDate: quoteData.date_start || booking?.event_date || null,
+          commercialName: commercial.name,
+        })
+
+        const subject = buildBalanceEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
+        const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+
+        await sendEmail({
+          to: contact.email,
+          subject,
+          html,
+          replyTo: commercial.email || restaurant?.email || undefined,
+          facturationEmail: facturationEmail || undefined,
+        })
+
+        console.log(`[send-balance] ✅ Resent balance link to ${contact.email}`)
+        return res.json({ success: true, sessionId: existingBalance.stripe_payment_id, paymentUrl: existingQuote.stripe_balance_url, resent: true })
+      }
+      }
+    }
 
     // Calculate balance: total_ttc (products only, discount already applied) + extras - deposit
     const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
@@ -656,6 +751,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      expires_at: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60, // 14 days
       line_items: [{
         price_data: {
           currency: 'eur',
@@ -758,6 +854,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         quote_id: quoteId,
         amount: balanceAmount,
         payment_type: 'balance',
+        payment_modality: 'solde',
         payment_method: 'stripe',
         stripe_payment_id: session.id,
         status: 'pending',

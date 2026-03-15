@@ -166,6 +166,7 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
           status: 'paid',
           paid_at: new Date().toISOString(),
           stripe_payment_intent_id: session.payment_intent as string,
+          receipt_url: receiptUrl || null,
         })
         .eq('id', existingPayment.id)
 
@@ -196,6 +197,7 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
           stripe_payment_id: session.payment_intent as string,
           status: 'paid',
           paid_at: new Date().toISOString(),
+          receipt_url: receiptUrl || null,
         })
 
       if (paymentError) throw paymentError
@@ -394,11 +396,12 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
       
       // Upload to Supabase Storage
       const fileName = `signed-${quote.quote_number}.pdf`
-      console.log(`[Storage] Uploading to: quotes/${quote.id}/${fileName}`)
-      
+      const storageDirPath = `${quote.organization_id}/quotes/${quote.id}`
+      console.log(`[Storage] Uploading to: ${storageDirPath}/${fileName}`)
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')
-        .upload(`quotes/${quote.id}/${fileName}`, signedPdf, {
+        .upload(`${storageDirPath}/${fileName}`, signedPdf, {
           contentType: 'application/pdf',
           upsert: true,
         })
@@ -418,7 +421,7 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
 
     // Store signed PDF as document
     if (signedPdfUrl) {
-      const storagePath = `quotes/${quote.id}/signed-${quote.quote_number}.pdf`
+      const storagePath = `${quote.organization_id}/quotes/${quote.id}/signed-${quote.quote_number}.pdf`
       const { error: docError } = await supabase.from('documents').insert({
         organization_id: quote.organization_id,
         booking_id: quote.booking_id,
@@ -547,6 +550,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
     console.log(`[Stripe] Creating deposit checkout session for quote ${quote.quote_number}`)
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      expires_at: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60, // 14 days
       line_items: [{
         price_data: {
           currency: 'eur',
@@ -675,6 +679,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         quote_id: quoteId,
         amount: depositAmount,
         payment_type: 'deposit',
+        payment_modality: 'acompte',
         payment_method: 'stripe',
         stripe_payment_id: session.id,
         status: 'pending',
