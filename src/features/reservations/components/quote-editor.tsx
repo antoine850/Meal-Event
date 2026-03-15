@@ -485,6 +485,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleQuit(); else onOpenChange(true) }}>
       <DialogContent className='sm:max-w-[95vw] h-[95vh] p-0 gap-0' showCloseButton={false} aria-describedby={undefined}>
         {/* Header */}
@@ -1669,30 +1670,33 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
         </div>
       </DialogContent>
 
-      {/* Quit confirmation */}
-      <AlertDialog open={showQuitConfirm} onOpenChange={setShowQuitConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Quitter sans sauvegarder ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Vous avez des modifications non sauvegardées. Voulez-vous quitter sans les enregistrer ?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setShowQuitConfirm(false)
-                setIsDirty(false)
-                onOpenChange(false)
-              }}
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-            >
-              Quitter sans sauvegarder
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Dialog>
+
+    {/* Quit confirmation - rendered OUTSIDE Dialog to avoid portal stacking issues */}
+    <AlertDialog open={showQuitConfirm} onOpenChange={setShowQuitConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Quitter sans sauvegarder ?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Vous avez des modifications non sauvegardées. Voulez-vous quitter sans les enregistrer ?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              setShowQuitConfirm(false)
+              setIsDirty(false)
+              // Delay closing dialog to let AlertDialog unmount first
+              setTimeout(() => onOpenChange(false), 0)
+            }}
+            className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+          >
+            Quitter sans sauvegarder
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }
