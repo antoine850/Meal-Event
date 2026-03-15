@@ -4,11 +4,20 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CalendarIcon, Loader2, Plus } from 'lucide-react'
+import { CalendarIcon, Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
+import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import {
   Dialog,
   DialogContent,
@@ -68,8 +77,10 @@ interface CreateBookingDialogProps {
 
 export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, open: controlledOpen, onOpenChange }: CreateBookingDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false)
+  const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = onOpenChange ?? setInternalOpen
+  const navigate = useNavigate()
   const { mutate: createBooking, isPending } = useCreateBooking()
   const { data: contacts = [] } = useContacts()
   const { data: statuses = [] } = useBookingStatuses()
@@ -97,6 +108,17 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultDate])
 
+  // Set default status to "nouveau" when statuses load
+  useEffect(() => {
+    if (statuses.length > 0 && !form.getValues('status_id')) {
+      const nouveau = statuses.find(s => s.name.toLowerCase() === 'nouveau')
+      if (nouveau) {
+        form.setValue('status_id', nouveau.id)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statuses])
+
   const onSubmit = (data: BookingFormData) => {
     createBooking(
       {
@@ -113,10 +135,13 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
         deposit_amount: 0,
       },
       {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
           toast.success('Événement créé avec succès')
           setOpen(false)
           form.reset()
+          if (data?.id) {
+            navigate({ to: '/evenements/booking/$id', params: { id: data.id } })
+          }
         },
         onError: (error) => {
           console.error('Error creating booking:', error)
@@ -166,33 +191,80 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
             <FormField
               control={form.control}
               name='contact_id'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder='Sélectionner un contact...' />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {contacts.map((contact) => (
-                        <SelectItem key={contact.id} value={contact.id}>
-                          <div className='flex items-center gap-2'>
-                            <span>{contact.first_name} {contact.last_name || ''}</span>
-                            {contact.company?.name 
-                              ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded'>B2B</span>
-                              : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded'>B2C</span>
-                            }
-                            {contact.company?.name && <span className='text-muted-foreground text-xs'>- {contact.company.name}</span>}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const selectedContact = contacts.find(c => c.id === field.value)
+                return (
+                  <FormItem className='flex flex-col'>
+                    <FormLabel>Contact *</FormLabel>
+                    <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant='outline'
+                            role='combobox'
+                            aria-expanded={contactPopoverOpen}
+                            className={cn(
+                              'w-full justify-between font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {selectedContact ? (
+                              <span className='flex items-center gap-2 truncate'>
+                                <span>{selectedContact.first_name} {selectedContact.last_name || ''}</span>
+                                {selectedContact.company?.name
+                                  ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded'>B2B</span>
+                                  : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded'>B2C</span>
+                                }
+                              </span>
+                            ) : (
+                              'Rechercher un contact...'
+                            )}
+                            <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className='w-[--radix-popover-trigger-width] p-0' align='start'>
+                        <Command>
+                          <CommandInput placeholder='Rechercher par nom, email...' />
+                          <CommandList className='max-h-[200px]'>
+                            <CommandEmpty>Aucun contact trouvé.</CommandEmpty>
+                            <CommandGroup>
+                              {contacts.map((contact) => (
+                                <CommandItem
+                                  key={contact.id}
+                                  value={`${contact.first_name} ${contact.last_name || ''} ${contact.email || ''} ${contact.company?.name || ''}`}
+                                  onSelect={() => {
+                                    field.onChange(contact.id)
+                                    setContactPopoverOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'mr-2 h-4 w-4',
+                                      field.value === contact.id ? 'opacity-100' : 'opacity-0'
+                                    )}
+                                  />
+                                  <div className='flex items-center gap-2 min-w-0'>
+                                    <span className='font-medium truncate'>{contact.first_name} {contact.last_name || ''}</span>
+                                    {contact.company?.name
+                                      ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded shrink-0'>B2B</span>
+                                      : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded shrink-0'>B2C</span>
+                                    }
+                                    {contact.company?.name && (
+                                      <span className='text-muted-foreground text-xs truncate'>- {contact.company.name}</span>
+                                    )}
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
 
             <div className='grid grid-cols-2 gap-4'>
