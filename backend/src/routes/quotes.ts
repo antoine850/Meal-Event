@@ -510,7 +510,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
 
     const invoice = await stripe.invoices.create({
       customer: customerId,
-      auto_advance: false, // Don't auto-send, we manage that
+      collection_method: 'send_invoice',
       days_until_due: 30, // 30-day expiration window
       metadata: {
         booking_id: booking?.id || '',
@@ -774,7 +774,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
 
     const invoice = await stripe.invoices.create({
       customer: customerId,
-      auto_advance: false, // Don't auto-send, we manage that
+      collection_method: 'send_invoice',
       days_until_due: 30, // 30-day expiration window
       metadata: {
         booking_id: booking?.id || '',
