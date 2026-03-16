@@ -124,16 +124,23 @@ function NumberStepper({
       <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onChange(Math.max(min, numVal - 1))}>
         <Minus className="h-4 w-4" />
       </Button>
-      <div className="flex-1 text-center">
-        {value === '' ? (
-          <span className="text-muted-foreground text-sm">{placeholder}</span>
-        ) : (
-          <div className="flex items-center justify-center gap-1.5">
-            <Users className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm font-semibold">{value}</span>
-            <span className="text-xs text-muted-foreground">invités</span>
-          </div>
-        )}
+      <div className="flex-1 flex items-center justify-center gap-1.5">
+        <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <input
+          type="number"
+          inputMode="numeric"
+          min={min}
+          value={value === '' ? '' : value}
+          onChange={e => {
+            const raw = e.target.value
+            if (raw === '') { onChange(''); return }
+            const n = parseInt(raw, 10)
+            if (!isNaN(n)) onChange(Math.max(min, n))
+          }}
+          placeholder={placeholder}
+          className="w-16 text-center text-sm font-semibold bg-transparent focus:outline-none placeholder:text-muted-foreground placeholder:font-normal [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+        {value !== '' && <span className="text-xs text-muted-foreground shrink-0">invités</span>}
       </div>
       <Button type="button" size="icon" className="h-8 w-8 shrink-0 text-white" style={{ backgroundColor: accentColor }} onClick={() => onChange(Math.max(min, numVal + 1))}>
         <Plus className="h-4 w-4" />
@@ -221,7 +228,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
     event_type: '',
     occasion: '',
     event_date: undefined,
-    guests_count: '',
+    guests_count: 0,
     allergies: '',
     client_type: 'particulier',
     company_name: '',
@@ -637,7 +644,19 @@ function Step3Contact({
           <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateForm('guests_count', Math.max(1, (typeof form.guests_count === 'number' ? form.guests_count : 1) - 1))}>
             <Minus className="h-3 w-3" />
           </Button>
-          <span className="text-sm font-semibold w-8 text-center">{form.guests_count || 0}</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={form.guests_count === '' ? '' : form.guests_count}
+            onChange={e => {
+              const raw = e.target.value
+              if (raw === '') { updateForm('guests_count', ''); return }
+              const n = parseInt(raw, 10)
+              if (!isNaN(n)) updateForm('guests_count', Math.max(1, n))
+            }}
+            className="w-8 text-center text-sm font-semibold bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
           <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateForm('guests_count', (typeof form.guests_count === 'number' ? form.guests_count : 0) + 1)}>
             <Plus className="h-3 w-3" />
           </Button>
