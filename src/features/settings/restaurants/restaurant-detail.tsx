@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, Save, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Save, MoreHorizontal, Pencil, Plus, Trash2, Copy, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { useBlocker, useNavigate, useSearch } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
@@ -880,6 +880,47 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
               />
             </CardContent>
           </Card>
+
+              {/* Formulaire public */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Formulaire de réservation</CardTitle>
+                  <CardDescription>Lien public du formulaire de demande de réservation intégrable sur votre site web</CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-3'>
+                  <div className='flex items-center gap-2'>
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/r/${(restaurant as any).slug || ''}`}
+                      className='font-mono text-xs'
+                    />
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon'
+                      className='shrink-0'
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/r/${(restaurant as any).slug || ''}`)
+                        toast.success('Lien copié !')
+                      }}
+                    >
+                      <Copy className='h-4 w-4' />
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon'
+                      className='shrink-0'
+                      onClick={() => window.open(`/r/${(restaurant as any).slug || ''}`, '_blank')}
+                    >
+                      <ExternalLink className='h-4 w-4' />
+                    </Button>
+                  </div>
+                  <p className='text-xs text-muted-foreground'>
+                    Partagez ce lien avec vos clients ou intégrez-le dans votre site web pour recevoir des demandes de réservation directement dans votre CRM.
+                  </p>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* TAB: Facturation */}

@@ -12,6 +12,7 @@ import { quotesRouter } from './routes/quotes.js'
 import { paymentsRouter } from './routes/payments.js'
 import { webhooksRouter } from './routes/webhooks.js'
 import { membersRouter, membersPublicRouter } from './routes/members.js'
+import { publicRouter } from './routes/public.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -32,6 +33,9 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
 ].filter(Boolean)
+
+// Public API routes have open CORS (embeddable from any restaurant website)
+app.use('/api/public', cors({ origin: true, credentials: false }))
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -65,6 +69,7 @@ app.get('/health', (_req: express.Request, res: express.Response) => {
 // Public routes (no auth required)
 app.use('/api/webhooks', webhooksRouter)
 app.use('/api/invitations', membersPublicRouter)
+app.use('/api/public', publicRouter)
 
 // All other API routes require authentication
 app.use('/api/organizations', requireAuth, organizationsRouter)

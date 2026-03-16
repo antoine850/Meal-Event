@@ -65,7 +65,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-// import { Label } from '@/components/ui/label'
+import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -95,11 +95,11 @@ import {
 } from '../hooks/use-documents'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
-import { 
-  useBookingMenuForms, 
-  useLinkMenuFormToBooking, 
+import {
+  useBookingMenuForms,
+  useLinkMenuFormToBooking,
   useUnlinkMenuFormFromBooking,
-  // useAllMenuForms,
+  useCreateMenuForm,
   useMenuFormsByRestaurant,
 } from '../hooks/use-menu-forms'
 import { useActivityLogs, useLogActivity, createActivityLogger, ACTION_ICONS, type ActivityActionType } from '../hooks/use-activity-logs'
@@ -169,9 +169,12 @@ export const BookingDetail = forwardRef<
   const { data: availableForms = [] } = useMenuFormsByRestaurant(booking.restaurant_id)
   const { mutate: linkMenuForm, isPending: isLinkingForm } = useLinkMenuFormToBooking()
   const { mutate: unlinkMenuForm } = useUnlinkMenuFormFromBooking()
+  const { mutateAsync: createMenuForm, isPending: isCreatingForm } = useCreateMenuForm()
   const [menuFormBuilderOpen, setMenuFormBuilderOpen] = useState(false)
   const [editingMenuFormId, setEditingMenuFormId] = useState<string | null>(null)
   const [showLinkFormDialog, setShowLinkFormDialog] = useState(false)
+  const [linkFormMode, setLinkFormMode] = useState<'choose' | 'create' | 'existing'>('choose')
+  const [newFormTitle, setNewFormTitle] = useState('')
 
   // Activity logs
   const { data: activityLogs = [], isLoading: isLoadingLogs } = useActivityLogs(booking.id)
@@ -1670,68 +1673,175 @@ export const BookingDetail = forwardRef<
                   restaurantId={booking.restaurant_id}
                 />
 
-                {/* Link Form Dialog - select from available forms */}
-                <Dialog open={showLinkFormDialog} onOpenChange={setShowLinkFormDialog}>
+                {/* Link Form Dialog - create or select existing */}
+                <Dialog open={showLinkFormDialog} onOpenChange={(open) => {
+                  setShowLinkFormDialog(open)
+                  if (!open) { setLinkFormMode('choose'); setNewFormTitle('') }
+                }}>
                   <DialogContent className='max-w-md'>
                     <DialogHeader>
                       <DialogTitle>Lier un formulaire de menu</DialogTitle>
                       <DialogDescription>
-                        Sélectionnez un formulaire existant pour cet événement.
+                        {linkFormMode === 'choose' && 'Créez un nouveau formulaire ou sélectionnez un existant.'}
+                        {linkFormMode === 'create' && 'Créez un nouveau formulaire pour cet événement.'}
+                        {linkFormMode === 'existing' && 'Sélectionnez un formulaire existant.'}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className='space-y-4 py-4'>
-                      {availableForms.length === 0 ? (
-                        <div className='text-center py-4'>
-                          <FileText className='mx-auto h-8 w-8 mb-2 opacity-50' />
-                          <p className='text-sm text-muted-foreground'>
-                            Aucun formulaire disponible pour ce restaurant.
-                          </p>
-                          <p className='text-xs text-muted-foreground mt-1'>
-                            Créez d'abord un formulaire dans Paramètres &gt; Menus.
-                          </p>
+
+                    {linkFormMode === 'choose' && (
+                      <div className='space-y-2 py-4'>
+                        <Card
+                          className='cursor-pointer hover:bg-muted/50 transition-colors'
+                          onClick={() => setLinkFormMode('create')}
+                        >
+                          <CardContent className='p-4 flex items-center gap-3'>
+                            <div className='h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center'>
+                              <Plus className='h-4 w-4 text-primary' />
+                            </div>
+                            <div>
+                              <p className='font-medium text-sm'>Créer un formulaire</p>
+                              <p className='text-xs text-muted-foreground'>Créer un nouveau formulaire de menu depuis zéro</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card
+                          className='cursor-pointer hover:bg-muted/50 transition-colors'
+                          onClick={() => setLinkFormMode('existing')}
+                        >
+                          <CardContent className='p-4 flex items-center gap-3'>
+                            <div className='h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center'>
+                              <FileText className='h-4 w-4 text-blue-500' />
+                            </div>
+                            <div>
+                              <p className='font-medium text-sm'>Récupérer un formulaire existant</p>
+                              <p className='text-xs text-muted-foreground'>Utiliser un formulaire déjà créé pour ce restaurant</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
+                    {linkFormMode === 'create' && (
+                      <div className='space-y-4 py-4'>
+                        <div className='space-y-2'>
+                          <Label>Nom du formulaire</Label>
+                          <Input
+                            placeholder='Ex: Menu Mariage, Menu Cocktail...'
+                            value={newFormTitle}
+                            onChange={(e) => setNewFormTitle(e.target.value)}
+                            autoFocus
+                          />
                         </div>
-                      ) : (
-                        <div className='space-y-2 max-h-[300px] overflow-y-auto'>
-                          {availableForms
-                            .filter(f => !bookingMenuForms.some(bmf => bmf.menu_form_id === f.id))
-                            .map(form => (
-                              <Card 
-                                key={form.id} 
-                                className='cursor-pointer hover:bg-muted/50 transition-colors'
-                                onClick={() => {
-                                  linkMenuForm({
-                                    bookingId: booking.id,
-                                    menuFormId: form.id,
-                                    guestsCount: booking.guests_count || 1,
-                                  }, {
-                                    onSuccess: () => {
-                                      setShowLinkFormDialog(false)
-                                      toast.success('Formulaire lié')
-                                    },
-                                    onError: () => toast.error('Erreur lors de la liaison'),
-                                  })
-                                }}
-                              >
-                                <CardContent className='p-3'>
-                                  <div className='flex items-center justify-between'>
-                                    <div>
-                                      <p className='font-medium text-sm'>{form.title}</p>
-                                      <p className='text-xs text-muted-foreground'>
-                                        {form.menu_form_fields?.length || 0} champ{(form.menu_form_fields?.length || 0) > 1 ? 's' : ''}
-                                      </p>
+                        <div className='flex gap-2'>
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            onClick={() => { setLinkFormMode('choose'); setNewFormTitle('') }}
+                          >
+                            Retour
+                          </Button>
+                          <Button
+                            size='sm'
+                            disabled={!newFormTitle.trim() || isCreatingForm}
+                            onClick={async () => {
+                              try {
+                                const form = await createMenuForm({
+                                  title: newFormTitle.trim(),
+                                  restaurantId: booking.restaurant_id,
+                                })
+                                linkMenuForm({
+                                  bookingId: booking.id,
+                                  menuFormId: form.id,
+                                  guestsCount: booking.guests_count || 1,
+                                }, {
+                                  onSuccess: () => {
+                                    setShowLinkFormDialog(false)
+                                    setNewFormTitle('')
+                                    setLinkFormMode('choose')
+                                    toast.success('Formulaire créé et lié')
+                                    // Open builder to add fields
+                                    setEditingMenuFormId(form.id)
+                                    setMenuFormBuilderOpen(true)
+                                  },
+                                  onError: () => toast.error('Erreur lors de la liaison'),
+                                })
+                              } catch {
+                                toast.error('Erreur lors de la création')
+                              }
+                            }}
+                          >
+                            {isCreatingForm ? <Loader2 className='h-3.5 w-3.5 animate-spin mr-1' /> : null}
+                            Créer et lier
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {linkFormMode === 'existing' && (
+                      <div className='space-y-4 py-4'>
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          className='mb-2'
+                          onClick={() => setLinkFormMode('choose')}
+                        >
+                          ← Retour
+                        </Button>
+                        {availableForms.filter(f => !bookingMenuForms.some(bmf => bmf.menu_form_id === f.id)).length === 0 ? (
+                          <div className='text-center py-4'>
+                            <FileText className='mx-auto h-8 w-8 mb-2 opacity-50' />
+                            <p className='text-sm text-muted-foreground'>
+                              Aucun formulaire disponible pour ce restaurant.
+                            </p>
+                            <p className='text-xs text-muted-foreground mt-1'>
+                              Créez un formulaire en revenant en arrière.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className='space-y-2 max-h-[300px] overflow-y-auto'>
+                            {availableForms
+                              .filter(f => !bookingMenuForms.some(bmf => bmf.menu_form_id === f.id))
+                              .map(form => (
+                                <Card
+                                  key={form.id}
+                                  className='cursor-pointer hover:bg-muted/50 transition-colors'
+                                  onClick={() => {
+                                    linkMenuForm({
+                                      bookingId: booking.id,
+                                      menuFormId: form.id,
+                                      guestsCount: booking.guests_count || 1,
+                                    }, {
+                                      onSuccess: () => {
+                                        setShowLinkFormDialog(false)
+                                        setLinkFormMode('choose')
+                                        toast.success('Formulaire lié')
+                                      },
+                                      onError: () => toast.error('Erreur lors de la liaison'),
+                                    })
+                                  }}
+                                >
+                                  <CardContent className='p-3'>
+                                    <div className='flex items-center justify-between'>
+                                      <div>
+                                        <p className='font-medium text-sm'>{form.title}</p>
+                                        <p className='text-xs text-muted-foreground'>
+                                          {form.menu_form_fields?.length || 0} champ{(form.menu_form_fields?.length || 0) > 1 ? 's' : ''}
+                                          {form.restaurants?.name ? ` · ${form.restaurants.name}` : ' · Global'}
+                                        </p>
+                                      </div>
+                                      {isLinkingForm ? (
+                                        <Loader2 className='h-4 w-4 animate-spin' />
+                                      ) : (
+                                        <Plus className='h-4 w-4 text-muted-foreground' />
+                                      )}
                                     </div>
-                                    {isLinkingForm ? (
-                                      <Loader2 className='h-4 w-4 animate-spin' />
-                                    ) : (
-                                      <Plus className='h-4 w-4 text-muted-foreground' />
-                                    )}
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                        </div>
-                      )}
-                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </DialogContent>
                 </Dialog>
               </div>

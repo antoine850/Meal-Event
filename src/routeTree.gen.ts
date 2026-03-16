@@ -13,6 +13,7 @@ import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as RSlugRouteImport } from './routes/r.$slug'
 import { Route as MenuFormTokenRouteImport } from './routes/menu-form.$token'
 import { Route as AuthenticatedCompaniesRouteImport } from './routes/_authenticated/companies'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
@@ -71,6 +72,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const RSlugRoute = RSlugRouteImport.update({
+  id: '/r/$slug',
+  path: '/r/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MenuFormTokenRoute = MenuFormTokenRouteImport.update({
   id: '/menu-form/$token',
@@ -312,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/503': typeof errors503Route
   '/companies': typeof AuthenticatedCompaniesRoute
   '/menu-form/$token': typeof MenuFormTokenRoute
+  '/r/$slug': typeof RSlugRoute
   '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -355,6 +362,7 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/companies': typeof AuthenticatedCompaniesRoute
   '/menu-form/$token': typeof MenuFormTokenRoute
+  '/r/$slug': typeof RSlugRoute
   '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -402,6 +410,7 @@ export interface FileRoutesById {
   '/(errors)/503': typeof errors503Route
   '/_authenticated/companies': typeof AuthenticatedCompaniesRoute
   '/menu-form/$token': typeof MenuFormTokenRoute
+  '/r/$slug': typeof RSlugRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -448,6 +457,7 @@ export interface FileRouteTypes {
     | '/503'
     | '/companies'
     | '/menu-form/$token'
+    | '/r/$slug'
     | '/'
     | '/errors/$error'
     | '/settings/account'
@@ -491,6 +501,7 @@ export interface FileRouteTypes {
     | '/503'
     | '/companies'
     | '/menu-form/$token'
+    | '/r/$slug'
     | '/'
     | '/errors/$error'
     | '/settings/account'
@@ -537,6 +548,7 @@ export interface FileRouteTypes {
     | '/(errors)/503'
     | '/_authenticated/companies'
     | '/menu-form/$token'
+    | '/r/$slug'
     | '/_authenticated/'
     | '/_authenticated/errors/$error'
     | '/_authenticated/settings/account'
@@ -575,6 +587,7 @@ export interface RootRouteChildren {
   errors500Route: typeof errors500Route
   errors503Route: typeof errors503Route
   MenuFormTokenRoute: typeof MenuFormTokenRoute
+  RSlugRoute: typeof RSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -606,6 +619,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/r/$slug': {
+      id: '/r/$slug'
+      path: '/r/$slug'
+      fullPath: '/r/$slug'
+      preLoaderRoute: typeof RSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/menu-form/$token': {
       id: '/menu-form/$token'
@@ -1005,6 +1025,7 @@ const rootRouteChildren: RootRouteChildren = {
   errors500Route: errors500Route,
   errors503Route: errors503Route,
   MenuFormTokenRoute: MenuFormTokenRoute,
+  RSlugRoute: RSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

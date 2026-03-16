@@ -74,6 +74,7 @@ export type Restaurant = {
   id: string
   organization_id: string
   name: string
+  slug: string
   address: string | null
   city: string | null
   postal_code: string | null
