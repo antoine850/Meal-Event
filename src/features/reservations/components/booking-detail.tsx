@@ -1378,6 +1378,7 @@ export const BookingDetail = forwardRef<
                             <th className='text-left py-2 px-2 font-medium text-xs'>Type</th>
                             <th className='text-left py-2 px-2 font-medium text-xs'>Montant</th>
                             <th className='text-left py-2 px-2 font-medium text-xs'>Méthode</th>
+                            <th className='text-left py-2 px-2 font-medium text-xs'>Envoyé le</th>
                             <th className='text-left py-2 px-2 font-medium text-xs'>Payé le</th>
                             <th className='text-left py-2 px-2 font-medium text-xs'>Reçu</th>
                           </tr>
@@ -1403,6 +1404,9 @@ export const BookingDetail = forwardRef<
                               <td className='py-2 px-2 text-xs capitalize'>{payment.payment_modality || payment.payment_type}</td>
                               <td className='py-2 px-2 text-sm font-medium'>{(payment.amount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
                               <td className='py-2 px-2 text-xs capitalize'>{payment.payment_method || payment.payment_type || '—'}</td>
+                              <td className='py-2 px-2 text-xs text-muted-foreground'>
+                                {payment.created_at ? format(new Date(payment.created_at), 'dd/MM/yyyy', { locale: fr }) : '—'}
+                              </td>
                               <td className='py-2 px-2 text-xs text-muted-foreground'>
                                 {payment.paid_at ? format(new Date(payment.paid_at), 'dd/MM/yyyy', { locale: fr }) : '—'}
                               </td>
