@@ -1322,7 +1322,11 @@ export const BookingDetail = forwardRef<
                   {(() => {
                     // Get the most advanced quote (by status progression)
                     const primaryQuote = quotes.find(q => ['deposit_paid', 'balance_sent', 'balance_paid'].includes(q.status || '')) || quotes.find(q => q.status === 'quote_signed') || quotes.find(q => q.status === 'deposit_sent') || quotes[0]
-                    const totalDevisTtc = primaryQuote?.total_ttc || 0
+                    const isDepositPaidStatus = ['deposit_paid', 'balance_sent', 'balance_paid'].includes(primaryQuote?.status || '')
+                    const extrasTtc = isDepositPaidStatus
+                      ? ((primaryQuote as any)?.quote_items || []).filter((i: any) => i.item_type === 'extra').reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
+                      : 0
+                    const totalDevisTtc = (primaryQuote?.total_ttc || 0) + extrasTtc
                     const discountPct = (primaryQuote as any)?.discount_percentage || 0
                     // Only count payments with status 'paid' (from Stripe webhook) or 'completed' (manual)
                     const paiementsRecus = payments
@@ -1351,8 +1355,14 @@ export const BookingDetail = forwardRef<
                           )}
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
                             <span className='text-muted-foreground'>Total Devis TTC{discountPct > 0 ? ' après remise' : ''}</span>
-                            <span className='font-medium'>{totalDevisTtc.toFixed(2)} €</span>
+                            <span className='font-medium'>{(primaryQuote?.total_ttc || 0).toFixed(2)} €</span>
                           </div>
+                          {extrasTtc > 0 && (
+                            <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
+                              <span className='text-muted-foreground'>Extras TTC</span>
+                              <span className='font-medium'>+ {extrasTtc.toFixed(2)} €</span>
+                            </div>
+                          )}
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
                             <span className='text-muted-foreground'>Paiements reçus</span>
                             <span className='font-medium text-green-600'>- {paiementsRecus.toFixed(2)} €</span>
