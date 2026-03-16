@@ -546,33 +546,34 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       throw new Error('Booking ID is required for Stripe payment link')
     }
 
-    // Create Stripe Checkout Session
-    console.log(`[Stripe] Creating deposit checkout session for quote ${quote.quote_number}`)
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours (Stripe limit)
-      line_items: [{
-        price_data: {
-          currency: 'eur',
-          product_data: {
-            name: `Acompte — ${quote.title || quote.quote_number}`,
-            description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
-          },
-          unit_amount: Math.round(depositAmount * 100),
-        },
-        quantity: 1,
-      }],
+    // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
+    console.log(`[Stripe] Creating deposit invoice for quote ${quote.quote_number}`)
+    const invoice = await stripe.invoices.create({
+      customer: contact.email,
+      auto_advance: false, // Don't auto-send, we manage that
+      days_until_due: 30, // 30-day expiration window
       metadata: {
         booking_id: booking.id,
         quote_id: quoteId,
         link_type: 'deposit',
       },
-      customer_email: contact.email,
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?type=deposit&booking=${booking.id}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?status=cancelled`,
+      description: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
     })
-    
-    console.log(`[Stripe] Session created: ${session.id}, URL: ${session.url}`)
+
+    // Add invoice line item
+    await stripe.invoiceItems.create({
+      invoice: invoice.id,
+      customer: contact.email,
+      amount: Math.round(depositAmount * 100),
+      currency: 'eur',
+      description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
+    })
+
+    // Finalize invoice to make it payable
+    const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
+    const invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
+
+    console.log(`[Stripe] Invoice created: ${invoice.id}, URL: ${invoiceUrl}`)
 
     // Generate deposit PDF with error handling
     let pdfBuffer: Buffer
@@ -591,7 +592,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       depositPercentage: quote.deposit_percentage,
       depositAmount,
       totalTtc: quote.total_ttc,
-      stripePaymentUrl: session.url || '',
+      stripePaymentUrl: invoiceUrl,
       eventDate: quote.date_start || booking?.event_date || null,
       commercialName,
     })
@@ -652,8 +653,8 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       .update({
         status: 'deposit_sent',
         deposit_sent_at: new Date().toISOString(),
-        stripe_deposit_session_id: session.id,
-        stripe_deposit_url: session.url,
+        stripe_deposit_session_id: invoice.id,
+        stripe_deposit_url: invoiceUrl,
       })
       .eq('id', quoteId)
 
@@ -666,8 +667,8 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         link_type: 'deposit',
         amount: depositAmount,
         percentage: quote.deposit_percentage,
-        url: session.url,
-        stripe_link_id: session.id,
+        url: invoiceUrl,
+        stripe_link_id: invoice.id,
       })
 
     // Create pending payment record (will be updated to 'paid' by webhook)
@@ -681,7 +682,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         payment_type: 'deposit',
         payment_modality: 'acompte',
         payment_method: 'stripe',
-        stripe_payment_id: session.id,
+        stripe_payment_id: invoice.id,
         status: 'pending',
         notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
       })
