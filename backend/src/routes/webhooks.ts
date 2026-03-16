@@ -56,6 +56,11 @@ webhooksRouter.post('/stripe', async (req: Request, res: Response) => {
       await handlePaymentSuccess(session)
       break
     }
+    case 'invoice.paid': {
+      const invoice = event.data.object as Stripe.Invoice
+      await handleInvoicePaymentSuccess(invoice)
+      break
+    }
     case 'payment_intent.succeeded': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       console.log('PaymentIntent succeeded:', paymentIntent.id)
@@ -325,6 +330,163 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
     console.log(`Payment successful for booking ${booking_id}, type: ${link_type}`)
   } catch (error) {
     console.error('Error handling payment success:', error)
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Stripe: Handle Invoice paid (Stripe Invoice flow)
+// ═══════════════════════════════════════════════════════════════
+async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice) {
+  const { booking_id, quote_id, link_type } = invoice.metadata || {}
+
+  console.log(`[Stripe Invoice] Payment success - booking: ${booking_id}, quote: ${quote_id}, type: ${link_type}, invoice: ${invoice.id}`)
+
+  if (!booking_id) {
+    console.error('[Stripe Invoice] No booking_id in invoice metadata')
+    return
+  }
+
+  try {
+    // Get receipt URL from the charge linked to this invoice
+    let receiptUrl: string | null = null
+    if (invoice.charge) {
+      try {
+        const charge = await stripe.charges.retrieve(invoice.charge as string)
+        receiptUrl = charge.receipt_url || null
+        console.log(`[Stripe Invoice] Receipt URL: ${receiptUrl}`)
+      } catch (err) {
+        console.error('[Stripe Invoice] Error retrieving receipt URL:', err)
+      }
+    }
+
+    // Update existing pending payment to paid (matched by invoice ID)
+    console.log(`[Stripe Invoice] Looking for pending payment with stripe_payment_id: ${invoice.id}`)
+    const { data: existingPayment } = await supabase
+      .from('payments')
+      .select('id, status')
+      .eq('stripe_payment_id', invoice.id)
+      .single()
+
+    if (existingPayment) {
+      await supabase
+        .from('payments')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          receipt_url: receiptUrl || null,
+        })
+        .eq('id', existingPayment.id)
+      console.log(`[Stripe Invoice] ✅ Updated payment ${existingPayment.id} to paid`)
+    } else {
+      // Fallback: create payment if missing
+      const { data: bookingForOrg } = await supabase
+        .from('bookings')
+        .select('organization_id')
+        .eq('id', booking_id)
+        .single()
+
+      await supabase.from('payments').insert({
+        organization_id: bookingForOrg?.organization_id || null,
+        booking_id,
+        quote_id: quote_id || null,
+        amount: (invoice.amount_paid || 0) / 100,
+        payment_type: link_type === 'deposit' ? 'deposit' : 'balance',
+        payment_modality: link_type === 'deposit' ? 'acompte' : 'solde',
+        payment_method: 'stripe',
+        stripe_payment_id: invoice.id,
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+        receipt_url: receiptUrl || null,
+      })
+      console.log(`[Stripe Invoice] ✅ Created new payment for booking ${booking_id}`)
+    }
+
+    // Fetch booking org
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('organization_id')
+      .eq('id', booking_id)
+      .single()
+
+    // Store receipt as document
+    if (receiptUrl && booking_id) {
+      const docName = link_type === 'deposit' ? 'Reçu Stripe - Acompte' : 'Reçu Stripe - Solde'
+      await supabase.from('documents').insert({
+        organization_id: booking?.organization_id || null,
+        booking_id,
+        name: docName,
+        file_type: 'receipt',
+        file_path: receiptUrl,
+        file_url: receiptUrl,
+      })
+      console.log(`[Stripe Invoice] ✅ Stored receipt document`)
+    }
+
+    // Update payment link as used
+    await supabase
+      .from('payment_links')
+      .update({ used_at: new Date().toISOString(), is_active: false })
+      .eq('booking_id', booking_id)
+      .eq('stripe_link_id', invoice.id)
+
+    // Update quote status
+    if (quote_id && link_type === 'deposit') {
+      await supabase
+        .from('quotes')
+        .update({ status: 'deposit_paid', deposit_paid_at: new Date().toISOString() })
+        .eq('id', quote_id)
+    } else if (quote_id && link_type === 'balance') {
+      await supabase
+        .from('quotes')
+        .update({ status: 'balance_paid', balance_paid_at: new Date().toISOString() })
+        .eq('id', quote_id)
+    }
+
+    // Update booking status
+    if (booking) {
+      const newStatusSlug = link_type === 'balance' ? 'confirme' : 'acompte-paye'
+      const { data: status } = await supabase
+        .from('statuses')
+        .select('id')
+        .eq('organization_id', booking.organization_id)
+        .eq('slug', newStatusSlug)
+        .eq('type', 'booking')
+        .single()
+
+      if (status) {
+        await supabase
+          .from('bookings')
+          .update({ status_id: status.id })
+          .eq('id', booking_id)
+        console.log(`[Stripe Invoice] ✅ Booking ${booking_id} status updated to '${newStatusSlug}'`)
+      }
+    }
+
+    // Auto-complete quote after balance paid
+    if (quote_id && link_type === 'balance') {
+      await supabase
+        .from('quotes')
+        .update({ status: 'completed' })
+        .eq('id', quote_id)
+        .eq('status', 'balance_paid')
+    }
+
+    // Log activity
+    await supabase.from('activity_logs').insert({
+      organization_id: booking?.organization_id,
+      booking_id,
+      action_type: 'payment.received',
+      action_label: `Paiement de ${((invoice.amount_paid || 0) / 100).toLocaleString('fr-FR')} \u20AC reçu via Stripe`,
+      actor_type: 'webhook',
+      actor_name: 'Stripe',
+      entity_type: 'payment',
+      entity_id: existingPayment?.id || null,
+      metadata: { amount: (invoice.amount_paid || 0) / 100, method: 'stripe', payment_type: link_type },
+    })
+
+    console.log(`[Stripe Invoice] ✅ Payment flow complete for booking ${booking_id}, type: ${link_type}`)
+  } catch (error) {
+    console.error('[Stripe Invoice] Error handling invoice payment success:', error)
   }
 }
 
