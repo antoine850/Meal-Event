@@ -16,6 +16,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 export const quotesRouter = Router()
 
+// Helper: get existing Stripe customer by email, or create one
+async function getOrCreateStripeCustomer(email: string, name?: string | null): Promise<string> {
+  const existing = await stripe.customers.list({ email, limit: 1 })
+  if (existing.data.length > 0) return existing.data[0].id
+  const customer = await stripe.customers.create({ email, ...(name ? { name } : {}) })
+  return customer.id
+}
+
 // Helper: save a generated PDF to Supabase Storage and create a document record
 async function savePdfAsDocument(
   pdfBuffer: Buffer,
@@ -495,8 +503,13 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
     console.log(`[send-deposit] Creating Stripe invoice for deposit: €${depositAmount.toFixed(2)}`)
 
+    const customerId = await getOrCreateStripeCustomer(
+      contact.email,
+      `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+    )
+
     const invoice = await stripe.invoices.create({
-      customer: contact.email,
+      customer: customerId,
       auto_advance: false, // Don't auto-send, we manage that
       days_until_due: 30, // 30-day expiration window
       metadata: {
@@ -510,7 +523,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     // Add invoice line item
     await stripe.invoiceItems.create({
       invoice: invoice.id,
-      customer: contact.email,
+      customer: customerId,
       amount: Math.round(depositAmount * 100),
       currency: 'eur',
       description: `Acompte ${quoteData.deposit_percentage}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
@@ -754,8 +767,13 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
     console.log(`[send-balance] Creating Stripe invoice for balance: €${balanceAmount.toFixed(2)}`)
 
+    const customerId = await getOrCreateStripeCustomer(
+      contact.email,
+      `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+    )
+
     const invoice = await stripe.invoices.create({
-      customer: contact.email,
+      customer: customerId,
       auto_advance: false, // Don't auto-send, we manage that
       days_until_due: 30, // 30-day expiration window
       metadata: {
@@ -769,7 +787,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     // Add invoice line item
     await stripe.invoiceItems.create({
       invoice: invoice.id,
-      customer: contact.email,
+      customer: customerId,
       amount: Math.round(balanceAmount * 100),
       currency: 'eur',
       description: `Facture de solde pour ${restaurant?.name || 'événement'}`,

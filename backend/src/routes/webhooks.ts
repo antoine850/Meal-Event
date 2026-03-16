@@ -10,6 +10,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
 
+// Helper: get existing Stripe customer by email, or create one
+async function getOrCreateStripeCustomer(email: string, name?: string | null): Promise<string> {
+  const existing = await stripe.customers.list({ email, limit: 1 })
+  if (existing.data.length > 0) return existing.data[0].id
+  const customer = await stripe.customers.create({ email, ...(name ? { name } : {}) })
+  return customer.id
+}
+
 export const webhooksRouter = Router()
 
 // ═══════════════════════════════════════════════════════════════
@@ -548,8 +556,14 @@ async function autoSendDepositAfterSignature(quoteId: string) {
 
     // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
     console.log(`[Stripe] Creating deposit invoice for quote ${quote.quote_number}`)
+
+    const customerId = await getOrCreateStripeCustomer(
+      contact.email,
+      `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+    )
+
     const invoice = await stripe.invoices.create({
-      customer: contact.email,
+      customer: customerId,
       auto_advance: false, // Don't auto-send, we manage that
       days_until_due: 30, // 30-day expiration window
       metadata: {
@@ -563,7 +577,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
     // Add invoice line item
     await stripe.invoiceItems.create({
       invoice: invoice.id,
-      customer: contact.email,
+      customer: customerId,
       amount: Math.round(depositAmount * 100),
       currency: 'eur',
       description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
