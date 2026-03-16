@@ -277,7 +277,18 @@ export async function generateQuotePdf(quoteId: string, documentType: DocumentTy
   const extras = (quote.quote_items || []).filter(i => i.item_type === 'extra')
   const lang = (quote.language === 'en' ? 'en' : 'fr') as 'fr' | 'en'
 
-  const docDefinition = buildDocDefinition(quote, restaurant, contact, items, extras, documentType, color, lang)
+  // Fetch paid payments for solde invoice
+  let paidPayments: { amount: number; payment_modality: string | null; payment_type: string | null; paid_at: string | null }[] = []
+  if (documentType === 'solde' && booking?.id) {
+    const { data } = await supabase
+      .from('payments')
+      .select('amount, payment_modality, payment_type, paid_at')
+      .eq('booking_id', booking.id)
+      .in('status', ['paid', 'completed'])
+    paidPayments = (data || []) as any[]
+  }
+
+  const docDefinition = buildDocDefinition(quote, restaurant, contact, items, extras, documentType, color, lang, paidPayments)
 
   return new Promise<Buffer>((resolve, reject) => {
     const pdfDoc = printer.createPdfKitDocument(docDefinition)
@@ -299,7 +310,8 @@ function buildDocDefinition(
   extras: QuoteData['quote_items'],
   documentType: DocumentType,
   color: string,
-  lang: 'fr' | 'en'
+  lang: 'fr' | 'en',
+  paidPayments: { amount: number; payment_modality: string | null; payment_type: string | null; paid_at: string | null }[] = []
 ): TDocumentDefinitions {
   const content: Content[] = []
   const l = labels[lang]
@@ -687,40 +699,42 @@ function buildDocDefinition(
       margin: [0, 0, 0, 15] as [number, number, number, number],
     })
   } else {
-    // Solde — use direct TTC calculation (consistent with send-balance route)
-    const depositTtc = Math.round(quote.total_ttc * (quote.deposit_percentage / 100) * 100) / 100
+    // Solde — simplified: Total HT, Total TTC, paid payments, remaining balance
     const extrasHt = extras.reduce((sum, e) => sum + (e.total_ht || 0), 0)
     const extrasTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
-    const totalWithExtrasTtc = quote.total_ttc + extrasTtc
-    const balanceTtc = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
-    const discountPct = quote.discount_percentage || 0
+    const totalHt = quote.total_ht + extrasHt
+    const totalTtc = quote.total_ttc + extrasTtc
+    const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+    const balanceTtc = Math.round((totalTtc - totalPaid) * 100) / 100
 
     const soldeStack: Content[] = []
 
-    // Show discount context if applicable
-    if (discountPct > 0) {
-      const rawHt = Math.round(quote.total_ht / (1 - discountPct / 100) * 100) / 100
-      const rawTtc = Math.round(quote.total_ttc / (1 - discountPct / 100) * 100) / 100
-      soldeStack.push(
-        { columns: [{ text: `Total ${l.serviceItems.toLowerCase()} HT ${lang === 'fr' ? 'avant remise' : 'before discount'}`, style: 'small', color: '#999' }, { text: formatCurrency(rawHt), alignment: 'right' as const, style: 'small', color: '#999', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatCurrency(Math.round((rawTtc - quote.total_ttc) * 100) / 100)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-      )
-    }
-
+    // Total HT
     soldeStack.push(
-      { columns: [{ text: `Total ${l.serviceItems.toLowerCase()} HT${discountPct > 0 ? (lang === 'fr' ? ' après remise' : ' after discount') : ''}`, style: 'small' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      { columns: [{ text: 'Total HT', style: 'small' }, { text: formatCurrency(totalHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
     )
 
-    if (extras.length > 0) {
-      soldeStack.push(
-        { columns: [{ text: `Total ${l.extras.toLowerCase()} HT`, style: 'small' }, { text: formatCurrency(extrasHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-      )
+    // Total TTC
+    soldeStack.push(
+      { columns: [{ text: 'Total TTC', style: 'small', bold: true }, { text: formatCurrency(totalTtc), alignment: 'right' as const, bold: true }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+    )
+
+    // List each paid payment
+    if (paidPayments.length > 0) {
+      for (const p of paidPayments) {
+        const label = p.payment_modality === 'acompte' ? (lang === 'fr' ? 'Acompte versé' : 'Deposit paid')
+          : p.payment_modality === 'solde' ? (lang === 'fr' ? 'Solde versé' : 'Balance paid')
+          : (lang === 'fr' ? 'Paiement reçu' : 'Payment received')
+        const dateStr = p.paid_at ? new Date(p.paid_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US') : ''
+        soldeStack.push(
+          { columns: [{ text: `${label}${dateStr ? ` (${dateStr})` : ''}`, style: 'small', color: '#16a34a' }, { text: `- ${formatCurrency(p.amount)}`, alignment: 'right' as const, color: '#16a34a' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        )
+      }
     }
 
+    // Separator + remaining balance
     soldeStack.push(
-      { columns: [{ text: l.totalWithExtras, style: 'small' }, { text: formatCurrency(totalWithExtrasTtc), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-      { columns: [{ text: `${l.depositPaid} (${quote.deposit_percentage}%)`, style: 'small', color: '#16a34a' }, { text: `- ${formatCurrency(depositTtc)}`, alignment: 'right' as const, color: '#16a34a' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
-      { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 240, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 4, 0, 4] as [number, number, number, number] },
       {
         table: {
           widths: ['*', 'auto'],
@@ -738,7 +752,7 @@ function buildDocDefinition(
       columns: [
         { width: '*', text: '' },
         {
-          width: 220,
+          width: 240,
           stack: soldeStack,
         },
       ],
