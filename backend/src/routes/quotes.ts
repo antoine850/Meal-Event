@@ -495,7 +495,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      expires_at: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60, // 14 days
+      expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours (Stripe limit)
       line_items: [{
         price_data: {
           currency: 'eur',
@@ -751,7 +751,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      expires_at: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60, // 14 days
+      expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours (Stripe limit)
       line_items: [{
         price_data: {
           currency: 'eur',
