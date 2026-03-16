@@ -316,7 +316,7 @@ export function useQuotesByBooking(bookingId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('quotes')
-        .select('*')
+        .select('*, quote_items(*)')
         .eq('booking_id', bookingId)
 
       if (error) throw error
