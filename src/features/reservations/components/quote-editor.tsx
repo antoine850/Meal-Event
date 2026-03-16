@@ -499,32 +499,32 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
             <DialogTitle className='text-base'>
               {quoteData?.quote_number || 'Nouveau devis'}
             </DialogTitle>
-            <Badge variant={
-              quoteData?.status === 'draft' ? 'secondary' :
-              quoteData?.status === 'quote_sent' ? 'default' :
-              quoteData?.status === 'quote_signed' ? 'default' :
-              quoteData?.status === 'deposit_sent' ? 'default' :
-              quoteData?.status === 'deposit_paid' ? 'default' :
-              quoteData?.status === 'balance_sent' ? 'default' :
-              quoteData?.status === 'completed' ? 'default' :
-              'outline'
-            } className={
-              quoteData?.status === 'quote_signed' ? 'bg-green-100 text-green-800 border-green-200' :
-              quoteData?.status === 'deposit_paid' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-              quoteData?.status === 'balance_paid' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-              quoteData?.status === 'completed' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-              ''
-            }>
-              {quoteData?.status === 'draft' ? 'Brouillon' :
-               quoteData?.status === 'quote_sent' ? 'Devis Envoyé' :
-               quoteData?.status === 'quote_signed' ? 'Devis Signé' :
-               quoteData?.status === 'deposit_sent' ? 'Acompte Envoyé' :
-               quoteData?.status === 'deposit_paid' ? 'Paiement Reçu' :
-               quoteData?.status === 'balance_sent' ? 'Solde Envoyé' :
-               quoteData?.status === 'balance_paid' ? 'Solde Payé' :
-               quoteData?.status === 'completed' ? 'Terminé' :
-               quoteData?.status || 'Brouillon'}
-            </Badge>
+            {(() => {
+              const isQuoteSent = !!(quoteData as any)?.quote_sent_at
+              const isQuoteSigned = !!(quoteData as any)?.quote_signed_at
+              const isDepositPaid = !!(quoteData as any)?.deposit_paid_at
+              const isBalanceSent = !!(quoteData as any)?.balance_sent_at
+              const isBalancePaid = !!(quoteData as any)?.balance_paid_at
+              return (
+                <div className='flex items-center gap-1.5 flex-wrap'>
+                  <Badge variant='outline' className={`text-[9px] px-1.5 py-0 h-5 ${isQuoteSent ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                    {isQuoteSent ? '✓' : '○'} Devis envoyé
+                  </Badge>
+                  <Badge variant='outline' className={`text-[9px] px-1.5 py-0 h-5 ${isQuoteSigned ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                    {isQuoteSigned ? '✓' : '○'} Signé
+                  </Badge>
+                  <Badge variant='outline' className={`text-[9px] px-1.5 py-0 h-5 ${isDepositPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                    {isDepositPaid ? '✓' : '○'} Acompte payé
+                  </Badge>
+                  <Badge variant='outline' className={`text-[9px] px-1.5 py-0 h-5 ${isBalanceSent ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                    {isBalanceSent ? '✓' : '○'} Solde envoyé
+                  </Badge>
+                  <Badge variant='outline' className={`text-[9px] px-1.5 py-0 h-5 ${isBalancePaid ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
+                    {isBalancePaid ? '✓' : '○'} Soldé
+                  </Badge>
+                </div>
+              )
+            })()}
           </div>
           <div className='flex items-center gap-2'>
             <span className='text-sm font-semibold'>
@@ -1669,26 +1669,28 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                 variant='outline'
                 size='sm'
                 className='gap-1.5 text-xs h-7'
-                onClick={() => {
-                  const element = document.getElementById('quote-preview-content')
-                  if (!element) {
-                    toast.error('Aperçu non disponible')
+                onClick={async () => {
+                  if (!quoteData?.id) {
+                    toast.error('Devis non disponible')
                     return
                   }
-                  import('html2pdf.js').then(({ default: html2pdf }) => {
-                    html2pdf()
-                      .set({
-                        margin: [5, 5, 10, 5],
-                        filename: `${quoteData?.quote_number || 'devis'}.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                      })
-                      .from(element)
-                      .save()
-                      .then(() => toast.success('PDF téléchargé'))
-                      .catch(() => toast.error("Erreur lors de l'export PDF"))
-                  })
+                  try {
+                    toast.info('Génération du PDF...')
+                    const response = await fetch(`/api/quotes/${quoteData.id}/download-pdf?type=${documentType}`)
+                    if (!response.ok) throw new Error('Erreur serveur')
+                    const blob = await response.blob()
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `${quoteData.quote_number || 'devis'}-${documentType}.pdf`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                    toast.success('PDF téléchargé')
+                  } catch {
+                    toast.error("Erreur lors de l'export PDF")
+                  }
                 }}
               >
                 <Download className='h-3 w-3' />

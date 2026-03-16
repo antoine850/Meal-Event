@@ -921,6 +921,25 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
   }
 })
 
+// GET /api/quotes/:id/download-pdf?type=devis|acompte|solde - Download PDF
+quotesRouter.get('/:id/download-pdf', async (req: Request, res: Response) => {
+  const quoteId = req.params.id
+  const docType = (req.query.type as string) || 'devis'
+
+  try {
+    const pdfBuffer = await generateQuotePdf(quoteId, docType as any)
+    const quoteData = await fetchQuoteFullData(quoteId)
+    const filename = `${quoteData.quote_number || 'devis'}-${docType}.pdf`
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.send(pdfBuffer)
+  } catch (error) {
+    console.error('Error generating PDF for download:', error)
+    res.status(500).json({ error: 'Erreur lors de la génération du PDF' })
+  }
+})
+
 // POST /api/quotes/:id/items - Add item to quote
 quotesRouter.post('/:id/items', async (req: Request, res: Response) => {
   try {
