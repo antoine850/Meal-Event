@@ -68,6 +68,7 @@ import {
 } from '@/components/ui/table'
 import type { QuoteItem } from '@/lib/supabase/types'
 import type { BookingWithRelations } from '../hooks/use-bookings'
+import { usePaymentsByBooking } from '../hooks/use-bookings'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
 import {
   useUpdateQuote,
@@ -102,6 +103,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const { mutate: deleteQuoteItem } = useDeleteQuoteItem()
   const { data: catalogProducts = [] } = useProductsByRestaurant(restaurant?.id || null)
   const { data: catalogPackages = [] } = usePackagesByRestaurant(restaurant?.id || null)
+  const { data: bookingPayments = [] } = usePaymentsByBooking(booking.id)
   const { mutate: updateCompany, isPending: isUpdatingCompany } = useUpdateCompany()
   
   // Extras state (using quote_items with item_type='extra')
@@ -471,6 +473,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
     additionalConditions,
     language,
     extras,
+    payments: bookingPayments.filter(p => p.status === 'paid' || p.status === 'completed'),
   }
 
   if (isLoading) {

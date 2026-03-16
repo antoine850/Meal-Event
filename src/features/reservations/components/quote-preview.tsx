@@ -619,10 +619,6 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   }
 
   // ── SOLDE ──
-  const avgTvaRate = data.totalHt > 0 ? ((data.totalTtc - data.totalHt) / data.totalHt) * 100 : 20
-  const depositHt = data.totalHt * (data.depositPercentage / 100)
-  const depositTva = depositHt * (avgTvaRate / 100)
-  const depositTtc = depositHt + depositTva
 
   return (
     <div id='quote-preview-content' className='bg-white text-black rounded-lg shadow-sm border text-[11px] leading-relaxed'>
@@ -745,62 +741,50 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           </div>
         )}
 
-        {/* Totals with deposit deduction and extras */}
+        {/* Totals: Total HT, Total TTC, payments deducted, remaining balance */}
         {(() => {
           const extrasHt = (data.extras || []).reduce((sum, e) => sum + (e.total_ht || 0), 0)
           const extrasTtc = (data.extras || []).reduce((sum, e) => sum + (e.total_ttc || 0), 0)
           const grandTotalHt = data.totalHt + extrasHt
           const grandTotalTtc = data.totalTtc + extrasTtc
-          const finalBalanceHt = grandTotalHt - depositHt
-          const finalBalanceTtc = grandTotalTtc - depositTtc
+          const paidPayments = (data.payments || []).filter(p => p.status === 'paid' || p.status === 'completed')
+          const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+          const remainingTtc = Math.round((grandTotalTtc - totalPaid) * 100) / 100
 
           return (
             <div className='flex items-end justify-between'>
               <BankDetails restaurant={restaurant} l={l} />
               <div className='w-64 space-y-1'>
                 <div className='flex justify-between text-[10px]'>
-                  <span className='text-gray-600'>{l.subtotalBeforeDeposit}</span>
-                  <span className='text-[9px] text-gray-500'>{l.totalHt}: {data.totalHt.toFixed(2)} €</span>
+                  <span className='text-gray-600'>Total HT</span>
+                  <span>{grandTotalHt.toFixed(2)} €</span>
                 </div>
-                <div className='flex justify-between text-[10px]'>
-                  <span className='text-gray-500'>TTC : {data.totalTtc.toFixed(2)} €</span>
-                  <span />
+                <div className='flex justify-between text-[10px] font-semibold'>
+                  <span>Total TTC</span>
+                  <span>{grandTotalTtc.toFixed(2)} €</span>
                 </div>
-                {extrasTtc > 0 && (
+                {paidPayments.length > 0 && (
                   <>
-                    <div className='flex justify-between text-[10px]'>
-                      <span className='text-gray-600'>{l.extras}</span>
-                      <span className='text-[9px] text-gray-500'>+ {extrasHt.toFixed(2)} € HT</span>
-                    </div>
-                    <div className='flex justify-between text-[10px]'>
-                      <span className='text-gray-500'>TTC : + {extrasTtc.toFixed(2)} €</span>
-                      <span />
-                    </div>
                     <Separator className='bg-gray-300' />
-                    <div className='flex justify-between text-[10px] font-medium'>
-                      <span>{l.totalWithExtras}</span>
-                      <span>{grandTotalTtc.toFixed(2)} € TTC</span>
-                    </div>
+                    {paidPayments.map((p, i) => {
+                      const isEn = data.language === 'en'
+                      const label = p.payment_modality === 'acompte' ? (isEn ? 'Deposit paid' : 'Acompte versé')
+                        : p.payment_modality === 'solde' ? (isEn ? 'Balance paid' : 'Solde versé')
+                        : (isEn ? 'Payment received' : 'Paiement reçu')
+                      const dateStr = p.paid_at ? new Date(p.paid_at).toLocaleDateString(isEn ? 'en-US' : 'fr-FR') : ''
+                      return (
+                        <div key={i} className='flex justify-between text-[10px] text-green-600'>
+                          <span>{label}{dateStr ? ` (${dateStr})` : ''}</span>
+                          <span>- {(p.amount || 0).toFixed(2)} €</span>
+                        </div>
+                      )
+                    })}
                   </>
                 )}
                 <Separator className='bg-gray-300' />
-                <div className='border rounded px-2 py-1.5 space-y-0.5'>
-                  <p className='text-[10px] font-semibold'>{l.depositsHt}</p>
-                  <div className='flex justify-between items-center'>
-                    <span className='text-[10px]' style={{ color }}>{l.depositAtSignature}</span>
-                    <div className='text-right'>
-                      <div className='text-xs font-bold' style={{ color }}>- {depositTtc.toFixed(2)} €</div>
-                      <div className='text-[9px] text-gray-500'>{l.totalHt}: {depositHt.toFixed(2)} €</div>
-                    </div>
-                  </div>
-                </div>
-                <Separator className='bg-gray-300' />
                 <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
-                  <span>{l.totalTtc}</span>
-                  <span>{finalBalanceTtc.toFixed(2)} €</span>
-                </div>
-                <div className='text-[9px] text-gray-500 text-right'>
-                  {l.totalHt}: {finalBalanceHt.toFixed(2)} €
+                  <span>{l.remainingBalance} TTC</span>
+                  <span>{remainingTtc.toFixed(2)} €</span>
                 </div>
               </div>
             </div>
