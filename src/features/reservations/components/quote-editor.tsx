@@ -67,6 +67,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { QuoteItem } from '@/lib/supabase/types'
+import { supabase } from '@/lib/supabase'
+
+const API_BASE_URL = import.meta.env.DEV
+  ? ''
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3001')
 import type { BookingWithRelations } from '../hooks/use-bookings'
 import { usePaymentsByBooking } from '../hooks/use-bookings'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
@@ -1676,7 +1681,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                   }
                   try {
                     toast.info('Génération du PDF...')
-                    const response = await fetch(`/api/quotes/${quoteData.id}/download-pdf?type=${documentType}`)
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const response = await fetch(`${API_BASE_URL}/api/quotes/${quoteData.id}/download-pdf?type=${documentType}`, {
+                      headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {},
+                    })
                     if (!response.ok) throw new Error('Erreur serveur')
                     const blob = await response.blob()
                     const url = URL.createObjectURL(blob)
