@@ -473,6 +473,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           stripePaymentUrl: existingQuote.stripe_deposit_url,
           eventDate: quoteData.date_start || booking?.event_date || null,
           commercialName: commercial.name,
+          stripeEnabled: (restaurant as any)?.stripe_enabled !== false,
         })
 
         const subject = buildDepositEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
@@ -500,38 +501,49 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     const commercialName = commercial.name
     const commercialEmail = commercial.email
 
-    // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-    console.log(`[send-deposit] Creating Stripe invoice for deposit: €${depositAmount.toFixed(2)}`)
+    // Check if Stripe is enabled for this restaurant
+    const isStripeEnabled = (restaurant as any)?.stripe_enabled !== false
 
-    const customerId = await getOrCreateStripeCustomer(
-      contact.email,
-      `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
-    )
+    let invoiceUrl = ''
+    let invoiceId = ''
 
-    const invoice = await stripe.invoices.create({
-      customer: customerId,
-      collection_method: 'send_invoice',
-      days_until_due: 30, // 30-day expiration window
-      metadata: {
-        booking_id: booking?.id || '',
-        quote_id: quoteId,
-        link_type: 'deposit',
-      },
-      description: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
-    })
+    if (isStripeEnabled) {
+      // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
+      console.log(`[send-deposit] Creating Stripe invoice for deposit: €${depositAmount.toFixed(2)}`)
 
-    // Add invoice line item
-    await stripe.invoiceItems.create({
-      invoice: invoice.id,
-      customer: customerId,
-      amount: Math.round(depositAmount * 100),
-      currency: 'eur',
-      description: `Acompte ${quoteData.deposit_percentage}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
-    })
+      const customerId = await getOrCreateStripeCustomer(
+        contact.email,
+        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+      )
 
-    // Finalize invoice to make it payable
-    const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
-    const invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
+      const invoice = await stripe.invoices.create({
+        customer: customerId,
+        collection_method: 'send_invoice',
+        days_until_due: 30, // 30-day expiration window
+        metadata: {
+          booking_id: booking?.id || '',
+          quote_id: quoteId,
+          link_type: 'deposit',
+        },
+        description: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
+      })
+
+      // Add invoice line item
+      await stripe.invoiceItems.create({
+        invoice: invoice.id,
+        customer: customerId,
+        amount: Math.round(depositAmount * 100),
+        currency: 'eur',
+        description: `Acompte ${quoteData.deposit_percentage}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
+      })
+
+      // Finalize invoice to make it payable
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
+      invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
+      invoiceId = invoice.id
+    } else {
+      console.log(`[send-deposit] Stripe disabled for restaurant — sending bank transfer only deposit for €${depositAmount.toFixed(2)}`)
+    }
 
     // Generate deposit invoice PDF with error handling
     let pdfBuffer: Buffer
@@ -553,6 +565,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       stripePaymentUrl: invoiceUrl,
       eventDate: quoteData.date_start || booking?.event_date || null,
       commercialName,
+      stripeEnabled: isStripeEnabled,
     })
 
     const subject = buildDepositEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
@@ -589,39 +602,58 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       .update({
         status: 'deposit_sent',
         deposit_sent_at: new Date().toISOString(),
-        stripe_deposit_session_id: invoice.id,
-        stripe_deposit_url: invoiceUrl,
+        ...(isStripeEnabled ? {
+          stripe_deposit_session_id: invoiceId,
+          stripe_deposit_url: invoiceUrl,
+        } : {}),
       })
       .eq('id', quoteId)
 
-    // Save payment link
-    await supabase
-      .from('payment_links')
-      .insert({
-        booking_id: booking?.id,
-        quote_id: quoteId,
-        link_type: 'deposit',
-        amount: depositAmount,
-        percentage: quoteData.deposit_percentage,
-        url: invoiceUrl,
-        stripe_link_id: invoice.id,
-      })
+    if (isStripeEnabled) {
+      // Save payment link (Stripe)
+      await supabase
+        .from('payment_links')
+        .insert({
+          booking_id: booking?.id,
+          quote_id: quoteId,
+          link_type: 'deposit',
+          amount: depositAmount,
+          percentage: quoteData.deposit_percentage,
+          url: invoiceUrl,
+          stripe_link_id: invoiceId,
+        })
 
-    // Create pending payment record (will be updated to 'paid' by webhook)
-    await supabase
-      .from('payments')
-      .insert({
-        organization_id: quoteData.organization_id,
-        booking_id: booking?.id,
-        quote_id: quoteId,
-        amount: depositAmount,
-        payment_type: 'deposit',
-        payment_modality: 'acompte',
-        payment_method: 'stripe',
-        stripe_payment_id: invoice.id,
-        status: 'pending',
-        notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
-      })
+      // Create pending payment record (will be updated to 'paid' by webhook)
+      await supabase
+        .from('payments')
+        .insert({
+          organization_id: quoteData.organization_id,
+          booking_id: booking?.id,
+          quote_id: quoteId,
+          amount: depositAmount,
+          payment_type: 'deposit',
+          payment_modality: 'acompte',
+          payment_method: 'stripe',
+          stripe_payment_id: invoiceId,
+          status: 'pending',
+          notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
+        })
+    } else {
+      // Create pending bank transfer payment record (will be manually marked as paid)
+      await supabase
+        .from('payments')
+        .insert({
+          organization_id: quoteData.organization_id,
+          booking_id: booking?.id,
+          quote_id: quoteId,
+          amount: depositAmount,
+          payment_type: 'deposit',
+          payment_modality: 'acompte',
+          payment_method: 'virement',
+          status: 'pending',
+          notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number} (virement bancaire)`,
+        })
+    }
 
     // Log email
     await supabase
@@ -643,16 +675,16 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       organization_id: quoteData.organization_id,
       booking_id: booking?.id,
       action_type: 'payment.deposit_sent',
-      action_label: `Lien acompte de ${depositAmount.toLocaleString('fr-FR')} \u20AC envoyé`,
+      action_label: `Facture acompte de ${depositAmount.toLocaleString('fr-FR')} \u20AC envoyée${isStripeEnabled ? ' avec lien de paiement' : ' (virement bancaire)'}`,
       actor_type: 'user',
       actor_id: req.body.userId || null,
       entity_type: 'quote',
       entity_id: quoteId,
-      metadata: { amount: depositAmount },
+      metadata: { amount: depositAmount, method: isStripeEnabled ? 'stripe' : 'virement' },
     })
 
-    console.log(`[send-deposit] ✅ Deposit for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${depositAmount}€, Stripe invoice: ${invoice.id}`)
-    res.json({ success: true, sessionId: invoice.id, paymentUrl: invoiceUrl })
+    console.log(`[send-deposit] ✅ Deposit for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${depositAmount}€${isStripeEnabled ? `, Stripe invoice: ${invoiceId}` : ', bank transfer only'}`)
+    res.json({ success: true, sessionId: invoiceId || null, paymentUrl: invoiceUrl || null })
   } catch (error) {
     console.error('[send-deposit] ❌ Error:', error)
     res.status(500).json({ error: 'Failed to send deposit invoice' })
@@ -732,6 +764,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
           stripePaymentUrl: existingQuote.stripe_balance_url,
           eventDate: quoteData.date_start || booking?.event_date || null,
           commercialName: commercial.name,
+          stripeEnabled: (restaurant as any)?.stripe_enabled !== false,
         })
 
         const subject = buildBalanceEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
@@ -764,38 +797,49 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     const commercialName = commercial.name
     const commercialEmail = commercial.email
 
-    // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-    console.log(`[send-balance] Creating Stripe invoice for balance: €${balanceAmount.toFixed(2)}`)
+    // Check if Stripe is enabled for this restaurant
+    const isStripeEnabled = (restaurant as any)?.stripe_enabled !== false
 
-    const customerId = await getOrCreateStripeCustomer(
-      contact.email,
-      `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
-    )
+    let invoiceUrl = ''
+    let invoiceId = ''
 
-    const invoice = await stripe.invoices.create({
-      customer: customerId,
-      collection_method: 'send_invoice',
-      days_until_due: 30, // 30-day expiration window
-      metadata: {
-        booking_id: booking?.id || '',
-        quote_id: quoteId,
-        link_type: 'balance',
-      },
-      description: `Solde - ${quoteData.quote_number}`,
-    })
+    if (isStripeEnabled) {
+      // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
+      console.log(`[send-balance] Creating Stripe invoice for balance: €${balanceAmount.toFixed(2)}`)
 
-    // Add invoice line item
-    await stripe.invoiceItems.create({
-      invoice: invoice.id,
-      customer: customerId,
-      amount: Math.round(balanceAmount * 100),
-      currency: 'eur',
-      description: `Facture de solde pour ${restaurant?.name || 'événement'}`,
-    })
+      const customerId = await getOrCreateStripeCustomer(
+        contact.email,
+        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+      )
 
-    // Finalize invoice to make it payable
-    const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
-    const invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
+      const invoice = await stripe.invoices.create({
+        customer: customerId,
+        collection_method: 'send_invoice',
+        days_until_due: 30, // 30-day expiration window
+        metadata: {
+          booking_id: booking?.id || '',
+          quote_id: quoteId,
+          link_type: 'balance',
+        },
+        description: `Solde - ${quoteData.quote_number}`,
+      })
+
+      // Add invoice line item
+      await stripe.invoiceItems.create({
+        invoice: invoice.id,
+        customer: customerId,
+        amount: Math.round(balanceAmount * 100),
+        currency: 'eur',
+        description: `Facture de solde pour ${restaurant?.name || 'événement'}`,
+      })
+
+      // Finalize invoice to make it payable
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
+      invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
+      invoiceId = invoice.id
+    } else {
+      console.log(`[send-balance] Stripe disabled for restaurant — sending bank transfer only balance for €${balanceAmount.toFixed(2)}`)
+    }
 
     // Generate balance invoice PDF with error handling
     let pdfBuffer: Buffer
@@ -816,6 +860,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       stripePaymentUrl: invoiceUrl,
       eventDate: quoteData.date_start || booking?.event_date || null,
       commercialName,
+      stripeEnabled: isStripeEnabled,
     })
 
     const subject = buildBalanceEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
@@ -852,38 +897,57 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       .update({
         status: 'balance_sent',
         balance_sent_at: new Date().toISOString(),
-        stripe_balance_session_id: invoice.id,
-        stripe_balance_url: invoiceUrl,
+        ...(isStripeEnabled ? {
+          stripe_balance_session_id: invoiceId,
+          stripe_balance_url: invoiceUrl,
+        } : {}),
       })
       .eq('id', quoteId)
 
-    // Save payment link
-    await supabase
-      .from('payment_links')
-      .insert({
-        booking_id: booking?.id,
-        quote_id: quoteId,
-        link_type: 'balance',
-        amount: balanceAmount,
-        url: invoiceUrl,
-        stripe_link_id: invoice.id,
-      })
+    if (isStripeEnabled) {
+      // Save payment link (Stripe)
+      await supabase
+        .from('payment_links')
+        .insert({
+          booking_id: booking?.id,
+          quote_id: quoteId,
+          link_type: 'balance',
+          amount: balanceAmount,
+          url: invoiceUrl,
+          stripe_link_id: invoiceId,
+        })
 
-    // Create pending payment record (will be updated to 'paid' by webhook)
-    await supabase
-      .from('payments')
-      .insert({
-        organization_id: quoteData.organization_id,
-        booking_id: booking?.id,
-        quote_id: quoteId,
-        amount: balanceAmount,
-        payment_type: 'balance',
-        payment_modality: 'solde',
-        payment_method: 'stripe',
-        stripe_payment_id: invoice.id,
-        status: 'pending',
-        notes: `Solde - ${quoteData.quote_number}`,
-      })
+      // Create pending payment record (will be updated to 'paid' by webhook)
+      await supabase
+        .from('payments')
+        .insert({
+          organization_id: quoteData.organization_id,
+          booking_id: booking?.id,
+          quote_id: quoteId,
+          amount: balanceAmount,
+          payment_type: 'balance',
+          payment_modality: 'solde',
+          payment_method: 'stripe',
+          stripe_payment_id: invoiceId,
+          status: 'pending',
+          notes: `Solde - ${quoteData.quote_number}`,
+        })
+    } else {
+      // Create pending bank transfer payment record (will be manually marked as paid)
+      await supabase
+        .from('payments')
+        .insert({
+          organization_id: quoteData.organization_id,
+          booking_id: booking?.id,
+          quote_id: quoteId,
+          amount: balanceAmount,
+          payment_type: 'balance',
+          payment_modality: 'solde',
+          payment_method: 'virement',
+          status: 'pending',
+          notes: `Solde - ${quoteData.quote_number} (virement bancaire)`,
+        })
+    }
 
     // Log email
     await supabase
@@ -905,16 +969,16 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       organization_id: quoteData.organization_id,
       booking_id: booking?.id,
       action_type: 'payment.balance_sent',
-      action_label: `Lien solde de ${balanceAmount.toLocaleString('fr-FR')} \u20AC envoyé`,
+      action_label: `Facture solde de ${balanceAmount.toLocaleString('fr-FR')} \u20AC envoyée${isStripeEnabled ? ' avec lien de paiement' : ' (virement bancaire)'}`,
       actor_type: 'user',
       actor_id: req.body.userId || null,
       entity_type: 'quote',
       entity_id: quoteId,
-      metadata: { amount: balanceAmount },
+      metadata: { amount: balanceAmount, method: isStripeEnabled ? 'stripe' : 'virement' },
     })
 
-    console.log(`[send-balance] ✅ Balance for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${balanceAmount}€, Stripe invoice: ${invoice.id}`)
-    res.json({ success: true, sessionId: invoice.id, paymentUrl: invoiceUrl })
+    console.log(`[send-balance] ✅ Balance for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${balanceAmount}€${isStripeEnabled ? `, Stripe invoice: ${invoiceId}` : ', bank transfer only'}`)
+    res.json({ success: true, sessionId: invoiceId || null, paymentUrl: invoiceUrl || null })
   } catch (error) {
     console.error('[send-balance] ❌ Error:', error)
     res.status(500).json({ error: 'Failed to send balance invoice' })

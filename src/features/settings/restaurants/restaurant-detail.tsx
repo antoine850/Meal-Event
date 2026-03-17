@@ -119,6 +119,7 @@ const restaurantDetailSchema = z.object({
   billing_city: z.string().optional(),
   billing_country: z.string().optional(),
   billing_additional_text: z.string().optional(),
+  stripe_enabled: z.boolean().optional(),
   iban: z.string().optional(),
   bic: z.string().optional(),
   bank_name: z.string().optional(),
@@ -212,6 +213,7 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       billing_city: (r.billing_city as string) || '',
       billing_country: (r.billing_country as string) || 'France',
       billing_additional_text: (r.billing_additional_text as string) || '',
+      stripe_enabled: (r.stripe_enabled as boolean) ?? true,
       iban: (r.iban as string) || '',
       bic: (r.bic as string) || '',
       bank_name: (r.bank_name as string) || '',
@@ -1120,6 +1122,28 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
               </div>
 
               <Separator />
+
+              {/* Stripe Toggle */}
+              <FormField
+                control={form.control}
+                name='stripe_enabled'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel className='text-base'>Paiement Stripe</FormLabel>
+                      <FormDescription>
+                        Activer les paiements en ligne via Stripe. Si désactivé, seules les informations de virement bancaire seront envoyées aux clients.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                   <FormField

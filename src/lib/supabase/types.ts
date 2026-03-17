@@ -1897,6 +1897,7 @@ export type Database = {
           sms_name: string | null
           sms_signature: string | null
           sms_signature_en: string | null
+          stripe_enabled: boolean
           translation_language: string | null
           tva_number: string | null
           updated_at: string | null
@@ -1956,6 +1957,7 @@ export type Database = {
           sms_name?: string | null
           sms_signature?: string | null
           sms_signature_en?: string | null
+          stripe_enabled?: boolean
           translation_language?: string | null
           tva_number?: string | null
           updated_at?: string | null
@@ -2015,6 +2017,7 @@ export type Database = {
           sms_name?: string | null
           sms_signature?: string | null
           sms_signature_en?: string | null
+          stripe_enabled?: boolean
           translation_language?: string | null
           tva_number?: string | null
           updated_at?: string | null

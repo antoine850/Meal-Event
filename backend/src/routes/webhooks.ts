@@ -657,7 +657,8 @@ async function autoSendDepositAfterSignature(quoteId: string) {
           restaurant:restaurants(
             id, name, address, city, postal_code, phone, email,
             logo_url, color, siret, tva_number, iban, bic, bank_name,
-            legal_name, legal_form, share_capital, rcs, siren
+            legal_name, legal_form, share_capital, rcs, siren,
+            stripe_enabled
           )
         )
       `)
@@ -711,45 +712,53 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       }
     }
 
-    // Validate required data for Stripe
     if (!booking?.id) {
-      throw new Error('Booking ID is required for Stripe payment link')
+      throw new Error('Booking ID is required for deposit')
     }
 
-    // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-    console.log(`[Stripe] Creating deposit invoice for quote ${quote.quote_number}`)
+    // Check if Stripe is enabled for this restaurant
+    const isStripeEnabled = restaurant?.stripe_enabled !== false
 
-    const customerId = await getOrCreateStripeCustomer(
-      contact.email,
-      `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
-    )
+    let invoiceUrl = ''
+    let invoiceId = ''
 
-    const invoice = await stripe.invoices.create({
-      customer: customerId,
-      collection_method: 'send_invoice',
-      days_until_due: 30, // 30-day expiration window
-      metadata: {
-        booking_id: booking.id,
-        quote_id: quoteId,
-        link_type: 'deposit',
-      },
-      description: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
-    })
+    if (isStripeEnabled) {
+      // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
+      console.log(`[Stripe] Creating deposit invoice for quote ${quote.quote_number}`)
 
-    // Add invoice line item
-    await stripe.invoiceItems.create({
-      invoice: invoice.id,
-      customer: customerId,
-      amount: Math.round(depositAmount * 100),
-      currency: 'eur',
-      description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
-    })
+      const customerId = await getOrCreateStripeCustomer(
+        contact.email,
+        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+      )
 
-    // Finalize invoice to make it payable
-    const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
-    const invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
+      const invoice = await stripe.invoices.create({
+        customer: customerId,
+        collection_method: 'send_invoice',
+        days_until_due: 30,
+        metadata: {
+          booking_id: booking.id,
+          quote_id: quoteId,
+          link_type: 'deposit',
+        },
+        description: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
+      })
 
-    console.log(`[Stripe] Invoice created: ${invoice.id}, URL: ${invoiceUrl}`)
+      await stripe.invoiceItems.create({
+        invoice: invoice.id,
+        customer: customerId,
+        amount: Math.round(depositAmount * 100),
+        currency: 'eur',
+        description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
+      })
+
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
+      invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
+      invoiceId = invoice.id
+
+      console.log(`[Stripe] Invoice created: ${invoice.id}, URL: ${invoiceUrl}`)
+    } else {
+      console.log(`[SignNow] Stripe disabled — sending bank transfer only deposit for quote ${quote.quote_number}`)
+    }
 
     // Generate deposit PDF with error handling
     let pdfBuffer: Buffer
@@ -771,6 +780,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       stripePaymentUrl: invoiceUrl,
       eventDate: quote.date_start || booking?.event_date || null,
       commercialName,
+      stripeEnabled: isStripeEnabled,
     })
 
     const subject = buildDepositEmailSubject(quote.quote_number, restaurant?.name || 'Restaurant')
@@ -829,39 +839,58 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       .update({
         status: 'deposit_sent',
         deposit_sent_at: new Date().toISOString(),
-        stripe_deposit_session_id: invoice.id,
-        stripe_deposit_url: invoiceUrl,
+        ...(isStripeEnabled ? {
+          stripe_deposit_session_id: invoiceId,
+          stripe_deposit_url: invoiceUrl,
+        } : {}),
       })
       .eq('id', quoteId)
 
-    // Save payment link
-    await supabase
-      .from('payment_links')
-      .insert({
-        booking_id: booking.id,
-        quote_id: quoteId,
-        link_type: 'deposit',
-        amount: depositAmount,
-        percentage: quote.deposit_percentage,
-        url: invoiceUrl,
-        stripe_link_id: invoice.id,
-      })
+    if (isStripeEnabled) {
+      // Save payment link (Stripe)
+      await supabase
+        .from('payment_links')
+        .insert({
+          booking_id: booking.id,
+          quote_id: quoteId,
+          link_type: 'deposit',
+          amount: depositAmount,
+          percentage: quote.deposit_percentage,
+          url: invoiceUrl,
+          stripe_link_id: invoiceId,
+        })
 
-    // Create pending payment record (will be updated to 'paid' by webhook)
-    await supabase
-      .from('payments')
-      .insert({
-        organization_id: quote.organization_id,
-        booking_id: booking.id,
-        quote_id: quoteId,
-        amount: depositAmount,
-        payment_type: 'deposit',
-        payment_modality: 'acompte',
-        payment_method: 'stripe',
-        stripe_payment_id: invoice.id,
-        status: 'pending',
-        notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
-      })
+      // Create pending payment record (will be updated to 'paid' by webhook)
+      await supabase
+        .from('payments')
+        .insert({
+          organization_id: quote.organization_id,
+          booking_id: booking.id,
+          quote_id: quoteId,
+          amount: depositAmount,
+          payment_type: 'deposit',
+          payment_modality: 'acompte',
+          payment_method: 'stripe',
+          stripe_payment_id: invoiceId,
+          status: 'pending',
+          notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
+        })
+    } else {
+      // Create pending bank transfer payment record
+      await supabase
+        .from('payments')
+        .insert({
+          organization_id: quote.organization_id,
+          booking_id: booking.id,
+          quote_id: quoteId,
+          amount: depositAmount,
+          payment_type: 'deposit',
+          payment_modality: 'acompte',
+          payment_method: 'virement',
+          status: 'pending',
+          notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number} (virement bancaire)`,
+        })
+    }
 
     // Log email
     await supabase
@@ -883,15 +912,15 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       organization_id: quote.organization_id,
       booking_id: booking.id,
       action_type: 'payment.deposit_sent',
-      action_label: `Lien acompte de ${depositAmount.toLocaleString('fr-FR')} \u20AC envoyé automatiquement après signature`,
+      action_label: `Facture acompte de ${depositAmount.toLocaleString('fr-FR')} \u20AC envoyée automatiquement après signature${isStripeEnabled ? '' : ' (virement bancaire)'}`,
       actor_type: 'system',
       actor_name: 'Système',
       entity_type: 'quote',
       entity_id: quoteId,
-      metadata: { amount: depositAmount, auto: true },
+      metadata: { amount: depositAmount, auto: true, method: isStripeEnabled ? 'stripe' : 'virement' },
     })
 
-    console.log(`✅ Auto-sent deposit email for quote ${quote.quote_number} after signature`)
+    console.log(`✅ Auto-sent deposit email for quote ${quote.quote_number} after signature${isStripeEnabled ? '' : ' (bank transfer only)'}`)
   } catch (error: any) {
     console.error('❌ Error auto-sending deposit after signature:', error?.message || error)
     throw error

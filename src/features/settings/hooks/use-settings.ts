@@ -117,6 +117,7 @@ export type Restaurant = {
   billing_additional_text: string | null
   iban: string | null
   bic: string | null
+  stripe_enabled: boolean
   invoice_prefix: string | null
   quote_validity_days: number
   invoice_due_days: number | null

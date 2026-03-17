@@ -415,10 +415,55 @@ export function useCreatePayment() {
         .single()
 
       if (error) throw error
-      return data as Payment
+
+      // When a payment is created as "paid", update booking and quote status
+      if (status === 'paid') {
+        const modality = paymentModality || 'autre'
+
+        if (modality === 'acompte' || paymentType === 'deposit') {
+          // Deposit paid → booking status "acompte-paye"
+          const { data: statusData } = await supabase
+            .from('statuses')
+            .select('id')
+            .eq('organization_id', orgId)
+            .eq('slug', 'acompte-paye')
+            .eq('type', 'booking')
+            .single()
+
+          if (statusData) {
+            await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', bookingId)
+          }
+
+          if (quoteId) {
+            await supabase.from('quotes').update({ status: 'deposit_paid', deposit_paid_at: new Date().toISOString() }).eq('id', quoteId)
+          }
+        } else if (modality === 'solde' || paymentType === 'balance') {
+          // Balance paid → booking status "confirme"
+          const { data: statusData } = await supabase
+            .from('statuses')
+            .select('id')
+            .eq('organization_id', orgId)
+            .eq('slug', 'confirme')
+            .eq('type', 'booking')
+            .single()
+
+          if (statusData) {
+            await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', bookingId)
+          }
+
+          if (quoteId) {
+            await supabase.from('quotes').update({ status: 'balance_paid', balance_paid_at: new Date().toISOString() }).eq('id', quoteId)
+            await supabase.from('quotes').update({ status: 'completed' }).eq('id', quoteId).eq('status', 'balance_paid')
+          }
+        }
+      }
+
+      return { ...(data as Payment), bookingId }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['payments', data.booking_id] })
+      queryClient.invalidateQueries({ queryKey: ['payments', (data as any).bookingId || data.booking_id] })
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['quotes', (data as any).bookingId || data.booking_id] })
     },
   })
 }
@@ -500,14 +545,84 @@ export function useUpdatePayment() {
         .from('payments')
         .update(updates as never)
         .eq('id', id)
-        .select()
+        .select('*, quote_id')
         .single()
 
       if (error) throw error
+
+      const payment = data as Payment & { quote_id?: string }
+
+      // When a payment is marked as "paid", update booking status and quote status
+      // This handles the bank transfer flow where there's no Stripe webhook
+      if (status === 'paid' && payment) {
+        const paymentModality_ = paymentModality || (payment as any).payment_modality
+        const quoteId = payment.quote_id
+
+        // Update booking status based on payment modality
+        if (paymentModality_ === 'acompte' || (payment as any).payment_type === 'deposit') {
+          // Deposit paid → update booking status to "acompte-paye"
+          const { data: statusData } = await supabase
+            .from('statuses')
+            .select('id')
+            .eq('organization_id', orgId)
+            .eq('slug', 'acompte-paye')
+            .eq('type', 'booking')
+            .single()
+
+          if (statusData) {
+            await supabase
+              .from('bookings')
+              .update({ status_id: statusData.id })
+              .eq('id', bookingId)
+          }
+
+          // Update quote status to deposit_paid
+          if (quoteId) {
+            await supabase
+              .from('quotes')
+              .update({ status: 'deposit_paid', deposit_paid_at: new Date().toISOString() })
+              .eq('id', quoteId)
+          }
+        } else if (paymentModality_ === 'solde' || (payment as any).payment_type === 'balance') {
+          // Balance paid → update booking status to "confirme"
+          const { data: statusData } = await supabase
+            .from('statuses')
+            .select('id')
+            .eq('organization_id', orgId)
+            .eq('slug', 'confirme')
+            .eq('type', 'booking')
+            .single()
+
+          if (statusData) {
+            await supabase
+              .from('bookings')
+              .update({ status_id: statusData.id })
+              .eq('id', bookingId)
+          }
+
+          // Update quote status to balance_paid then completed
+          if (quoteId) {
+            await supabase
+              .from('quotes')
+              .update({ status: 'balance_paid', balance_paid_at: new Date().toISOString() })
+              .eq('id', quoteId)
+
+            // Auto-complete quote
+            await supabase
+              .from('quotes')
+              .update({ status: 'completed' })
+              .eq('id', quoteId)
+              .eq('status', 'balance_paid')
+          }
+        }
+      }
+
       return { payment: data as Payment, bookingId }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payments', data.bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['quotes', data.bookingId] })
     },
   })
 }

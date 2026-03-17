@@ -256,7 +256,8 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
           id, name, address, city, postal_code, phone, email,
           logo_url, color, siret, tva_number, iban, bic, bank_name,
           legal_name, legal_form, share_capital, rcs, siren,
-          company_name, billing_address, billing_postal_code, billing_city, billing_email
+          company_name, billing_address, billing_postal_code, billing_city, billing_email,
+          stripe_enabled
         )
       )
     `)

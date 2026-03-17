@@ -195,8 +195,9 @@ export function buildDepositEmailHtml(params: {
   stripePaymentUrl: string
   eventDate: string | null
   commercialName?: string | null
+  stripeEnabled?: boolean
 }): string {
-  const { restaurant, contact, quoteNumber, depositPercentage, depositAmount, stripePaymentUrl, eventDate, commercialName } = params
+  const { restaurant, contact, quoteNumber, depositPercentage, depositAmount, stripePaymentUrl, eventDate, commercialName, stripeEnabled = true } = params
   const color = restaurant.color || '#0d7377'
 
   const bankSection = (restaurant.iban || restaurant.bic)
@@ -213,6 +214,28 @@ export function buildDepositEmailHtml(params: {
       </tr>
     </table>`
     : ''
+
+  // Stripe CTA button (only shown if stripe is enabled)
+  const stripeCta = stripeEnabled && stripePaymentUrl
+    ? `
+    <!-- CTA Button -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+      <tr>
+        <td align="center">
+          <a href="${stripePaymentUrl}" target="_blank" style="display:inline-block;padding:14px 32px;background-color:${color};color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
+            Payer mon acompte
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#666;text-align:center;">
+      Vous pouvez également effectuer un virement bancaire :
+    </p>`
+    : `
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#444;">
+      Merci d'effectuer le règlement par virement bancaire :
+    </p>`
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
@@ -233,20 +256,7 @@ export function buildDepositEmailHtml(params: {
       </tr>
     </table>
 
-    <!-- CTA Button -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-      <tr>
-        <td align="center">
-          <a href="${stripePaymentUrl}" target="_blank" style="display:inline-block;padding:14px 32px;background-color:${color};color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
-            💳 Payer mon acompte
-          </a>
-        </td>
-      </tr>
-    </table>
-
-    <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#666;text-align:center;">
-      Vous pouvez également effectuer un virement bancaire :
-    </p>
+    ${stripeCta}
 
     ${bankSection}
 
@@ -278,8 +288,9 @@ export function buildBalanceEmailHtml(params: {
   stripePaymentUrl: string
   eventDate: string | null
   commercialName?: string | null
+  stripeEnabled?: boolean
 }): string {
-  const { restaurant, contact, quoteNumber, balanceAmount, stripePaymentUrl, eventDate, commercialName } = params
+  const { restaurant, contact, quoteNumber, balanceAmount, stripePaymentUrl, eventDate, commercialName, stripeEnabled = true } = params
   const color = restaurant.color || '#0d7377'
 
   const bankSection = (restaurant.iban || restaurant.bic)
@@ -296,6 +307,28 @@ export function buildBalanceEmailHtml(params: {
       </tr>
     </table>`
     : ''
+
+  // Stripe CTA button (only shown if stripe is enabled)
+  const stripeCta = stripeEnabled && stripePaymentUrl
+    ? `
+    <!-- CTA Button -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+      <tr>
+        <td align="center">
+          <a href="${stripePaymentUrl}" target="_blank" style="display:inline-block;padding:14px 32px;background-color:${color};color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
+            Payer le solde
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#666;text-align:center;">
+      Vous pouvez également effectuer un virement bancaire :
+    </p>`
+    : `
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#444;">
+      Merci d'effectuer le règlement par virement bancaire :
+    </p>`
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
@@ -319,20 +352,7 @@ export function buildBalanceEmailHtml(params: {
       </tr>
     </table>
 
-    <!-- CTA Button -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-      <tr>
-        <td align="center">
-          <a href="${stripePaymentUrl}" target="_blank" style="display:inline-block;padding:14px 32px;background-color:${color};color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
-            💳 Payer le solde
-          </a>
-        </td>
-      </tr>
-    </table>
-
-    <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#666;text-align:center;">
-      Vous pouvez également effectuer un virement bancaire :
-    </p>
+    ${stripeCta}
 
     ${bankSection}
 
