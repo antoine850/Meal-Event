@@ -127,7 +127,42 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
 
     const orgId = restaurant.organization_id
 
-    // 2. Find or create contact
+    // 2. Find or create company (if professional)
+    let companyId: string | null = null
+
+    if (client_type === 'professionnel' && company_name?.trim()) {
+      const companyNameTrimmed = company_name.trim()
+
+      // Try to find existing company by name in same organization
+      const { data: existingCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('organization_id', orgId)
+        .ilike('name', companyNameTrimmed)
+        .limit(1)
+        .single()
+
+      if (existingCompany) {
+        companyId = existingCompany.id
+      } else {
+        const { data: newCompany, error: companyError } = await supabase
+          .from('companies')
+          .insert({
+            organization_id: orgId,
+            name: companyNameTrimmed,
+          } as never)
+          .select('id')
+          .single()
+
+        if (!companyError && newCompany) {
+          companyId = newCompany.id
+        } else {
+          console.error('[Public] Error creating company:', companyError)
+        }
+      }
+    }
+
+    // 3. Find or create contact
     let contactId: string
 
     // Try to find existing contact by email in same organization
@@ -148,7 +183,7 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
           first_name: first_name.trim(),
           last_name: last_name.trim(),
           phone: phone.trim(),
-          ...(company_name ? { company_name: company_name.trim() } : {}),
+          ...(companyId ? { company_id: companyId } : {}),
         })
         .eq('id', contactId)
     } else {
@@ -162,7 +197,7 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
           email: email.toLowerCase().trim(),
           phone: phone.trim(),
           source: 'website',
-          ...(company_name ? { company_name: company_name.trim() } : {}),
+          ...(companyId ? { company_id: companyId } : {}),
         } as never)
         .select('id')
         .single()
@@ -175,7 +210,7 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
       contactId = newContact.id
     }
 
-    // 3. Find "nouveau" status for this organization
+    // 4. Find "nouveau" status for this organization
     const { data: nouveauStatus } = await supabase
       .from('statuses')
       .select('id')
@@ -183,7 +218,7 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
       .eq('slug', 'nouveau')
       .single()
 
-    // 4. Create booking
+    // 5. Create booking
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
       .insert({
@@ -196,8 +231,8 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         event_type,
         occasion: occasion.trim(),
         source: 'website',
-        special_requests: allergies ? `Allergies / Régimes : ${allergies.trim()}` : null,
-        client_notes: client_type === 'professionnel' && company_name
+        allergies_regimes: allergies ? allergies.trim() : null,
+        commentaires: client_type === 'professionnel' && company_name
           ? `Client professionnel - ${company_name.trim()}`
           : client_type === 'professionnel' ? 'Client professionnel' : null,
       } as never)
@@ -209,14 +244,16 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Failed to create booking' })
     }
 
-    // 5. Log activity
+    // 6. Log activity
     await supabase
-      .from('activities')
+      .from('activity_logs')
       .insert({
         organization_id: orgId,
         booking_id: booking.id,
-        type: 'booking_created',
-        description: `Nouvelle demande via le site web — ${event_type}, ${guests_count} invités`,
+        action_type: 'booking_created',
+        action_label: `Nouvelle demande via le site web — ${event_type}, ${guests_count} invités`,
+        actor_type: 'system',
+        actor_name: 'Formulaire public',
       } as never)
       .then(() => {}) // fire and forget
 
