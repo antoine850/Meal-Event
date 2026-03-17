@@ -81,7 +81,7 @@ export function useBookings() {
         .order('event_date', { ascending: true })
 
       if (error) throw error
-      return data as BookingWithRelations[]
+      return data as unknown as BookingWithRelations[]
     },
   })
 }
@@ -107,7 +107,7 @@ export function useBooking(id: string) {
         .single()
 
       if (error) throw error
-      return data as BookingWithRelations
+      return data as unknown as BookingWithRelations
     },
     enabled: !!id,
   })
@@ -135,7 +135,7 @@ export function useBookingsByContact(contactId: string | null | undefined) {
         .order('event_date', { ascending: false })
 
       if (error) throw error
-      return data as BookingWithRelations[]
+      return data as unknown as BookingWithRelations[]
     },
     enabled: !!contactId,
   })

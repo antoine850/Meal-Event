@@ -227,12 +227,23 @@ export function verifyWebhookSignature(payload: string | Buffer, signature: stri
     return true
   }
 
-  const hmac = crypto.createHmac('sha256', secret)
-  hmac.update(typeof payload === 'string' ? payload : payload.toString('utf8'))
-  const expectedSignature = hmac.digest('hex')
+  const body = typeof payload === 'string' ? payload : payload.toString('utf8')
+  const expectedSignature = crypto.createHmac('sha256', secret).update(body).digest('base64')
 
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  )
+  // Use constant-time comparison with safe length check
+  const sigBuffer = Buffer.from(signature)
+  const expectedBuffer = Buffer.from(expectedSignature)
+
+  if (sigBuffer.length !== expectedBuffer.length) {
+    // Try hex encoding as fallback
+    const expectedHex = crypto.createHmac('sha256', secret).update(body).digest('hex')
+    const expectedHexBuffer = Buffer.from(expectedHex)
+    if (sigBuffer.length !== expectedHexBuffer.length) {
+      console.warn(`[SignNow] Signature length mismatch: received ${sigBuffer.length}, expected ${expectedBuffer.length} (base64) or ${expectedHexBuffer.length} (hex)`)
+      return false
+    }
+    return crypto.timingSafeEqual(sigBuffer, expectedHexBuffer)
+  }
+
+  return crypto.timingSafeEqual(sigBuffer, expectedBuffer)
 }

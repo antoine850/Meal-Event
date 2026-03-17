@@ -99,7 +99,7 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
     
     // SignNow webhook payload structure can vary - try multiple paths
     const eventType = payload.event || payload.action || payload.meta?.event || payload.content?.event || ''
-    const documentId = payload.document_id || payload.data?.document_id || payload.content?.document_id || payload.meta?.document_id || ''
+    const documentId = payload.document_id || payload.data?.document_id || payload.content?.document_id || payload.content?.documentId || payload.meta?.document_id || ''
 
     console.log(`[SignNow Webhook] Event: ${eventType}, Document: ${documentId}`)
 
