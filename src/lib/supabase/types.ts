@@ -398,7 +398,9 @@ export type Database = {
           contact_sur_place_tel: string | null
           created_at: string | null
           date_signature_devis: string | null
+          client_notes: string | null
           deposit_amount: number | null
+          deposit_percentage: number | null
           deroulement: string | null
           end_time: string | null
           event_date: string
@@ -420,6 +422,7 @@ export type Database = {
           menu_entree: string | null
           menu_plat: string | null
           mise_en_place: string | null
+          notion_url: string | null
           occasion: string | null
           option: string | null
           organization_id: string | null
@@ -427,6 +430,8 @@ export type Database = {
           relance: string | null
           restaurant_id: string | null
           source: string | null
+          special_requests: string | null
+          time_slot_id: string | null
           utm_source: string | null
           utm_medium: string | null
           utm_campaign: string | null
@@ -453,7 +458,9 @@ export type Database = {
           contact_sur_place_tel?: string | null
           created_at?: string | null
           date_signature_devis?: string | null
+          client_notes?: string | null
           deposit_amount?: number | null
+          deposit_percentage?: number | null
           deroulement?: string | null
           end_time?: string | null
           event_date: string
@@ -475,6 +482,7 @@ export type Database = {
           menu_entree?: string | null
           menu_plat?: string | null
           mise_en_place?: string | null
+          notion_url?: string | null
           occasion?: string | null
           option?: string | null
           organization_id?: string | null
@@ -482,6 +490,8 @@ export type Database = {
           relance?: string | null
           restaurant_id?: string | null
           source?: string | null
+          special_requests?: string | null
+          time_slot_id?: string | null
           utm_source?: string | null
           utm_medium?: string | null
           utm_campaign?: string | null
@@ -500,6 +510,7 @@ export type Database = {
           assigned_to?: string | null
           assigned_user_ids?: string[] | null
           budget_client?: number | null
+          client_notes?: string | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_id?: string | null
@@ -509,6 +520,7 @@ export type Database = {
           created_at?: string | null
           date_signature_devis?: string | null
           deposit_amount?: number | null
+          deposit_percentage?: number | null
           deroulement?: string | null
           end_time?: string | null
           event_date?: string
@@ -530,6 +542,7 @@ export type Database = {
           menu_entree?: string | null
           menu_plat?: string | null
           mise_en_place?: string | null
+          notion_url?: string | null
           occasion?: string | null
           option?: string | null
           organization_id?: string | null
@@ -537,6 +550,8 @@ export type Database = {
           relance?: string | null
           restaurant_id?: string | null
           source?: string | null
+          special_requests?: string | null
+          time_slot_id?: string | null
           utm_source?: string | null
           utm_medium?: string | null
           utm_campaign?: string | null
