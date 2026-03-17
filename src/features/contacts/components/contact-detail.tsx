@@ -174,6 +174,9 @@ export const ContactDetail = forwardRef<
 
   const sources = [
     'website',
+    'facebook',
+    'google',
+    'instagram',
     'referral',
     'phone',
     'email',
@@ -362,6 +365,45 @@ export const ContactDetail = forwardRef<
                   )}
                 />
               </div>
+
+              {/* UTM Tracking — read-only */}
+              {(contact.utm_source || contact.utm_campaign || contact.utm_medium) && (
+                <div className='rounded-lg border bg-muted/30 p-4 space-y-2'>
+                  <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider'>Tracking publicitaire</p>
+                  <div className='grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm'>
+                    {contact.utm_source && (
+                      <>
+                        <span className='text-muted-foreground'>Source</span>
+                        <span className='font-medium'>{contact.utm_source}</span>
+                      </>
+                    )}
+                    {contact.utm_medium && (
+                      <>
+                        <span className='text-muted-foreground'>Medium</span>
+                        <span className='font-medium'>{contact.utm_medium}</span>
+                      </>
+                    )}
+                    {contact.utm_campaign && (
+                      <>
+                        <span className='text-muted-foreground'>Campagne</span>
+                        <span className='font-medium'>{contact.utm_campaign}</span>
+                      </>
+                    )}
+                    {contact.utm_content && (
+                      <>
+                        <span className='text-muted-foreground'>Contenu</span>
+                        <span className='font-medium'>{contact.utm_content}</span>
+                      </>
+                    )}
+                    {contact.utm_term && (
+                      <>
+                        <span className='text-muted-foreground'>Terme</span>
+                        <span className='font-medium'>{contact.utm_term}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
