@@ -337,7 +337,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="h-dvh flex items-center justify-center bg-stone-50">
+      <div className="h-dvh flex items-center justify-center bg-white">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
@@ -345,7 +345,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
 
   if (notFound || !restaurant) {
     return (
-      <div className="h-dvh flex items-center justify-center bg-stone-50">
+      <div className="h-dvh flex items-center justify-center bg-white">
         <div className="text-center space-y-3 px-6">
           <AlertTriangle className="h-12 w-12 text-muted-foreground/40 mx-auto" />
           <h1 className="text-xl font-semibold">Page introuvable</h1>
@@ -356,7 +356,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="h-dvh bg-stone-50 flex flex-col overflow-hidden">
+    <div className="h-dvh bg-white flex flex-col overflow-hidden">
       {/* Header */}
       <header className="shrink-0 bg-white/80 backdrop-blur-md border-b z-10">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
