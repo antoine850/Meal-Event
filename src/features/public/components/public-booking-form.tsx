@@ -67,14 +67,16 @@ const API_BASE_URL = import.meta.env.DEV
 
 const OCCASION_OPTIONS = [
   'Anniversaire',
-  'Mariage',
-  'Séminaire',
+  'Soirée entreprise',
+  "Dîner d'entreprise",
+  "Déjeuner d'équipe",
   "Dîner d'équipe",
+  'Séminaire',
   'Cocktail',
-  'Baptême',
-  'Communion',
+  'Pot de départ',
+  'Mariage',
+  'Baptême / Communion',
   'Soirée privée',
-  'Événement corporate',
   'Autre',
 ]
 
@@ -228,7 +230,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
     event_type: '',
     occasion: '',
     event_date: undefined,
-    guests_count: 0,
+    guests_count: 16,
     allergies: '',
     client_type: 'particulier',
     company_name: '',
@@ -276,7 +278,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
   const validateStep2 = () => {
     const e: Record<string, string> = {}
     if (!form.event_date) e.event_date = 'Requis'
-    if (!form.guests_count || Number(form.guests_count) < 1) e.guests_count = 'Min. 1'
+    if (!form.guests_count || Number(form.guests_count) < 16) e.guests_count = 'Min. 16 invités'
     setErrors(e); return Object.keys(e).length === 0
   }
 
@@ -535,7 +537,7 @@ function Step2Date({
         <NumberStepper
           value={form.guests_count}
           onChange={v => updateForm('guests_count', v)}
-          min={1}
+          min={16}
           placeholder="Nombre d'invités"
           hasError={!!errors.guests_count}
           accentColor={accentColor}
@@ -641,19 +643,19 @@ function Step3Contact({
           <span>Invités</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateForm('guests_count', Math.max(1, (typeof form.guests_count === 'number' ? form.guests_count : 1) - 1))}>
+          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateForm('guests_count', Math.max(16, (typeof form.guests_count === 'number' ? form.guests_count : 16) - 1))}>
             <Minus className="h-3 w-3" />
           </Button>
           <input
             type="number"
             inputMode="numeric"
-            min={1}
+            min={16}
             value={form.guests_count === '' ? '' : form.guests_count}
             onChange={e => {
               const raw = e.target.value
               if (raw === '') { updateForm('guests_count', ''); return }
               const n = parseInt(raw, 10)
-              if (!isNaN(n)) updateForm('guests_count', Math.max(1, n))
+              if (!isNaN(n)) updateForm('guests_count', Math.max(16, n))
             }}
             className="w-8 text-center text-sm font-semibold bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />

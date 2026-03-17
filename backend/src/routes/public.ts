@@ -103,8 +103,8 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
-    if (typeof guests_count !== 'number' || guests_count < 1) {
-      return res.status(400).json({ error: 'Invalid guests count' })
+    if (typeof guests_count !== 'number' || guests_count < 16) {
+      return res.status(400).json({ error: 'Minimum 16 guests required' })
     }
 
     // Basic email validation

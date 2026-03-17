@@ -411,38 +411,27 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Couleur</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <div className='flex items-center gap-3'>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Choisir une couleur'>
-                              {field.value && (
-                                <div className='flex items-center gap-2'>
-                                  <div 
-                                    className='w-4 h-4 rounded-full border' 
-                                    style={{ backgroundColor: field.value }}
-                                  />
-                                  <span>
-                                    {RESTAURANT_COLORS.find(c => c.value === field.value)?.label || field.value}
-                                  </span>
-                                </div>
-                              )}
-                            </SelectValue>
-                          </SelectTrigger>
+                          <input
+                            type='color'
+                            value={field.value || '#3b82f6'}
+                            onChange={field.onChange}
+                            className='h-10 w-14 cursor-pointer rounded-md border border-input p-1 bg-transparent'
+                          />
                         </FormControl>
-                        <SelectContent>
-                          {RESTAURANT_COLORS.map((color) => (
-                            <SelectItem key={color.value} value={color.value}>
-                              <div className='flex items-center gap-2'>
-                                <div 
-                                  className='w-4 h-4 rounded-full border' 
-                                  style={{ backgroundColor: color.value }}
-                                />
-                                <span>{color.label}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <Input
+                          value={field.value || '#3b82f6'}
+                          onChange={e => field.onChange(e.target.value)}
+                          placeholder='#3b82f6'
+                          className='w-28 font-mono text-sm uppercase'
+                          maxLength={7}
+                        />
+                        <div
+                          className='h-10 flex-1 rounded-md border'
+                          style={{ backgroundColor: field.value || '#3b82f6' }}
+                        />
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
