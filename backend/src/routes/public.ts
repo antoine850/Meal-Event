@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import crypto from 'crypto'
 import { supabase } from '../lib/supabase.js'
 
 export const publicRouter = Router()
@@ -30,6 +31,79 @@ setInterval(() => {
     if (now > entry.resetAt) rateLimitMap.delete(ip)
   }
 }, 10 * 60 * 1000)
+
+// ============================================
+// Meta Conversions API helper
+// ============================================
+function sha256(value: string): string {
+  return crypto.createHash('sha256').update(value.trim().toLowerCase()).digest('hex')
+}
+
+async function sendMetaConversionEvent(params: {
+  pixelId: string
+  accessToken: string
+  eventName: string
+  eventTime: number
+  eventSourceUrl?: string
+  email?: string
+  phone?: string
+  firstName?: string
+  lastName?: string
+  fbc?: string
+  fbclid?: string
+  clientIp?: string
+  clientUserAgent?: string
+  customData?: Record<string, unknown>
+}) {
+  const { pixelId, accessToken, eventName, eventTime, eventSourceUrl, email, phone, firstName, lastName, fbc, fbclid, clientIp, clientUserAgent, customData } = params
+
+  // Build user_data with hashed PII
+  const userData: Record<string, string> = {}
+  if (email) userData.em = sha256(email)
+  if (phone) {
+    // Normalize phone: remove spaces, dashes, dots — keep + and digits
+    const normalizedPhone = phone.replace(/[\s.\-()]/g, '')
+    userData.ph = sha256(normalizedPhone)
+  }
+  if (firstName) userData.fn = sha256(firstName)
+  if (lastName) userData.ln = sha256(lastName)
+  if (fbc) userData.fbc = fbc
+  if (clientIp) userData.client_ip_address = clientIp
+  if (clientUserAgent) userData.client_user_agent = clientUserAgent
+
+  const eventData: Record<string, unknown> = {
+    event_name: eventName,
+    event_time: eventTime,
+    action_source: 'website',
+    user_data: userData,
+  }
+
+  if (eventSourceUrl) eventData.event_source_url = eventSourceUrl
+  if (customData) eventData.custom_data = customData
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${pixelId}/events`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: [eventData],
+          access_token: accessToken,
+        }),
+      }
+    )
+
+    const result = await response.json()
+    if (!response.ok) {
+      console.error('[Meta CAPI] Error:', JSON.stringify(result))
+    } else {
+      console.log(`[Meta CAPI] Event '${eventName}' sent successfully — events_received: ${result.events_received}`)
+    }
+  } catch (error) {
+    console.error('[Meta CAPI] Network error:', error)
+  }
+}
 
 // ============================================
 // GET /api/public/restaurants/:slug
@@ -66,6 +140,7 @@ publicRouter.get('/restaurants/:slug', async (req: Request, res: Response) => {
 // ============================================
 // POST /api/public/booking-request
 // Creates a contact (or finds existing) + booking
+// Sends conversion event to Meta Conversions API
 // ============================================
 publicRouter.post('/booking-request', async (req: Request, res: Response) => {
   try {
@@ -96,6 +171,15 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
       first_name,
       phone,
       email,
+      // UTM tracking
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_content,
+      utm_term,
+      fbclid,
+      fbc,
+      event_source_url,
     } = req.body
 
     // Validation
@@ -126,6 +210,20 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
     }
 
     const orgId = restaurant.organization_id
+
+    // Determine source: if utm_source is present, use it (e.g. 'facebook'), otherwise 'website'
+    const contactSource = utm_source || 'website'
+
+    // UTM fields to store on contact & booking
+    const utmFields = {
+      ...(utm_source ? { utm_source } : {}),
+      ...(utm_medium ? { utm_medium } : {}),
+      ...(utm_campaign ? { utm_campaign } : {}),
+      ...(utm_content ? { utm_content } : {}),
+      ...(utm_term ? { utm_term } : {}),
+      ...(fbclid ? { fbclid } : {}),
+      ...(fbc ? { fbc } : {}),
+    }
 
     // 2. Find or create company (if professional)
     let companyId: string | null = null
@@ -183,6 +281,8 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
           first_name: first_name.trim(),
           last_name: last_name.trim(),
           phone: phone.trim(),
+          source: contactSource,
+          ...utmFields,
           ...(companyId ? { company_id: companyId } : {}),
         })
         .eq('id', contactId)
@@ -196,7 +296,8 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
           last_name: last_name.trim(),
           email: email.toLowerCase().trim(),
           phone: phone.trim(),
-          source: 'website',
+          source: contactSource,
+          ...utmFields,
           ...(companyId ? { company_id: companyId } : {}),
         } as never)
         .select('id')
@@ -230,7 +331,8 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         guests_count,
         event_type,
         occasion: occasion.trim(),
-        source: 'website',
+        source: contactSource,
+        ...utmFields,
         allergies_regimes: allergies ? allergies.trim() : null,
         commentaires: client_type === 'professionnel' && company_name
           ? `Client professionnel - ${company_name.trim()}`
@@ -251,13 +353,44 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         organization_id: orgId,
         booking_id: booking.id,
         action_type: 'booking_created',
-        action_label: `Nouvelle demande via le site web — ${event_type}, ${guests_count} invités`,
+        action_label: `Nouvelle demande via le site web — ${event_type}, ${guests_count} invités${utm_source ? ` (source: ${utm_source}${utm_campaign ? `, campagne: ${utm_campaign}` : ''})` : ''}`,
         actor_type: 'system',
         actor_name: 'Formulaire public',
       } as never)
       .then(() => {}) // fire and forget
 
-    console.log(`[Public] Booking request created: ${booking.id} for restaurant ${restaurant.name}`)
+    console.log(`[Public] Booking request created: ${booking.id} for restaurant ${restaurant.name}${utm_source ? ` (utm_source: ${utm_source})` : ''}`)
+
+    // 7. Send Meta Conversions API event (fire and forget)
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('meta_pixel_id, meta_conversions_token')
+      .eq('id', orgId)
+      .single()
+
+    if (org?.meta_pixel_id && org?.meta_conversions_token) {
+      sendMetaConversionEvent({
+        pixelId: org.meta_pixel_id,
+        accessToken: org.meta_conversions_token,
+        eventName: 'Lead',
+        eventTime: Math.floor(Date.now() / 1000),
+        eventSourceUrl: event_source_url || undefined,
+        email: email.trim(),
+        phone: phone.trim(),
+        firstName: first_name.trim(),
+        lastName: last_name.trim(),
+        fbc: fbc || undefined,
+        fbclid: fbclid || undefined,
+        clientIp: clientIp !== 'unknown' ? clientIp : undefined,
+        clientUserAgent: req.headers['user-agent'] || undefined,
+        customData: {
+          content_name: restaurant.name,
+          content_category: 'booking_request',
+          event_type,
+          guests_count,
+        },
+      }).catch(err => console.error('[Meta CAPI] Failed:', err))
+    }
 
     return res.json({ success: true, booking_id: booking.id })
   } catch (error) {

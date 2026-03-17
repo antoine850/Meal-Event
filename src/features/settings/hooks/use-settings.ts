@@ -18,6 +18,8 @@ export type Organization = {
   siret: string | null
   tva_number: string | null
   facturation_email: string | null
+  meta_pixel_id: string | null
+  meta_conversions_token: string | null
   created_at: string
   updated_at: string
 }

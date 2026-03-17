@@ -226,6 +226,24 @@ export function PublicBookingForm({ slug }: { slug: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // Capture UTM params & Facebook click ID from URL on mount
+  const [utmParams] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    // Build fbc (Facebook click ID cookie format) from fbclid
+    const fbclid = params.get('fbclid') || undefined
+    const fbc = fbclid ? `fb.1.${Date.now()}.${fbclid}` : undefined
+    return {
+      utm_source: params.get('utm_source') || undefined,
+      utm_medium: params.get('utm_medium') || undefined,
+      utm_campaign: params.get('utm_campaign') || undefined,
+      utm_content: params.get('utm_content') || undefined,
+      utm_term: params.get('utm_term') || undefined,
+      fbclid,
+      fbc,
+      event_source_url: window.location.href,
+    }
+  })
+
   const [form, setForm] = useState<FormData>({
     event_type: '',
     occasion: '',
@@ -321,6 +339,8 @@ export function PublicBookingForm({ slug }: { slug: string }) {
           phone: `${COUNTRIES.find(c => c.code === form.phone_country)?.dial || '+33'} ${form.phone}`,
           email: form.email,
           website_url: honeypot,
+          // UTM tracking & Facebook metadata
+          ...utmParams,
         }),
       })
       if (!res.ok) {

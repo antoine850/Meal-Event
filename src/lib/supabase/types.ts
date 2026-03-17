@@ -427,6 +427,13 @@ export type Database = {
           relance: string | null
           restaurant_id: string | null
           source: string | null
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_term: string | null
+          fbclid: string | null
+          fbc: string | null
           space_id: string | null
           start_time: string | null
           status_id: string | null
@@ -475,6 +482,13 @@ export type Database = {
           relance?: string | null
           restaurant_id?: string | null
           source?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          fbclid?: string | null
+          fbc?: string | null
           space_id?: string | null
           start_time?: string | null
           status_id?: string | null
@@ -523,6 +537,13 @@ export type Database = {
           relance?: string | null
           restaurant_id?: string | null
           source?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          fbclid?: string | null
+          fbc?: string | null
           space_id?: string | null
           start_time?: string | null
           status_id?: string | null
@@ -662,6 +683,13 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           source: string | null
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_term: string | null
+          fbclid: string | null
+          fbc: string | null
           updated_at: string | null
         }
         Insert: {
@@ -681,6 +709,13 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           source?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          fbclid?: string | null
+          fbc?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -700,6 +735,13 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           source?: string | null
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          fbclid?: string | null
+          fbc?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1046,6 +1088,8 @@ export type Database = {
           tva_number: string | null
           updated_at: string | null
           website: string | null
+          meta_pixel_id: string | null
+          meta_conversions_token: string | null
         }
         Insert: {
           address?: string | null
@@ -1054,6 +1098,8 @@ export type Database = {
           facturation_email?: string | null
           id?: string
           logo_url?: string | null
+          meta_pixel_id?: string | null
+          meta_conversions_token?: string | null
           name: string
           phone?: string | null
           siret?: string | null
@@ -1069,6 +1115,8 @@ export type Database = {
           facturation_email?: string | null
           id?: string
           logo_url?: string | null
+          meta_pixel_id?: string | null
+          meta_conversions_token?: string | null
           name?: string
           phone?: string | null
           siret?: string | null

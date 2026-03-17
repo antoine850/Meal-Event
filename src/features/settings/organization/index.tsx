@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
 import { ContentSection } from '../components/content-section'
 import { useOrganization, useUpdateOrganization } from '../hooks/use-settings'
 
@@ -28,6 +30,8 @@ const organizationSchema = z.object({
   siret: z.string().optional(),
   tva_number: z.string().optional(),
   facturation_email: z.string().email('Email invalide').optional().or(z.literal('')),
+  meta_pixel_id: z.string().optional(),
+  meta_conversions_token: z.string().optional(),
 })
 
 type OrganizationFormData = z.infer<typeof organizationSchema>
@@ -48,6 +52,8 @@ export function OrganizationSettings() {
       siret: organization?.siret || '',
       tva_number: organization?.tva_number || '',
       facturation_email: organization?.facturation_email || '',
+      meta_pixel_id: organization?.meta_pixel_id || '',
+      meta_conversions_token: organization?.meta_conversions_token || '',
     },
   })
 
@@ -208,6 +214,51 @@ export function OrganizationSettings() {
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator className='my-2' />
+
+              {/* Meta / Facebook Tracking */}
+              <div>
+                <h3 className='text-sm font-medium mb-1'>Tracking Facebook (Meta)</h3>
+                <p className='text-xs text-muted-foreground mb-3'>
+                  Connectez votre Meta Pixel pour tracker automatiquement les conversions formulaire via la Conversions API.
+                </p>
+              </div>
+
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                <FormField
+                  control={form.control}
+                  name='meta_pixel_id'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meta Pixel ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder='123456789012345' {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Trouvable dans Meta Events Manager &gt; Paramètres
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='meta_conversions_token'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Conversions API Token</FormLabel>
+                      <FormControl>
+                        <Input type='password' placeholder='EAAGxxxxx...' {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Généré dans Events Manager &gt; Paramètres &gt; Conversions API
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
