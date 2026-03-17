@@ -378,8 +378,8 @@ export function PublicBookingForm({ slug }: { slug: string }) {
       </header>
 
       {/* Content */}
-      <main className="flex-1 flex flex-col min-h-0">
-        <div className="max-w-lg w-full mx-auto px-4 py-4 flex-1 flex flex-col min-h-0">
+      <main className="flex-1 overflow-y-auto min-h-0">
+        <div className="max-w-lg w-full mx-auto px-4 py-4 flex flex-col min-h-full">
           {step === 1 && <Step1 form={form} errors={errors} accentColor={accentColor} updateForm={updateForm} />}
           {step === 2 && <Step2Date form={form} errors={errors} accentColor={accentColor} updateForm={updateForm} />}
           {step === 3 && <Step3Contact form={form} errors={errors} accentColor={accentColor} updateForm={updateForm} honeypot={honeypot} setHoneypot={setHoneypot} />}
