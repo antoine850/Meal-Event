@@ -45,25 +45,6 @@ import { ImageUpload } from '@/components/ui/image-upload'
 import { useUpdateRestaurant, useSpaces, useDeleteSpace, type Restaurant, type Space } from '../hooks/use-settings'
 import { SpaceDialog } from './components/space-dialog'
 
-const RESTAURANT_COLORS = [
-  { value: '#ef4444', label: 'Rouge' },
-  { value: '#f97316', label: 'Orange' },
-  { value: '#f59e0b', label: 'Ambre' },
-  { value: '#eab308', label: 'Jaune' },
-  { value: '#84cc16', label: 'Lime' },
-  { value: '#22c55e', label: 'Vert' },
-  { value: '#10b981', label: 'Émeraude' },
-  { value: '#14b8a6', label: 'Turquoise' },
-  { value: '#06b6d4', label: 'Cyan' },
-  { value: '#0ea5e9', label: 'Bleu ciel' },
-  { value: '#3b82f6', label: 'Bleu' },
-  { value: '#6366f1', label: 'Indigo' },
-  { value: '#8b5cf6', label: 'Violet' },
-  { value: '#a855f7', label: 'Pourpre' },
-  { value: '#d946ef', label: 'Fuchsia' },
-  { value: '#ec4899', label: 'Rose' },
-]
-
 const COUNTRIES = [
   { value: 'France', label: 'France' },
   { value: 'Belgique', label: 'Belgique' },
