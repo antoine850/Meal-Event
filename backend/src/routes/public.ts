@@ -90,6 +90,8 @@ async function sendMetaConversionEvent(params: {
         body: JSON.stringify({
           data: [eventData],
           access_token: accessToken,
+          // Remove test_event_code in production once verified
+          ...(process.env.META_TEST_EVENT_CODE ? { test_event_code: process.env.META_TEST_EVENT_CODE } : {}),
         }),
       }
     )
@@ -98,7 +100,7 @@ async function sendMetaConversionEvent(params: {
     if (!response.ok) {
       console.error('[Meta CAPI] Error:', JSON.stringify(result))
     } else {
-      console.log(`[Meta CAPI] Event '${eventName}' sent successfully — events_received: ${result.events_received}`)
+      console.log(`[Meta CAPI] Event '${eventName}' sent to pixel ${pixelId} — response:`, JSON.stringify(result))
     }
   } catch (error) {
     console.error('[Meta CAPI] Network error:', error)
