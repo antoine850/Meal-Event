@@ -19,6 +19,7 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
           (table.getIsSomePageRowsSelected() && 'indeterminate')
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        onClick={(e) => e.stopPropagation()}
         aria-label='Select all'
         className='translate-y-[2px]'
       />
@@ -27,6 +28,7 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
       <Checkbox
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
+        onClick={(e) => e.stopPropagation()}
         aria-label='Select row'
         className='translate-y-[2px]'
       />

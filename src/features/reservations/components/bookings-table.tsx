@@ -21,6 +21,7 @@ import {
 import { DataTablePagination } from '@/components/data-table'
 import type { BookingWithRelations } from '../hooks/use-bookings'
 import { bookingsColumns as columns } from './bookings-columns'
+import { BookingsBulkActions } from './bookings-bulk-actions'
 
 type BookingsTableProps = {
   data: BookingWithRelations[]
@@ -115,6 +116,7 @@ export function BookingsTable({ data }: BookingsTableProps) {
         </Table>
       </div>
       <DataTablePagination table={table} className='mt-auto' />
+      <BookingsBulkActions table={table} />
     </div>
   )
 }
