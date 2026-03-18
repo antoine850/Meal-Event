@@ -53,6 +53,7 @@ export type BookingWithRelations = {
   commentaires: string | null
   date_signature_devis: string | null
   assigned_user_ids: string[] | null
+  read_at: string | null
   created_at: string
   updated_at: string
   restaurant?: { id: string; name: string; color: string | null } | null
@@ -638,6 +639,25 @@ export function useDeletePayment() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payments', data.bookingId] })
+    },
+  })
+}
+
+export function useMarkBookingAsRead() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ read_at: new Date().toISOString() } as never)
+        .eq('id', id)
+        .is('read_at', null)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
     },
   })
 }

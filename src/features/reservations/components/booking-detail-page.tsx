@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from '@tanstack/react-router'
 import { ArrowLeft, CalendarIcon, Receipt, FileText, History, Save, Trash2, UtensilsCrossed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useBooking, useQuotesByBooking, usePaymentsByBooking } from '../hooks/use-bookings'
+import { useBooking, useQuotesByBooking, usePaymentsByBooking, useMarkBookingAsRead } from '../hooks/use-bookings'
 import { useDocumentsByBooking } from '../hooks/use-documents'
 import { useBookingMenuForms } from '../hooks/use-menu-forms'
 import { BookingDetail } from './booking-detail'
@@ -36,10 +36,18 @@ export function BookingDetailPage() {
   const { data: payments = [] } = usePaymentsByBooking(id)
   const { data: documents = [] } = useDocumentsByBooking(id)
   const { data: menuForms = [] } = useBookingMenuForms(id)
+  const markAsRead = useMarkBookingAsRead()
   const [activeTab, setActiveTab] = useState(initialTab)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const bookingDetailRef = useRef<{ submitForm: () => void; deleteBooking: () => void; getIsDirty: () => boolean } | null>(null)
+
+  // Mark booking as read when opened
+  useEffect(() => {
+    if (booking && !booking.read_at) {
+      markAsRead.mutate(id)
+    }
+  }, [booking?.id])
 
   if (isLoading) {
     return (
@@ -88,11 +96,9 @@ export function BookingDetailPage() {
     <>
       <Header fixed>
         <div className='flex items-center gap-4 flex-1'>
-          <Button variant='ghost' size='sm' asChild className='gap-2'>
-            <Link to='/evenements'>
-              <ArrowLeft className='h-4 w-4' />
-              Événements
-            </Link>
+          <Button variant='ghost' size='sm' className='gap-2' onClick={() => window.history.back()}>
+            <ArrowLeft className='h-4 w-4' />
+            Événements
           </Button>
           <Tabs
             value={activeTab}

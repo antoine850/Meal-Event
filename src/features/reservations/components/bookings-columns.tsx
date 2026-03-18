@@ -40,16 +40,24 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Date' />
     ),
-    cell: ({ row }) => (
-      <div className='flex flex-col'>
-        <span className='font-medium'>
-          {format(new Date(row.original.event_date), 'dd/MM/yyyy', { locale: fr })}
-        </span>
-        <span className='text-xs text-muted-foreground'>
-          {row.original.start_time || ''}{row.original.end_time ? ` - ${row.original.end_time}` : ''}
-        </span>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const isUnread = !row.original.read_at
+      return (
+        <div className='flex items-center gap-2'>
+          {isUnread && (
+            <div className='h-2 w-2 rounded-full bg-blue-500 shrink-0' />
+          )}
+          <div className='flex flex-col'>
+            <span className={cn(isUnread ? 'font-semibold' : 'font-medium')}>
+              {format(new Date(row.original.event_date), 'dd/MM/yyyy', { locale: fr })}
+            </span>
+            <span className='text-xs text-muted-foreground'>
+              {row.original.start_time || ''}{row.original.end_time ? ` - ${row.original.end_time}` : ''}
+            </span>
+          </div>
+        </div>
+      )
+    },
   },
   {
     accessorKey: 'contact',
@@ -58,10 +66,11 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
     ),
     cell: ({ row }) => {
       const contact = row.original.contact
+      const isUnread = !row.original.read_at
       if (!contact) return <span className='text-muted-foreground'>-</span>
       return (
         <div className='flex flex-col'>
-          <span className='font-medium'>
+          <span className={cn(isUnread ? 'font-semibold' : 'font-medium')}>
             {contact.first_name} {contact.last_name || ''}
           </span>
           {contact.email && (

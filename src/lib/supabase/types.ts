@@ -443,6 +443,7 @@ export type Database = {
           start_time: string | null
           status_id: string | null
           total_amount: number | null
+          read_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -502,6 +503,7 @@ export type Database = {
           space_id?: string | null
           start_time?: string | null
           status_id?: string | null
+          read_at?: string | null
           total_amount?: number | null
           updated_at?: string | null
         }
@@ -562,6 +564,7 @@ export type Database = {
           space_id?: string | null
           start_time?: string | null
           status_id?: string | null
+          read_at?: string | null
           total_amount?: number | null
           updated_at?: string | null
         }
