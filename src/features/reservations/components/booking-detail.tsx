@@ -23,6 +23,7 @@ import {
   CreditCard,
   Receipt,
   CheckCircle,
+  Building,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -73,6 +74,7 @@ import {
   useDeleteBooking,
   useDuplicateBooking,
   useBookingStatuses,
+  useRestaurants,
   type BookingWithRelations,
   useQuotesByBooking,
   usePaymentsByBooking,
@@ -155,6 +157,11 @@ export const BookingDetail = forwardRef<
   const { mutate: sendBalance, isPending: isSendingBalance } = useSendBalance()
   const { data: fullRestaurant } = useRestaurantById(booking.restaurant_id)
   const { data: fullContact } = useContactWithCompany(booking.contact_id)
+  const { data: allRestaurants = [] } = useRestaurants()
+
+  // Change restaurant dialog state
+  const [changeRestaurantOpen, setChangeRestaurantOpen] = useState(false)
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null)
 
   // Quote editor state
   const [quoteEditorOpen, setQuoteEditorOpen] = useState(false)
@@ -422,6 +429,7 @@ export const BookingDetail = forwardRef<
   ]
 
   return (
+    <>
     <Form {...form}>
       <form id='booking-form' onSubmit={form.handleSubmit(onSubmit)}>
         <div className='grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6'>
@@ -468,6 +476,13 @@ export const BookingDetail = forwardRef<
                       }}>
                         <ExternalLink className='mr-2 h-4 w-4' />
                         Ouvrir l'espace client
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setSelectedRestaurantId(booking.restaurant_id)
+                        setChangeRestaurantOpen(true)
+                      }}>
+                        <Building className='mr-2 h-4 w-4' />
+                        Changer de restaurant
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={handleDuplicate}>
                         <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -1967,5 +1982,68 @@ export const BookingDetail = forwardRef<
         </div>
       </form>
     </Form>
+
+    {/* Change restaurant dialog */}
+    <Dialog open={changeRestaurantOpen} onOpenChange={setChangeRestaurantOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Changer de restaurant</DialogTitle>
+          <DialogDescription>
+            Sélectionnez le nouveau restaurant pour cet événement.
+          </DialogDescription>
+        </DialogHeader>
+        <div className='space-y-4 pt-2'>
+          <Select
+            value={selectedRestaurantId || ''}
+            onValueChange={setSelectedRestaurantId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder='Sélectionner un restaurant' />
+            </SelectTrigger>
+            <SelectContent>
+              {allRestaurants.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  <div className='flex items-center gap-2'>
+                    {r.color && (
+                      <div className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: r.color }} />
+                    )}
+                    {r.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className='flex justify-end gap-2'>
+            <Button variant='outline' onClick={() => setChangeRestaurantOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              disabled={!selectedRestaurantId || selectedRestaurantId === booking.restaurant_id}
+              onClick={() => {
+                if (!selectedRestaurantId) return
+                const newRestaurant = allRestaurants.find(r => r.id === selectedRestaurantId)
+                updateBooking(
+                  { id: booking.id, restaurant_id: selectedRestaurantId } as never,
+                  {
+                    onSuccess: () => {
+                      toast.success(`Restaurant changé pour ${newRestaurant?.name || 'nouveau restaurant'}`)
+                      activityLogger.log(`Restaurant changé : ${booking.restaurant?.name || '—'} → ${newRestaurant?.name || '—'}`)
+                      setChangeRestaurantOpen(false)
+                    },
+                    onError: () => {
+                      toast.error('Erreur lors du changement de restaurant')
+                    },
+                  }
+                )
+              }}
+            >
+              Confirmer
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    </>
   )
 })
