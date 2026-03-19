@@ -8,6 +8,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -20,6 +21,7 @@ import {
 import { DataTablePagination } from '@/components/data-table'
 import type { ContactWithRelations } from '../types'
 import { contactsColumns as columns } from './contacts-columns'
+import { ContactsBulkActions } from './contacts-bulk-actions'
 
 type ContactsTableProps = {
   data: ContactWithRelations[]
@@ -29,6 +31,7 @@ export function ContactsTable({ data }: ContactsTableProps) {
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const navigate = useNavigate()
 
   const table = useReactTable({
     data,
@@ -82,6 +85,22 @@ export function ContactsTable({ data }: ContactsTableProps) {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
+                  className='cursor-pointer'
+                  onClick={(e) => {
+                    // Don't navigate if clicking on checkbox or action button
+                    const target = e.target as HTMLElement
+                    if (
+                      target.closest('[role="checkbox"]') ||
+                      target.closest('button') ||
+                      target.closest('a')
+                    ) {
+                      return
+                    }
+                    navigate({
+                      to: '/contacts/contact/$id',
+                      params: { id: row.original.id },
+                    })
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
@@ -113,6 +132,7 @@ export function ContactsTable({ data }: ContactsTableProps) {
         </Table>
       </div>
       <DataTablePagination table={table} className='mt-auto' />
+      <ContactsBulkActions table={table} />
     </div>
   )
 }

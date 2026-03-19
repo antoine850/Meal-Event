@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { Loader2, MoreHorizontal, Pencil, Plus, Trash2, Building } from 'lucide-react'
+import {
+  type SortingState,
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
+import { Loader2, Plus, Trash2, Building } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -16,39 +19,147 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Search as SearchIcon } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { ProfileDropdown } from '@/components/profile-dropdown'
-import { useCompanies, useDeleteCompany, type Company } from './hooks/use-companies'
+import { DataTableBulkActions as BulkActionsToolbar, DataTablePagination } from '@/components/data-table'
+import { useCompanies, type Company } from './hooks/use-companies'
 import { CompanyDialog } from './company-dialog'
-import { ConfirmDialog } from '@/components/confirm-dialog'
+import { supabase } from '@/lib/supabase'
+import { useQueryClient } from '@tanstack/react-query'
+
+const companiesColumns: ColumnDef<Company>[] = [
+  {
+    id: 'select',
+    header: ({ table }) => (
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && 'indeterminate')
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label='Select all'
+        className='translate-y-[2px]'
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        onClick={(e) => e.stopPropagation()}
+        aria-label='Select row'
+        className='translate-y-[2px]'
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+    meta: { className: 'w-12' },
+  },
+  {
+    accessorKey: 'name',
+    header: 'Nom',
+    cell: ({ row }) => <span className='font-medium'>{row.original.name}</span>,
+  },
+  {
+    accessorKey: 'phone',
+    header: 'Téléphone',
+    cell: ({ row }) => row.original.phone || '-',
+  },
+  {
+    accessorKey: 'billing_email',
+    header: 'Email Facturation',
+    cell: ({ row }) => row.original.billing_email || '-',
+  },
+  {
+    accessorKey: 'billing_city',
+    header: 'Ville',
+    cell: ({ row }) => row.original.billing_city || '-',
+    meta: { className: 'hidden md:table-cell' },
+  },
+]
+
+function CompaniesBulkActions({ table }: { table: ReturnType<typeof useReactTable<Company>> }) {
+  const queryClient = useQueryClient()
+  const selectedRows = table.getFilteredSelectedRowModel().rows
+
+  const handleBulkDelete = async () => {
+    const ids = selectedRows.map((row) => row.original.id)
+    const count = ids.length
+
+    if (!window.confirm(`Supprimer ${count} société${count > 1 ? 's' : ''} ? Cette action est irréversible.`)) {
+      return
+    }
+
+    try {
+      const { error } = await (supabase as any)
+        .from('companies')
+        .delete()
+        .in('id', ids)
+
+      if (error) throw error
+
+      table.resetRowSelection()
+      queryClient.invalidateQueries({ queryKey: ['companies'] })
+      toast.success(`${count} société${count > 1 ? 's' : ''} supprimée${count > 1 ? 's' : ''}.`)
+    } catch {
+      toast.error('Erreur lors de la suppression.')
+    }
+  }
+
+  return (
+    <BulkActionsToolbar table={table} entityName='société'>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant='destructive'
+            size='icon'
+            onClick={handleBulkDelete}
+            className='size-8'
+            aria-label='Supprimer'
+          >
+            <Trash2 />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Supprimer</p>
+        </TooltipContent>
+      </Tooltip>
+    </BulkActionsToolbar>
+  )
+}
 
 export function CompaniesPage() {
   const { data: companies = [], isLoading } = useCompanies()
-  const { mutate: deleteCompany, isPending: isDeleting } = useDeleteCompany()
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [rowSelection, setRowSelection] = useState({})
+  const [sorting, setSorting] = useState<SortingState>([])
 
-  const handleDelete = (id: string) => {
-    setDeleteTarget(id)
-  }
+  const table = useReactTable({
+    data: companies,
+    columns: companiesColumns,
+    state: {
+      sorting,
+      rowSelection,
+    },
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return
-    deleteCompany(deleteTarget, {
-      onSuccess: () => {
-        toast.success('Société supprimée')
-        setDeleteTarget(null)
-      },
-      onError: () => toast.error('Erreur lors de la suppression'),
-    })
-  }
-
-  const handleEdit = (company: Company) => {
+  const handleRowClick = (company: Company) => {
     setEditingCompany(company)
     setIsDialogOpen(true)
   }
@@ -86,58 +197,65 @@ export function CompaniesPage() {
             <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
           </div>
         ) : (
-          <div className='rounded-md border bg-card'>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Téléphone</TableHead>
-                  <TableHead>Email Facturation</TableHead>
-                  <TableHead className='hidden md:table-cell'>Ville</TableHead>
-                  <TableHead className='w-[70px]'></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {companies.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className='text-center text-muted-foreground py-8'>
-                      Aucune société trouvée
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  companies.map((company) => (
-                    <TableRow key={company.id}>
-                      <TableCell className='font-medium'>{company.name}</TableCell>
-                      <TableCell>{company.phone || '-'}</TableCell>
-                      <TableCell>{company.billing_email || '-'}</TableCell>
-                      <TableCell className='hidden md:table-cell'>{company.billing_city || '-'}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant='ghost' size='icon' className='h-8 w-8'>
-                              <MoreHorizontal className='h-4 w-4' />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align='end'>
-                            <DropdownMenuItem onClick={() => handleEdit(company)}>
-                              <Pencil className='mr-2 h-4 w-4' />
-                              Modifier
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className='text-destructive'
-                              onClick={() => handleDelete(company.id)}
-                            >
-                              <Trash2 className='mr-2 h-4 w-4' />
-                              Supprimer
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+          <div className='flex flex-1 flex-col gap-4'>
+            <div className='rounded-md border bg-card'>
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead
+                          key={header.id}
+                          className={header.column.columnDef.meta?.className}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        data-state={row.getIsSelected() && 'selected'}
+                        className='cursor-pointer'
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement
+                          if (
+                            target.closest('[role="checkbox"]') ||
+                            target.closest('button')
+                          ) {
+                            return
+                          }
+                          handleRowClick(row.original)
+                        }}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell
+                            key={cell.id}
+                            className={cell.column.columnDef.meta?.className}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={companiesColumns.length} className='text-center text-muted-foreground py-8'>
+                        Aucune société trouvée
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <DataTablePagination table={table} className='mt-auto' />
+            <CompaniesBulkActions table={table} />
           </div>
         )}
       </Main>
@@ -146,18 +264,6 @@ export function CompaniesPage() {
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         company={editingCompany}
-      />
-
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
-        title='Supprimer la société'
-        desc='Êtes-vous sûr de vouloir supprimer cette société ?'
-        confirmText='Supprimer'
-        cancelBtnText='Annuler'
-        destructive
-        isLoading={isDeleting}
-        handleConfirm={confirmDelete}
       />
     </>
   )
