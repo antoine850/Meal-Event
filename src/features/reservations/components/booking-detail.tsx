@@ -2027,7 +2027,7 @@ export const BookingDetail = forwardRef<
                   {
                     onSuccess: () => {
                       toast.success(`Restaurant changé pour ${newRestaurant?.name || 'nouveau restaurant'}`)
-                      activityLogger.log(`Restaurant changé : ${booking.restaurant?.name || '—'} → ${newRestaurant?.name || '—'}`)
+                      activityLogger.bookingUpdated(booking.id, { restaurant: { old: booking.restaurant?.name || '—', new: newRestaurant?.name || '—' } })
                       setChangeRestaurantOpen(false)
                     },
                     onError: () => {
