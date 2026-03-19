@@ -20,6 +20,8 @@ export type Organization = {
   facturation_email: string | null
   meta_pixel_id: string | null
   meta_conversions_token: string | null
+  api_key_prefix: string | null
+  api_key_last_used_at: string | null
   created_at: string
   updated_at: string
 }
@@ -64,6 +66,53 @@ export function useUpdateOrganization() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization'] })
       queryClient.invalidateQueries({ queryKey: ['current-user'] })
+    },
+  })
+}
+
+export function useGenerateApiKey() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (orgId: string) => {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/organizations/${orgId}/generate-api-key`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+        }
+      )
+      if (!response.ok) throw new Error('Failed to generate API key')
+      return response.json() as Promise<{ api_key: string; prefix: string }>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization'] })
+    },
+  })
+}
+
+export function useRevokeApiKey() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (orgId: string) => {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/organizations/${orgId}/revoke-api-key`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+        }
+      )
+      if (!response.ok) throw new Error('Failed to revoke API key')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization'] })
     },
   })
 }

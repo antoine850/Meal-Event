@@ -13,6 +13,7 @@ import { paymentsRouter } from './routes/payments.js'
 import { webhooksRouter } from './routes/webhooks.js'
 import { membersRouter, membersPublicRouter } from './routes/members.js'
 import { publicRouter } from './routes/public.js'
+import { apiV1Router } from './routes/api-v1.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -36,6 +37,9 @@ const allowedOrigins = [
 
 // Public API routes have open CORS (embeddable from any restaurant website)
 app.use('/api/public', cors({ origin: true, credentials: false }))
+
+// API v1 routes have open CORS (used by third-party integrations)
+app.use('/api/v1', cors({ origin: true, credentials: false }))
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -70,6 +74,7 @@ app.get('/health', (_req: express.Request, res: express.Response) => {
 app.use('/api/webhooks', webhooksRouter)
 app.use('/api/invitations', membersPublicRouter)
 app.use('/api/public', publicRouter)
+app.use('/api/v1', apiV1Router)
 
 // All other API routes require authentication
 app.use('/api/organizations', requireAuth, organizationsRouter)

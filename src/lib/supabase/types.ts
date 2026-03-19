@@ -1108,6 +1108,9 @@ export type Database = {
           website: string | null
           meta_pixel_id: string | null
           meta_conversions_token: string | null
+          api_key_hash: string | null
+          api_key_prefix: string | null
+          api_key_last_used_at: string | null
         }
         Insert: {
           address?: string | null
@@ -1118,6 +1121,9 @@ export type Database = {
           logo_url?: string | null
           meta_pixel_id?: string | null
           meta_conversions_token?: string | null
+          api_key_hash?: string | null
+          api_key_prefix?: string | null
+          api_key_last_used_at?: string | null
           name: string
           phone?: string | null
           siret?: string | null
@@ -1135,6 +1141,9 @@ export type Database = {
           logo_url?: string | null
           meta_pixel_id?: string | null
           meta_conversions_token?: string | null
+          api_key_hash?: string | null
+          api_key_prefix?: string | null
+          api_key_last_used_at?: string | null
           name?: string
           phone?: string | null
           siret?: string | null
