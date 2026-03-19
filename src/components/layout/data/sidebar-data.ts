@@ -15,6 +15,7 @@ import {
   ShoppingCart,
   ChefHat,
   UserPlus,
+  Code,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -105,6 +106,11 @@ export const sidebarData: SidebarData = {
               title: 'Affichage',
               url: '/settings/display',
               icon: Monitor,
+            },
+            {
+              title: 'API',
+              url: '/settings/api-docs',
+              icon: Code,
             },
           ],
         },
