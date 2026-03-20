@@ -333,6 +333,7 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         guests_count,
         event_type,
         occasion: occasion.trim(),
+        format_souhaite: event_type === 'repas-assis' ? 'Repas Assis' : event_type === 'cocktail' ? 'Cocktail' : event_type === 'autre' ? 'Autre' : event_type,
         source: contactSource,
         ...utmFields,
         allergies_regimes: allergies ? allergies.trim() : null,

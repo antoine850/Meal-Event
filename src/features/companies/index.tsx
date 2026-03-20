@@ -85,6 +85,14 @@ const companiesColumns: ColumnDef<Company>[] = [
     cell: ({ row }) => row.original.billing_city || '-',
     meta: { className: 'hidden md:table-cell' },
   },
+  {
+    accessorKey: 'created_at',
+    header: 'Créé le',
+    cell: ({ row }) => {
+      if (!row.original.created_at) return '-'
+      return new Date(row.original.created_at).toLocaleDateString('fr-FR')
+    },
+  },
 ]
 
 function CompaniesBulkActions({ table }: { table: ReturnType<typeof useReactTable<Company>> }) {
