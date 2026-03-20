@@ -25,6 +25,16 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Search as SearchIcon } from '@/components/search'
@@ -98,14 +108,11 @@ const companiesColumns: ColumnDef<Company>[] = [
 function CompaniesBulkActions({ table }: { table: ReturnType<typeof useReactTable<Company>> }) {
   const queryClient = useQueryClient()
   const selectedRows = table.getFilteredSelectedRowModel().rows
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const handleBulkDelete = async () => {
     const ids = selectedRows.map((row) => row.original.id)
     const count = ids.length
-
-    if (!window.confirm(`Supprimer ${count} société${count > 1 ? 's' : ''} ? Cette action est irréversible.`)) {
-      return
-    }
 
     try {
       const { error } = await (supabase as any)
@@ -123,25 +130,49 @@ function CompaniesBulkActions({ table }: { table: ReturnType<typeof useReactTabl
     }
   }
 
+  const count = selectedRows.length
+
   return (
-    <BulkActionsToolbar table={table} entityName='société'>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant='destructive'
-            size='icon'
-            onClick={handleBulkDelete}
-            className='size-8'
-            aria-label='Supprimer'
-          >
-            <Trash2 />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Supprimer</p>
-        </TooltipContent>
-      </Tooltip>
-    </BulkActionsToolbar>
+    <>
+      <BulkActionsToolbar table={table} entityName='société'>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant='destructive'
+              size='icon'
+              onClick={() => setDeleteDialogOpen(true)}
+              className='size-8'
+              aria-label='Supprimer'
+            >
+              <Trash2 />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Supprimer</p>
+          </TooltipContent>
+        </Tooltip>
+      </BulkActionsToolbar>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Supprimer {count} société{count > 1 ? 's' : ''} ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              onClick={handleBulkDelete}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

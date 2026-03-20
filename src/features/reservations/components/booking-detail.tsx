@@ -25,6 +25,16 @@ import {
   CheckCircle,
   Building,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -166,6 +176,7 @@ export const BookingDetail = forwardRef<
   // Quote editor state
   const [quoteEditorOpen, setQuoteEditorOpen] = useState(false)
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
+  const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null)
 
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -1259,14 +1270,7 @@ export const BookingDetail = forwardRef<
                                   
                                   <DropdownMenuItem
                                     className='text-destructive focus:text-destructive'
-                                    onClick={() => {
-                                      if (confirm('Supprimer ce devis ?')) {
-                                        deleteQuoteMutation({ id: quote.id, bookingId: booking.id }, {
-                                          onSuccess: () => toast.success('Devis supprimé'),
-                                          onError: () => toast.error('Erreur lors de la suppression'),
-                                        })
-                                      }
-                                    }}
+                                    onClick={() => setDeleteQuoteId(quote.id)}
                                   >
                                     <TrashIcon className='h-3.5 w-3.5 mr-2' />
                                     Supprimer
@@ -2043,6 +2047,34 @@ export const BookingDetail = forwardRef<
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!deleteQuoteId} onOpenChange={(open) => { if (!open) setDeleteQuoteId(null) }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Supprimer ce devis ?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Cette action est irréversible. Le devis sera définitivement supprimé.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogAction
+            className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            onClick={() => {
+              if (deleteQuoteId) {
+                deleteQuoteMutation({ id: deleteQuoteId, bookingId: booking.id }, {
+                  onSuccess: () => toast.success('Devis supprimé'),
+                  onError: () => toast.error('Erreur lors de la suppression'),
+                })
+              }
+              setDeleteQuoteId(null)
+            }}
+          >
+            Supprimer
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     </>
   )

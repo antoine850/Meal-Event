@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { type Table } from '@tanstack/react-table'
 import { CircleArrowUp, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,6 +14,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
 import { supabase } from '@/lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
@@ -27,6 +38,7 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
   const queryClient = useQueryClient()
   const { data: statuses = [] } = useBookingStatuses()
   const selectedRows = table.getFilteredSelectedRowModel().rows
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const handleBulkStatusChange = async (statusId: string, statusName: string) => {
     const ids = selectedRows.map((row) => row.original.id)
@@ -52,10 +64,6 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
     const ids = selectedRows.map((row) => row.original.id)
     const count = ids.length
 
-    if (!window.confirm(`Supprimer ${count} événement${count > 1 ? 's' : ''} ? Cette action est irréversible.`)) {
-      return
-    }
-
     try {
       // Delete related email_logs first (FK without CASCADE)
       await supabase
@@ -78,58 +86,82 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
     }
   }
 
+  const count = selectedRows.length
+
   return (
-    <BulkActionsToolbar table={table} entityName='événement'>
-      <DropdownMenu>
+    <>
+      <BulkActionsToolbar table={table} entityName='événement'>
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='outline'
+                  size='icon'
+                  className='size-8'
+                  aria-label='Changer le statut'
+                >
+                  <CircleArrowUp />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Changer le statut</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent sideOffset={14}>
+            {statuses.map((status) => (
+              <DropdownMenuItem
+                key={status.id}
+                onClick={() => handleBulkStatusChange(status.id, status.name)}
+              >
+                <div
+                  className='h-2 w-2 rounded-full shrink-0'
+                  style={{ backgroundColor: status.color }}
+                />
+                {status.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Tooltip>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='outline'
-                size='icon'
-                className='size-8'
-                aria-label='Changer le statut'
-              >
-                <CircleArrowUp />
-              </Button>
-            </DropdownMenuTrigger>
+            <Button
+              variant='destructive'
+              size='icon'
+              onClick={() => setDeleteDialogOpen(true)}
+              className='size-8'
+              aria-label='Supprimer'
+            >
+              <Trash2 />
+            </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Changer le statut</p>
+            <p>Supprimer</p>
           </TooltipContent>
         </Tooltip>
-        <DropdownMenuContent sideOffset={14}>
-          {statuses.map((status) => (
-            <DropdownMenuItem
-              key={status.id}
-              onClick={() => handleBulkStatusChange(status.id, status.name)}
-            >
-              <div
-                className='h-2 w-2 rounded-full shrink-0'
-                style={{ backgroundColor: status.color }}
-              />
-              {status.name}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      </BulkActionsToolbar>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant='destructive'
-            size='icon'
-            onClick={handleBulkDelete}
-            className='size-8'
-            aria-label='Supprimer'
-          >
-            <Trash2 />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Supprimer</p>
-        </TooltipContent>
-      </Tooltip>
-    </BulkActionsToolbar>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Supprimer {count} événement{count > 1 ? 's' : ''} ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              onClick={handleBulkDelete}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

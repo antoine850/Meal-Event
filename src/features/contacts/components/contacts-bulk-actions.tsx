@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { type Table } from '@tanstack/react-table'
 import { Trash2, UserRound, Globe } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,6 +14,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
 import { supabase } from '@/lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
@@ -38,6 +49,7 @@ export function ContactsBulkActions({ table }: ContactsBulkActionsProps) {
   const queryClient = useQueryClient()
   const { data: users = [] } = useOrganizationUsers()
   const selectedRows = table.getFilteredSelectedRowModel().rows
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const handleBulkAssign = async (userId: string | null, userName: string) => {
     const ids = selectedRows.map((row) => row.original.id)
@@ -87,10 +99,6 @@ export function ContactsBulkActions({ table }: ContactsBulkActionsProps) {
     const ids = selectedRows.map((row) => row.original.id)
     const count = ids.length
 
-    if (!window.confirm(`Supprimer ${count} contact${count > 1 ? 's' : ''} ? Cette action est irréversible.`)) {
-      return
-    }
-
     try {
       const { error } = await supabase
         .from('contacts')
@@ -107,90 +115,114 @@ export function ContactsBulkActions({ table }: ContactsBulkActionsProps) {
     }
   }
 
+  const count = selectedRows.length
+
   return (
-    <BulkActionsToolbar table={table} entityName='contact'>
-      {/* Assign commercial */}
-      <DropdownMenu>
+    <>
+      <BulkActionsToolbar table={table} entityName='contact'>
+        {/* Assign commercial */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='outline'
+                  size='icon'
+                  className='size-8'
+                  aria-label='Affecter un commercial'
+                >
+                  <UserRound />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Affecter un commercial</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent sideOffset={14}>
+            <DropdownMenuItem onClick={() => handleBulkAssign(null, '')}>
+              <span className='text-muted-foreground'>Aucun (retirer)</span>
+            </DropdownMenuItem>
+            {users.map((user) => (
+              <DropdownMenuItem
+                key={user.id}
+                onClick={() => handleBulkAssign(user.id, `${user.first_name} ${user.last_name}`)}
+              >
+                {user.first_name} {user.last_name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Change source */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='outline'
+                  size='icon'
+                  className='size-8'
+                  aria-label='Changer la source'
+                >
+                  <Globe />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Changer la source</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent sideOffset={14}>
+            {SOURCES.map((source) => (
+              <DropdownMenuItem
+                key={source}
+                onClick={() => handleBulkSource(source)}
+              >
+                {source}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Delete */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='outline'
-                size='icon'
-                className='size-8'
-                aria-label='Affecter un commercial'
-              >
-                <UserRound />
-              </Button>
-            </DropdownMenuTrigger>
+            <Button
+              variant='destructive'
+              size='icon'
+              onClick={() => setDeleteDialogOpen(true)}
+              className='size-8'
+              aria-label='Supprimer'
+            >
+              <Trash2 />
+            </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Affecter un commercial</p>
+            <p>Supprimer</p>
           </TooltipContent>
         </Tooltip>
-        <DropdownMenuContent sideOffset={14}>
-          <DropdownMenuItem onClick={() => handleBulkAssign(null, '')}>
-            <span className='text-muted-foreground'>Aucun (retirer)</span>
-          </DropdownMenuItem>
-          {users.map((user) => (
-            <DropdownMenuItem
-              key={user.id}
-              onClick={() => handleBulkAssign(user.id, `${user.first_name} ${user.last_name}`)}
-            >
-              {user.first_name} {user.last_name}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      </BulkActionsToolbar>
 
-      {/* Change source */}
-      <DropdownMenu>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='outline'
-                size='icon'
-                className='size-8'
-                aria-label='Changer la source'
-              >
-                <Globe />
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Changer la source</p>
-          </TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent sideOffset={14}>
-          {SOURCES.map((source) => (
-            <DropdownMenuItem
-              key={source}
-              onClick={() => handleBulkSource(source)}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Supprimer {count} contact{count > 1 ? 's' : ''} ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              onClick={handleBulkDelete}
             >
-              {source}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Delete */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant='destructive'
-            size='icon'
-            onClick={handleBulkDelete}
-            className='size-8'
-            aria-label='Supprimer'
-          >
-            <Trash2 />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Supprimer</p>
-        </TooltipContent>
-      </Tooltip>
-    </BulkActionsToolbar>
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
