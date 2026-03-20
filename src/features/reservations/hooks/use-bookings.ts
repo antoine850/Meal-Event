@@ -232,6 +232,12 @@ export function useDeleteBooking() {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Delete related email_logs first (FK without CASCADE)
+      await supabase
+        .from('email_logs')
+        .delete()
+        .eq('booking_id', id)
+
       const { error } = await supabase
         .from('bookings')
         .delete()

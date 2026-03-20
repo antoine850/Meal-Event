@@ -114,6 +114,12 @@ bookingsRouter.patch('/:id', async (req: Request, res: Response) => {
 // DELETE /api/bookings/:id
 bookingsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
+    // Delete related email_logs first (FK without CASCADE)
+    await supabase
+      .from('email_logs')
+      .delete()
+      .eq('booking_id', req.params.id)
+
     const { error } = await supabase
       .from('bookings')
       .delete()
