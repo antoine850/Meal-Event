@@ -174,8 +174,7 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
         ) : (
           <Button size='sm'>
             <Plus className='mr-2 h-4 w-4' />
-            <span className='hidden md:inline'>Nouvel événement</span>
-            <span className='md:hidden'>Nouveau</span>
+            Nouveau
           </Button>
         )}
       </DialogTrigger>

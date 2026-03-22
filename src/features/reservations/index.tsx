@@ -1,10 +1,8 @@
 import { useState, useMemo, useCallback } from 'react'
 import { type DateRange } from 'react-day-picker'
-import { startOfWeek, endOfWeek, addWeeks, subWeeks, format } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { Cross2Icon } from '@radix-ui/react-icons'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, List, Loader2 } from 'lucide-react'
+import { Calendar as CalendarIcon, List, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -164,59 +162,17 @@ export function Reservations() {
           />
           <div className='flex flex-wrap gap-2'>
             {mainView === 'list' && (
-              <div className='flex items-center gap-1 border rounded-md px-1'>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  className='h-7 w-7'
-                  onClick={() => {
-                    const current = dateRange?.from ? new Date(dateRange.from) : new Date()
-                    const prevWeek = subWeeks(current, 1)
-                    const ws = startOfWeek(prevWeek, { weekStartsOn: 1 })
-                    const we = endOfWeek(prevWeek, { weekStartsOn: 1 })
-                    setSearch({ from: ws.toISOString(), to: we.toISOString() })
-                  }}
-                >
-                  <ChevronLeft className='h-4 w-4' />
-                </Button>
-                <button
-                  className='text-xs font-medium px-1 hover:underline'
-                  onClick={() => {
-                    const ws = startOfWeek(new Date(), { weekStartsOn: 1 })
-                    const we = endOfWeek(new Date(), { weekStartsOn: 1 })
-                    setSearch({ from: ws.toISOString(), to: we.toISOString() })
-                  }}
-                >
-                  {dateRange?.from
-                    ? `${format(new Date(dateRange.from), 'd MMM', { locale: fr })} - ${format(dateRange.to ? new Date(dateRange.to) : endOfWeek(new Date(dateRange.from), { weekStartsOn: 1 }), 'd MMM', { locale: fr })}`
-                    : 'Semaine'}
-                </button>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  className='h-7 w-7'
-                  onClick={() => {
-                    const current = dateRange?.from ? new Date(dateRange.from) : new Date()
-                    const nextWeek = addWeeks(current, 1)
-                    const ws = startOfWeek(nextWeek, { weekStartsOn: 1 })
-                    const we = endOfWeek(nextWeek, { weekStartsOn: 1 })
-                    setSearch({ from: ws.toISOString(), to: we.toISOString() })
-                  }}
-                >
-                  <ChevronRight className='h-4 w-4' />
-                </Button>
-              </div>
+              <DateFilter
+                value={dateRange}
+                onChange={(range) => {
+                  setSearch({
+                    from: range?.from ? range.from.toISOString() : undefined,
+                    to: range?.to ? range.to.toISOString() : undefined,
+                  })
+                }}
+                placeholder="Date d'événement"
+              />
             )}
-            <DateFilter
-              value={dateRange}
-              onChange={(range) => {
-                setSearch({
-                  from: range?.from ? range.from.toISOString() : undefined,
-                  to: range?.to ? range.to.toISOString() : undefined,
-                })
-              }}
-              placeholder="Date d'événement"
-            />
             <FacetedFilter
               title='Commercial'
               options={users.map(u => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}

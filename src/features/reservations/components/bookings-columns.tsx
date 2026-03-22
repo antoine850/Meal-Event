@@ -83,6 +83,27 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
     },
   },
   {
+    accessorKey: 'status',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Statut' />
+    ),
+    cell: ({ row }) => {
+      const status = row.original.status
+      if (!status) return <span className='text-muted-foreground'>-</span>
+      return (
+        <Badge
+          variant='outline'
+          className={cn('text-xs', status.color)}
+        >
+          {status.name}
+        </Badge>
+      )
+    },
+    filterFn: (row, _id, value) => {
+      return value.includes(row.original.status?.slug)
+    },
+  },
+  {
     accessorKey: 'event_type',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Type' />
@@ -172,27 +193,6 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
         {row.original.created_at ? format(new Date(row.original.created_at), 'dd/MM/yyyy', { locale: fr }) : '-'}
       </span>
     ),
-  },
-  {
-    accessorKey: 'status',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Statut' />
-    ),
-    cell: ({ row }) => {
-      const status = row.original.status
-      if (!status) return <span className='text-muted-foreground'>-</span>
-      return (
-        <Badge
-          variant='outline'
-          className={cn('text-xs', status.color)}
-        >
-          {status.name}
-        </Badge>
-      )
-    },
-    filterFn: (row, _id, value) => {
-      return value.includes(row.original.status?.slug)
-    },
   },
   {
     id: 'actions',

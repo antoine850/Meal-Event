@@ -30,7 +30,7 @@ type BookingsTableProps = {
 export function BookingsTable({ data }: BookingsTableProps) {
   const navigate = useNavigate()
   const [rowSelection, setRowSelection] = useState({})
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
   const table = useReactTable({
