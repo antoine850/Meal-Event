@@ -154,6 +154,26 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
     ),
   },
   {
+    accessorKey: 'source',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Source' />
+    ),
+    cell: ({ row }) => (
+      <span className='text-sm'>{row.original.source || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'created_at',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Créé le' />
+    ),
+    cell: ({ row }) => (
+      <span className='text-sm text-muted-foreground'>
+        {row.original.created_at ? format(new Date(row.original.created_at), 'dd/MM/yyyy', { locale: fr }) : '-'}
+      </span>
+    ),
+  },
+  {
     accessorKey: 'status',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Statut' />
