@@ -74,7 +74,7 @@ export function useBookings() {
         .select(`
           *,
           restaurant:restaurants(id, name, color),
-          contact:contacts(id, first_name, last_name, email, phone, company:companies(id, name)),
+          contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
           status:statuses(id, name, color, slug),
           assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
         `)
@@ -99,7 +99,7 @@ export function useBooking(id: string) {
         .select(`
           *,
           restaurant:restaurants(id, name, color),
-          contact:contacts(id, first_name, last_name, email, phone, company:companies(id, name)),
+          contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
           status:statuses(id, name, color, slug),
           assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
         `)

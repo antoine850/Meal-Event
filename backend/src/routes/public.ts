@@ -214,7 +214,9 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
     const orgId = restaurant.organization_id
 
     // Determine source: if utm_source is present, use it (e.g. 'facebook'), otherwise 'website'
-    const contactSource = utm_source || 'website'
+    // Normalize common abbreviations
+    const normalizedUtmSource = utm_source === 'fb' ? 'facebook' : utm_source === 'ig' ? 'instagram' : utm_source
+    const contactSource = normalizedUtmSource || 'website'
 
     // UTM fields to store on contact & booking
     const utmFields = {

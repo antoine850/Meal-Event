@@ -557,6 +557,16 @@ export const BookingDetail = forwardRef<
                     {booking.contact.email}
                   </div>
                 )}
+                {(booking.contact?.source || booking.contact?.created_at) && (
+                  <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1 border-t'>
+                    {booking.contact?.source && (
+                      <span>Source : <span className='font-medium text-foreground'>{booking.contact.source}</span></span>
+                    )}
+                    {booking.contact?.created_at && (
+                      <span>Créé le : <span className='font-medium text-foreground'>{format(new Date(booking.contact.created_at), 'dd/MM/yyyy', { locale: fr })}</span></span>
+                    )}
+                  </div>
+                )}
                 {booking.contact_id && (
                   <Button variant='link' size='sm' asChild className='px-0 h-auto text-xs'>
                     <Link to='/contacts/contact/$id' params={{ id: booking.contact_id }}>
