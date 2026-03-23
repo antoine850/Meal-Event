@@ -584,15 +584,15 @@ function buildDocDefinition(
   // TOTALS SECTION with TVA breakdown
   // ══════════════════════════════════════════════════════════════════
   
-  // Calculate TVA by rate
+  // Calculate TVA by rate (round per item to match line totals)
   const tvaByRate: Record<number, { ht: number; tva: number }> = {}
   for (const item of items) {
     const rate = item.tva_rate || 20
-    const ht = item.total_ht || 0
-    const tva = ht * (rate / 100)
+    const ht = Math.round((item.total_ht || 0) * 100) / 100
+    const tva = Math.round(ht * (rate / 100) * 100) / 100
     if (!tvaByRate[rate]) tvaByRate[rate] = { ht: 0, tva: 0 }
-    tvaByRate[rate].ht += ht
-    tvaByRate[rate].tva += tva
+    tvaByRate[rate].ht = Math.round((tvaByRate[rate].ht + ht) * 100) / 100
+    tvaByRate[rate].tva = Math.round((tvaByRate[rate].tva + tva) * 100) / 100
   }
 
   if (documentType === 'devis') {

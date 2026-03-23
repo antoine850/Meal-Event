@@ -678,8 +678,8 @@ export function useAddQuoteItem() {
       position?: number
       itemType?: string
     }) => {
-      const totalHt = quantity * unitPrice - (discountAmount || 0)
-      const totalTtc = totalHt * (1 + tvaRate / 100)
+      const totalHt = Math.round((quantity * unitPrice - (discountAmount || 0)) * 100) / 100
+      const totalTtc = Math.round(totalHt * (1 + tvaRate / 100) * 100) / 100
 
       const { data, error } = await supabase
         .from('quote_items')
@@ -739,8 +739,8 @@ export function useUpdateQuoteItem() {
         const t = tvaRate ?? (current as any)?.tva_rate ?? 20
         const d = discountAmount ?? (current as any)?.discount_amount ?? 0
 
-        const totalHt = q * p - d
-        const totalTtc = totalHt * (1 + t / 100)
+        const totalHt = Math.round((q * p - d) * 100) / 100
+        const totalTtc = Math.round(totalHt * (1 + t / 100) * 100) / 100
 
         updates = { ...updates, total_ht: totalHt, total_ttc: totalTtc } as any
       }
@@ -799,11 +799,15 @@ async function recalculateQuoteTotals(quoteId: string) {
   let totalTva = 0
 
   for (const item of productItems) {
-    const itemHt = (item.quantity || 0) * (item.unit_price || 0) - (item.discount_amount || 0)
-    const itemTva = itemHt * ((item.tva_rate || 0) / 100)
+    const itemHt = Math.round(((item.quantity || 0) * (item.unit_price || 0) - (item.discount_amount || 0)) * 100) / 100
+    const itemTva = Math.round(itemHt * ((item.tva_rate || 0) / 100) * 100) / 100
     totalHt += itemHt
     totalTva += itemTva
   }
+
+  // Round accumulated totals to avoid floating-point drift
+  totalHt = Math.round(totalHt * 100) / 100
+  totalTva = Math.round(totalTva * 100) / 100
 
   // Apply discount_percentage
   const { data: quote } = await supabase

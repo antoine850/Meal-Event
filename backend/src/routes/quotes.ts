@@ -1083,11 +1083,14 @@ async function recalculateQuoteTotals(quoteId: string) {
   let totalTva = 0
 
   for (const item of productItems) {
-    const itemTotalHt = (item.unit_price * item.quantity) - (item.discount_amount || 0)
-    const itemTva = itemTotalHt * (item.tva_rate / 100)
+    const itemTotalHt = Math.round(((item.unit_price * item.quantity) - (item.discount_amount || 0)) * 100) / 100
+    const itemTva = Math.round(itemTotalHt * (item.tva_rate / 100) * 100) / 100
     totalHt += itemTotalHt
     totalTva += itemTva
   }
+
+  totalHt = Math.round(totalHt * 100) / 100
+  totalTva = Math.round(totalTva * 100) / 100
 
   // Apply discount_percentage
   const { data: quote } = await supabase

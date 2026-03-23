@@ -434,13 +434,13 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const extras = items.filter(item => item.item_type === 'extra')
 
   // Calculate totals (products only, not extras), applying quote-level discount
-  const rawTotalHt = products.reduce((sum, item) => sum + ((item.total_ht as number) || 0), 0)
-  const rawTotalTtc = products.reduce((sum, item) => sum + ((item.total_ttc as number) || 0), 0)
+  const rawTotalHt = Math.round(products.reduce((sum, item) => sum + ((item.total_ht as number) || 0), 0) * 100) / 100
+  const rawTotalTtc = Math.round(products.reduce((sum, item) => sum + ((item.total_ttc as number) || 0), 0) * 100) / 100
   const discountMultiplier = discountPercentage > 0 ? (1 - discountPercentage / 100) : 1
-  const totalHt = rawTotalHt * discountMultiplier
-  const totalTtc = rawTotalTtc * discountMultiplier
-  const depositAmount = totalTtc * (depositPercentage / 100)
-  const balanceAmount = totalTtc - depositAmount
+  const totalHt = Math.round(rawTotalHt * discountMultiplier * 100) / 100
+  const totalTtc = Math.round(rawTotalTtc * discountMultiplier * 100) / 100
+  const depositAmount = Math.round(totalTtc * (depositPercentage / 100) * 100) / 100
+  const balanceAmount = Math.round((totalTtc - depositAmount) * 100) / 100
 
   // Build preview data
   const previewData = {
