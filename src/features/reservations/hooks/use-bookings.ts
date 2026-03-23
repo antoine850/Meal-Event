@@ -57,7 +57,7 @@ export type BookingWithRelations = {
   created_at: string
   updated_at: string
   restaurant?: { id: string; name: string; color: string | null } | null
-  contact?: { id: string; first_name: string; last_name: string | null; email: string | null; phone: string | null; company?: { id: string; name: string } | null } | null
+  contact?: { id: string; first_name: string; last_name: string | null; email: string | null; phone: string | null; source?: string | null; created_at?: string | null; company?: { id: string; name: string } | null } | null
   status?: { id: string; name: string; color: string; slug: string } | null
   assigned_user?: { id: string; first_name: string; last_name: string } | null
 }
