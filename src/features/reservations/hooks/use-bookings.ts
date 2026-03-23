@@ -42,6 +42,7 @@ export type BookingWithRelations = {
   mise_en_place: string | null
   deroulement: string | null
   is_privatif: boolean
+  reservation_type: string | null
   allergies_regimes: string | null
   prestations_souhaitees: string | null
   budget_client: number | null

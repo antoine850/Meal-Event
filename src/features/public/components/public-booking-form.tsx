@@ -46,10 +46,13 @@ type RestaurantInfo = {
 
 type FormData = {
   event_type: string
+  reservation_type: string
   occasion: string
+  time_slot: string
   event_date: Date | undefined
   guests_count: number | ''
   allergies: string
+  budget: string
   client_type: 'particulier' | 'professionnel'
   company_name: string
   last_name: string
@@ -78,6 +81,18 @@ const OCCASION_OPTIONS = [
   'Baptême / Communion',
   'Soirée privée',
   'Autre',
+]
+
+const RESERVATION_TYPE_OPTIONS = [
+  { value: 'grande-tablee', label: 'Grande tablée' },
+  { value: 'semi-privatisation', label: 'Semi-privatisation' },
+  { value: 'privatisation', label: 'Privatisation totale' },
+]
+
+const TIME_SLOT_OPTIONS = [
+  { value: 'midi', label: 'Midi', time: '12:00' },
+  { value: 'soir', label: 'Soir', time: '19:00' },
+  { value: 'hors-service', label: 'Hors service', time: null },
 ]
 
 const COUNTRIES: Country[] = [
@@ -246,10 +261,13 @@ export function PublicBookingForm({ slug }: { slug: string }) {
 
   const [form, setForm] = useState<FormData>({
     event_type: '',
+    reservation_type: '',
     occasion: '',
+    time_slot: '',
     event_date: undefined,
     guests_count: 16,
     allergies: '',
+    budget: '',
     client_type: 'particulier',
     company_name: '',
     last_name: '',
@@ -289,6 +307,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
   const validateStep1 = () => {
     const e: Record<string, string> = {}
     if (!form.event_type) e.event_type = 'Requis'
+    if (!form.reservation_type) e.reservation_type = 'Requis'
     if (!form.occasion) e.occasion = 'Requis'
     setErrors(e); return Object.keys(e).length === 0
   }
@@ -296,6 +315,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
   const validateStep2 = () => {
     const e: Record<string, string> = {}
     if (!form.event_date) e.event_date = 'Requis'
+    if (!form.time_slot) e.time_slot = 'Requis'
     if (!form.guests_count || Number(form.guests_count) < 16) e.guests_count = 'Min. 16 invités'
     setErrors(e); return Object.keys(e).length === 0
   }
@@ -328,10 +348,13 @@ export function PublicBookingForm({ slug }: { slug: string }) {
         body: JSON.stringify({
           restaurant_slug: slug,
           event_type: form.event_type,
+          reservation_type: form.reservation_type,
           occasion: form.occasion,
+          time_slot: form.time_slot,
           event_date: form.event_date ? format(form.event_date, 'yyyy-MM-dd') : null,
           guests_count: Number(form.guests_count),
           allergies: form.allergies,
+          budget: form.budget,
           client_type: form.client_type,
           company_name: form.company_name,
           last_name: form.last_name,
@@ -436,7 +459,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
 }
 
 // ============================================
-// Step 1 — Event type + occasion
+// Step 1 — Event type + reservation type + occasion
 // ============================================
 function Step1({
   form, errors, accentColor, updateForm,
@@ -450,7 +473,7 @@ function Step1({
   ]
 
   return (
-    <div className="flex-1 flex flex-col justify-center gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+    <div className="flex-1 flex flex-col justify-center gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
       <div>
         <h2 className="text-2xl font-bold">Votre événement</h2>
         <p className="text-muted-foreground mt-1 text-sm">Dites-nous en plus sur votre projet.</p>
@@ -484,6 +507,35 @@ function Step1({
           })}
         </div>
         {errors.event_type && <p className="text-xs text-destructive">{errors.event_type}</p>}
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <Label>Type de réservation <span className="text-destructive">*</span></Label>
+        <div className="grid grid-cols-3 gap-2">
+          {RESERVATION_TYPE_OPTIONS.map(t => {
+            const selected = form.reservation_type === t.value
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => updateForm('reservation_type', t.value)}
+                className={cn(
+                  'relative flex items-center justify-center p-2.5 rounded-xl border-2 transition-all text-center',
+                  selected ? 'bg-accent/30 shadow-sm' : 'border-input hover:border-ring bg-white'
+                )}
+                style={selected ? { borderColor: accentColor } : undefined}
+              >
+                <span className={cn('text-xs font-medium leading-tight', selected ? '' : 'text-muted-foreground')}>{t.label}</span>
+                {selected && (
+                  <div className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: accentColor }}>
+                    <Check className="h-2 w-2" />
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        {errors.reservation_type && <p className="text-xs text-destructive">{errors.reservation_type}</p>}
       </fieldset>
 
       <fieldset className="space-y-2">
@@ -553,6 +605,36 @@ function Step2Date({
       </fieldset>
 
       <fieldset className="space-y-2">
+        <Label>Choix du créneau <span className="text-destructive">*</span></Label>
+        <div className="grid grid-cols-3 gap-2">
+          {TIME_SLOT_OPTIONS.map(t => {
+            const selected = form.time_slot === t.value
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => updateForm('time_slot', t.value)}
+                className={cn(
+                  'relative flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all',
+                  selected ? 'bg-accent/30 shadow-sm' : 'border-input hover:border-ring bg-white'
+                )}
+                style={selected ? { borderColor: accentColor } : undefined}
+              >
+                <span className={cn('text-xs font-medium', selected ? '' : 'text-muted-foreground')}>{t.label}</span>
+                {t.time && <span className="text-[10px] text-muted-foreground">à partir de {t.time}</span>}
+                {selected && (
+                  <div className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: accentColor }}>
+                    <Check className="h-2 w-2" />
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        {errors.time_slot && <p className="text-xs text-destructive">{errors.time_slot}</p>}
+      </fieldset>
+
+      <fieldset className="space-y-2">
         <Label>Combien d'invités ? <span className="text-destructive">*</span></Label>
         <NumberStepper
           value={form.guests_count}
@@ -563,6 +645,15 @@ function Step2Date({
           accentColor={accentColor}
         />
         {errors.guests_count && <p className="text-xs text-destructive">{errors.guests_count}</p>}
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <Label>Budget estimé</Label>
+        <Input
+          value={form.budget}
+          onChange={e => updateForm('budget', e.target.value)}
+          placeholder="Ex : 50€/pers, 2000€ total..."
+        />
       </fieldset>
 
       <fieldset className="space-y-2">

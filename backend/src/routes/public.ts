@@ -162,10 +162,13 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
       restaurant_slug,
       // Bloc 1
       event_type,
+      reservation_type,
       occasion,
+      time_slot,
       event_date,
       guests_count,
       allergies,
+      budget,
       // Bloc 2
       client_type, // 'particulier' | 'professionnel'
       company_name,
@@ -324,6 +327,18 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
       .single()
 
     // 5. Create booking
+    // Map time_slot to start_time
+    const startTimeMap: Record<string, string | null> = { midi: '12:00', soir: '19:00', 'hors-service': null }
+    const startTime = time_slot ? (startTimeMap[time_slot] || null) : null
+
+    // Map reservation_type to is_privatif and label
+    const reservationTypeLabels: Record<string, string> = {
+      'grande-tablee': 'Grande tablée',
+      'semi-privatisation': 'Semi-privatisation',
+      'privatisation': 'Privatisation totale',
+    }
+    const isPrivatif = reservation_type === 'semi-privatisation' || reservation_type === 'privatisation'
+
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
       .insert({
@@ -334,8 +349,13 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         event_date,
         guests_count,
         event_type,
+        reservation_type: reservation_type || null,
         occasion: occasion.trim(),
         format_souhaite: event_type === 'repas-assis' ? 'Repas Assis' : event_type === 'cocktail' ? 'Cocktail' : event_type === 'autre' ? 'Autre' : event_type,
+        is_privatif: isPrivatif,
+        client_preferred_time: time_slot ? (time_slot === 'midi' ? 'Midi (12h)' : time_slot === 'soir' ? 'Soir (19h)' : 'Hors service') : null,
+        start_time: startTime,
+        budget_client: budget ? budget.trim() : null,
         source: contactSource,
         ...utmFields,
         allergies_regimes: allergies ? allergies.trim() : null,

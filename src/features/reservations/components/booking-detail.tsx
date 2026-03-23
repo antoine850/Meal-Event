@@ -237,6 +237,7 @@ export const BookingDetail = forwardRef<
     mise_en_place: b.mise_en_place || '',
     deroulement: b.deroulement || '',
     is_privatif: b.is_privatif || false,
+    reservation_type: (b as any).reservation_type || '',
     allergies_regimes: b.allergies_regimes || '',
     prestations_souhaitees: b.prestations_souhaitees || '',
     budget_client: b.budget_client ?? '',
@@ -760,6 +761,20 @@ export const BookingDetail = forwardRef<
                     onChange={e => updateEventField('format_souhaite', e.target.value)}
                     className='h-8 text-sm'
                   />
+                </div>
+
+                <div>
+                  <label className='text-xs font-medium'>Type de réservation</label>
+                  <Select value={eventForm.reservation_type as string || ''} onValueChange={v => updateEventField('reservation_type', v)}>
+                    <SelectTrigger className='h-8 text-sm'>
+                      <SelectValue placeholder='Sélectionner...' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='grande-tablee'>Grande tablée</SelectItem>
+                      <SelectItem value='semi-privatisation'>Semi-privatisation</SelectItem>
+                      <SelectItem value='privatisation'>Privatisation totale</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <Separator />
