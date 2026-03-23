@@ -1,11 +1,13 @@
 import { useMemo, useCallback, useState } from 'react'
 import { type DateRange } from 'react-day-picker'
+import { type SortingState } from '@tanstack/react-table'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DateFilter, FacetedFilter } from '@/components/data-table'
+import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -77,6 +79,16 @@ export function Contacts() {
   const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set())
+  const [sortValue, setSortValue] = useState('created_at:desc')
+  const tableSorting: SortingState = useMemo(() => [parseSortValue(sortValue)], [sortValue])
+
+  const contactSortOptions = [
+    { label: 'Date de création (récent)', value: 'created_at:desc' },
+    { label: 'Date de création (ancien)', value: 'created_at:asc' },
+    { label: 'Nom (A-Z)', value: 'first_name:asc' },
+    { label: 'Nom (Z-A)', value: 'first_name:desc' },
+    { label: 'Source', value: 'source:asc' },
+  ]
 
   const { data: contacts = [], isLoading: isLoadingContacts } = useContacts()
   const { data: users = [] } = useOrganizationUsers()
@@ -200,12 +212,13 @@ export function Contacts() {
               <Cross2Icon className='ms-2 h-4 w-4' />
             </Button>
           )}
-          <div className='ml-auto'>
+          <div className='ml-auto flex items-center gap-2'>
+            <SortSelect options={contactSortOptions} value={sortValue} onChange={setSortValue} />
             <CreateContactDialog iconOnly />
           </div>
         </div>
         
-        <ContactsTable data={filteredContacts} />
+        <ContactsTable data={filteredContacts} sorting={tableSorting} />
       </Main>
     </>
   )

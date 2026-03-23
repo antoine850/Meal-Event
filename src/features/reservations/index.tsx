@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { type DateRange } from 'react-day-picker'
+import { type SortingState } from '@tanstack/react-table'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { Calendar as CalendarIcon, List, Loader2 } from 'lucide-react'
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { DateFilter, FacetedFilter } from '@/components/data-table'
+import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -48,6 +50,19 @@ export function Reservations() {
 
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false)
   const [bookingDialogDate, setBookingDialogDate] = useState<Date | undefined>()
+  const [sortValue, setSortValue] = useState('created_at:desc')
+  const tableSorting: SortingState = useMemo(() => [parseSortValue(sortValue)], [sortValue])
+
+  const eventSortOptions = [
+    { label: 'Date de création (récent)', value: 'created_at:desc' },
+    { label: 'Date de création (ancien)', value: 'created_at:asc' },
+    { label: "Date d'événement (proche)", value: 'event_date:asc' },
+    { label: "Date d'événement (lointain)", value: 'event_date:desc' },
+    { label: 'Montant (croissant)', value: 'total_amount:asc' },
+    { label: 'Montant (décroissant)', value: 'total_amount:desc' },
+    { label: 'Couverts (croissant)', value: 'guests_count:asc' },
+    { label: 'Couverts (décroissant)', value: 'guests_count:desc' },
+  ]
 
   const setSearch = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -203,6 +218,9 @@ export function Reservations() {
             </Button>
           )}
           <div className='ml-auto flex items-center gap-2'>
+            {mainView === 'list' && (
+              <SortSelect options={eventSortOptions} value={sortValue} onChange={setSortValue} />
+            )}
             <ToggleGroup
               type='single'
               value={mainView}
@@ -226,7 +244,7 @@ export function Reservations() {
         </div>
 
         {mainView === 'list' && (
-          <BookingsTable data={filteredBookings} />
+          <BookingsTable data={filteredBookings} sorting={tableSorting} />
         )}
         {mainView === 'calendar' && (
           <div className='flex-1 overflow-hidden'>

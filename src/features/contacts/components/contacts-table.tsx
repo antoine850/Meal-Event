@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   type SortingState,
   type VisibilityState,
@@ -25,11 +25,16 @@ import { ContactsBulkActions } from './contacts-bulk-actions'
 
 type ContactsTableProps = {
   data: ContactWithRelations[]
+  sorting?: SortingState
 }
 
-export function ContactsTable({ data }: ContactsTableProps) {
+export function ContactsTable({ data, sorting: externalSorting }: ContactsTableProps) {
   const [rowSelection, setRowSelection] = useState({})
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>(externalSorting || [{ id: 'created_at', desc: true }])
+
+  useEffect(() => {
+    if (externalSorting) setSorting(externalSorting)
+  }, [externalSorting])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const navigate = useNavigate()
 

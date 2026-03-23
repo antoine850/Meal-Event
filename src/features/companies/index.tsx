@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   type SortingState,
   type ColumnDef,
@@ -9,6 +9,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { Loader2, Plus, Trash2, Building } from 'lucide-react'
+import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -181,7 +182,20 @@ export function CompaniesPage() {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [rowSelection, setRowSelection] = useState({})
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sortValue, setSortValue] = useState('created_at:desc')
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }])
+
+  const companySortOptions = [
+    { label: 'Date de création (récent)', value: 'created_at:desc' },
+    { label: 'Date de création (ancien)', value: 'created_at:asc' },
+    { label: 'Nom (A-Z)', value: 'name:asc' },
+    { label: 'Nom (Z-A)', value: 'name:desc' },
+  ]
+
+  const handleSortChange = (value: string) => {
+    setSortValue(value)
+    setSorting([parseSortValue(value)])
+  }
 
   const table = useReactTable({
     data: companies,
@@ -224,7 +238,8 @@ export function CompaniesPage() {
       </Header>
 
       <Main className='flex flex-1 flex-col space-y-4'>
-        <div className='flex justify-end'>
+        <div className='flex justify-end gap-2'>
+          <SortSelect options={companySortOptions} value={sortValue} onChange={handleSortChange} />
           <Button onClick={handleCreate}>
             <Plus className='mr-2 h-4 w-4' />
             Ajouter une société

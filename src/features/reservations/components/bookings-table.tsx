@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   type SortingState,
@@ -25,12 +25,18 @@ import { BookingsBulkActions } from './bookings-bulk-actions'
 
 type BookingsTableProps = {
   data: BookingWithRelations[]
+  sorting?: SortingState
+  onSortingChange?: (sorting: SortingState) => void
 }
 
-export function BookingsTable({ data }: BookingsTableProps) {
+export function BookingsTable({ data, sorting: externalSorting, onSortingChange }: BookingsTableProps) {
   const navigate = useNavigate()
   const [rowSelection, setRowSelection] = useState({})
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }])
+  const [sorting, setSorting] = useState<SortingState>(externalSorting || [{ id: 'created_at', desc: true }])
+
+  useEffect(() => {
+    if (externalSorting) setSorting(externalSorting)
+  }, [externalSorting])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
   const table = useReactTable({
