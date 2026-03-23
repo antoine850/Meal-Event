@@ -477,9 +477,10 @@ export function useQuoteWithItems(quoteId: string | null) {
         .from('quotes')
         .select(`
           *,
-          quote_items(*)
+          quote_items(*, position)
         `)
         .eq('id', quoteId)
+        .order('position', { referencedTable: 'quote_items', ascending: true })
         .single()
 
       if (error) throw error
@@ -761,6 +762,25 @@ export function useUpdateQuoteItem() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
       queryClient.invalidateQueries({ queryKey: ['quotes'] })
+    },
+  })
+}
+
+export function useReorderQuoteItems() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ quoteId, orderedIds }: { quoteId: string; orderedIds: string[] }) => {
+      // Update positions in parallel
+      await Promise.all(
+        orderedIds.map((id, index) =>
+          supabase.from('quote_items').update({ position: index } as never).eq('id', id)
+        )
+      )
+      return { quoteId }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['quote', data.quoteId] })
     },
   })
 }

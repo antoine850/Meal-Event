@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import {
   ChevronDown,
   FileText,
+  GripVertical,
   Loader2,
   Package,
   Plus,
@@ -66,6 +67,23 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { QuoteItem } from '@/lib/supabase/types'
 import { supabase } from '@/lib/supabase'
 
@@ -80,6 +98,7 @@ import {
   useAddQuoteItem,
   useUpdateQuoteItem,
   useDeleteQuoteItem,
+  useReorderQuoteItems,
   useProductsByRestaurant,
   usePackagesByRestaurant,
   useQuoteWithItems,
@@ -100,12 +119,149 @@ type Props = {
   contact: { id: string; first_name: string; last_name: string | null; email: string | null; phone: string | null; company?: { name: string; billing_address?: string | null; billing_city?: string | null; billing_postal_code?: string | null } | null } | null
 }
 
+// ─── Sortable item row for drag & drop ───
+function SortableItemRow({
+  item,
+  onUpdateItem,
+  onDeleteItem,
+}: {
+  item: QuoteItem
+  onUpdateItem: (id: string, field: string, value: any) => void
+  onDeleteItem: (id: string) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  const [showDesc, setShowDesc] = useState(!!item.description)
+
+  return (
+    <TableRow ref={setNodeRef} style={style}>
+      <TableCell className='px-1'>
+        <button
+          type='button'
+          className='cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground'
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className='h-3.5 w-3.5' />
+        </button>
+      </TableCell>
+      <TableCell>
+        <div className='space-y-1'>
+          <Input
+            defaultValue={item.name}
+            onBlur={e => {
+              if (e.target.value !== item.name) {
+                onUpdateItem(item.id, 'name', e.target.value)
+              }
+            }}
+            className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0'
+          />
+          {showDesc ? (
+            <Textarea
+              defaultValue={item.description || ''}
+              onBlur={e => {
+                const val = e.target.value.trim()
+                if (val !== (item.description || '')) {
+                  onUpdateItem(item.id, 'description', val || null)
+                }
+                if (!val) setShowDesc(false)
+              }}
+              placeholder='Description du produit...'
+              className='text-[10px] min-h-[40px] border-0 p-0 shadow-none focus-visible:ring-0 text-muted-foreground resize-none'
+            />
+          ) : (
+            <button
+              type='button'
+              onClick={() => setShowDesc(true)}
+              className='text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors'
+            >
+              + Ajouter une description
+            </button>
+          )}
+        </div>
+      </TableCell>
+      <TableCell>
+        <Input
+          type='number'
+          min={1}
+          defaultValue={item.quantity ?? 1}
+          onBlur={e => {
+            const v = parseInt(e.target.value) || 1
+            if (v !== (item.quantity ?? 1)) {
+              onUpdateItem(item.id, 'quantity', v)
+            }
+          }}
+          className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0 w-16'
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type='number'
+          step='0.01'
+          defaultValue={item.unit_price ?? 0}
+          onBlur={e => {
+            const v = parseFloat(e.target.value) || 0
+            if (v !== (item.unit_price ?? 0)) {
+              onUpdateItem(item.id, 'unit_price', v)
+            }
+          }}
+          className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0 w-20'
+        />
+      </TableCell>
+      <TableCell>
+        <Input
+          type='number'
+          step='0.01'
+          defaultValue={item.tva_rate ?? 20}
+          onBlur={e => {
+            const v = parseFloat(e.target.value) || 20
+            if (v !== (item.tva_rate ?? 20)) {
+              onUpdateItem(item.id, 'tva_rate', v)
+            }
+          }}
+          className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0 w-16'
+        />
+      </TableCell>
+      <TableCell className='text-right text-xs'>
+        {((item.total_ht as number) || 0).toFixed(2)} €
+      </TableCell>
+      <TableCell className='text-right text-xs'>
+        {((item.total_ttc as number) || 0).toFixed(2)} €
+      </TableCell>
+      <TableCell>
+        <Button
+          size='icon'
+          variant='ghost'
+          className='h-6 w-6 text-destructive hover:text-destructive'
+          onClick={() => onDeleteItem(item.id)}
+        >
+          <Trash2 className='h-3 w-3' />
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
+}
+
 export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, contact }: Props) {
   const { data: quoteData, isLoading } = useQuoteWithItems(quoteId)
   const { mutate: updateQuote } = useUpdateQuote()
   const { mutate: addQuoteItem, isPending: isAddingItem } = useAddQuoteItem()
   const { mutate: updateQuoteItem } = useUpdateQuoteItem()
   const { mutate: deleteQuoteItem } = useDeleteQuoteItem()
+  const { mutate: reorderItems } = useReorderQuoteItems()
   const { data: catalogProducts = [] } = useProductsByRestaurant(restaurant?.id || null)
   const { data: catalogPackages = [] } = usePackagesByRestaurant(restaurant?.id || null)
   const { data: bookingPayments = [] } = usePaymentsByBooking(booking.id)
@@ -399,6 +555,24 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       onError: () => toast.error('Erreur lors de la suppression'),
     })
   }, [quoteId, deleteQuoteItem])
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id || !quoteId) return
+
+    const oldIndex = items.findIndex((i: QuoteItem) => i.id === active.id)
+    const newIndex = items.findIndex((i: QuoteItem) => i.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const reordered = arrayMove(items as QuoteItem[], oldIndex, newIndex)
+    reorderItems({ quoteId, orderedIds: reordered.map(i => i.id) })
+  }, [items, quoteId, reorderItems])
 
 
   // Load default conditions with dynamic restaurant info
@@ -1272,99 +1446,34 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                     </Card>
                   ) : (
                     <div className='border rounded-md'>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className='text-xs'>Désignation</TableHead>
-                            <TableHead className='text-xs w-20'>Qté</TableHead>
-                            <TableHead className='text-xs w-24'>Prix HT</TableHead>
-                            <TableHead className='text-xs w-20'>TVA %</TableHead>
-                            <TableHead className='text-xs w-24 text-right'>Total HT</TableHead>
-                            <TableHead className='text-xs w-24 text-right'>Total TTC</TableHead>
-                            <TableHead className='w-10' />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {items.map((item: QuoteItem) => (
-                            <TableRow key={item.id}>
-                              <TableCell>
-                                <div className='space-y-0.5'>
-                                  <Input
-                                    defaultValue={item.name}
-                                    onBlur={e => {
-                                      if (e.target.value !== item.name) {
-                                        handleUpdateItem(item.id, 'name', e.target.value)
-                                      }
-                                    }}
-                                    className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0'
-                                  />
-                                  {item.description && (
-                                    <p className='text-[10px] text-muted-foreground truncate max-w-[280px]'>{item.description}</p>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type='number'
-                                  min={1}
-                                  defaultValue={item.quantity ?? 1}
-                                  onBlur={e => {
-                                    const v = parseInt(e.target.value) || 1
-                                    if (v !== (item.quantity ?? 1)) {
-                                      handleUpdateItem(item.id, 'quantity', v)
-                                    }
-                                  }}
-                                  className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0 w-16'
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type='number'
-                                  step='0.01'
-                                  defaultValue={item.unit_price ?? 0}
-                                  onBlur={e => {
-                                    const v = parseFloat(e.target.value) || 0
-                                    if (v !== (item.unit_price ?? 0)) {
-                                      handleUpdateItem(item.id, 'unit_price', v)
-                                    }
-                                  }}
-                                  className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0 w-20'
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type='number'
-                                  step='0.01'
-                                  defaultValue={item.tva_rate ?? 20}
-                                  onBlur={e => {
-                                    const v = parseFloat(e.target.value) || 20
-                                    if (v !== (item.tva_rate ?? 20)) {
-                                      handleUpdateItem(item.id, 'tva_rate', v)
-                                    }
-                                  }}
-                                  className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0 w-16'
-                                />
-                              </TableCell>
-                              <TableCell className='text-right text-xs'>
-                                {((item.total_ht as number) || 0).toFixed(2)} €
-                              </TableCell>
-                              <TableCell className='text-right text-xs'>
-                                {((item.total_ttc as number) || 0).toFixed(2)} €
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  size='icon'
-                                  variant='ghost'
-                                  className='h-6 w-6 text-destructive hover:text-destructive'
-                                  onClick={() => handleDeleteItem(item.id)}
-                                >
-                                  <Trash2 className='h-3 w-3' />
-                                </Button>
-                              </TableCell>
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className='w-8' />
+                              <TableHead className='text-xs'>Désignation</TableHead>
+                              <TableHead className='text-xs w-20'>Qté</TableHead>
+                              <TableHead className='text-xs w-24'>Prix HT</TableHead>
+                              <TableHead className='text-xs w-20'>TVA %</TableHead>
+                              <TableHead className='text-xs w-24 text-right'>Total HT</TableHead>
+                              <TableHead className='text-xs w-24 text-right'>Total TTC</TableHead>
+                              <TableHead className='w-10' />
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            <SortableContext items={items.map((i: QuoteItem) => i.id)} strategy={verticalListSortingStrategy}>
+                              {items.map((item: QuoteItem) => (
+                                <SortableItemRow
+                                  key={item.id}
+                                  item={item}
+                                  onUpdateItem={handleUpdateItem}
+                                  onDeleteItem={handleDeleteItem}
+                                />
+                              ))}
+                            </SortableContext>
+                          </TableBody>
+                        </Table>
+                      </DndContext>
 
                       {/* Totals */}
                       <div className='border-t px-4 py-2 space-y-1'>
