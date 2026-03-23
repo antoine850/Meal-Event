@@ -26,10 +26,9 @@ import { BookingsBulkActions } from './bookings-bulk-actions'
 type BookingsTableProps = {
   data: BookingWithRelations[]
   sorting?: SortingState
-  onSortingChange?: (sorting: SortingState) => void
 }
 
-export function BookingsTable({ data, sorting: externalSorting, onSortingChange }: BookingsTableProps) {
+export function BookingsTable({ data, sorting: externalSorting }: BookingsTableProps) {
   const navigate = useNavigate()
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>(externalSorting || [{ id: 'created_at', desc: true }])
