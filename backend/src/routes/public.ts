@@ -5,6 +5,21 @@ import { supabase } from '../lib/supabase.js'
 export const publicRouter = Router()
 
 // ============================================
+// Helpers
+// ============================================
+
+function normalizePhone(phone: string): string {
+  let cleaned = phone.replace(/[\s.\-()]/g, '')
+  if (cleaned.match(/^0[67]\d{8}$/)) cleaned = '+33' + cleaned.slice(1)
+  if (cleaned.match(/^33[67]\d{8}$/)) cleaned = '+' + cleaned
+  return cleaned
+}
+
+function normalizeEmail(email: string): string {
+  return email.toLowerCase().trim()
+}
+
+// ============================================
 // Simple in-memory rate limiting
 // ============================================
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
@@ -275,7 +290,7 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
       .from('contacts')
       .select('id')
       .eq('organization_id', orgId)
-      .eq('email', email.toLowerCase().trim())
+      .eq('email', normalizeEmail(email))
       .limit(1)
       .single()
 
@@ -287,7 +302,7 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         .update({
           first_name: first_name.trim(),
           last_name: last_name.trim(),
-          phone: phone.trim(),
+          phone: normalizePhone(phone),
           source: contactSource,
           ...utmFields,
           ...(companyId ? { company_id: companyId } : {}),
@@ -301,8 +316,8 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
           organization_id: orgId,
           first_name: first_name.trim(),
           last_name: last_name.trim(),
-          email: email.toLowerCase().trim(),
-          phone: phone.trim(),
+          email: normalizeEmail(email),
+          phone: normalizePhone(phone),
           source: contactSource,
           ...utmFields,
           ...(companyId ? { company_id: companyId } : {}),
@@ -400,8 +415,8 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         eventName: 'Lead',
         eventTime: Math.floor(Date.now() / 1000),
         eventSourceUrl: event_source_url || undefined,
-        email: email.trim(),
-        phone: phone.trim(),
+        email: normalizeEmail(email),
+        phone: normalizePhone(phone),
         firstName: first_name.trim(),
         lastName: last_name.trim(),
         fbc: fbc || undefined,

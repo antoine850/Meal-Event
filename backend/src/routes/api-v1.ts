@@ -15,6 +15,28 @@ function getOrgId(req: Request): string {
   return (req as any).organizationId
 }
 
+function normalizePhone(phone: string): string {
+  // Remove spaces, dots, dashes, parentheses
+  let cleaned = phone.replace(/[\s.\-()]/g, '')
+  // French numbers: 06/07 → +336/+337
+  if (cleaned.match(/^0[67]\d{8}$/)) {
+    cleaned = '+33' + cleaned.slice(1)
+  }
+  // Numbers starting with 33 without + (e.g. 33612345678)
+  if (cleaned.match(/^33[67]\d{8}$/)) {
+    cleaned = '+' + cleaned
+  }
+  // Ensure + prefix if starts with country code
+  if (cleaned.match(/^\d{10,15}$/) && !cleaned.startsWith('+')) {
+    // Leave as-is if we can't determine the country code
+  }
+  return cleaned
+}
+
+function normalizeEmail(email: string): string {
+  return email.toLowerCase().trim()
+}
+
 function parsePagination(query: any): { page: number; perPage: number; from: number; to: number } {
   const page = Math.max(1, parseInt(query.page) || 1)
   const perPage = Math.min(100, Math.max(1, parseInt(query.per_page) || 20))
@@ -173,8 +195,8 @@ apiV1Router.post('/contacts', async (req: Request, res: Response) => {
         organization_id: orgId,
         first_name: first_name.trim(),
         last_name: last_name.trim(),
-        email: email.toLowerCase().trim(),
-        phone: phone?.trim() || null,
+        email: normalizeEmail(email),
+        phone: phone ? normalizePhone(phone) : null,
         client_type: client_type || 'particulier',
         source: 'api',
         ...(companyId ? { company_id: companyId } : {}),
@@ -333,7 +355,6 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
       client_type,
       company_name,
       allergies,
-      special_requests,
       reservation_type,
       time_slot,
       budget,
@@ -385,7 +406,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
 
     // Find or create contact
     let contactId: string
-    const email = contact.email.toLowerCase().trim()
+    const email = normalizeEmail(contact.email)
 
     const { data: existingContact } = await supabase
       .from('contacts')
@@ -402,7 +423,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
         .update({
           first_name: contact.first_name.trim(),
           last_name: contact.last_name.trim(),
-          ...(contact.phone ? { phone: contact.phone.trim() } : {}),
+          ...(contact.phone ? { phone: normalizePhone(contact.phone) } : {}),
           ...(companyId ? { company_id: companyId } : {}),
         })
         .eq('id', contactId)
@@ -414,7 +435,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
           first_name: contact.first_name.trim(),
           last_name: contact.last_name.trim(),
           email,
-          phone: contact.phone?.trim() || null,
+          phone: contact.phone ? normalizePhone(contact.phone) : null,
           source: 'api',
           ...(companyId ? { company_id: companyId } : {}),
         } as never)
@@ -465,7 +486,6 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
         budget_client: budget?.trim() || null,
         source: 'api',
         allergies_regimes: allergies?.trim() || null,
-        special_requests: special_requests?.trim() || null,
         commentaires: client_type === 'professionnel' && company_name
           ? `Client professionnel - ${company_name.trim()}`
           : client_type === 'professionnel' ? 'Client professionnel' : null,
@@ -503,7 +523,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
 apiV1Router.patch('/bookings/:id', async (req: Request, res: Response) => {
   try {
     const orgId = getOrgId(req)
-    const allowed = ['event_date', 'guests_count', 'event_type', 'occasion', 'status_id', 'allergies_regimes', 'special_requests', 'commentaires', 'reservation_type', 'budget_client', 'format_souhaite']
+    const allowed = ['event_date', 'guests_count', 'event_type', 'occasion', 'status_id', 'allergies_regimes', 'commentaires', 'reservation_type', 'budget_client', 'format_souhaite']
     const updates: Record<string, any> = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
