@@ -223,6 +223,38 @@ apiV1Router.patch('/contacts/:id', async (req: Request, res: Response) => {
   }
 })
 
+// DELETE /api/v1/contacts/:id
+apiV1Router.delete('/contacts/:id', async (req: Request, res: Response) => {
+  try {
+    const orgId = getOrgId(req)
+    const contactId = req.params.id
+
+    // Verify contact belongs to org
+    const { data: existing, error: findErr } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('id', contactId)
+      .single()
+
+    if (findErr || !existing) return errorResponse(res, 'NOT_FOUND', 'Contact not found', 404)
+
+    // Unlink bookings from this contact (set contact_id to null instead of failing)
+    await supabase.from('bookings').update({ contact_id: null } as never).eq('contact_id', contactId)
+
+    const { error } = await supabase
+      .from('contacts')
+      .delete()
+      .eq('id', contactId)
+
+    if (error) throw error
+    return res.json({ success: true })
+  } catch (err) {
+    console.error('[API v1] Error deleting contact:', err)
+    return errorResponse(res, 'INTERNAL_ERROR', 'Failed to delete contact', 500)
+  }
+})
+
 // ============================================
 // BOOKINGS
 // ============================================
@@ -302,6 +334,9 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
       company_name,
       allergies,
       special_requests,
+      reservation_type,
+      time_slot,
+      budget,
     } = req.body
 
     // Validation
@@ -400,6 +435,16 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
       .eq('slug', 'nouveau')
       .single()
 
+    // Map time_slot to start_time
+    const startTimeMap: Record<string, string | null> = { midi: '12:00', soir: '19:00', 'hors-service': null }
+    const startTime = time_slot ? (startTimeMap[time_slot] || null) : null
+
+    // Map reservation_type to is_privatif
+    const isPrivatif = reservation_type === 'semi-privatisation' || reservation_type === 'privatisation'
+
+    // Map event_type to format_souhaite
+    const formatMap: Record<string, string> = { 'repas-assis': 'Repas Assis', 'cocktail': 'Cocktail', 'autre': 'Autre' }
+
     // Create booking
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
@@ -411,7 +456,13 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
         event_date,
         guests_count,
         event_type,
-        occasion: occasion.trim(),
+        reservation_type: reservation_type || null,
+        occasion: occasion?.trim() || null,
+        format_souhaite: formatMap[event_type] || event_type,
+        is_privatif: isPrivatif,
+        client_preferred_time: time_slot ? (time_slot === 'midi' ? 'Midi (12h)' : time_slot === 'soir' ? 'Soir (19h)' : 'Hors service') : null,
+        start_time: startTime,
+        budget_client: budget?.trim() || null,
         source: 'api',
         allergies_regimes: allergies?.trim() || null,
         special_requests: special_requests?.trim() || null,
@@ -419,7 +470,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
           ? `Client professionnel - ${company_name.trim()}`
           : client_type === 'professionnel' ? 'Client professionnel' : null,
       } as never)
-      .select('id, event_date, guests_count, event_type, occasion, source, created_at')
+      .select('id, event_date, guests_count, event_type, occasion, reservation_type, budget_client, source, created_at')
       .single()
 
     if (bookingError || !booking) {
@@ -452,7 +503,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
 apiV1Router.patch('/bookings/:id', async (req: Request, res: Response) => {
   try {
     const orgId = getOrgId(req)
-    const allowed = ['event_date', 'guests_count', 'event_type', 'occasion', 'status_id', 'allergies_regimes', 'special_requests', 'commentaires']
+    const allowed = ['event_date', 'guests_count', 'event_type', 'occasion', 'status_id', 'allergies_regimes', 'special_requests', 'commentaires', 'reservation_type', 'budget_client', 'format_souhaite']
     const updates: Record<string, any> = {}
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
@@ -475,6 +526,39 @@ apiV1Router.patch('/bookings/:id', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('[API v1] Error updating booking:', err)
     return errorResponse(res, 'INTERNAL_ERROR', 'Failed to update booking', 500)
+  }
+})
+
+// DELETE /api/v1/bookings/:id
+apiV1Router.delete('/bookings/:id', async (req: Request, res: Response) => {
+  try {
+    const orgId = getOrgId(req)
+    const bookingId = req.params.id
+
+    // Verify booking belongs to org
+    const { data: existing, error: findErr } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('id', bookingId)
+      .single()
+
+    if (findErr || !existing) return errorResponse(res, 'NOT_FOUND', 'Booking not found', 404)
+
+    // Delete related records that have FK constraints
+    await supabase.from('email_logs').delete().eq('booking_id', bookingId)
+    await supabase.from('activity_logs').delete().eq('booking_id', bookingId)
+
+    const { error } = await supabase
+      .from('bookings')
+      .delete()
+      .eq('id', bookingId)
+
+    if (error) throw error
+    return res.json({ success: true })
+  } catch (err) {
+    console.error('[API v1] Error deleting booking:', err)
+    return errorResponse(res, 'INTERNAL_ERROR', 'Failed to delete booking', 500)
   }
 })
 

@@ -65,11 +65,9 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
     const count = ids.length
 
     try {
-      // Delete related email_logs first (FK without CASCADE)
-      await supabase
-        .from('email_logs')
-        .delete()
-        .in('booking_id', ids)
+      // Delete related records first (FK without CASCADE)
+      await supabase.from('email_logs').delete().in('booking_id', ids)
+      await supabase.from('activity_logs').delete().in('booking_id', ids)
 
       const { error } = await supabase
         .from('bookings')
