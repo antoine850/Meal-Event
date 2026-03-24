@@ -406,6 +406,7 @@ export type Database = {
           event_date: string
           event_type: string | null
           format_souhaite: string | null
+          google_calendar_event_id: string | null
           guests_count: number | null
           has_extra_provider: boolean | null
           id: string
@@ -467,6 +468,7 @@ export type Database = {
           event_date: string
           event_type?: string | null
           format_souhaite?: string | null
+          google_calendar_event_id?: string | null
           guests_count?: number | null
           has_extra_provider?: boolean | null
           id?: string
@@ -528,6 +530,7 @@ export type Database = {
           event_date?: string
           event_type?: string | null
           format_souhaite?: string | null
+          google_calendar_event_id?: string | null
           guests_count?: number | null
           has_extra_provider?: boolean | null
           id?: string
@@ -1945,6 +1948,10 @@ export type Database = {
           email_tracking_enabled: boolean | null
           event_reminder_enabled: boolean | null
           facebook: string | null
+          google_calendar_email: string | null
+          google_calendar_id: string | null
+          google_calendar_sync_enabled: boolean | null
+          google_refresh_token: string | null
           iban: string | null
           id: string
           instagram: string | null
@@ -2005,6 +2012,10 @@ export type Database = {
           email_tracking_enabled?: boolean | null
           event_reminder_enabled?: boolean | null
           facebook?: string | null
+          google_calendar_email?: string | null
+          google_calendar_id?: string | null
+          google_calendar_sync_enabled?: boolean | null
+          google_refresh_token?: string | null
           iban?: string | null
           id?: string
           instagram?: string | null
@@ -2065,6 +2076,10 @@ export type Database = {
           email_tracking_enabled?: boolean | null
           event_reminder_enabled?: boolean | null
           facebook?: string | null
+          google_calendar_email?: string | null
+          google_calendar_id?: string | null
+          google_calendar_sync_enabled?: boolean | null
+          google_refresh_token?: string | null
           iban?: string | null
           id?: string
           instagram?: string | null

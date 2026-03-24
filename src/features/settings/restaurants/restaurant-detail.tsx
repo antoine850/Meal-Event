@@ -44,6 +44,7 @@ import { Separator } from '@/components/ui/separator'
 import { ImageUpload } from '@/components/ui/image-upload'
 import { useUpdateRestaurant, useSpaces, useDeleteSpace, type Restaurant, type Space } from '../hooks/use-settings'
 import { SpaceDialog } from './components/space-dialog'
+import { GoogleCalendarSettings } from './components/google-calendar-settings'
 
 const COUNTRIES = [
   { value: 'France', label: 'France' },
@@ -297,10 +298,11 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
         <form id='restaurant-form' onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
           <Tabs value={currentTab} onValueChange={handleTabChange} className='w-full'>
             <div className='flex items-center justify-between gap-4 mb-6'>
-              <TabsList className='grid grid-cols-3 w-[300px] sm:w-[400px]'>
+              <TabsList className='grid grid-cols-4 w-[360px] sm:w-[500px]'>
                 <TabsTrigger value='general'>Général</TabsTrigger>
                 <TabsTrigger value='facturation'>Facturation</TabsTrigger>
                 <TabsTrigger value='espaces'>Espaces</TabsTrigger>
+                <TabsTrigger value='calendrier'>Calendrier</TabsTrigger>
               </TabsList>
               
               <Button type='submit' disabled={isPending || !form.formState.isDirty} className='hidden sm:flex'>
@@ -1362,6 +1364,11 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* TAB: Calendrier */}
+            <TabsContent value='calendrier' className='space-y-6'>
+              <GoogleCalendarSettings restaurantId={restaurant.id} />
             </TabsContent>
           </Tabs>
         </form>

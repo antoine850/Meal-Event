@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { supabase } from '../lib/supabase.js'
 import { requireApiKey } from '../middleware/api-auth.js'
+import { syncBookingToCalendar } from '../lib/google-calendar.js'
 
 export const apiV1Router = Router()
 
@@ -512,6 +513,10 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
       .then(() => {})
 
     console.log(`[API v1] Booking created: ${booking.id} for restaurant ${restaurant.name}`)
+
+    // Sync to Google Calendar (fire & forget)
+    syncBookingToCalendar(booking.id, 'create').catch(() => {})
+
     return res.status(201).json({ data: { ...booking, contact_id: contactId } })
   } catch (err) {
     console.error('[API v1] Error creating booking:', err)
@@ -542,6 +547,10 @@ apiV1Router.patch('/bookings/:id', async (req: Request, res: Response) => {
       .single()
 
     if (error || !data) return errorResponse(res, 'NOT_FOUND', 'Booking not found', 404)
+
+    // Sync to Google Calendar (fire & forget)
+    syncBookingToCalendar(req.params.id, 'update').catch(() => {})
+
     return res.json({ data })
   } catch (err) {
     console.error('[API v1] Error updating booking:', err)
@@ -564,6 +573,9 @@ apiV1Router.delete('/bookings/:id', async (req: Request, res: Response) => {
       .single()
 
     if (findErr || !existing) return errorResponse(res, 'NOT_FOUND', 'Booking not found', 404)
+
+    // Sync to Google Calendar BEFORE deleting (needs booking data)
+    await syncBookingToCalendar(bookingId, 'delete').catch(() => {})
 
     // Delete related records that have FK constraints
     await supabase.from('email_logs').delete().eq('booking_id', bookingId)

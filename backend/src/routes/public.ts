@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import crypto from 'crypto'
 import { supabase } from '../lib/supabase.js'
+import { syncBookingToCalendar } from '../lib/google-calendar.js'
 
 export const publicRouter = Router()
 
@@ -431,6 +432,9 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         },
       }).catch(err => console.error('[Meta CAPI] Failed:', err))
     }
+
+    // 8. Sync to Google Calendar (fire & forget)
+    syncBookingToCalendar(booking.id, 'create').catch(() => {})
 
     return res.json({ success: true, booking_id: booking.id })
   } catch (error) {
