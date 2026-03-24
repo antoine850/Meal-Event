@@ -340,8 +340,8 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
     } = req.body
 
     // Validation
-    if (!restaurant_id || !event_type || !occasion || !event_date || !guests_count || !contact) {
-      return errorResponse(res, 'VALIDATION_ERROR', 'restaurant_id, event_type, occasion, event_date, guests_count, and contact are required')
+    if (!restaurant_id || !event_date || !guests_count || !contact) {
+      return errorResponse(res, 'VALIDATION_ERROR', 'restaurant_id, event_date, guests_count, and contact are required')
     }
 
     if (!contact.first_name || !contact.last_name || !contact.email) {
@@ -455,10 +455,10 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
         status_id: nouveauStatus?.id || null,
         event_date,
         guests_count,
-        event_type,
+        event_type: event_type || null,
         reservation_type: reservation_type || null,
         occasion: occasion?.trim() || null,
-        format_souhaite: formatMap[event_type] || event_type,
+        format_souhaite: event_type ? (formatMap[event_type] || event_type) : null,
         is_privatif: isPrivatif,
         client_preferred_time: time_slot ? (time_slot === 'midi' ? 'Midi (12h)' : time_slot === 'soir' ? 'Soir (19h)' : 'Hors service') : null,
         start_time: startTime,
