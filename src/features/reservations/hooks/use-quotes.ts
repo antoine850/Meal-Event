@@ -870,23 +870,19 @@ export function useProductsByRestaurant(restaurantId: string | null) {
         .from('products')
         .select(`
           *,
-          product_restaurants(
+          product_restaurants!inner(
             restaurant_id,
             restaurant:restaurants(id, name, color)
           )
         `)
         .eq('organization_id', orgId)
         .eq('is_active', true)
+        .eq('product_restaurants.restaurant_id', restaurantId)
         .order('name', { ascending: true })
 
       if (error) throw error
 
-      // Filter to only products linked to this restaurant
-      const filtered = (data as unknown as ProductWithRestaurants[]).filter(p =>
-        p.product_restaurants?.some(pr => pr.restaurant_id === restaurantId)
-      )
-
-      return filtered
+      return (data as unknown as ProductWithRestaurants[])
     },
     enabled: !!restaurantId,
   })
@@ -929,23 +925,19 @@ export function usePackagesByRestaurant(restaurantId: string | null) {
             quantity,
             product:products(*)
           ),
-          package_restaurants(
+          package_restaurants!inner(
             restaurant_id,
             restaurant:restaurants(id, name, color)
           )
         `)
         .eq('organization_id', orgId)
         .eq('is_active', true)
+        .eq('package_restaurants.restaurant_id', restaurantId)
         .order('name', { ascending: true })
 
       if (error) throw error
 
-      // Filter to only packages linked to this restaurant
-      const filtered = (data as unknown as PackageWithRelations[]).filter(p =>
-        p.package_restaurants?.some(pr => pr.restaurant_id === restaurantId)
-      )
-
-      return filtered
+      return (data as unknown as PackageWithRelations[])
     },
     enabled: !!restaurantId,
   })
