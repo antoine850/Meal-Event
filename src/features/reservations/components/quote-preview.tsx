@@ -518,7 +518,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
     const depositHt = data.totalHt * (data.depositPercentage / 100)
     const avgTvaRate = data.totalHt > 0 ? ((data.totalTtc - data.totalHt) / data.totalHt) * 100 : 20
     const depositTva = depositHt * (avgTvaRate / 100)
-    const depositTtc = depositHt + depositTva
+    const depositTtc = Math.ceil(depositHt + depositTva)
 
     return (
       <div id='quote-preview-content' className='bg-white text-black rounded-lg shadow-sm border text-[11px] leading-relaxed'>
@@ -746,10 +746,10 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           const extrasHt = (data.extras || []).reduce((sum, e) => sum + (e.total_ht || 0), 0)
           const extrasTtc = (data.extras || []).reduce((sum, e) => sum + (e.total_ttc || 0), 0)
           const grandTotalHt = data.totalHt + extrasHt
-          const grandTotalTtc = data.totalTtc + extrasTtc
+          const grandTotalTtc = Math.ceil(data.totalTtc + extrasTtc)
           const paidPayments = (data.payments || []).filter(p => p.status === 'paid' || p.status === 'completed')
           const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
-          const remainingTtc = Math.round((grandTotalTtc - totalPaid) * 100) / 100
+          const remainingTtc = grandTotalTtc - totalPaid
 
           return (
             <div className='flex items-end justify-between'>
@@ -814,7 +814,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
     
     // Grand totals
     const grandTotalHt = data.totalHt + extrasTotalHt
-    const grandTotalTtc = data.totalTtc + extrasTotalTtc
+    const grandTotalTtc = Math.ceil(data.totalTtc + extrasTotalTtc)
     const remainingBalance = grandTotalTtc - paymentsReceived
 
     return (

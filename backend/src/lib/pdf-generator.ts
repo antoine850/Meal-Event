@@ -654,7 +654,7 @@ function buildDocDefinition(
     })
   } else if (documentType === 'acompte') {
     // Direct TTC calculation (consistent with send-deposit route)
-    const depositTtc = Math.round(quote.total_ttc * (quote.deposit_percentage / 100) * 100) / 100
+    const depositTtc = Math.ceil(quote.total_ttc * (quote.deposit_percentage / 100))
     const depositHt = Math.round(quote.total_ht * (quote.deposit_percentage / 100) * 100) / 100
     const depositTva = Math.round((depositTtc - depositHt) * 100) / 100
     const discountPct = quote.discount_percentage || 0
@@ -704,9 +704,9 @@ function buildDocDefinition(
     const extrasHt = extras.reduce((sum, e) => sum + (e.total_ht || 0), 0)
     const extrasTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
     const totalHt = quote.total_ht + extrasHt
-    const totalTtc = quote.total_ttc + extrasTtc
+    const totalTtc = Math.ceil(quote.total_ttc + extrasTtc)
     const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
-    const balanceTtc = Math.round((totalTtc - totalPaid) * 100) / 100
+    const balanceTtc = totalTtc - totalPaid
 
     const soldeStack: Content[] = []
 

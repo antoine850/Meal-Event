@@ -460,7 +460,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       if (existingQuote?.stripe_deposit_url) {
         console.log(`[send-deposit] Reusing existing Stripe deposit invoice for quote ${quoteId}`)
         // Just resend the email with existing invoice link — no new Stripe invoice
-        const depositAmount = quoteData.total_ttc * (quoteData.deposit_percentage / 100)
+        const depositAmount = Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
         const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
 
         const html = buildDepositEmailHtml({
@@ -493,8 +493,8 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       }
     }
 
-    // Calculate deposit amount
-    const depositAmount = quoteData.total_ttc * (quoteData.deposit_percentage / 100)
+    // Calculate deposit amount (rounded up to the next euro)
+    const depositAmount = Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
 
     // Get commercial info
     const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
@@ -749,9 +749,9 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         console.log(`[send-balance] Reusing existing Stripe balance invoice for quote ${quoteId}`)
         const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
         const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
-        const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
-        const depositTtc = Math.round(quoteData.total_ttc * (quoteData.deposit_percentage / 100) * 100) / 100
-        const balanceAmount = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
+        const totalWithExtrasTtc = Math.ceil(quoteData.total_ttc + extrasTtc)
+        const depositTtc = Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+        const balanceAmount = totalWithExtrasTtc - depositTtc
 
         const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
 
@@ -1104,7 +1104,8 @@ async function recalculateQuoteTotals(quoteId: string) {
 
   const finalHt = Math.round(totalHt * discountMultiplier * 100) / 100
   const finalTva = Math.round(totalTva * discountMultiplier * 100) / 100
-  const finalTtc = Math.round((finalHt + finalTva) * 100) / 100
+  // Round TTC up to the next euro (ceiling)
+  const finalTtc = Math.ceil(finalHt + finalTva)
 
   await supabase
     .from('quotes')

@@ -841,7 +841,8 @@ async function recalculateQuoteTotals(quoteId: string) {
 
   const finalHt = Math.round(totalHt * discountMultiplier * 100) / 100
   const finalTva = Math.round(totalTva * discountMultiplier * 100) / 100
-  const finalTtc = Math.round((finalHt + finalTva) * 100) / 100
+  // Round TTC up to the next euro (ceiling)
+  const finalTtc = Math.ceil(finalHt + finalTva)
 
   await supabase
     .from('quotes')

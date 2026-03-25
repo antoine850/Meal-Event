@@ -612,9 +612,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const rawTotalTtc = Math.round(products.reduce((sum, item) => sum + ((item.total_ttc as number) || 0), 0) * 100) / 100
   const discountMultiplier = discountPercentage > 0 ? (1 - discountPercentage / 100) : 1
   const totalHt = Math.round(rawTotalHt * discountMultiplier * 100) / 100
-  const totalTtc = Math.round(rawTotalTtc * discountMultiplier * 100) / 100
-  const depositAmount = Math.round(totalTtc * (depositPercentage / 100) * 100) / 100
-  const balanceAmount = Math.round((totalTtc - depositAmount) * 100) / 100
+  // Round TTC up to the next euro (ceiling)
+  const totalTtc = Math.ceil(rawTotalTtc * discountMultiplier)
+  const depositAmount = Math.ceil(totalTtc * (depositPercentage / 100))
+  const balanceAmount = totalTtc - depositAmount
 
   // Build preview data
   const previewData = {
