@@ -837,7 +837,11 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                         max={100}
                         step={0.01}
                         value={discountPercentage}
-                        onChange={e => dirty(setDiscountPercentage)(parseFloat(e.target.value) || 0)}
+                        onChange={e => setDiscountPercentage(parseFloat(e.target.value) || 0)}
+                        onBlur={e => {
+                          const v = parseFloat(e.target.value) || 0
+                          saveQuoteField('discount_percentage', v)
+                        }}
                         className='mt-1'
                       />
                     </div>

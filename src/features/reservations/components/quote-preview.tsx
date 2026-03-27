@@ -420,19 +420,36 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((item, i) => (
-                    <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className='px-2 py-1.5'>
-                        <span className='font-medium'>{item.name}</span>
-                        {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
-                      </td>
-                      <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                      <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
-                      <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                      <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
-                      <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
-                    </tr>
-                  ))}
+                  {data.items.map((item, i) => {
+                    const base = (item.quantity || 1) * (item.unit_price || 0)
+                    const discountPct = (item.discount_amount || 0) > 0 && base > 0
+                      ? Math.round((item.discount_amount! / base) * 1000) / 10
+                      : 0
+                    return (
+                      <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className='px-2 py-1.5'>
+                          <span className='font-medium'>{item.name}</span>
+                          {discountPct > 0 && (
+                            <span className='ml-1.5 inline-block bg-red-100 text-red-600 text-[8px] font-semibold px-1 py-0.5 rounded'>
+                              -{discountPct}%
+                            </span>
+                          )}
+                          {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
+                        </td>
+                        <td className='text-center px-2 py-1.5'>{item.quantity}</td>
+                        <td className='text-right px-2 py-1.5'>
+                          {discountPct > 0 ? (
+                            <span className='line-through text-gray-400'>{(item.unit_price || 0).toFixed(2)} €</span>
+                          ) : (
+                            <span>{(item.unit_price || 0).toFixed(2)} €</span>
+                          )}
+                        </td>
+                        <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
+                        <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
