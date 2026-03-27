@@ -235,6 +235,32 @@ function SortableItemRow({
           className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0 w-16'
         />
       </TableCell>
+      <TableCell>
+        <div className='relative w-16'>
+          <Input
+            type='number'
+            min={0}
+            max={100}
+            step='0.1'
+            defaultValue={
+              (item.discount_amount ?? 0) > 0 && (item.quantity ?? 1) * (item.unit_price ?? 0) > 0
+                ? Math.round((item.discount_amount! / ((item.quantity ?? 1) * (item.unit_price ?? 0))) * 1000) / 10
+                : undefined
+            }
+            placeholder='0'
+            onBlur={e => {
+              const pct = parseFloat(e.target.value)
+              const base = (item.quantity ?? 1) * (item.unit_price ?? 0)
+              const newDiscount = !isNaN(pct) && pct > 0 ? Math.round(base * (pct / 100) * 100) / 100 : 0
+              const currentDiscount = item.discount_amount ?? 0
+              if (Math.abs(newDiscount - currentDiscount) > 0.001) {
+                onUpdateItem(item.id, 'discount_amount', newDiscount)
+              }
+            }}
+            className='h-7 text-xs border-0 p-0 shadow-none focus-visible:ring-0 w-14 text-red-600'
+          />
+        </div>
+      </TableCell>
       <TableCell className='text-right text-xs'>
         {((item.total_ht as number) || 0).toFixed(2)} €
       </TableCell>
@@ -1456,6 +1482,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                               <TableHead className='text-xs w-20'>Qté</TableHead>
                               <TableHead className='text-xs w-24'>Prix HT</TableHead>
                               <TableHead className='text-xs w-20'>TVA %</TableHead>
+                              <TableHead className='text-xs w-16 text-red-600'>Remise %</TableHead>
                               <TableHead className='text-xs w-24 text-right'>Total HT</TableHead>
                               <TableHead className='text-xs w-24 text-right'>Total TTC</TableHead>
                               <TableHead className='w-10' />
