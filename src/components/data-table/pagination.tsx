@@ -26,6 +26,7 @@ export function DataTablePagination<TData>({
 }: DataTablePaginationProps<TData>) {
   const currentPage = table.getState().pagination.pageIndex + 1
   const totalPages = table.getPageCount()
+  const totalRows = table.getFilteredRowModel().rows.length
   const pageNumbers = getPageNumbers(currentPage, totalPages)
 
   return (
@@ -38,8 +39,13 @@ export function DataTablePagination<TData>({
       style={{ overflowClipMargin: 1 }}
     >
       <div className='flex w-full items-center justify-between'>
-        <div className='flex w-[100px] items-center justify-center text-sm font-medium @2xl/content:hidden'>
-          Page {currentPage} of {totalPages}
+        <div className='flex items-center gap-4'>
+          <span className='text-sm text-muted-foreground'>
+            {totalRows} résultat{totalRows > 1 ? 's' : ''}
+          </span>
+          <div className='flex w-[100px] items-center justify-center text-sm font-medium @2xl/content:hidden'>
+            Page {currentPage} / {totalPages}
+          </div>
         </div>
         <div className='flex items-center gap-2 @max-2xl/content:flex-row-reverse'>
           <Select
@@ -59,13 +65,13 @@ export function DataTablePagination<TData>({
               ))}
             </SelectContent>
           </Select>
-          <p className='hidden text-sm font-medium sm:block'>Rows per page</p>
+          <p className='hidden text-sm font-medium sm:block'>Lignes par page</p>
         </div>
       </div>
 
       <div className='flex items-center sm:space-x-6 lg:space-x-8'>
         <div className='flex w-[100px] items-center justify-center text-sm font-medium @max-3xl/content:hidden'>
-          Page {currentPage} of {totalPages}
+          Page {currentPage} / {totalPages}
         </div>
         <div className='flex items-center space-x-2'>
           <Button
