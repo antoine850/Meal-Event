@@ -744,12 +744,21 @@ export function useMarkQuoteSigned() {
   return useMutation({
     mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
       const now = new Date().toISOString()
+
+      // Clear primary on all quotes for this booking
+      await supabase
+        .from('quotes')
+        .update({ primary_quote: false } as never)
+        .eq('booking_id', bookingId)
+
+      // Set this quote as signed + primary
       const { data, error } = await supabase
         .from('quotes')
         .update({
           status: 'quote_signed',
           quote_signed_at: now,
           signed_at: now,
+          primary_quote: true,
         } as never)
         .eq('id', quoteId)
         .select()

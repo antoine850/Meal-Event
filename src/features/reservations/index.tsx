@@ -3,7 +3,7 @@ import { type DateRange } from 'react-day-picker'
 import { type SortingState } from '@tanstack/react-table'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { Cross2Icon } from '@radix-ui/react-icons'
-import { Calendar as CalendarIcon, List, Loader2 } from 'lucide-react'
+import { Calendar as CalendarIcon, Columns3, List, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -16,12 +16,13 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { CalendarView } from './components/calendar-view'
 import { BookingsTable } from './components/bookings-table'
+import { PipelineView } from './components/pipeline-view'
 import { CreateBookingDialog } from './components/create-booking-dialog'
 import { useBookings, useBookingStatuses, useRestaurants } from './hooks/use-bookings'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { bookingToReservation } from './types'
 
-type MainView = 'calendar' | 'list'
+type MainView = 'calendar' | 'list' | 'pipeline'
 type CalendarMode = 'month' | 'week' | 'day'
 
 export function Reservations() {
@@ -176,7 +177,7 @@ export function Reservations() {
             className='h-8 w-full sm:w-[200px] lg:w-[250px]'
           />
           <div className='flex flex-wrap gap-2'>
-            {mainView === 'list' && (
+            {(mainView === 'list' || mainView === 'pipeline') && (
               <DateFilter
                 value={dateRange}
                 onChange={(range) => {
@@ -234,6 +235,10 @@ export function Reservations() {
                 <List className='h-4 w-4' />
                 <span className='hidden sm:inline text-xs'>Liste</span>
               </ToggleGroupItem>
+              <ToggleGroupItem value='pipeline' aria-label='Vue pipeline' className='px-2 gap-1.5'>
+                <Columns3 className='h-4 w-4' />
+                <span className='hidden sm:inline text-xs'>Pipeline</span>
+              </ToggleGroupItem>
             </ToggleGroup>
             <CreateBookingDialog
               open={bookingDialogOpen}
@@ -255,6 +260,9 @@ export function Reservations() {
               onAddReservation={handleAddReservation}
             />
           </div>
+        )}
+        {mainView === 'pipeline' && (
+          <PipelineView bookings={filteredBookings} statuses={statuses} />
         )}
       </Main>
     </>
