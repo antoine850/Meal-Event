@@ -650,6 +650,120 @@ export function useDeleteQuote() {
   })
 }
 
+export function useDuplicateQuote() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+      // Fetch original quote with items
+      const { data: original, error: fetchError } = await supabase
+        .from('quotes')
+        .select('*, quote_items(*)')
+        .eq('id', quoteId)
+        .single()
+      if (fetchError) throw fetchError
+
+      // Generate new quote number
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const shortId = Math.random().toString(36).substring(2, 6)
+      const prefix = (original as any).quote_number?.split('-')[0] || 'DEV'
+      const quoteNumber = `${prefix}-${year}-${month}-${shortId}-v1`
+
+      // Insert duplicate quote — keep content, reset workflow/payment fields
+      const { data: newQuote, error: insertError } = await supabase
+        .from('quotes')
+        .insert({
+          organization_id: (original as any).organization_id,
+          booking_id: bookingId,
+          contact_id: (original as any).contact_id,
+          quote_number: quoteNumber,
+          status: 'draft',
+          title: (original as any).title ? `${(original as any).title} (copie)` : null,
+          language: (original as any).language || 'fr',
+          date_start: (original as any).date_start,
+          date_end: (original as any).date_end,
+          quote_date: now.toISOString().split('T')[0],
+          deposit_percentage: (original as any).deposit_percentage ?? 80,
+          deposit_label: (original as any).deposit_label,
+          deposit_days: (original as any).deposit_days,
+          balance_label: (original as any).balance_label,
+          balance_days: (original as any).balance_days,
+          quote_due_days: (original as any).quote_due_days,
+          invoice_due_days: (original as any).invoice_due_days,
+          discount_percentage: (original as any).discount_percentage,
+          comments_fr: (original as any).comments_fr,
+          comments_en: (original as any).comments_en,
+          conditions_devis: (original as any).conditions_devis,
+          conditions_facture: (original as any).conditions_facture,
+          conditions_acompte: (original as any).conditions_acompte,
+          conditions_solde: (original as any).conditions_solde,
+          additional_conditions: (original as any).additional_conditions,
+          total_ht: (original as any).total_ht,
+          total_tva: (original as any).total_tva,
+          total_ttc: (original as any).total_ttc,
+          version: 1,
+          primary_quote: false,
+        } as never)
+        .select()
+        .single()
+      if (insertError) throw insertError
+
+      // Duplicate all quote items
+      const items = ((original as any).quote_items || []) as any[]
+      if (items.length > 0) {
+        const newItems = items.map((item: any) => ({
+          quote_id: (newQuote as any).id,
+          name: item.name,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          tva_rate: item.tva_rate,
+          discount_amount: item.discount_amount,
+          total_ht: item.total_ht,
+          total_ttc: item.total_ttc,
+          item_type: item.item_type,
+          position: item.position,
+        }))
+        const { error: itemsError } = await supabase.from('quote_items').insert(newItems as never)
+        if (itemsError) throw itemsError
+      }
+
+      return newQuote as Quote
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+    },
+  })
+}
+
+export function useMarkQuoteSigned() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+      const now = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('quotes')
+        .update({
+          status: 'quote_signed',
+          quote_signed_at: now,
+          signed_at: now,
+        } as never)
+        .eq('id', quoteId)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Quote
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
+    },
+  })
+}
+
 // ============================================
 // Quote Items
 // ============================================

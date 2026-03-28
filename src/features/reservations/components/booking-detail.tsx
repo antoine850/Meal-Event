@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
+  Copy,
   Download,
   Edit,
   ExternalLink,
@@ -93,6 +94,8 @@ import {
   useSetPrimaryQuote,
   useCreateQuote,
   useDeleteQuote,
+  useDuplicateQuote,
+  useMarkQuoteSigned,
   useRestaurantById,
   useContactWithCompany,
   useSendQuoteEmail,
@@ -161,6 +164,8 @@ export const BookingDetail = forwardRef<
   const { mutate: deleteDocument, isPending: isDeletingDocument } = useDeleteDocument()
   const { mutate: createQuote, isPending: isCreatingQuote } = useCreateQuote()
   const { mutate: deleteQuoteMutation } = useDeleteQuote()
+  const { mutate: duplicateQuote, isPending: isDuplicating } = useDuplicateQuote()
+  const { mutate: markQuoteSigned, isPending: isMarkingSigned } = useMarkQuoteSigned()
   const { mutate: sendQuoteEmail, isPending: isSendingEmail } = useSendQuoteEmail()
   const { mutate: sendSignature, isPending: isSendingSignature } = useSendSignature()
   const { mutate: sendDeposit, isPending: isSendingDeposit } = useSendDeposit()
@@ -177,6 +182,10 @@ export const BookingDetail = forwardRef<
   const [quoteEditorOpen, setQuoteEditorOpen] = useState(false)
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null)
+  // Multi-quote email send dialog
+  const [sendEmailDialogOpen, setSendEmailDialogOpen] = useState(false)
+  const [sendEmailSourceQuoteId, setSendEmailSourceQuoteId] = useState<string | null>(null)
+  const [selectedQuoteIdsToSend, setSelectedQuoteIdsToSend] = useState<string[]>([])
 
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -1161,7 +1170,28 @@ export const BookingDetail = forwardRef<
                                       <Download className='h-3.5 w-3.5 mr-2' />
                                       Télécharger Devis PDF
                                     </DropdownMenuItem>
-                                    
+
+                                    {/* Duplicate */}
+                                    <DropdownMenuItem
+                                      disabled={isDuplicating}
+                                      onClick={() => {
+                                        duplicateQuote(
+                                          { quoteId: quote.id, bookingId: booking.id },
+                                          {
+                                            onSuccess: (newQuote) => {
+                                              setEditingQuoteId((newQuote as any).id)
+                                              setQuoteEditorOpen(true)
+                                              toast.success('Devis dupliqué')
+                                            },
+                                            onError: () => toast.error('Erreur lors de la duplication'),
+                                          }
+                                        )
+                                      }}
+                                    >
+                                      <Copy className='h-3.5 w-3.5 mr-2' />
+                                      <span>{isDuplicating ? 'Duplication...' : 'Dupliquer ce devis'}</span>
+                                    </DropdownMenuItem>
+
                                     {/* Workflow Actions with conditions */}
                                     <DropdownMenuItem
                                       disabled={isSendingEmail}
@@ -1175,28 +1205,52 @@ export const BookingDetail = forwardRef<
                                           if (!company.billing_postal_code) missingFields.push('Code postal')
                                           if (!company.billing_city) missingFields.push('Ville')
                                           if (!company.siret) missingFields.push('SIRET')
-                                          
                                           if (missingFields.length > 0) {
                                             toast.error(`Informations société manquantes : ${missingFields.join(', ')}. Veuillez compléter les informations de la société avant d'envoyer le devis.`)
                                             return
                                           }
                                         }
-                                        
-                                        sendQuoteEmail(
-                                          { quoteId: quote.id, bookingId: booking.id },
-                                          {
-                                            onSuccess: () => {
-                                              toast.success('Devis envoyé par email')
-                                              activityLogger.quoteEmailSent(booking.id, quote.id, fullContact?.email || undefined)
-                                            },
-                                            onError: (err) => toast.error(`Erreur: ${err.message}`),
-                                          }
-                                        )
+                                        // If multiple quotes, show selection dialog
+                                        if (quotes.length > 1) {
+                                          setSendEmailSourceQuoteId(quote.id)
+                                          setSelectedQuoteIdsToSend([quote.id])
+                                          setSendEmailDialogOpen(true)
+                                        } else {
+                                          sendQuoteEmail(
+                                            { quoteId: quote.id, bookingId: booking.id },
+                                            {
+                                              onSuccess: () => {
+                                                toast.success('Devis envoyé par email')
+                                                activityLogger.quoteEmailSent(booking.id, quote.id, fullContact?.email || undefined)
+                                              },
+                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
+                                            }
+                                          )
+                                        }
                                       }}
                                     >
                                       <Send className='h-3.5 w-3.5 mr-2' />
                                       <span>{isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}</span>
                                     </DropdownMenuItem>
+
+                                    {/* Mark as signed manually */}
+                                    {!isQuoteSigned && (
+                                      <DropdownMenuItem
+                                        disabled={isMarkingSigned}
+                                        onClick={() => {
+                                          markQuoteSigned(
+                                            { quoteId: quote.id, bookingId: booking.id },
+                                            {
+                                              onSuccess: () => toast.success('Devis marqué comme signé'),
+                                              onError: () => toast.error('Erreur lors de la mise à jour'),
+                                            }
+                                          )
+                                        }}
+                                      >
+                                        <FileSignature className='h-3.5 w-3.5 mr-2' />
+                                        <span>{isMarkingSigned ? 'Mise à jour...' : 'Marquer comme signé'}</span>
+                                      </DropdownMenuItem>
+                                    )}
                                   
                                     <DropdownMenuItem
                                       disabled={!canSendSignature || isSendingSignature}
@@ -2069,6 +2123,74 @@ export const BookingDetail = forwardRef<
               Confirmer
             </Button>
           </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Multi-quote email selection dialog */}
+    <Dialog open={sendEmailDialogOpen} onOpenChange={(open) => { if (!open) setSendEmailDialogOpen(false) }}>
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader>
+          <DialogTitle>Envoyer des devis par email</DialogTitle>
+          <DialogDescription>
+            Sélectionnez les devis à envoyer à {fullContact?.first_name} {fullContact?.last_name}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className='space-y-2 py-2'>
+          {quotes.map((q: Quote) => (
+            <div key={q.id} className='flex items-center gap-3 p-2 rounded border hover:bg-muted/30'>
+              <Checkbox
+                id={`send-${q.id}`}
+                checked={selectedQuoteIdsToSend.includes(q.id)}
+                onCheckedChange={(checked) => {
+                  setSelectedQuoteIdsToSend(prev =>
+                    checked ? [...prev, q.id] : prev.filter(id => id !== q.id)
+                  )
+                }}
+              />
+              <label htmlFor={`send-${q.id}`} className='flex-1 cursor-pointer text-sm'>
+                <span className='font-medium'>{q.quote_number}</span>
+                {q.title && <span className='ml-2 text-muted-foreground truncate'>{q.title}</span>}
+                <span className='ml-2 text-xs text-muted-foreground'>
+                  {(q.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                </span>
+                {(q as any).primary_quote && <span className='ml-2 text-[10px] text-emerald-600 font-medium'>Actif</span>}
+              </label>
+            </div>
+          ))}
+        </div>
+        <div className='flex justify-end gap-2 pt-2'>
+          <Button variant='outline' onClick={() => setSendEmailDialogOpen(false)}>Annuler</Button>
+          <Button
+            disabled={selectedQuoteIdsToSend.length === 0 || isSendingEmail}
+            onClick={() => {
+              setSendEmailDialogOpen(false)
+              // Send sequentially
+              const toSend = [...selectedQuoteIdsToSend]
+              let index = 0
+              const sendNext = () => {
+                if (index >= toSend.length) {
+                  toast.success(`${toSend.length} devis envoyé${toSend.length > 1 ? 's' : ''} par email`)
+                  return
+                }
+                const qId = toSend[index++]
+                sendQuoteEmail(
+                  { quoteId: qId, bookingId: booking.id },
+                  {
+                    onSuccess: () => {
+                      activityLogger.quoteEmailSent(booking.id, qId, fullContact?.email || undefined)
+                      sendNext()
+                    },
+                    onError: (err) => toast.error(`Erreur envoi devis: ${err.message}`),
+                  }
+                )
+              }
+              sendNext()
+            }}
+          >
+            <Send className='h-3.5 w-3.5 mr-2' />
+            Envoyer {selectedQuoteIdsToSend.length > 0 ? `(${selectedQuoteIdsToSend.length})` : ''}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
