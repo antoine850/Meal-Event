@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useNavigate } from '@tanstack/react-router'
-import { Users, Euro, CalendarDays } from 'lucide-react'
+import { Users, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select,

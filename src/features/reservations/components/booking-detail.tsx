@@ -184,7 +184,7 @@ export const BookingDetail = forwardRef<
   const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null)
   // Multi-quote email send dialog
   const [sendEmailDialogOpen, setSendEmailDialogOpen] = useState(false)
-  const [sendEmailSourceQuoteId, setSendEmailSourceQuoteId] = useState<string | null>(null)
+  const [_sendEmailSourceQuoteId, setSendEmailSourceQuoteId] = useState<string | null>(null)
   const [selectedQuoteIdsToSend, setSelectedQuoteIdsToSend] = useState<string[]>([])
 
   // Payment dialog state
