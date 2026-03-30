@@ -371,7 +371,7 @@ publicRouter.post('/booking-request', async (req: Request, res: Response) => {
         is_privatif: isPrivatif,
         client_preferred_time: time_slot ? (time_slot === 'midi' ? 'Midi (12h)' : time_slot === 'soir' ? 'Soir (19h)' : 'Hors service') : null,
         start_time: startTime,
-        budget_client: budget ? budget.trim() : null,
+        budget_client: budget ? String(budget).trim() : null,
         source: contactSource,
         ...utmFields,
         allergies_regimes: allergies ? allergies.trim() : null,

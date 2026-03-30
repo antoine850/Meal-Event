@@ -85,7 +85,7 @@ export type Database = {
         Row: {
           allergies_regimes: string | null
           booking_id: string | null
-          budget_client: number | null
+          budget_client: string | null
           client_preferred_time: string | null
           commentaires: string | null
           contact_sur_place_nom: string | null
@@ -119,7 +119,7 @@ export type Database = {
         Insert: {
           allergies_regimes?: string | null
           booking_id?: string | null
-          budget_client?: number | null
+          budget_client?: string | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_sur_place_nom?: string | null
@@ -153,7 +153,7 @@ export type Database = {
         Update: {
           allergies_regimes?: string | null
           booking_id?: string | null
-          budget_client?: number | null
+          budget_client?: string | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_sur_place_nom?: string | null
@@ -389,7 +389,7 @@ export type Database = {
           allergies_regimes: string | null
           assigned_to: string | null
           assigned_user_ids: string[] | null
-          budget_client: number | null
+          budget_client: string | null
           client_preferred_time: string | null
           commentaires: string | null
           contact_id: string | null
@@ -451,7 +451,7 @@ export type Database = {
           allergies_regimes?: string | null
           assigned_to?: string | null
           assigned_user_ids?: string[] | null
-          budget_client?: number | null
+          budget_client?: string | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_id?: string | null
@@ -513,7 +513,7 @@ export type Database = {
           allergies_regimes?: string | null
           assigned_to?: string | null
           assigned_user_ids?: string[] | null
-          budget_client?: number | null
+          budget_client?: string | null
           client_notes?: string | null
           client_preferred_time?: string | null
           commentaires?: string | null
