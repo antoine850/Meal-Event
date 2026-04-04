@@ -6,7 +6,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import { Euro, TrendingUp, Users, Utensils, Loader2 } from 'lucide-react'
+import { Euro, TrendingUp, Users, Utensils, Loader2, Info, FileSignature } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -17,18 +17,41 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   type DashboardTabProps,
   calcRevenue,
   calcAvgTicket,
   calcConversionRate,
+  calcSignatureRate,
   groupByRestaurant,
 } from '../hooks/use-dashboard-data'
+
+function KpiTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <Info className='h-3.5 w-3.5 text-muted-foreground cursor-help' />
+        </TooltipTrigger>
+        <TooltipContent side='bottom' className='max-w-[220px]'>
+          <p className='text-xs'>{text}</p>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  )
+}
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#a855f7']
 
 export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabProps) {
   const totalRevenue = useMemo(() => calcRevenue(bookings), [bookings])
   const avgTicket = useMemo(() => calcAvgTicket(bookings), [bookings])
+  const signatureRate = useMemo(() => calcSignatureRate(bookings), [bookings])
   const conversionRate = useMemo(() => calcConversionRate(bookings), [bookings])
 
   const restaurantKPIs = useMemo(() => {
@@ -67,10 +90,13 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
   return (
     <div className='space-y-4'>
       {/* KPI Cards */}
-      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Chiffre d'affaires total</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="CA des événements confirmés (acompte reçu ou plus avancé)" />
+              <CardTitle className='text-sm font-medium'>CA total</CardTitle>
+            </div>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
@@ -80,34 +106,56 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Événements</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Nombre total d'événements sur la période (tous statuts)" />
+              <CardTitle className='text-sm font-medium'>Événements</CardTitle>
+            </div>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{bookings.length}</div>
             <p className='text-xs text-muted-foreground'>
-              {bookings.reduce((sum, b) => sum + (b.guests_count || 0), 0).toLocaleString('fr-FR')} convives au total
+              {bookings.reduce((sum, b) => sum + (b.guests_count || 0), 0).toLocaleString('fr-FR')} convives
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Panier moyen</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="CA confirmé / nombre d'événements confirmés" />
+              <CardTitle className='text-sm font-medium'>Panier moyen</CardTitle>
+            </div>
             <Utensils className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{avgTicket.toLocaleString('fr-FR')} €</div>
-            <p className='text-xs text-muted-foreground'>Par événement</p>
+            <p className='text-xs text-muted-foreground'>Par événement confirmé</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Événements avec devis signé / total (hors annulés)" />
+              <CardTitle className='text-sm font-medium'>Taux de signature</CardTitle>
+            </div>
+            <FileSignature className='h-4 w-4 text-muted-foreground' />
+          </CardHeader>
+          <CardContent>
+            <div className='text-2xl font-bold'>{signatureRate}%</div>
+            <p className='text-xs text-muted-foreground'>Devis signés / total</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Événements avec acompte reçu / total (hors annulés)" />
+              <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
+            </div>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{conversionRate}%</div>
-            <p className='text-xs text-muted-foreground'>Événements confirmés / total</p>
+            <p className='text-xs text-muted-foreground'>Acompte reçu / total</p>
           </CardContent>
         </Card>
       </div>

@@ -11,7 +11,7 @@ import {
   PieChart,
   Pie,
 } from 'recharts'
-import { Euro, Target, TrendingUp, Users, Loader2 } from 'lucide-react'
+import { Euro, Target, TrendingUp, Users, Loader2, Info } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -22,12 +22,33 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   type DashboardTabProps,
   calcRevenue,
   calcConversionRate,
   groupByUser,
   getMonthlyRevenueByCommercial,
 } from '../hooks/use-dashboard-data'
+
+function KpiTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <Info className='h-3.5 w-3.5 text-muted-foreground cursor-help' />
+        </TooltipTrigger>
+        <TooltipContent side='bottom' className='max-w-[220px]'>
+          <p className='text-xs'>{text}</p>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  )
+}
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#a855f7']
 
@@ -49,9 +70,9 @@ export function CommercialTab({ bookings, isLoading }: DashboardTabProps) {
   const totalSales = useMemo(() => commercialStats.reduce((acc, c) => acc + c.sales, 0), [commercialStats])
   const totalBookings = useMemo(() => commercialStats.reduce((acc, c) => acc + c.bookings, 0), [commercialStats])
   const avgConversion = useMemo(() => {
-    if (commercialStats.length === 0) return 0
-    return (commercialStats.reduce((acc, c) => acc + c.conversionRate, 0) / commercialStats.length).toFixed(1)
-  }, [commercialStats])
+    if (totalBookings === 0) return '0'
+    return calcConversionRate(bookings).toFixed(1)
+  }, [bookings, totalBookings])
 
   const bestPerformer = commercialStats[0]
 
@@ -92,7 +113,10 @@ export function CommercialTab({ bookings, isLoading }: DashboardTabProps) {
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>CA Total Équipe</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="CA cumulé des événements confirmés assignés à l'équipe" />
+              <CardTitle className='text-sm font-medium'>CA Total Équipe</CardTitle>
+            </div>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
@@ -104,7 +128,10 @@ export function CommercialTab({ bookings, isLoading }: DashboardTabProps) {
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Événements traités</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Nombre total d'événements assignés (tous statuts)" />
+              <CardTitle className='text-sm font-medium'>Événements traités</CardTitle>
+            </div>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
@@ -116,17 +143,23 @@ export function CommercialTab({ bookings, isLoading }: DashboardTabProps) {
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Taux de conversion moyen</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Moyenne pondérée : total confirmés / total non-annulés" />
+              <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
+            </div>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{avgConversion}%</div>
-            <p className='text-xs text-muted-foreground'>Leads → Événements confirmés</p>
+            <p className='text-xs text-muted-foreground'>Acompte reçu / total</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Meilleur performeur</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Commercial avec le plus de CA confirmé" />
+              <CardTitle className='text-sm font-medium'>Meilleur performeur</CardTitle>
+            </div>
             <Target className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>

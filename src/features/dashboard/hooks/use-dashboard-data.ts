@@ -149,23 +149,37 @@ export function useDashboardData(filters: DashboardFilters) {
   }
 }
 
+// ─── Status constants ───
+
+const CONFIRMED_SLUGS = ['confirme_fonctionnaire', 'fonction_envoyee', 'a_facturer', 'cloture']
+const SIGNED_SLUGS = ['attente_paiement', 'relance_paiement', ...CONFIRMED_SLUGS]
+
 // ─── Helper functions for KPI calculations ───
 
 export function calcRevenue(bookings: BookingWithRelations[]) {
-  return bookings.reduce((sum, b) => sum + (b.total_amount || 0), 0)
+  return bookings
+    .filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || ''))
+    .reduce((sum, b) => sum + (b.total_amount || 0), 0)
 }
 
 export function calcAvgTicket(bookings: BookingWithRelations[]) {
-  if (bookings.length === 0) return 0
-  return Math.round(calcRevenue(bookings) / bookings.length)
+  const confirmed = bookings.filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || ''))
+  if (confirmed.length === 0) return 0
+  return Math.round(calcRevenue(bookings) / confirmed.length)
 }
 
 export function calcConversionRate(bookings: BookingWithRelations[]) {
-  if (bookings.length === 0) return 0
-  const confirmed = bookings.filter(b =>
-    b.status?.slug === 'confirme_fonctionnaire' || b.status?.slug === 'fonction_envoyee' || b.status?.slug === 'a_facturer' || b.status?.slug === 'cloture'
-  ).length
-  return Math.round((confirmed / bookings.length) * 1000) / 10
+  const nonCancelled = bookings.filter(b => b.status?.slug !== 'cancelled')
+  if (nonCancelled.length === 0) return 0
+  const confirmed = nonCancelled.filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || '')).length
+  return Math.round((confirmed / nonCancelled.length) * 1000) / 10
+}
+
+export function calcSignatureRate(bookings: BookingWithRelations[]) {
+  const nonCancelled = bookings.filter(b => b.status?.slug !== 'cancelled')
+  if (nonCancelled.length === 0) return 0
+  const signed = nonCancelled.filter(b => SIGNED_SLUGS.includes(b.status?.slug || '')).length
+  return Math.round((signed / nonCancelled.length) * 1000) / 10
 }
 
 export function groupByMonth(bookings: BookingWithRelations[]) {
@@ -225,7 +239,7 @@ export function getMonthlyRevenueByRestaurant(bookings: BookingWithRelations[]) 
     const row: Record<string, string | number> = { month: m.label }
     restaurantNames.forEach(name => {
       row[name] = monthBookings
-        .filter(b => b.restaurant?.name === name)
+        .filter(b => b.restaurant?.name === name && CONFIRMED_SLUGS.includes(b.status?.slug || ''))
         .reduce((sum, b) => sum + (b.total_amount || 0), 0)
     })
     return row
@@ -291,7 +305,9 @@ export function getMonthlyTrend(bookings: BookingWithRelations[]) {
     return {
       month: m.label,
       reservations: monthBookings.length,
-      revenue: monthBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0),
+      revenue: monthBookings
+        .filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || ''))
+        .reduce((sum, b) => sum + (b.total_amount || 0), 0),
     }
   })
 }
@@ -323,7 +339,7 @@ export function getMonthlyRevenueByCommercial(bookings: BookingWithRelations[]) 
     const row: Record<string, string | number> = { month: m.label }
     commercialNames.forEach(name => {
       row[name] = monthBookings
-        .filter(b => `${b.assigned_user?.first_name} ${b.assigned_user?.last_name}` === name)
+        .filter(b => `${b.assigned_user?.first_name} ${b.assigned_user?.last_name}` === name && CONFIRMED_SLUGS.includes(b.status?.slug || ''))
         .reduce((sum, b) => sum + (b.total_amount || 0), 0)
     })
     return row
@@ -339,13 +355,15 @@ export function getContactsBySource(contacts: ContactWithRelations[], bookings: 
     sourceGroups[source].leads++
   })
 
-  // Count bookings per source via contact
+  // Count bookings per source via contact (revenue only from confirmed)
   bookings.forEach(b => {
     const contact = contacts.find(c => c.id === b.contact_id)
     const source = (contact as any)?.source || 'Autre'
     if (!sourceGroups[source]) sourceGroups[source] = { leads: 0, bookings: 0, revenue: 0 }
     sourceGroups[source].bookings++
-    sourceGroups[source].revenue += b.total_amount || 0
+    if (CONFIRMED_SLUGS.includes(b.status?.slug || '')) {
+      sourceGroups[source].revenue += b.total_amount || 0
+    }
   })
 
   return Object.entries(sourceGroups)

@@ -1,9 +1,15 @@
 import { useMemo } from 'react'
 import { format, parseISO, isAfter } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Calendar, CheckCircle, Clock, TrendingUp, Users, Loader2 } from 'lucide-react'
+import { Calendar, CheckCircle, Clock, TrendingUp, Users, Loader2, Info } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   Bar,
   BarChart,
@@ -24,13 +30,28 @@ import {
   getMonthlyTrend,
 } from '../hooks/use-dashboard-data'
 
+function KpiTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <Info className='h-3.5 w-3.5 text-muted-foreground cursor-help' />
+        </TooltipTrigger>
+        <TooltipContent side='bottom' className='max-w-[220px]'>
+          <p className='text-xs'>{text}</p>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  )
+}
+
 export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
   const stats = useMemo(() => {
     const confirmed = bookings.filter(b =>
       b.status?.slug === 'confirme_fonctionnaire' || b.status?.slug === 'fonction_envoyee' || b.status?.slug === 'a_facturer' || b.status?.slug === 'cloture'
     ).length
     const pending = bookings.filter(b =>
-      b.status?.slug === 'nouveau' || b.status?.slug === 'qualification' || b.status?.slug === 'proposition' || b.status?.slug === 'negociation'
+      b.status?.slug === 'nouveau' || b.status?.slug === 'qualification' || b.status?.slug === 'proposition' || b.status?.slug === 'negociation' || b.status?.slug === 'attente_paiement' || b.status?.slug === 'relance_paiement'
     ).length
     const totalGuests = bookings.reduce((sum, b) => sum + (b.guests_count || 0), 0)
 
@@ -69,7 +90,10 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Événements</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Nombre d'événements sur la période sélectionnée" />
+              <CardTitle className='text-sm font-medium'>Total Événements</CardTitle>
+            </div>
             <Calendar className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
@@ -79,7 +103,10 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Confirmées</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Événements avec acompte payé ou plus avancé dans le pipeline" />
+              <CardTitle className='text-sm font-medium'>Confirmées</CardTitle>
+            </div>
             <CheckCircle className='h-4 w-4 text-green-500' />
           </CardHeader>
           <CardContent>
@@ -91,7 +118,10 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>En attente</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Événements en cours de traitement (nouveau → relance paiement)" />
+              <CardTitle className='text-sm font-medium'>En attente</CardTitle>
+            </div>
             <Clock className='h-4 w-4 text-yellow-500' />
           </CardHeader>
           <CardContent>
@@ -101,7 +131,10 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Convives</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Somme des convives, tous événements confondus" />
+              <CardTitle className='text-sm font-medium'>Total Convives</CardTitle>
+            </div>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>

@@ -10,7 +10,7 @@ import {
   Line,
   LineChart,
 } from 'recharts'
-import { Instagram, Facebook, Globe, MessageCircle, Users, TrendingUp, Loader2 } from 'lucide-react'
+import { Instagram, Facebook, Globe, MessageCircle, Users, TrendingUp, Loader2, Info } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -20,10 +20,31 @@ import {
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   type DashboardTabProps,
   getContactsBySource,
   getMonthlyLeadsBySource,
 } from '../hooks/use-dashboard-data'
+
+function KpiTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <Info className='h-3.5 w-3.5 text-muted-foreground cursor-help' />
+        </TooltipTrigger>
+        <TooltipContent side='bottom' className='max-w-[220px]'>
+          <p className='text-xs'>{text}</p>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  )
+}
 
 const sourceIcons: Record<string, React.ReactNode> = {
   Instagram: <Instagram className='h-4 w-4' style={{ color: '#E4405F' }} />,
@@ -88,7 +109,10 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Leads</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Contacts créés sur la période, toutes sources confondues" />
+              <CardTitle className='text-sm font-medium'>Total Leads</CardTitle>
+            </div>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
@@ -98,7 +122,10 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Événements</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Leads ayant généré au moins un événement" />
+              <CardTitle className='text-sm font-medium'>Événements</CardTitle>
+            </div>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
@@ -108,7 +135,10 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Événements créés / total leads" />
+              <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
+            </div>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
@@ -118,7 +148,10 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Meilleure source</CardTitle>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text="Source avec le meilleur taux de conversion" />
+              <CardTitle className='text-sm font-medium'>Meilleure source</CardTitle>
+            </div>
             {bestSource && (sourceIcons[bestSource.source] || <Globe className='h-4 w-4 text-muted-foreground' />)}
           </CardHeader>
           <CardContent>
