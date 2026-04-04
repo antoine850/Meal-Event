@@ -66,6 +66,7 @@ bookingsRouter.get('/:id', async (req: Request, res: Response) => {
         receipts (*)
       `)
       .eq('id', req.params.id)
+      .order('position', { referencedTable: 'quotes.quote_items', ascending: true })
       .single()
 
     if (error) throw error

@@ -183,13 +183,17 @@ export function Onboarding() {
         { name: 'Attente paiement', slug: 'attente_paiement', color: '#8b5cf6', type: 'contact', position: 8 },
         { name: 'Relance paiement', slug: 'relance_paiement', color: '#ec4899', type: 'contact', position: 9 },
         // Booking statuses
-        { name: 'En attente', slug: 'en-attente', color: '#F59E0B', type: 'booking', position: 1 },
-        { name: 'Devis envoyé', slug: 'devis-envoye', color: '#8B5CF6', type: 'booking', position: 2 },
-        { name: 'Devis signé', slug: 'devis-signe', color: '#3B82F6', type: 'booking', position: 3 },
-        { name: 'Acompte payé', slug: 'acompte-paye', color: '#22C55E', type: 'booking', position: 4 },
-        { name: 'Confirmé', slug: 'confirme', color: '#10B981', type: 'booking', position: 5 },
-        { name: 'Terminé', slug: 'termine', color: '#6B7280', type: 'booking', position: 6 },
-        { name: 'Annulé', slug: 'annule', color: '#EF4444', type: 'booking', position: 7 },
+        { name: 'Nouveau', slug: 'nouveau', color: '#2196F3', type: 'booking', position: 1 },
+        { name: 'Qualification', slug: 'qualification', color: '#FF9800', type: 'booking', position: 2 },
+        { name: 'Proposition', slug: 'proposition', color: '#FF5722', type: 'booking', position: 3 },
+        { name: 'Négociation', slug: 'negociation', color: '#E91E63', type: 'booking', position: 4 },
+        { name: 'Confirmé / Fonction a faire', slug: 'confirme_fonctionnaire', color: '#4CAF50', type: 'booking', position: 5 },
+        { name: 'Fonction envoyée', slug: 'fonction_envoyee', color: '#1565C0', type: 'booking', position: 6 },
+        { name: 'À facturer', slug: 'a_facturer', color: '#E53935', type: 'booking', position: 7 },
+        { name: 'Attente paiement', slug: 'attente_paiement', color: '#FF9800', type: 'booking', position: 8 },
+        { name: 'Relance paiement', slug: 'relance_paiement', color: '#D32F2F', type: 'booking', position: 9 },
+        { name: 'Clôturé', slug: 'cloture', color: '#6B7280', type: 'booking', position: 10 },
+        { name: 'Annulée', slug: 'cancelled', color: '#EF4444', type: 'booking', position: 11 },
       ]
 
       await supabase

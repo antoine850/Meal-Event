@@ -27,10 +27,10 @@ import {
 export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
   const stats = useMemo(() => {
     const confirmed = bookings.filter(b =>
-      b.status?.slug === 'confirme' || b.status?.slug === 'acompte-paye' || b.status?.slug === 'termine' || b.status?.slug === 'solde-paye'
+      b.status?.slug === 'confirme_fonctionnaire' || b.status?.slug === 'fonction_envoyee' || b.status?.slug === 'a_facturer' || b.status?.slug === 'cloture'
     ).length
     const pending = bookings.filter(b =>
-      b.status?.slug === 'nouveau' || b.status?.slug === 'option' || b.status?.slug === 'devis-envoye' || b.status?.slug === 'devis-signe'
+      b.status?.slug === 'nouveau' || b.status?.slug === 'qualification' || b.status?.slug === 'proposition' || b.status?.slug === 'negociation'
     ).length
     const totalGuests = bookings.reduce((sum, b) => sum + (b.guests_count || 0), 0)
 

@@ -262,6 +262,7 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
       )
     `)
     .eq('id', quoteId)
+    .order('position', { referencedTable: 'quote_items', ascending: true })
     .single()
 
   if (error) throw new Error(`Failed to fetch quote: ${error.message}`)

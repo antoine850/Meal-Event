@@ -279,20 +279,13 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
     }
 
     // Update booking status based on payment type
-    let newStatusSlug = 'acompte-paye'
+    // Deposit paid → Confirmé / Fonction a faire; Balance paid → no auto change (Fonction envoyée is manual)
+    let newStatusSlug: string | null = 'confirme_fonctionnaire'
     if (link_type === 'balance' || link_type === 'full') {
-      newStatusSlug = 'confirme'
+      newStatusSlug = null // No booking status change for balance — "Fonction envoyée" is manual
     }
-    console.log(`[Stripe] Looking for status slug '${newStatusSlug}' for org ${booking?.organization_id}`)
-
-    if (booking) {
-      // List all available booking statuses for debugging
-      const { data: allStatuses } = await supabase
-        .from('statuses')
-        .select('id, slug, name')
-        .eq('organization_id', booking.organization_id)
-        .eq('type', 'booking')
-      console.log(`[Stripe] Available booking statuses for org:`, allStatuses?.map(s => s.slug).join(', '))
+    if (newStatusSlug && booking) {
+      console.log(`[Stripe] Looking for status slug '${newStatusSlug}' for org ${booking.organization_id}`)
 
       const { data: status } = await supabase
         .from('statuses')
@@ -451,9 +444,9 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice) {
         .eq('id', quote_id)
     }
 
-    // Update booking status
-    if (booking) {
-      const newStatusSlug = link_type === 'balance' ? 'confirme' : 'acompte-paye'
+    // Update booking status (only for deposit — balance/Fonction envoyée is manual)
+    if (booking && link_type !== 'balance') {
+      const newStatusSlug = 'confirme_fonctionnaire'
       const { data: status } = await supabase
         .from('statuses')
         .select('id')
@@ -625,6 +618,21 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
         signed_pdf_url: signedPdfUrl,
       })
       .eq('id', quote.id)
+
+    // Auto-update booking status → Attente paiement
+    if (quote.booking_id && quote.organization_id) {
+      const { data: statusData } = await supabase
+        .from('statuses')
+        .select('id')
+        .eq('organization_id', quote.organization_id)
+        .eq('slug', 'attente_paiement')
+        .eq('type', 'booking')
+        .single()
+      if (statusData) {
+        await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', quote.booking_id)
+        console.log(`[SignNow] ✅ Booking ${quote.booking_id} status → attente_paiement`)
+      }
+    }
 
     // Log activity
     await supabase.from('activity_logs').insert({

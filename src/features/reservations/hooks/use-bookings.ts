@@ -434,7 +434,7 @@ export function useCreatePayment() {
             .from('statuses')
             .select('id')
             .eq('organization_id', orgId)
-            .eq('slug', 'acompte-paye')
+            .eq('slug', 'confirme_fonctionnaire')
             .eq('type', 'booking')
             .single()
 
@@ -446,19 +446,7 @@ export function useCreatePayment() {
             await supabase.from('quotes').update({ status: 'deposit_paid', deposit_paid_at: new Date().toISOString() }).eq('id', quoteId)
           }
         } else if (modality === 'solde' || paymentType === 'balance') {
-          // Balance paid → booking status "confirme"
-          const { data: statusData } = await supabase
-            .from('statuses')
-            .select('id')
-            .eq('organization_id', orgId)
-            .eq('slug', 'confirme')
-            .eq('type', 'booking')
-            .single()
-
-          if (statusData) {
-            await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', bookingId)
-          }
-
+          // Balance paid → update quote status only (booking status "Fonction envoyée" is manual)
           if (quoteId) {
             await supabase.from('quotes').update({ status: 'balance_paid', balance_paid_at: new Date().toISOString() }).eq('id', quoteId)
             await supabase.from('quotes').update({ status: 'completed' }).eq('id', quoteId).eq('status', 'balance_paid')
@@ -573,7 +561,7 @@ export function useUpdatePayment() {
             .from('statuses')
             .select('id')
             .eq('organization_id', orgId)
-            .eq('slug', 'acompte-paye')
+            .eq('slug', 'confirme_fonctionnaire')
             .eq('type', 'booking')
             .single()
 
@@ -592,23 +580,7 @@ export function useUpdatePayment() {
               .eq('id', quoteId)
           }
         } else if (paymentModality_ === 'solde' || (payment as any).payment_type === 'balance') {
-          // Balance paid → update booking status to "confirme"
-          const { data: statusData } = await supabase
-            .from('statuses')
-            .select('id')
-            .eq('organization_id', orgId)
-            .eq('slug', 'confirme')
-            .eq('type', 'booking')
-            .single()
-
-          if (statusData) {
-            await supabase
-              .from('bookings')
-              .update({ status_id: statusData.id })
-              .eq('id', bookingId)
-          }
-
-          // Update quote status to balance_paid then completed
+          // Balance paid → update quote status only (booking status "Fonction envoyée" is manual)
           if (quoteId) {
             await supabase
               .from('quotes')

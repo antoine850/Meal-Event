@@ -77,6 +77,25 @@ async function savePdfAsDocument(
   }
 }
 
+// Helper: update booking status by slug
+async function updateBookingStatusBySlug(bookingId: string | undefined | null, organizationId: string | undefined | null, slug: string) {
+  if (!bookingId || !organizationId) return
+  const { data: statusData } = await supabase
+    .from('statuses')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('slug', slug)
+    .eq('type', 'booking')
+    .single()
+
+  if (statusData) {
+    await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', bookingId)
+    console.log(`[Status] ✅ Booking ${bookingId} → ${slug}`)
+  } else {
+    console.warn(`[Status] Slug '${slug}' not found for org ${organizationId}`)
+  }
+}
+
 // Shared helper to get organization facturation email (used as reply-to)
 async function getOrgFacturationEmail(organizationId: string | null): Promise<string | null> {
   if (!organizationId) return null
@@ -158,6 +177,7 @@ quotesRouter.get('/:id', async (req: Request, res: Response) => {
         payments (*)
       `)
       .eq('id', req.params.id)
+      .order('position', { referencedTable: 'quote_items', ascending: true })
       .single()
 
     if (error) throw error
@@ -314,6 +334,9 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
         quote_sent_at: new Date().toISOString(),
       })
       .eq('id', quoteId)
+
+    // Auto-update booking status → Proposition
+    await updateBookingStatusBySlug(booking?.id, quoteData.organization_id, 'proposition')
 
     // Log email
     await supabase
@@ -903,6 +926,9 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         } : {}),
       })
       .eq('id', quoteId)
+
+    // Auto-update booking status → Attente paiement
+    await updateBookingStatusBySlug(booking?.id, quoteData.organization_id, 'attente_paiement')
 
     if (isStripeEnabled) {
       // Save payment link (Stripe)

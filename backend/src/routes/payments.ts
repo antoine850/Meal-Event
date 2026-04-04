@@ -188,7 +188,23 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
 
     if (error) throw error
 
-    // TODO: Send email reminder
+    // Auto-update booking status → Relance paiement
+    if (payment.booking_id) {
+      const { data: booking } = await supabase.from('bookings').select('organization_id').eq('id', payment.booking_id).single()
+      if (booking?.organization_id) {
+        const { data: statusData } = await supabase
+          .from('statuses')
+          .select('id')
+          .eq('organization_id', booking.organization_id)
+          .eq('slug', 'relance_paiement')
+          .eq('type', 'booking')
+          .single()
+        if (statusData) {
+          await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', payment.booking_id)
+          console.log(`[Remind] ✅ Booking ${payment.booking_id} status → relance_paiement`)
+        }
+      }
+    }
 
     res.status(201).json(data)
   } catch (error) {

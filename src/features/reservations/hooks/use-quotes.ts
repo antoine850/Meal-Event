@@ -764,6 +764,22 @@ export function useMarkQuoteSigned() {
         .select()
         .single()
       if (error) throw error
+
+      // Auto-update booking status → Attente paiement
+      const { data: booking } = await supabase.from('bookings').select('organization_id').eq('id', bookingId).single()
+      if (booking?.organization_id) {
+        const { data: statusData } = await supabase
+          .from('statuses')
+          .select('id')
+          .eq('organization_id', booking.organization_id)
+          .eq('slug', 'attente_paiement')
+          .eq('type', 'booking')
+          .single()
+        if (statusData) {
+          await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', bookingId)
+        }
+      }
+
       return data as Quote
     },
     onSuccess: (_, variables) => {

@@ -163,7 +163,7 @@ export function calcAvgTicket(bookings: BookingWithRelations[]) {
 export function calcConversionRate(bookings: BookingWithRelations[]) {
   if (bookings.length === 0) return 0
   const confirmed = bookings.filter(b =>
-    b.status?.slug === 'confirme' || b.status?.slug === 'acompte-paye' || b.status?.slug === 'termine' || b.status?.slug === 'solde-paye'
+    b.status?.slug === 'confirme_fonctionnaire' || b.status?.slug === 'fonction_envoyee' || b.status?.slug === 'a_facturer' || b.status?.slug === 'cloture'
   ).length
   return Math.round((confirmed / bookings.length) * 1000) / 10
 }
