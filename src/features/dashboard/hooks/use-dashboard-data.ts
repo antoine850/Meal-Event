@@ -76,9 +76,12 @@ export function useDashboardData(filters: DashboardFilters) {
       result = result.filter(b => b.status_id && filters.statuses.has(b.status_id))
     }
 
-    // Commercial filter
+    // Commercial filter (check assigned_user_ids array, fallback to assigned_to)
     if (filters.commercials.size > 0) {
-      result = result.filter(b => b.assigned_to && filters.commercials.has(b.assigned_to))
+      result = result.filter(b => {
+        const ids = b.assigned_user_ids?.length ? b.assigned_user_ids : (b.assigned_to ? [b.assigned_to] : [])
+        return ids.some(id => filters.commercials.has(id))
+      })
     }
 
     // B2B / B2C filter
@@ -202,14 +205,22 @@ export function groupByRestaurant(bookings: BookingWithRelations[]) {
   return groups
 }
 
-export function groupByUser(bookings: BookingWithRelations[]) {
+export function groupByUser(bookings: BookingWithRelations[], users: { id: string; first_name: string; last_name: string }[]) {
+  const userMap = new Map(users.map(u => [u.id, u]))
   const groups: Record<string, { user: { id: string; first_name: string; last_name: string } | null; bookings: BookingWithRelations[] }> = {}
   bookings.forEach(b => {
-    const userId = b.assigned_to || 'unassigned'
-    if (!groups[userId]) {
-      groups[userId] = { user: b.assigned_user || null, bookings: [] }
+    const ids = b.assigned_user_ids?.length ? b.assigned_user_ids : (b.assigned_to ? [b.assigned_to] : null)
+    if (!ids || ids.length === 0) {
+      if (!groups['unassigned']) groups['unassigned'] = { user: null, bookings: [] }
+      groups['unassigned'].bookings.push(b)
+      return
     }
-    groups[userId].bookings.push(b)
+    ids.forEach(userId => {
+      if (!groups[userId]) {
+        groups[userId] = { user: userMap.get(userId) || b.assigned_user || null, bookings: [] }
+      }
+      groups[userId].bookings.push(b)
+    })
   })
   return groups
 }
@@ -312,7 +323,8 @@ export function getMonthlyTrend(bookings: BookingWithRelations[]) {
   })
 }
 
-export function getMonthlyRevenueByCommercial(bookings: BookingWithRelations[]) {
+export function getMonthlyRevenueByCommercial(bookings: BookingWithRelations[], users: { id: string; first_name: string; last_name: string }[]) {
+  const userMap = new Map(users.map(u => [u.id, `${u.first_name} ${u.last_name}`]))
   const now = new Date()
   const months: { label: string; from: Date; to: Date }[] = []
   for (let i = 5; i >= 0; i--) {
@@ -325,9 +337,10 @@ export function getMonthlyRevenueByCommercial(bookings: BookingWithRelations[]) 
   }
 
   const commercialNames = [...new Set(
-    bookings
-      .filter(b => b.assigned_user)
-      .map(b => `${b.assigned_user!.first_name} ${b.assigned_user!.last_name}`)
+    bookings.flatMap(b => {
+      const ids = b.assigned_user_ids?.length ? b.assigned_user_ids : (b.assigned_to ? [b.assigned_to] : [])
+      return ids.map(id => userMap.get(id)).filter(Boolean) as string[]
+    })
   )]
 
   return months.map(m => {
@@ -339,7 +352,10 @@ export function getMonthlyRevenueByCommercial(bookings: BookingWithRelations[]) 
     const row: Record<string, string | number> = { month: m.label }
     commercialNames.forEach(name => {
       row[name] = monthBookings
-        .filter(b => `${b.assigned_user?.first_name} ${b.assigned_user?.last_name}` === name && CONFIRMED_SLUGS.includes(b.status?.slug || ''))
+        .filter(b => {
+          const ids = b.assigned_user_ids?.length ? b.assigned_user_ids : (b.assigned_to ? [b.assigned_to] : [])
+          return ids.some(id => userMap.get(id) === name) && CONFIRMED_SLUGS.includes(b.status?.slug || '')
+        })
         .reduce((sum, b) => sum + (b.total_amount || 0), 0)
     })
     return row

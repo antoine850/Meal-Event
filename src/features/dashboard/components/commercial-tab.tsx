@@ -52,9 +52,9 @@ function KpiTooltip({ text }: { text: string }) {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#a855f7']
 
-export function CommercialTab({ bookings, isLoading }: DashboardTabProps) {
+export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps) {
   const commercialStats = useMemo(() => {
-    const groups = groupByUser(bookings)
+    const groups = groupByUser(bookings, users)
     return Object.entries(groups)
       .filter(([key]) => key !== 'unassigned')
       .map(([, data]) => ({
@@ -81,7 +81,7 @@ export function CommercialTab({ bookings, isLoading }: DashboardTabProps) {
     [commercialStats]
   )
 
-  const monthlyData = useMemo(() => getMonthlyRevenueByCommercial(bookings), [bookings])
+  const monthlyData = useMemo(() => getMonthlyRevenueByCommercial(bookings, users), [bookings, users])
   const commercialNames = useMemo(() => commercialStats.map(c => c.name), [commercialStats])
 
   // Dynamic target: max commercial sales * 1.2 rounded to nearest 10k
