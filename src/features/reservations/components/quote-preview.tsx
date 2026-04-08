@@ -27,6 +27,8 @@ export type QuotePreviewData = {
   title: string
   dateStart: string
   dateEnd: string
+  startTime?: string
+  endTime?: string
   quoteDate: string
   quoteDueDays: number
   invoiceDueDays: number
@@ -66,16 +68,6 @@ function formatDate(dateStr: string | null | undefined): string {
   try {
     const d = new Date(dateStr)
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatDateLong(dateStr: string | null | undefined): string {
-  if (!dateStr) return '—'
-  try {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   } catch {
     return dateStr
   }
@@ -375,6 +367,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             docNumber={quoteNumber}
             date={formatDate(data.quoteDate)}
             dueDate={addDays(data.quoteDate, data.quoteDueDays)}
+
             color={color}
             l={l}
           />
@@ -388,7 +381,9 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
               {data.dateStart && (
                 <p className='text-[10px] text-gray-600'>
                   {l.serviceDate}: {formatDate(data.dateStart)}
-                  {data.dateEnd && data.dateEnd !== data.dateStart && ` — ${formatDate(data.dateEnd)}`}
+                  {data.startTime && ` à ${data.startTime}`}
+                  {data.endTime && ` — ${data.endTime}`}
+                  {data.dateEnd && data.dateEnd !== data.dateStart && ` | ${formatDate(data.dateEnd)}`}
                 </p>
               )}
               {data.orderNumber && (
@@ -546,6 +541,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             docNumber={quoteNumber}
             date={formatDate(data.quoteDate)}
             dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
+
             color={color}
             l={l}
           />
@@ -564,7 +560,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
               {data.dateStart && (
                 <div className='mt-1'>
                   <p className='text-[10px] font-semibold'>{l.serviceStart}</p>
-                  <p className='text-[10px] text-gray-600'>{formatDateLong(data.dateStart)}</p>
+                  <p className='text-[10px] text-gray-600'>{formatDate(data.dateStart)}{data.startTime && ` à ${data.startTime}`}{data.endTime && ` — ${data.endTime}`}</p>
                 </div>
               )}
             </div>
@@ -646,6 +642,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           docNumber={quoteNumber}
           date={formatDate(data.quoteDate)}
           dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
+          updatedAt={data.updatedAt}
           color={color}
           l={l}
         />
@@ -664,7 +661,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             {data.dateStart && (
               <div className='mt-1'>
                 <p className='text-[10px] font-semibold'>{l.serviceStart}</p>
-                <p className='text-[10px] text-gray-600'>{formatDateLong(data.dateStart)}</p>
+                <p className='text-[10px] text-gray-600'>{formatDate(data.dateStart)}{data.startTime && ` à ${data.startTime}`}{data.endTime && ` — ${data.endTime}`}</p>
               </div>
             )}
           </div>
@@ -699,7 +696,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                     <tr>
                       <td colSpan={6} className='px-2 py-1.5 font-bold text-[10px] border-b bg-gray-100' style={{ color }}>
                         {l.serviceItems || 'Prestation'}
-                        {data.dateStart && ` — ${formatDateLong(data.dateStart)}`}
+                        {data.dateStart && ` — ${formatDate(data.dateStart)}${data.startTime ? ` à ${data.startTime}` : ''}`}
                       </td>
                     </tr>
                     {data.items.map((item, i) => (
@@ -843,6 +840,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             docNumber={quoteNumber}
             date={formatDate(data.quoteDate)}
             dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
+
             color={color}
             l={l}
           />
@@ -861,7 +859,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
               {data.dateStart && (
                 <div className='mt-1'>
                   <p className='text-[10px] font-semibold'>{l.serviceStart}</p>
-                  <p className='text-[10px] text-gray-600'>{formatDateLong(data.dateStart)}</p>
+                  <p className='text-[10px] text-gray-600'>{formatDate(data.dateStart)}{data.startTime && ` à ${data.startTime}`}{data.endTime && ` — ${data.endTime}`}</p>
                 </div>
               )}
             </div>

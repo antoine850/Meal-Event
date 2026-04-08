@@ -159,10 +159,19 @@ const SIGNED_SLUGS = ['attente_paiement', 'relance_paiement', ...CONFIRMED_SLUGS
 
 // ─── Helper functions for KPI calculations ───
 
+/** Sum of all paid payments (acompte + solde + extras) for confirmed bookings */
 export function calcRevenue(bookings: BookingWithRelations[]) {
   return bookings
     .filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || ''))
-    .reduce((sum, b) => sum + (b.total_amount || 0), 0)
+    .reduce((sum, b) => sum + getPaidAmount(b), 0)
+}
+
+/** Sum of paid payments for a single booking */
+function getPaidAmount(b: BookingWithRelations) {
+  if (!b.payments?.length) return 0
+  return b.payments
+    .filter(p => p.status === 'paid' || p.status === 'completed')
+    .reduce((sum, p) => sum + (p.amount || 0), 0)
 }
 
 export function calcAvgTicket(bookings: BookingWithRelations[]) {
@@ -251,7 +260,7 @@ export function getMonthlyRevenueByRestaurant(bookings: BookingWithRelations[]) 
     restaurantNames.forEach(name => {
       row[name] = monthBookings
         .filter(b => b.restaurant?.name === name && CONFIRMED_SLUGS.includes(b.status?.slug || ''))
-        .reduce((sum, b) => sum + (b.total_amount || 0), 0)
+        .reduce((sum, b) => sum + getPaidAmount(b), 0)
     })
     return row
   })
@@ -318,7 +327,7 @@ export function getMonthlyTrend(bookings: BookingWithRelations[]) {
       reservations: monthBookings.length,
       revenue: monthBookings
         .filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || ''))
-        .reduce((sum, b) => sum + (b.total_amount || 0), 0),
+        .reduce((sum, b) => sum + getPaidAmount(b), 0),
     }
   })
 }
@@ -356,7 +365,7 @@ export function getMonthlyRevenueByCommercial(bookings: BookingWithRelations[], 
           const ids = b.assigned_user_ids?.length ? b.assigned_user_ids : (b.assigned_to ? [b.assigned_to] : [])
           return ids.some(id => userMap.get(id) === name) && CONFIRMED_SLUGS.includes(b.status?.slug || '')
         })
-        .reduce((sum, b) => sum + (b.total_amount || 0), 0)
+        .reduce((sum, b) => sum + getPaidAmount(b), 0)
     })
     return row
   })
@@ -378,7 +387,7 @@ export function getContactsBySource(contacts: ContactWithRelations[], bookings: 
     if (!sourceGroups[source]) sourceGroups[source] = { leads: 0, bookings: 0, revenue: 0 }
     sourceGroups[source].bookings++
     if (CONFIRMED_SLUGS.includes(b.status?.slug || '')) {
-      sourceGroups[source].revenue += b.total_amount || 0
+      sourceGroups[source].revenue += getPaidAmount(b)
     }
   })
 

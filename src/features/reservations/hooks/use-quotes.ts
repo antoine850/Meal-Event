@@ -866,7 +866,7 @@ export function useUpdateQuoteItem() {
       const tvaRate = updates.tva_rate as number | undefined
       const discountAmount = updates.discount_amount as number | undefined
 
-      if (quantity !== undefined || unitPrice !== undefined) {
+      if (quantity !== undefined || unitPrice !== undefined || discountAmount !== undefined || tvaRate !== undefined) {
         // Fetch current item to get missing values
         const { data: current } = await supabase
           .from('quote_items')

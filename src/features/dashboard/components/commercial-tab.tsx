@@ -114,8 +114,8 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="CA cumulé des événements confirmés assignés à l'équipe" />
-              <CardTitle className='text-sm font-medium'>CA Total Équipe</CardTitle>
+              <KpiTooltip text="Paiements encaissés (acomptes + soldes + extras) sur les événements confirmés de l'équipe" />
+              <CardTitle className='text-sm font-medium'>CA Encaissé Équipe</CardTitle>
             </div>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
@@ -157,7 +157,7 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Commercial avec le plus de CA confirmé" />
+              <KpiTooltip text="Commercial avec le plus de CA encaissé" />
               <CardTitle className='text-sm font-medium'>Meilleur performeur</CardTitle>
             </div>
             <Target className='h-4 w-4 text-muted-foreground' />

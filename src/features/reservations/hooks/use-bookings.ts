@@ -61,6 +61,7 @@ export type BookingWithRelations = {
   contact?: { id: string; first_name: string; last_name: string | null; email: string | null; phone: string | null; source?: string | null; created_at?: string | null; company?: { id: string; name: string } | null } | null
   status?: { id: string; name: string; color: string; slug: string } | null
   assigned_user?: { id: string; first_name: string; last_name: string } | null
+  payments?: { id: string; amount: number; status: string | null; payment_modality: string | null; paid_at: string | null }[]
 }
 
 export function useBookings() {
@@ -77,7 +78,8 @@ export function useBookings() {
           restaurant:restaurants(id, name, color),
           contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
           status:statuses(id, name, color, slug),
-          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
+          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name),
+          payments(id, amount, status, payment_modality, paid_at)
         `)
         .eq('organization_id', orgId)
         .order('event_date', { ascending: true })

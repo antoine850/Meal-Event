@@ -63,6 +63,8 @@ interface QuoteData {
   booking: {
     id: string
     event_date: string | null
+    start_time: string | null
+    end_time: string | null
     occasion: string | null
     guests_count: number | null
     contact: {
@@ -247,7 +249,7 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
       *,
       quote_items(*),
       booking:bookings(
-        id, event_date, occasion, guests_count,
+        id, event_date, start_time, end_time, occasion, guests_count,
         contact:contacts(
           id, first_name, last_name, email, phone,
           company:companies(name, billing_address, billing_city, billing_postal_code, siret, tva_number)
@@ -410,7 +412,7 @@ function buildDocDefinition(
             {
               stack: [
                 ...(quote.title ? [{ text: quote.title, style: 'bold' as const }] : []),
-                ...(quote.date_start ? [{ text: `${l.serviceDate}: ${formatDate(quote.date_start)}${quote.date_end && quote.date_end !== quote.date_start ? ` — ${formatDate(quote.date_end)}` : ''}`, style: 'small' as const, color: '#666' }] : []),
+                ...(quote.date_start ? [{ text: `${l.serviceDate}: ${formatDate(quote.date_start)}${booking?.start_time ? ` à ${booking.start_time}` : ''}${booking?.end_time ? ` — ${booking.end_time}` : ''}${quote.date_end && quote.date_end !== quote.date_start ? ` | ${formatDate(quote.date_end)}` : ''}`, style: 'small' as const, color: '#666' }] : []),
                 ...(quote.order_number ? [{ text: `${l.orderNumber}: ${quote.order_number}`, style: 'tiny' as const, color: '#888' }] : []),
               ],
               fillColor: '#faf5f0',

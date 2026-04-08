@@ -94,8 +94,8 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="CA des événements confirmés (acompte reçu ou plus avancé)" />
-              <CardTitle className='text-sm font-medium'>CA total</CardTitle>
+              <KpiTooltip text="Somme des paiements encaissés (acomptes + soldes + extras) sur les événements confirmés" />
+              <CardTitle className='text-sm font-medium'>CA encaissé</CardTitle>
             </div>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
@@ -122,7 +122,7 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="CA confirmé / nombre d'événements confirmés" />
+              <KpiTooltip text="CA encaissé / nombre d'événements confirmés" />
               <CardTitle className='text-sm font-medium'>Panier moyen</CardTitle>
             </div>
             <Utensils className='h-4 w-4 text-muted-foreground' />
@@ -268,7 +268,7 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
                         </Badge>
                       )}
                       <span className='font-medium'>
-                        {(booking.total_amount || 0).toLocaleString('fr-FR')} €
+                        {(booking.payments?.filter(p => p.status === 'paid' || p.status === 'completed').reduce((s, p) => s + (p.amount || 0), 0) || 0).toLocaleString('fr-FR')} €
                       </span>
                     </div>
                   </div>
