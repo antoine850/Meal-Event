@@ -1,13 +1,13 @@
 import * as React from 'react'
 import { Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface TimePickerProps {
   value?: string
@@ -16,37 +16,35 @@ interface TimePickerProps {
   className?: string
 }
 
+const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))
+const MINUTES = ['00', '15', '30', '45']
+
 export function TimePicker({
   value,
   onChange,
   placeholder = 'HH:MM',
   className,
 }: TimePickerProps) {
-  const [hours, setHours] = React.useState(value ? value.split(':')[0] : '')
-  const [minutes, setMinutes] = React.useState(value ? value.split(':')[1] : '')
+  const [open, setOpen] = React.useState(false)
+  const selectedHour = value ? value.split(':')[0] : ''
+  const selectedMinute = value ? value.split(':')[1] : ''
 
-  const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 23)) {
-      setHours(val.padStart(2, '0'))
-      if (val && minutes) {
-        onChange(`${val.padStart(2, '0')}:${minutes}`)
-      }
-    }
-  }
+  // Snap minute to nearest quarter
+  const snappedMinute = selectedMinute
+    ? MINUTES.reduce((prev, curr) =>
+        Math.abs(parseInt(curr) - parseInt(selectedMinute)) < Math.abs(parseInt(prev) - parseInt(selectedMinute))
+          ? curr
+          : prev
+      )
+    : ''
 
-  const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 59)) {
-      setMinutes(val.padStart(2, '0'))
-      if (hours && val) {
-        onChange(`${hours}:${val.padStart(2, '0')}`)
-      }
-    }
+  const handleSelect = (hour: string, minute: string) => {
+    onChange(`${hour}:${minute}`)
+    setOpen(false)
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant='outline'
@@ -60,32 +58,41 @@ export function TimePicker({
           {value || placeholder}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className='w-auto p-4' align='start'>
-        <div className='flex gap-2 items-center'>
+      <PopoverContent className='w-auto p-3' align='start'>
+        <div className='flex gap-3'>
           <div className='flex flex-col gap-1'>
-            <label className='text-xs font-medium'>Heures</label>
-            <Input
-              type='number'
-              min='0'
-              max='23'
-              value={hours}
-              onChange={handleHoursChange}
-              placeholder='00'
-              className='w-16 h-8 text-center'
-            />
+            <label className='text-xs font-medium text-muted-foreground'>Heures</label>
+            <ScrollArea className='h-48'>
+              <div className='flex flex-col gap-0.5 pr-2'>
+                {HOURS.map((h) => (
+                  <Button
+                    key={h}
+                    variant={selectedHour === h ? 'default' : 'ghost'}
+                    size='sm'
+                    className='w-12 h-7 text-sm'
+                    onClick={() => handleSelect(h, snappedMinute || '00')}
+                  >
+                    {h}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
-          <div className='text-lg font-semibold mt-6'>:</div>
           <div className='flex flex-col gap-1'>
-            <label className='text-xs font-medium'>Minutes</label>
-            <Input
-              type='number'
-              min='0'
-              max='59'
-              value={minutes}
-              onChange={handleMinutesChange}
-              placeholder='00'
-              className='w-16 h-8 text-center'
-            />
+            <label className='text-xs font-medium text-muted-foreground'>Minutes</label>
+            <div className='flex flex-col gap-0.5'>
+              {MINUTES.map((m) => (
+                <Button
+                  key={m}
+                  variant={snappedMinute === m ? 'default' : 'ghost'}
+                  size='sm'
+                  className='w-12 h-7 text-sm'
+                  onClick={() => handleSelect(selectedHour || '12', m)}
+                >
+                  {m}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
       </PopoverContent>
