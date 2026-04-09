@@ -412,7 +412,7 @@ function buildDocDefinition(
             {
               stack: [
                 ...(quote.title ? [{ text: quote.title, style: 'bold' as const }] : []),
-                ...(quote.date_start ? [{ text: `${l.serviceDate}: ${formatDate(quote.date_start)}${booking?.start_time ? ` à ${booking.start_time}` : ''}${booking?.end_time ? ` — ${booking.end_time}` : ''}${quote.date_end && quote.date_end !== quote.date_start ? ` | ${formatDate(quote.date_end)}` : ''}`, style: 'small' as const, color: '#666' }] : []),
+                ...(quote.date_start ? [{ text: `${l.serviceDate}: ${formatDate(quote.date_start)}${quote.booking?.start_time ? ` à ${quote.booking.start_time}` : ''}${quote.booking?.end_time ? ` — ${quote.booking.end_time}` : ''}${quote.date_end && quote.date_end !== quote.date_start ? ` | ${formatDate(quote.date_end)}` : ''}`, style: 'small' as const, color: '#666' }] : []),
                 ...(quote.order_number ? [{ text: `${l.orderNumber}: ${quote.order_number}`, style: 'tiny' as const, color: '#888' }] : []),
               ],
               fillColor: '#faf5f0',
