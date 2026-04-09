@@ -342,11 +342,21 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   const restaurant = data.restaurant as any
   const color = restaurant?.color || '#0d7377'
 
-  // Group TVA by rate (round per item to match line totals)
+  // Compute item totals from raw fields (avoids stale DB values)
+  function computeItemHt(item: { quantity?: number | null; unit_price?: number | null; discount_amount?: number | null }) {
+    return Math.round(((item.quantity ?? 1) * (item.unit_price ?? 0) - (item.discount_amount ?? 0)) * 100) / 100
+  }
+  function computeItemTtc(item: { quantity?: number | null; unit_price?: number | null; discount_amount?: number | null; tva_rate?: number | null }) {
+    const ht = computeItemHt(item)
+    return Math.round(ht * (1 + (item.tva_rate ?? 20) / 100) * 100) / 100
+  }
+
+  // Group TVA by rate, applying quote-level discount
+  const discountMult = data.discountPercentage > 0 ? (1 - data.discountPercentage / 100) : 1
   const tvaByRate: Record<number, { ht: number; tva: number }> = {}
   for (const item of data.items) {
     const rate = item.tva_rate || 20
-    const ht = Math.round(((item.total_ht as number) || 0) * 100) / 100
+    const ht = Math.round(computeItemHt(item) * discountMult * 100) / 100
     const tva = Math.round(ht * (rate / 100) * 100) / 100
     if (!tvaByRate[rate]) tvaByRate[rate] = { ht: 0, tva: 0 }
     tvaByRate[rate].ht = Math.round((tvaByRate[rate].ht + ht) * 100) / 100
@@ -440,8 +450,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           )}
                         </td>
                         <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
-                        <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{computeItemHt(item).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{computeItemTtc(item).toFixed(2)} €</td>
                       </tr>
                     )
                   })}
@@ -597,7 +607,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                       <td className='text-center px-2 py-1.5'>{item.quantity}</td>
                       <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
                       <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                      <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
+                      <td className='text-right px-2 py-1.5'>{computeItemHt(item).toFixed(2)} €</td>
                     </tr>
                   ))}
                 </tbody>
@@ -642,7 +652,6 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           docNumber={quoteNumber}
           date={formatDate(data.quoteDate)}
           dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
-          updatedAt={data.updatedAt}
           color={color}
           l={l}
         />
@@ -708,8 +717,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         <td className='text-center px-2 py-1.5'>{item.quantity}</td>
                         <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
                         <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
-                        <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{computeItemHt(item).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{computeItemTtc(item).toFixed(2)} €</td>
                       </tr>
                     ))}
                     {/* Subtotal for prestation */}
@@ -738,15 +747,15 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         <td className='text-center px-2 py-1.5'>{extra.quantity}</td>
                         <td className='text-right px-2 py-1.5'>{(extra.unit_price || 0).toFixed(2)} €</td>
                         <td className='text-center px-2 py-1.5'>{extra.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{(extra.total_ht || 0).toFixed(2)} €</td>
-                        <td className='text-right px-2 py-1.5'>{(extra.total_ttc || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{computeItemHt(extra).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{computeItemTtc(extra).toFixed(2)} €</td>
                       </tr>
                     ))}
                     {/* Subtotal for extras */}
                     <tr className='border-t'>
                       <td colSpan={4} className='px-2 py-1 text-right text-[9px] text-gray-600'>{l.subtotalExtras || 'Sous-total extras'}</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{(data.extras || []).reduce((sum, e) => sum + (e.total_ht || 0), 0).toFixed(2)} €</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{(data.extras || []).reduce((sum, e) => sum + (e.total_ttc || 0), 0).toFixed(2)} €</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{(data.extras || []).reduce((sum, e) => sum + computeItemHt(e), 0).toFixed(2)} €</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{(data.extras || []).reduce((sum, e) => sum + computeItemTtc(e), 0).toFixed(2)} €</td>
                     </tr>
                   </>
                 )}
@@ -757,8 +766,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
 
         {/* Totals: Total HT, Total TTC, payments deducted, remaining balance */}
         {(() => {
-          const extrasHt = (data.extras || []).reduce((sum, e) => sum + (e.total_ht || 0), 0)
-          const extrasTtc = (data.extras || []).reduce((sum, e) => sum + (e.total_ttc || 0), 0)
+          const extrasHt = (data.extras || []).reduce((sum, e) => sum + computeItemHt(e), 0)
+          const extrasTtc = (data.extras || []).reduce((sum, e) => sum + computeItemTtc(e), 0)
           const grandTotalHt = data.totalHt + extrasHt
           const grandTotalTtc = Math.ceil(data.totalTtc + extrasTtc)
           const paidPayments = (data.payments || []).filter(p => p.status === 'paid' || p.status === 'completed')
@@ -818,8 +827,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
     const payments = data.payments || []
     
     // Calculate extras totals
-    const extrasTotalHt = extras.reduce((sum, e) => sum + (e.total_ht || 0), 0)
-    const extrasTotalTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
+    const extrasTotalHt = extras.reduce((sum, e) => sum + computeItemHt(e), 0)
+    const extrasTotalTtc = extras.reduce((sum, e) => sum + computeItemTtc(e), 0)
     
     // Calculate payments received (completed only)
     const paymentsReceived = payments
@@ -897,8 +906,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                       <td className='text-center px-2 py-1.5'>{item.quantity}</td>
                       <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
                       <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                      <td className='text-right px-2 py-1.5'>{((item.total_ht as number) || 0).toFixed(2)} €</td>
-                      <td className='text-right px-2 py-1.5'>{((item.total_ttc as number) || 0).toFixed(2)} €</td>
+                      <td className='text-right px-2 py-1.5'>{computeItemHt(item).toFixed(2)} €</td>
+                      <td className='text-right px-2 py-1.5'>{computeItemTtc(item).toFixed(2)} €</td>
                     </tr>
                   ))}
                 </tbody>
@@ -932,8 +941,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         <td className='text-center px-2 py-1.5'>{extra.quantity}</td>
                         <td className='text-right px-2 py-1.5'>{(extra.unit_price || 0).toFixed(2)} €</td>
                         <td className='text-center px-2 py-1.5'>{extra.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{(extra.total_ht || 0).toFixed(2)} €</td>
-                        <td className='text-right px-2 py-1.5'>{(extra.total_ttc || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{computeItemHt(extra).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{computeItemTtc(extra).toFixed(2)} €</td>
                       </tr>
                     ))}
                   </tbody>

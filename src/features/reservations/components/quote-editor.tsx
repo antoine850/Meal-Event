@@ -634,8 +634,16 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const extras = items.filter(item => item.item_type === 'extra')
 
   // Calculate totals (products only, not extras), applying quote-level discount
-  const rawTotalHt = Math.round(products.reduce((sum, item) => sum + ((item.total_ht as number) || 0), 0) * 100) / 100
-  const rawTotalTtc = Math.round(products.reduce((sum, item) => sum + ((item.total_ttc as number) || 0), 0) * 100) / 100
+  // Always compute from raw fields to avoid stale DB values
+  const rawTotalHt = Math.round(products.reduce((sum, item) => {
+    const ht = Math.round(((item.quantity ?? 1) * (item.unit_price ?? 0) - (item.discount_amount ?? 0)) * 100) / 100
+    return sum + ht
+  }, 0) * 100) / 100
+  const rawTotalTtc = Math.round(products.reduce((sum, item) => {
+    const ht = Math.round(((item.quantity ?? 1) * (item.unit_price ?? 0) - (item.discount_amount ?? 0)) * 100) / 100
+    const ttc = Math.round(ht * (1 + (item.tva_rate ?? 20) / 100) * 100) / 100
+    return sum + ttc
+  }, 0) * 100) / 100
   const discountMultiplier = discountPercentage > 0 ? (1 - discountPercentage / 100) : 1
   const totalHt = Math.round(rawTotalHt * discountMultiplier * 100) / 100
   // Round TTC up to the next euro (ceiling)
