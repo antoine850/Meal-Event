@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CalendarIcon, Check, ChevronsUpDown, Loader2, Plus, UserPlus, Search } from 'lucide-react'
+import { CalendarIcon, Check, ChevronsUpDown, Loader2, Plus, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
@@ -248,38 +248,8 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
-            {/* Contact mode toggle */}
-            <div className='flex gap-2'>
-              <Button
-                type='button'
-                variant={contactMode === 'existing' ? 'default' : 'outline'}
-                size='sm'
-                className='flex-1'
-                onClick={() => {
-                  form.setValue('contact_mode', 'existing')
-                  form.clearErrors('contact_id')
-                }}
-              >
-                <Search className='mr-2 h-4 w-4' />
-                Contact existant
-              </Button>
-              <Button
-                type='button'
-                variant={contactMode === 'new' ? 'default' : 'outline'}
-                size='sm'
-                className='flex-1'
-                onClick={() => {
-                  form.setValue('contact_mode', 'new')
-                  form.clearErrors('contact_id')
-                }}
-              >
-                <UserPlus className='mr-2 h-4 w-4' />
-                Nouveau contact
-              </Button>
-            </div>
-
-            {/* Existing contact selector */}
-            {contactMode === 'existing' && (
+            {/* Contact section */}
+            {contactMode === 'existing' ? (
               <FormField
                 control={form.control}
                 name='contact_id'
@@ -288,81 +258,126 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                   return (
                     <FormItem className='flex flex-col'>
                       <FormLabel>Contact *</FormLabel>
-                      <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant='outline'
-                              role='combobox'
-                              aria-expanded={contactPopoverOpen}
-                              className={cn(
-                                'w-full justify-between font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {selectedContact ? (
-                                <span className='flex items-center gap-2 truncate'>
-                                  <span>{selectedContact.first_name} {selectedContact.last_name || ''}</span>
-                                  {selectedContact.company?.name
-                                    ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded'>B2B</span>
-                                    : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded'>B2C</span>
-                                  }
-                                </span>
-                              ) : (
-                                'Rechercher un contact...'
-                              )}
-                              <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className='w-[--radix-popover-trigger-width] p-0' align='start'>
-                          <Command>
-                            <CommandInput placeholder='Rechercher par nom, email...' />
-                            <CommandList className='max-h-[200px]'>
-                              <CommandEmpty>Aucun contact trouvé.</CommandEmpty>
-                              <CommandGroup>
-                                {contacts.map((contact) => (
-                                  <CommandItem
-                                    key={contact.id}
-                                    value={`${contact.first_name} ${contact.last_name || ''} ${contact.email || ''} ${contact.company?.name || ''}`}
-                                    onSelect={() => {
-                                      field.onChange(contact.id)
-                                      setContactPopoverOpen(false)
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        'mr-2 h-4 w-4',
-                                        field.value === contact.id ? 'opacity-100' : 'opacity-0'
-                                      )}
-                                    />
-                                    <div className='flex items-center gap-2 min-w-0'>
-                                      <span className='font-medium truncate'>{contact.first_name} {contact.last_name || ''}</span>
-                                      {contact.company?.name
-                                        ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded shrink-0'>B2B</span>
-                                        : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded shrink-0'>B2C</span>
-                                      }
-                                      {contact.company?.name && (
-                                        <span className='text-muted-foreground text-xs truncate'>- {contact.company.name}</span>
-                                      )}
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                      <div className='flex gap-2'>
+                        <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant='outline'
+                                role='combobox'
+                                aria-expanded={contactPopoverOpen}
+                                className={cn(
+                                  'flex-1 justify-between font-normal',
+                                  !field.value && 'text-muted-foreground'
+                                )}
+                              >
+                                {selectedContact ? (
+                                  <span className='flex items-center gap-2 truncate'>
+                                    <span>{selectedContact.first_name} {selectedContact.last_name || ''}</span>
+                                    {selectedContact.company?.name
+                                      ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded'>B2B</span>
+                                      : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded'>B2C</span>
+                                    }
+                                  </span>
+                                ) : (
+                                  'Rechercher un contact...'
+                                )}
+                                <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className='w-[--radix-popover-trigger-width] p-0' align='start'>
+                            <Command>
+                              <CommandInput placeholder='Rechercher par nom, email...' />
+                              <CommandList className='max-h-[200px]'>
+                                <CommandEmpty>
+                                  <div className='py-2 text-center'>
+                                    <p className='text-sm text-muted-foreground mb-2'>Aucun contact trouvé.</p>
+                                    <Button
+                                      type='button'
+                                      variant='outline'
+                                      size='sm'
+                                      onClick={() => {
+                                        form.setValue('contact_mode', 'new')
+                                        form.clearErrors('contact_id')
+                                        setContactPopoverOpen(false)
+                                      }}
+                                    >
+                                      <Plus className='mr-2 h-3.5 w-3.5' />
+                                      Créer un nouveau contact
+                                    </Button>
+                                  </div>
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {contacts.map((contact) => (
+                                    <CommandItem
+                                      key={contact.id}
+                                      value={`${contact.first_name} ${contact.last_name || ''} ${contact.email || ''} ${contact.company?.name || ''}`}
+                                      onSelect={() => {
+                                        field.onChange(contact.id)
+                                        setContactPopoverOpen(false)
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          'mr-2 h-4 w-4',
+                                          field.value === contact.id ? 'opacity-100' : 'opacity-0'
+                                        )}
+                                      />
+                                      <div className='flex items-center gap-2 min-w-0'>
+                                        <span className='font-medium truncate'>{contact.first_name} {contact.last_name || ''}</span>
+                                        {contact.company?.name
+                                          ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded shrink-0'>B2B</span>
+                                          : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded shrink-0'>B2C</span>
+                                        }
+                                        {contact.company?.name && (
+                                          <span className='text-muted-foreground text-xs truncate'>- {contact.company.name}</span>
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='icon'
+                          className='shrink-0'
+                          title='Créer un nouveau contact'
+                          onClick={() => {
+                            form.setValue('contact_mode', 'new')
+                            form.clearErrors('contact_id')
+                          }}
+                        >
+                          <Plus className='h-4 w-4' />
+                        </Button>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )
                 }}
               />
-            )}
-
-            {/* New contact inline form */}
-            {contactMode === 'new' && (
+            ) : (
               <div className='space-y-3 rounded-lg border p-4 bg-muted/30'>
+                <div className='flex items-center justify-between mb-1'>
+                  <p className='text-sm font-medium'>Nouveau contact</p>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='sm'
+                    className='h-7 text-xs text-muted-foreground'
+                    onClick={() => {
+                      form.setValue('contact_mode', 'existing')
+                      form.clearErrors('new_first_name')
+                    }}
+                  >
+                    <ArrowLeft className='mr-1 h-3 w-3' />
+                    Rechercher un contact
+                  </Button>
+                </div>
                 <div className='grid grid-cols-2 gap-3'>
                   <FormField
                     control={form.control}
@@ -422,40 +437,38 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                 </div>
 
                 {/* B2B / B2C toggle */}
-                <div className='flex items-center justify-between pt-1'>
-                  <div className='flex items-center gap-3'>
-                    <span className={cn(
-                      'text-sm font-medium px-2 py-0.5 rounded',
-                      !isB2B ? 'bg-gray-500 text-white' : 'text-muted-foreground'
-                    )}>
-                      B2C
-                    </span>
-                    <FormField
-                      control={form.control}
-                      name='is_b2b'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={(checked) => {
-                                field.onChange(checked)
-                                if (!checked) {
-                                  form.setValue('company_id', '')
-                                }
-                              }}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <span className={cn(
-                      'text-sm font-medium px-2 py-0.5 rounded',
-                      isB2B ? 'bg-blue-500 text-white' : 'text-muted-foreground'
-                    )}>
-                      B2B
-                    </span>
-                  </div>
+                <div className='flex items-center gap-3 pt-1'>
+                  <span className={cn(
+                    'text-sm font-medium px-2 py-0.5 rounded',
+                    !isB2B ? 'bg-gray-500 text-white' : 'text-muted-foreground'
+                  )}>
+                    B2C
+                  </span>
+                  <FormField
+                    control={form.control}
+                    name='is_b2b'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={(checked) => {
+                              field.onChange(checked)
+                              if (!checked) {
+                                form.setValue('company_id', '')
+                              }
+                            }}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <span className={cn(
+                    'text-sm font-medium px-2 py-0.5 rounded',
+                    isB2B ? 'bg-blue-500 text-white' : 'text-muted-foreground'
+                  )}>
+                    B2B
+                  </span>
                 </div>
 
                 {/* Company selector (B2B only) */}
