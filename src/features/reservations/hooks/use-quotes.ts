@@ -780,6 +780,9 @@ export function useMarkQuoteSigned() {
         }
       }
 
+      // Notify commercial(s) via backend (fire & forget)
+      apiClient(`/api/quotes/${quoteId}/notify-signed`, { method: 'POST' }).catch(() => {})
+
       return data as Quote
     },
     onSuccess: (_, variables) => {

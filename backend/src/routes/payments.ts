@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
 import { supabase } from '../lib/supabase.js'
+import { notifyCommercialPayment } from '../lib/commercial-notifications.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -53,6 +54,17 @@ paymentsRouter.post('/', async (req: Request, res: Response) => {
       .single()
 
     if (error) throw error
+
+    // Notify commercial(s) of the manual payment
+    if (data?.booking_id && data?.amount) {
+      notifyCommercialPayment({
+        bookingId: data.booking_id,
+        amount: data.amount,
+        paymentType: data.payment_type || data.payment_modality || 'full',
+        paymentMethod: data.payment_method || 'manual',
+      }).catch(err => console.error('[Manual Payment] Commercial notification error:', err))
+    }
+
     res.status(201).json(data)
   } catch (error) {
     console.error('Error creating payment:', error)

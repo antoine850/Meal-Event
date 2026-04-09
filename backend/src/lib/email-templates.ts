@@ -370,3 +370,173 @@ export function buildBalanceEmailHtml(params: {
 export function buildBalanceEmailSubject(quoteNumber: string, restaurantName: string): string {
   return `Facture de solde ${quoteNumber} — ${restaurantName}`
 }
+
+// ═══════════════════════════════════════════════
+// Template D: Notification Commercial — Devis signé
+// ═══════════════════════════════════════════════
+
+export function buildSignatureNotificationHtml(params: {
+  restaurant: RestaurantBranding
+  commercialFirstName: string
+  contactName: string
+  quoteNumber: string
+  totalTtc: number
+  eventDate: string | null
+  eventTitle: string | null
+}): string {
+  const { restaurant, commercialFirstName, contactName, quoteNumber, totalTtc, eventDate, eventTitle } = params
+  const color = restaurant.color || '#0d7377'
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Bonjour <strong>${commercialFirstName}</strong>,
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background-color:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+      <tr>
+        <td style="padding:20px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:28px;">&#9989;</p>
+          <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#15803d;">Devis signé !</p>
+          <p style="margin:0;font-size:14px;color:#444;">
+            <strong>${contactName}</strong> vient de signer le devis <strong>n°${quoteNumber}</strong>
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background-color:#f8f9fa;border-radius:8px;border:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding:16px;">
+          <table width="100%">
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Client</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${contactName}</td>
+            </tr>
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Devis</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${quoteNumber}</td>
+            </tr>
+            ${eventTitle ? `
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Événement</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${eventTitle}</td>
+            </tr>` : ''}
+            ${eventDate ? `
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Date</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${formatDate(eventDate)}</td>
+            </tr>` : ''}
+            <tr>
+              <td colspan="2" style="padding:8px 0 4px;"><hr style="border:none;border-top:1px solid #e5e7eb;" /></td>
+            </tr>
+            <tr>
+              <td style="font-size:14px;font-weight:700;color:${color};padding:4px 0;">Montant TTC</td>
+              <td style="font-size:14px;font-weight:700;color:${color};text-align:right;padding:4px 0;">${formatCurrency(totalTtc)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0;font-size:13px;color:#666;line-height:1.6;">
+      La facture d'acompte et le lien de paiement ont été envoyés automatiquement au client.
+    </p>
+  `
+
+  return buildEmailWrapper(restaurant, body)
+}
+
+export function buildSignatureNotificationSubject(quoteNumber: string, contactName: string): string {
+  return `Devis ${quoteNumber} signé par ${contactName}`
+}
+
+// ═══════════════════════════════════════════════
+// Template E: Notification Commercial — Paiement reçu
+// ═══════════════════════════════════════════════
+
+export function buildPaymentNotificationHtml(params: {
+  restaurant: RestaurantBranding
+  commercialFirstName: string
+  contactName: string
+  amount: number
+  paymentType: string
+  quoteNumber: string | null
+  eventDate: string | null
+  eventTitle: string | null
+  paymentMethod: string | null
+}): string {
+  const { restaurant, commercialFirstName, contactName, amount, paymentType, quoteNumber, eventDate, eventTitle, paymentMethod } = params
+  const color = restaurant.color || '#0d7377'
+
+  const typeLabel = paymentType === 'deposit' || paymentType === 'acompte' ? 'Acompte'
+    : paymentType === 'balance' || paymentType === 'solde' ? 'Solde'
+    : paymentType === 'extra' ? 'Extra'
+    : 'Paiement'
+
+  const methodLabel = paymentMethod === 'stripe' ? 'Stripe'
+    : paymentMethod === 'bank_transfer' ? 'Virement'
+    : paymentMethod === 'cash' ? 'Espèces'
+    : paymentMethod === 'check' ? 'Chèque'
+    : paymentMethod || 'Non précisé'
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Bonjour <strong>${commercialFirstName}</strong>,
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background-color:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+      <tr>
+        <td style="padding:20px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:28px;">&#128176;</p>
+          <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#15803d;">${typeLabel} reçu !</p>
+          <p style="margin:0;font-size:24px;font-weight:700;color:${color};">${formatCurrency(amount)}</p>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background-color:#f8f9fa;border-radius:8px;border:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding:16px;">
+          <table width="100%">
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Client</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${contactName}</td>
+            </tr>
+            ${quoteNumber ? `
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Devis</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${quoteNumber}</td>
+            </tr>` : ''}
+            ${eventTitle ? `
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Événement</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${eventTitle}</td>
+            </tr>` : ''}
+            ${eventDate ? `
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Date</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${formatDate(eventDate)}</td>
+            </tr>` : ''}
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Type</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${typeLabel}</td>
+            </tr>
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">Méthode</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${methodLabel}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `
+
+  return buildEmailWrapper(restaurant, body)
+}
+
+export function buildPaymentNotificationSubject(amount: number, contactName: string, paymentType: string): string {
+  const typeLabel = paymentType === 'deposit' || paymentType === 'acompte' ? 'Acompte'
+    : paymentType === 'balance' || paymentType === 'solde' ? 'Solde'
+    : 'Paiement'
+  return `${typeLabel} de ${amount.toFixed(2)} € reçu — ${contactName}`
+}

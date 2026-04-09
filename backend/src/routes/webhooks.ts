@@ -5,6 +5,7 @@ import { verifyWebhookSignature, downloadSignedDocument } from '../lib/signnow.j
 import { generateQuotePdf } from '../lib/pdf-generator.js'
 import { sendEmail } from '../lib/resend.js'
 import { buildDepositEmailHtml, buildDepositEmailSubject } from '../lib/email-templates.js'
+import { notifyCommercialSignature, notifyCommercialPayment } from '../lib/commercial-notifications.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -329,6 +330,15 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
       metadata: { amount: (session.amount_total || 0) / 100, method: 'stripe', payment_type: link_type },
     })
 
+    // ── Notify commercial(s) ──
+    notifyCommercialPayment({
+      bookingId: booking_id,
+      amount: (session.amount_total || 0) / 100,
+      paymentType: link_type || 'full',
+      paymentMethod: 'stripe',
+      quoteNumber: quote_id ? undefined : null,
+    }).catch(err => console.error('[Stripe] Commercial notification error:', err))
+
     console.log(`Payment successful for booking ${booking_id}, type: ${link_type}`)
   } catch (error) {
     console.error('Error handling payment success:', error)
@@ -485,6 +495,15 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice) {
       entity_id: existingPayment?.id || null,
       metadata: { amount: (invoice.amount_paid || 0) / 100, method: 'stripe', payment_type: link_type },
     })
+
+    // ── Notify commercial(s) ──
+    notifyCommercialPayment({
+      bookingId: booking_id,
+      amount: (invoice.amount_paid || 0) / 100,
+      paymentType: link_type || 'full',
+      paymentMethod: 'stripe',
+      quoteNumber: quote_id ? undefined : null,
+    }).catch(err => console.error('[Stripe Invoice] Commercial notification error:', err))
 
     console.log(`[Stripe Invoice] ✅ Payment flow complete for booking ${booking_id}, type: ${link_type}`)
   } catch (error) {
@@ -647,6 +666,15 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
     })
 
     console.log(`Quote ${quote.quote_number} signed via SignNow`)
+
+    // ── Notify commercial(s) ──
+    notifyCommercialSignature({
+      bookingId: quote.booking_id,
+      quoteNumber: quote.quote_number,
+      totalTtc: quote.total_ttc,
+      eventTitle: quote.title,
+      eventDate: quote.date_start,
+    }).catch(err => console.error('[SignNow] Commercial notification error:', err))
 
     // ── AUTO-TRIGGER: Send deposit invoice + Stripe payment link ──
     try {

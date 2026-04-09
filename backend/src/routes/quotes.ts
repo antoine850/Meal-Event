@@ -11,6 +11,7 @@ import {
 import {
   uploadDocument, addSignatureField, createSigningInvite,
 } from '../lib/signnow.js'
+import { notifyCommercialSignature } from '../lib/commercial-notifications.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -232,6 +233,36 @@ quotesRouter.patch('/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error updating quote:', error)
     res.status(500).json({ error: 'Failed to update quote' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// POST /api/quotes/:id/notify-signed — Notify commercial of manual signature
+// ═══════════════════════════════════════════════════════════════
+quotesRouter.post('/:id/notify-signed', async (req: Request, res: Response) => {
+  try {
+    const { data: quote, error } = await supabase
+      .from('quotes')
+      .select('id, booking_id, quote_number, total_ttc, title, date_start')
+      .eq('id', req.params.id)
+      .single()
+
+    if (error || !quote) {
+      return res.status(404).json({ error: 'Quote not found' })
+    }
+
+    await notifyCommercialSignature({
+      bookingId: quote.booking_id,
+      quoteNumber: quote.quote_number,
+      totalTtc: quote.total_ttc,
+      eventTitle: quote.title,
+      eventDate: quote.date_start,
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error sending signature notification:', error)
+    res.status(500).json({ error: 'Failed to send notification' })
   }
 })
 
