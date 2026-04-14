@@ -25,6 +25,7 @@ import {
   Receipt,
   CheckCircle,
   Building,
+  ClipboardList,
 } from 'lucide-react'
 import {
   AlertDialog,
@@ -121,6 +122,7 @@ import { useActivityLogs, useLogActivity, createActivityLogger, ACTION_ICONS, ty
 import { QuoteEditor } from './quote-editor'
 import { MenuFormBuilder } from './menu-form-builder'
 import { PaymentDialog } from './payment-dialog'
+import { FicheFonction } from './fiche-fonction'
 import type { Payment, Quote } from '@/lib/supabase/types'
 
 const bookingDetailSchema = z.object({
@@ -148,7 +150,7 @@ type BookingDetailProps = {
 export const BookingDetail = forwardRef<
   { submitForm: () => void; deleteBooking: () => void; getIsDirty: () => boolean },
   BookingDetailProps & { onDirtyChange?: (isDirty: boolean) => void }
->(function BookingDetail({ booking, activeTab = 'evenementiel', onDirtyChange }, ref) {
+>(function BookingDetail({ booking, activeTab = 'evenementiel', onTabChange, onDirtyChange }, ref) {
   const navigate = useNavigate()
   const { mutate: updateBooking } = useUpdateBooking()
   const { mutate: deleteBookingMutation } = useDeleteBooking()
@@ -511,10 +513,9 @@ export const BookingDetail = forwardRef<
                         </svg>
                         Dupliquer l'événement
                       </DropdownMenuItem>
-                      <DropdownMenuItem disabled className='opacity-50'>
-                        <FileText className='mr-2 h-4 w-4' />
+                      <DropdownMenuItem onClick={() => onTabChange?.('fiche-fonction')}>
+                        <ClipboardList className='mr-2 h-4 w-4' />
                         Voir la fiche de fonction
-                        <Badge variant='secondary' className='ml-auto text-[9px] px-1.5 py-0'>Soon</Badge>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -2059,6 +2060,16 @@ export const BookingDetail = forwardRef<
                   </Card>
                 )}
               </div>
+            )}
+
+            {/* ── Tab: Fiche de fonction ── */}
+            {activeTab === 'fiche-fonction' && (
+              <FicheFonction
+                booking={booking}
+                quotes={quotes}
+                payments={payments}
+                spaceName={spaces.find((s) => s.id === booking.space_id)?.name}
+              />
             )}
           </div>
 

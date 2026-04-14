@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from '@tanstack/react-router'
-import { ArrowLeft, CalendarIcon, Receipt, FileText, History, Save, Trash2, UtensilsCrossed } from 'lucide-react'
+import { ArrowLeft, CalendarIcon, Receipt, FileText, History, Save, Trash2, UtensilsCrossed, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -41,6 +41,15 @@ export function BookingDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const bookingDetailRef = useRef<{ submitForm: () => void; deleteBooking: () => void; getIsDirty: () => boolean } | null>(null)
+
+  const changeTab = (tab: string) => {
+    setActiveTab(tab)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.set('tab', tab)
+      window.history.replaceState(null, '', url.toString())
+    }
+  }
 
   // Mark booking as read when opened
   useEffect(() => {
@@ -100,18 +109,8 @@ export function BookingDetailPage() {
             <ArrowLeft className='h-4 w-4' />
             Événements
           </Button>
-          <Tabs
-            value={activeTab}
-            onValueChange={(tab) => {
-              setActiveTab(tab)
-              if (typeof window !== 'undefined') {
-                const url = new URL(window.location.href)
-                url.searchParams.set('tab', tab)
-                window.history.replaceState(null, '', url.toString())
-              }
-            }}
-          >
-            <TabsList className='grid w-fit grid-cols-5'>
+          <Tabs value={activeTab} onValueChange={changeTab}>
+            <TabsList className='grid w-fit grid-cols-6'>
               <TabsTrigger value='evenementiel' className='gap-1.5'>
                 <CalendarIcon className='h-4 w-4' />
                 Événementiel
@@ -130,6 +129,10 @@ export function BookingDetailPage() {
                 <UtensilsCrossed className='h-4 w-4' />
                 Menu
                 {menuForms.length > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{menuForms.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value='fiche-fonction' className='gap-1.5'>
+                <ClipboardList className='h-4 w-4' />
+                Fiche de fonction
               </TabsTrigger>
               <TabsTrigger value='historique' className='gap-1.5'>
                 <History className='h-4 w-4' />
@@ -172,7 +175,7 @@ export function BookingDetailPage() {
       </AlertDialog>
 
       <Main className='flex flex-1 flex-col'>
-        <BookingDetail booking={booking} activeTab={activeTab} ref={bookingDetailRef} onDirtyChange={setIsDirty} />
+        <BookingDetail booking={booking} activeTab={activeTab} onTabChange={changeTab} ref={bookingDetailRef} onDirtyChange={setIsDirty} />
       </Main>
     </>
   )
