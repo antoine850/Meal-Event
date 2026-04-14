@@ -132,7 +132,7 @@ export function BookingDetailPage() {
               </TabsTrigger>
               <TabsTrigger value='fiche-fonction' className='gap-1.5'>
                 <ClipboardList className='h-4 w-4' />
-                Fiche de fonction
+                Fiche
               </TabsTrigger>
               <TabsTrigger value='historique' className='gap-1.5'>
                 <History className='h-4 w-4' />

@@ -31,7 +31,7 @@ type BookingsTableProps = {
 export function BookingsTable({ data, sorting: externalSorting }: BookingsTableProps) {
   const navigate = useNavigate()
   const [rowSelection, setRowSelection] = useState({})
-  const [sorting, setSorting] = useState<SortingState>(externalSorting || [{ id: 'created_at', desc: true }])
+  const [sorting, setSorting] = useState<SortingState>(externalSorting || [{ id: 'event_date', desc: false }])
 
   useEffect(() => {
     if (externalSorting) setSorting(externalSorting)

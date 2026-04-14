@@ -60,6 +60,22 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
         </div>
       )
     },
+    // Closest-first sort: upcoming events (today onwards) ascending, then past events descending
+    sortingFn: (rowA, rowB) => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const todayMs = today.getTime()
+      const a = new Date(rowA.original.event_date).getTime()
+      const b = new Date(rowB.original.event_date).getTime()
+      const aPast = a < todayMs
+      const bPast = b < todayMs
+      // Future/today events come before past events
+      if (aPast !== bPast) return aPast ? 1 : -1
+      // Within upcoming: soonest first (asc)
+      if (!aPast) return a - b
+      // Within past: most recent first (desc)
+      return b - a
+    },
   },
   {
     accessorKey: 'contact',
@@ -188,11 +204,22 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Créé le' />
     ),
-    cell: ({ row }) => (
-      <span className='text-sm text-muted-foreground'>
-        {row.original.created_at ? format(new Date(row.original.created_at), 'dd/MM/yyyy', { locale: fr }) : '-'}
-      </span>
-    ),
+    cell: ({ row }) => {
+      if (!row.original.created_at) {
+        return <span className='text-sm text-muted-foreground'>-</span>
+      }
+      const d = new Date(row.original.created_at)
+      return (
+        <div className='flex flex-col'>
+          <span className='text-sm text-muted-foreground'>
+            {format(d, 'dd/MM/yyyy', { locale: fr })}
+          </span>
+          <span className='text-xs text-muted-foreground'>
+            {format(d, 'HH:mm', { locale: fr })}
+          </span>
+        </div>
+      )
+    },
   },
   {
     id: 'actions',

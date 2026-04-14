@@ -51,7 +51,7 @@ export function Reservations() {
 
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false)
   const [bookingDialogDate, setBookingDialogDate] = useState<Date | undefined>()
-  const [sortValue, setSortValue] = useState('created_at:desc')
+  const [sortValue, setSortValue] = useState('event_date:asc')
   const tableSorting: SortingState = useMemo(() => [parseSortValue(sortValue)], [sortValue])
 
   const eventSortOptions = [
