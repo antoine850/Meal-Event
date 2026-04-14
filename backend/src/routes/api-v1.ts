@@ -374,9 +374,26 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
       return null
     })()
 
+    // Sanitize event_date: accept ISO strings, "7 June 2026", "07/06/2026", timestamps, null
+    const eventDateParsed: string | null = (() => {
+      if (!event_date) return null
+      if (typeof event_date === 'string') {
+        // Already ISO format (YYYY-MM-DD)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(event_date)) return event_date
+        // Try native Date parsing (handles "7 June 2026", "June 7 2026", etc.)
+        const d = new Date(event_date)
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+      }
+      if (typeof event_date === 'number') {
+        const d = new Date(event_date)
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+      }
+      return null
+    })()
+
     // Validation
-    if (!restaurant_id || !event_date || !contact) {
-      return errorResponse(res, 'VALIDATION_ERROR', 'restaurant_id, event_date, and contact are required')
+    if (!restaurant_id || !contact) {
+      return errorResponse(res, 'VALIDATION_ERROR', 'restaurant_id and contact are required')
     }
 
     if (!contact.first_name || !contact.last_name || !contact.email) {
@@ -488,7 +505,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
         restaurant_id: restaurant.id,
         contact_id: contactId,
         status_id: nouveauStatus?.id || null,
-        event_date,
+        event_date: eventDateParsed,
         guests_count: guestsCountParsed,
         event_type: event_type || null,
         reservation_type: reservation_type || null,
