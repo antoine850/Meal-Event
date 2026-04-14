@@ -374,20 +374,56 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
       return null
     })()
 
-    // Sanitize event_date: accept ISO strings, "7 June 2026", "07/06/2026", timestamps, null
+    // Sanitize event_date — handles all formats sent by Make/Alpaga:
+    //   ISO:        "2026-06-07"
+    //   FR:         "7 juin 2026", "lundi 7 juin 2026", "07/06/2026", "07-06-2026"
+    //   EN:         "7 June 2026", "June 7 2026", "07/06/2026"
+    //   With time:  "7 juin 2026 à 20h00", "2026-06-07T20:00:00", "7 juin 2026 20:00"
+    //   Timestamp:  1749340800000
+    //   Null/empty: → null (booking created without date)
     const eventDateParsed: string | null = (() => {
       if (!event_date) return null
-      if (typeof event_date === 'string') {
-        // Already ISO format (YYYY-MM-DD)
-        if (/^\d{4}-\d{2}-\d{2}$/.test(event_date)) return event_date
-        // Try native Date parsing (handles "7 June 2026", "June 7 2026", etc.)
-        const d = new Date(event_date)
-        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
-      }
+
+      // Numeric timestamp
       if (typeof event_date === 'number') {
         const d = new Date(event_date)
-        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+        return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0]
       }
+
+      if (typeof event_date !== 'string') return null
+
+      const raw = event_date.trim()
+      if (!raw) return null
+
+      // Already ISO YYYY-MM-DD (with or without time)
+      const isoMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/)
+      if (isoMatch) return isoMatch[1]
+
+      // FR/EU numeric: DD/MM/YYYY or DD-MM-YYYY
+      const numericFR = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)
+      if (numericFR) {
+        const [, d, m, y] = numericFR
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+      }
+
+      // French month names (with optional day-of-week prefix and optional time suffix)
+      const frMonths: Record<string, string> = {
+        janvier: '01', février: '02', fevrier: '02', mars: '03',
+        avril: '04', mai: '05', juin: '06', juillet: '07',
+        août: '08', aout: '08', septembre: '09', octobre: '10',
+        novembre: '11', décembre: '12', decembre: '12',
+      }
+      const frMatch = raw.match(/(\d{1,2})\s+([a-zéûôàè]+)\s+(\d{4})/i)
+      if (frMatch) {
+        const [, day, monthStr, year] = frMatch
+        const month = frMonths[monthStr.toLowerCase()]
+        if (month) return `${year}-${month}-${day.padStart(2, '0')}`
+      }
+
+      // English month names (native Date handles these)
+      const d = new Date(raw)
+      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+
       return null
     })()
 
