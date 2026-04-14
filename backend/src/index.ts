@@ -70,7 +70,8 @@ app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }))
 app.use('/api/v1', (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (req.headers['content-type']?.includes('application/json')) {
     express.text({ type: 'application/json' })(req, res, () => {
-      const raw = (req as express.Request & { text?: string }).text || ''
+      // express.text() stores the result in req.body (as a string)
+      const raw = typeof req.body === 'string' ? req.body : ''
       if (!raw) return next()
       try {
         // Replace bare + or - (not followed by a digit) used as JSON values
