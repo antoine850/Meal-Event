@@ -361,9 +361,22 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
       budget,
     } = req.body
 
+    // Sanitize guests_count: accept number strings, "+" prefixed strings like "+ de 60 personnes"
+    const rawGuests = guests_count
+    const guestsCountParsed: number | null = (() => {
+      if (rawGuests == null) return null
+      if (typeof rawGuests === 'number' && !isNaN(rawGuests)) return rawGuests
+      if (typeof rawGuests === 'string') {
+        // Extract first numeric sequence, handles "+ de 60 personnes" → 60
+        const match = rawGuests.match(/\d+/)
+        return match ? parseInt(match[0], 10) : null
+      }
+      return null
+    })()
+
     // Validation
-    if (!restaurant_id || !event_date || !guests_count || !contact) {
-      return errorResponse(res, 'VALIDATION_ERROR', 'restaurant_id, event_date, guests_count, and contact are required')
+    if (!restaurant_id || !event_date || !contact) {
+      return errorResponse(res, 'VALIDATION_ERROR', 'restaurant_id, event_date, and contact are required')
     }
 
     if (!contact.first_name || !contact.last_name || !contact.email) {
@@ -476,7 +489,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
         contact_id: contactId,
         status_id: nouveauStatus?.id || null,
         event_date,
-        guests_count,
+        guests_count: guestsCountParsed,
         event_type: event_type || null,
         reservation_type: reservation_type || null,
         occasion: occasion?.trim() || null,
@@ -506,7 +519,7 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
         organization_id: orgId,
         booking_id: booking.id,
         action_type: 'booking_created',
-        action_label: `Nouvelle demande via API — ${event_type}, ${guests_count} invités`,
+        action_label: `Nouvelle demande via API — ${event_type}, ${guestsCountParsed ?? '?'} invités`,
         actor_type: 'system',
         actor_name: 'API v1',
       } as never)

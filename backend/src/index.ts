@@ -63,7 +63,35 @@ app.use((req, res, next) => {
 
 // Stripe webhooks need raw body for signature verification
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }))
-// All other routes (including SignNow webhook) use JSON parsing
+
+// Sanitizing JSON parser for /api/v1 — handles malformed payloads from third-party
+// integrations (e.g. Make/n8n sending `"guests_count": +` when the source value is
+// a string like "+ de 60 personnes" and parseInt() returns NaN).
+app.use('/api/v1', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (req.headers['content-type']?.includes('application/json')) {
+    express.text({ type: 'application/json' })(req, res, () => {
+      const raw = (req as express.Request & { text?: string }).text || ''
+      if (!raw) return next()
+      try {
+        // Replace bare + or - (not followed by a digit) used as JSON values
+        // e.g. "guests_count": +,  →  "guests_count": null,
+        const sanitized = raw
+          .replace(/:\s*[+\-](?!\d)/g, ': null')
+          .replace(/:\s*NaN\b/g, ': null')
+          .replace(/:\s*undefined\b/g, ': null')
+        req.body = JSON.parse(sanitized)
+        next()
+      } catch (err) {
+        console.error('[API v1] Failed to parse request body after sanitization:', err)
+        res.status(400).json({ error: 'INVALID_JSON', message: 'Request body is not valid JSON' })
+      }
+    })
+  } else {
+    next()
+  }
+})
+
+// All other routes use standard JSON parsing
 app.use(express.json())
 
 // Health check
