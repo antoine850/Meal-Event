@@ -537,6 +537,193 @@ apiV1Router.post('/bookings', async (req: Request, res: Response) => {
   }
 })
 
+// ============================================
+// POST /api/v1/bookings/from-form
+// Accepts the raw Alpaga / Release form payload directly so Make/n8n
+// only needs to forward the webhook body without any transformation.
+//
+// Expected body: the Alpaga payload array (or wrapped object):
+//   [ { form: { id }, fields: { nom, prenom, email, tel, nbpersonnes_ordi,
+//       date_ordi, type_ordi, vous_etes_ordi, privatisation, ... },
+//       fieldsParsed: { ... } } ]
+//   OR the same thing unwrapped as a single object (not an array).
+//
+// Required query param: ?restaurant_id=<uuid>
+// ============================================
+apiV1Router.post('/bookings/from-form', async (req: Request, res: Response) => {
+  try {
+    const orgId = getOrgId(req)
+    const restaurantId = (req.query.restaurant_id as string) || req.body?.restaurant_id
+
+    if (!restaurantId) {
+      return errorResponse(res, 'VALIDATION_ERROR', 'restaurant_id is required as a query parameter (?restaurant_id=xxx)')
+    }
+
+    // Support both array format (Alpaga sends an array) and single-object format
+    const rawPayload = Array.isArray(req.body) ? req.body[0] : req.body
+    if (!rawPayload) {
+      return errorResponse(res, 'VALIDATION_ERROR', 'Request body is empty')
+    }
+
+    // ── Extract fields from Alpaga format ──────────────────────────────────
+    // Fields can come from `fields.<key>.value` (Alpaga native) or
+    // `fieldsParsed` (human-readable keys). We try both.
+    const getField = (key: string): string => {
+      const f = rawPayload.fields?.[key]
+      if (f?.value != null) return String(f.value).trim()
+      return ''
+    }
+    const getParsedField = (title: string): string => {
+      const parsed = rawPayload.fieldsParsed
+      if (!parsed) return ''
+      const val = Object.entries(parsed).find(([k]) =>
+        k.toLowerCase().includes(title.toLowerCase())
+      )?.[1]
+      return val ? String(val).trim() : ''
+    }
+
+    // Contact fields
+    const firstName = getField('prenom') || getParsedField('prénom') || getParsedField('prenom') || ''
+    const lastName  = getField('nom')    || getParsedField('nom') || ''
+    const email     = getField('email')  || getParsedField('email') || ''
+    const phone     = getField('tel')    || getParsedField('téléphone') || getParsedField('telephone') || ''
+
+    if (!firstName || !lastName || !email) {
+      return errorResponse(res, 'VALIDATION_ERROR', 'Prénom, Nom and Email are required in form fields')
+    }
+
+    // Date — accepts "7 June 2026", "07/06/2026", "2026-06-07", etc.
+    const rawDate = getField('date_ordi') || getParsedField("date") || ''
+    let eventDate: string | null = null
+    if (rawDate) {
+      const parsed = new Date(rawDate)
+      if (!isNaN(parsed.getTime())) {
+        eventDate = parsed.toISOString().split('T')[0]
+      }
+    }
+    if (!eventDate) {
+      return errorResponse(res, 'VALIDATION_ERROR', `Could not parse event date: "${rawDate}"`)
+    }
+
+    // Guests count — handles "+ de 60 personnes", "entre 20 et 60", "60", etc.
+    const rawGuests = getField('nbpersonnes_ordi') || getParsedField('personnes') || getParsedField('invités') || ''
+    let guestsCount: number | null = null
+    if (rawGuests) {
+      const nums = rawGuests.match(/\d+/g)
+      if (nums) {
+        // "entre 20 et 60" → take the higher bound; "+ de 60" → 60; "60" → 60
+        guestsCount = Math.max(...nums.map(Number))
+      }
+    }
+
+    // Event type / occasion
+    const rawType    = getField('type_ordi')   || getParsedField("type d'événement") || ''
+    const clientType = getField('vous_etes_ordi') || getParsedField('vous êtes') || ''
+    const isPro      = /pro/i.test(clientType) || /entreprise/i.test(clientType)
+
+    // Privatisation / format note stored in internal_notes
+    const privatisation = getField('privatisation') || ''
+
+    // ── Verify restaurant ──────────────────────────────────────────────────
+    const { data: restaurant, error: restError } = await supabase
+      .from('restaurants')
+      .select('id, name')
+      .eq('organization_id', orgId)
+      .eq('id', restaurantId)
+      .single()
+
+    if (restError || !restaurant) {
+      return errorResponse(res, 'NOT_FOUND', 'Restaurant not found in your organization', 404)
+    }
+
+    // ── Find or create contact ─────────────────────────────────────────────
+    const normalizedEmail = normalizeEmail(email)
+    const { data: existingContact } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('email', normalizedEmail)
+      .single()
+
+    let contactId: string
+    if (existingContact) {
+      contactId = existingContact.id
+    } else {
+      const { data: newContact, error: contactError } = await supabase
+        .from('contacts')
+        .insert({
+          organization_id: orgId,
+          first_name: firstName,
+          last_name: lastName,
+          email: normalizedEmail,
+          phone: phone ? normalizePhone(phone) : null,
+          source: 'form',
+        } as never)
+        .select('id')
+        .single()
+      if (contactError || !newContact) {
+        return errorResponse(res, 'INTERNAL_ERROR', 'Failed to create contact', 500)
+      }
+      contactId = (newContact as any).id
+    }
+
+    // ── Get default "nouveau" status ───────────────────────────────────────
+    const { data: nouveauStatus } = await supabase
+      .from('statuses')
+      .select('id')
+      .eq('organization_id', orgId)
+      .eq('type', 'booking')
+      .eq('slug', 'nouveau')
+      .single()
+
+    // ── Create booking ─────────────────────────────────────────────────────
+    const internalNotes = privatisation
+      ? `[Formulaire] ${privatisation}`
+      : '[Formulaire Alpaga]'
+
+    const { data: booking, error: bookingError } = await supabase
+      .from('bookings')
+      .insert({
+        organization_id: orgId,
+        restaurant_id: restaurant.id,
+        contact_id: contactId,
+        status_id: nouveauStatus?.id || null,
+        event_date: eventDate,
+        guests_count: guestsCount,
+        occasion: rawType || null,
+        reservation_type: isPro ? 'professionnel' : 'particulier',
+        internal_notes: internalNotes,
+        source: 'form',
+      } as never)
+      .select('id, event_date, guests_count, occasion, created_at')
+      .single()
+
+    if (bookingError || !booking) {
+      console.error('[API v1] from-form: Error creating booking:', bookingError)
+      return errorResponse(res, 'INTERNAL_ERROR', 'Failed to create booking', 500)
+    }
+
+    // Activity log (fire & forget)
+    supabase.from('activity_logs').insert({
+      organization_id: orgId,
+      booking_id: (booking as any).id,
+      action_type: 'booking_created',
+      action_label: `Nouvelle demande via formulaire — ${rawType || '?'}, ${guestsCount ?? '?'} invités`,
+      actor_type: 'system',
+      actor_name: 'API v1 / form',
+    } as never).then(() => {})
+
+    console.log(`[API v1] from-form: Booking created: ${(booking as any).id} for restaurant ${restaurant.name}`)
+
+    syncBookingToCalendar((booking as any).id, 'create').catch(() => {})
+
+    return res.status(201).json({ data: booking })
+  } catch (err) {
+    console.error('[API v1] from-form: Unexpected error:', err)
+    return errorResponse(res, 'INTERNAL_ERROR', 'Failed to process form submission', 500)
+  }
+})
+
 // PATCH /api/v1/bookings/:id
 apiV1Router.patch('/bookings/:id', async (req: Request, res: Response) => {
   try {
