@@ -16,22 +16,21 @@ async function verifyRestaurantAccess(req: Request, restaurantId: string): Promi
   const user = (req as any).user
   if (!user?.id) return false
 
-  // Get user's org membership
-  const { data: member } = await supabase
-    .from('organization_members')
+  // Get user's organization_id from the users table
+  const { data: userData } = await supabase
+    .from('users')
     .select('organization_id')
-    .eq('user_id', user.id)
-    .limit(1)
+    .eq('id', user.id)
     .single()
 
-  if (!member) return false
+  if (!userData?.organization_id) return false
 
   // Check restaurant belongs to that org
   const { data: restaurant } = await supabase
     .from('restaurants')
     .select('id')
     .eq('id', restaurantId)
-    .eq('organization_id', member.organization_id)
+    .eq('organization_id', userData.organization_id)
     .single()
 
   return !!restaurant
