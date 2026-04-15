@@ -14,7 +14,7 @@ import { webhooksRouter } from './routes/webhooks.js'
 import { membersRouter, membersPublicRouter } from './routes/members.js'
 import { publicRouter } from './routes/public.js'
 import { apiV1Router } from './routes/api-v1.js'
-import { googleCalendarRouter } from './routes/google-calendar.js'
+import { googleCalendarRouter, googleCalendarPublicRouter } from './routes/google-calendar.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -107,9 +107,10 @@ app.use('/api/public', publicRouter)
 app.use('/api/v1', apiV1Router)
 
 // Google Calendar OAuth callback (no auth — redirect from Google)
-app.get('/api/google-calendar/callback', googleCalendarRouter)
+// Must be mounted BEFORE the authenticated router so requireAuth is never hit.
+app.use('/api/google-calendar', googleCalendarPublicRouter)
 
-// All other API routes require authentication
+// All other Google Calendar routes require authentication
 app.use('/api/google-calendar', requireAuth, googleCalendarRouter)
 app.use('/api/organizations', requireAuth, organizationsRouter)
 app.use('/api/restaurants', requireAuth, restaurantsRouter)

@@ -9,6 +9,9 @@ import {
 
 export const googleCalendarRouter = Router()
 
+// Public router: contains only the OAuth callback (no auth required — redirect from Google)
+export const googleCalendarPublicRouter = Router()
+
 // ============================================
 // Helper: verify restaurant belongs to user's org
 // ============================================
@@ -65,9 +68,10 @@ googleCalendarRouter.get('/auth-url', async (req: Request, res: Response) => {
 
 // ============================================
 // GET /api/google-calendar/callback
-// OAuth callback — exchanges code for tokens
+// OAuth callback — exchanges code for tokens (NO AUTH — redirect from Google)
+// Mounted on googleCalendarPublicRouter so it bypasses requireAuth middleware.
 // ============================================
-googleCalendarRouter.get('/callback', async (req: Request, res: Response) => {
+googleCalendarPublicRouter.get('/callback', async (req: Request, res: Response) => {
   try {
     const code = req.query.code as string
     const restaurantId = req.query.state as string
