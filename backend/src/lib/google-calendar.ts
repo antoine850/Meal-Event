@@ -287,7 +287,21 @@ const SYNCABLE_STATUS_SLUGS = [
   'cloture',                // Clôturé
 ]
 
+// ⏸  TEMPORARY PAUSE  ⏸
+// The OAuth connect flow (auth-url, callback, select-calendar, disconnect) is
+// live so restaurants can link their Google account. But we're deliberately
+// NOT pushing booking events to Google Calendar yet — the sync pipeline below
+// (createCalendarEvent / updateCalendarEvent / deleteCalendarEvent) stays
+// intact but is short-circuited.
+//
+// Flip this to `true` (or make it env-driven) once we're ready to go live.
+const GOOGLE_CALENDAR_SYNC_ENABLED = false
+
 export async function syncBookingToCalendar(bookingId: string, action: 'create' | 'update' | 'delete') {
+  // Sync is paused. The connect flow still works (restaurants can link their
+  // calendar in settings) but nothing is pushed to Google Calendar yet.
+  if (!GOOGLE_CALENDAR_SYNC_ENABLED) return
+
   try {
     if (action === 'delete') {
       // For delete, we need the booking data before it's deleted

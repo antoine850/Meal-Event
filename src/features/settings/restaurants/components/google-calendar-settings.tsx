@@ -77,7 +77,7 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
     if (!selectedCalendarId) return
     try {
       await selectCalendar({ restaurant_id: restaurantId, calendar_id: selectedCalendarId })
-      toast.success('Calendrier sélectionné ! La synchronisation est activée.')
+      toast.success('Calendrier relié. La synchronisation sera activée prochainement.')
     } catch {
       toast.error('Erreur lors de la sélection du calendrier.')
     }
@@ -112,7 +112,8 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
             <div>
               <CardTitle>Google Calendar</CardTitle>
               <CardDescription>
-                Synchronisez automatiquement vos événements avec Google Calendar
+                Reliez un calendrier Google à ce restaurant. La synchronisation automatique des
+                événements sera activée prochainement.
               </CardDescription>
             </div>
           </div>
@@ -127,7 +128,8 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
               <div className='text-center'>
                 <p className='font-medium'>Aucun compte Google connecté</p>
                 <p className='text-sm text-muted-foreground mt-1'>
-                  Connectez votre compte Google pour synchroniser les événements automatiquement.
+                  Reliez un compte Google et un calendrier à ce restaurant dès maintenant.
+                  La synchronisation automatique des événements sera activée prochainement.
                 </p>
               </div>
               <Button onClick={handleConnect} disabled={authUrlPending}>
@@ -195,7 +197,7 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
             </div>
           )}
 
-          {/* Fully connected and syncing */}
+          {/* Fully connected — calendar linked, sync pending go-live */}
           {status?.connected && status?.calendar_id && (
             <div className='space-y-4'>
               <div className='flex items-center justify-between'>
@@ -205,18 +207,17 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
                     Connecté en tant que <strong>{status.email}</strong>
                   </span>
                 </div>
-                <Badge variant='outline' className='text-green-700 border-green-300 bg-green-50'>
-                  Synchronisation active
+                <Badge variant='outline' className='text-amber-700 border-amber-300 bg-amber-50'>
+                  Synchronisation bientôt disponible
                 </Badge>
               </div>
 
               <div className='rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground space-y-1'>
-                <p>Les événements sont automatiquement synchronisés avec votre Google Calendar :</p>
-                <ul className='list-disc list-inside ml-2 space-y-0.5'>
-                  <li>Création d'un événement = ajout au calendrier</li>
-                  <li>Modification = mise à jour du calendrier</li>
-                  <li>Suppression = suppression du calendrier</li>
-                </ul>
+                <p>
+                  Votre calendrier est bien relié à ce restaurant. La synchronisation automatique
+                  des événements sera activée prochainement — aucun événement n'est poussé sur
+                  Google Calendar pour le moment.
+                </p>
               </div>
 
               <Button
@@ -238,7 +239,8 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle>Déconnecter Google Calendar</AlertDialogTitle>
             <AlertDialogDescription>
-              La synchronisation sera arrêtée. Les événements déjà créés dans Google Calendar ne seront pas supprimés.
+              Le lien vers votre calendrier sera retiré de ce restaurant. Les événements déjà
+              créés dans Google Calendar ne seront pas supprimés.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
