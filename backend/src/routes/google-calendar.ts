@@ -79,7 +79,7 @@ googleCalendarPublicRouter.get('/callback', async (req: Request, res: Response) 
 
     // Frontend URL to redirect back to
     const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.fr'
-    const settingsUrl = `${frontendBase}/settings/restaurants/${restaurantId}`
+    const settingsUrl = `${frontendBase}/settings/restaurant/${restaurantId}`
 
     if (error) {
       console.error('[GCal] OAuth error:', error)
@@ -98,7 +98,7 @@ googleCalendarPublicRouter.get('/callback', async (req: Request, res: Response) 
     console.error('[GCal] OAuth callback error:', error)
     const restaurantId = req.query.state as string
     const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.fr'
-    return res.redirect(`${frontendBase}/settings/restaurants/${restaurantId}?gcal_error=token_exchange_failed`)
+    return res.redirect(`${frontendBase}/settings/restaurant/${restaurantId}?gcal_error=token_exchange_failed`)
   }
 })
 
