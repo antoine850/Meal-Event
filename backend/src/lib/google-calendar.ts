@@ -1,7 +1,13 @@
 import { google, calendar_v3 } from 'googleapis'
 import { supabase } from './supabase.js'
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar']
+// `calendar` → read/write calendar events
+// `userinfo.email` → required so we can fetch the connected Google account's
+// email via oauth2.userinfo.get() and display it in the settings UI.
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/userinfo.email',
+]
 
 // ============================================
 // OAuth2 Client
@@ -33,21 +39,29 @@ export async function handleOAuthCallback(code: string, restaurantId: string) {
     throw new Error('No refresh token received. User may need to revoke access and reconnect.')
   }
 
-  // Get the connected Google account email
-  oauth2Client.setCredentials(tokens)
-  const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
-  const { data: userInfo } = await oauth2.userinfo.get()
+  // Try to fetch the connected Google account email. This is a nice-to-have
+  // for the settings UI — if it fails (e.g. scope not granted yet), we still
+  // persist the refresh_token so the connection itself succeeds.
+  let email: string | null = null
+  try {
+    oauth2Client.setCredentials(tokens)
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
+    const { data: userInfo } = await oauth2.userinfo.get()
+    email = userInfo.email || null
+  } catch (err) {
+    console.warn('[GCal] Failed to fetch userinfo (connection will still succeed):', err instanceof Error ? err.message : err)
+  }
 
   // Store refresh token on restaurant
   await supabase
     .from('restaurants')
     .update({
       google_refresh_token: tokens.refresh_token,
-      google_calendar_email: userInfo.email || null,
+      google_calendar_email: email,
     } as never)
     .eq('id', restaurantId)
 
-  return { email: userInfo.email }
+  return { email }
 }
 
 // ============================================
