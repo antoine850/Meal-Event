@@ -277,6 +277,16 @@ export async function deleteCalendarEvent(restaurantId: string, googleEventId: s
 // Sync helper: fetch full booking data and sync
 // ============================================
 
+// Only bookings in one of these statuses are pushed to Google Calendar.
+// Anything earlier in the pipeline (nouveau, en discussion, proposition…) is ignored.
+// Kept in sync with src/features/dashboard/hooks/use-dashboard-data.ts `CONFIRMED_SLUGS`.
+const SYNCABLE_STATUS_SLUGS = [
+  'confirme_fonctionnaire', // Confirmé / Fonction à faire
+  'fonction_envoyee',       // Fonction envoyée
+  'a_facturer',             // À facturer
+  'cloture',                // Clôturé
+]
+
 export async function syncBookingToCalendar(bookingId: string, action: 'create' | 'update' | 'delete') {
   try {
     if (action === 'delete') {
@@ -293,13 +303,14 @@ export async function syncBookingToCalendar(bookingId: string, action: 'create' 
       return
     }
 
-    // Fetch full booking with relations
+    // Fetch full booking with relations (including status slug for gating)
     const { data: booking } = await supabase
       .from('bookings')
       .select(`
         id, event_date, start_time, end_time, guests_count, occasion, event_type,
         reservation_type, is_privatif, commentaires, allergies_regimes, budget_client,
         restaurant_id, google_calendar_event_id,
+        status:booking_statuses (slug),
         contact:contacts (first_name, last_name, email, phone),
         restaurant:restaurants (name),
         space:spaces (name)
@@ -310,6 +321,26 @@ export async function syncBookingToCalendar(bookingId: string, action: 'create' 
     if (!booking || !booking.restaurant_id) return
 
     // Unwrap joined relations (Supabase returns arrays for joins)
+    const statusRel = Array.isArray(booking.status) ? booking.status[0] : booking.status
+    const statusSlug: string | null = (statusRel as { slug?: string } | null)?.slug || null
+    const isSyncable = statusSlug !== null && SYNCABLE_STATUS_SLUGS.includes(statusSlug)
+
+    // Gate: booking status must be "Confirmé / Fonction à faire" or later.
+    if (!isSyncable) {
+      // If the booking was previously synced and is now demoted (e.g. status
+      // rolled back to "proposition"), remove the stale event from the calendar.
+      if (booking.google_calendar_event_id) {
+        console.log(`[GCal] Booking ${bookingId} no longer syncable (status=${statusSlug}), removing stale calendar event`)
+        await deleteCalendarEvent(booking.restaurant_id, booking.google_calendar_event_id)
+        // Clear the stored event id so a later re-confirmation creates a fresh event.
+        await supabase
+          .from('bookings')
+          .update({ google_calendar_event_id: null } as never)
+          .eq('id', bookingId)
+      }
+      return
+    }
+
     const bookingData: BookingEventData = {
       ...booking,
       contact: Array.isArray(booking.contact) ? booking.contact[0] : booking.contact,
