@@ -327,6 +327,7 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       eventDate: quoteData.date_start || booking?.event_date || null,
       eventTitle: quoteData.title,
       commercialName,
+      orderNumber: quoteData.order_number,
     })
 
     const subject = buildQuoteEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
@@ -528,6 +529,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           eventDate: quoteData.date_start || booking?.event_date || null,
           commercialName: commercial.name,
           stripeEnabled: (restaurant as any)?.stripe_enabled !== false,
+          orderNumber: quoteData.order_number,
         })
 
         const subject = buildDepositEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
@@ -620,6 +622,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       eventDate: quoteData.date_start || booking?.event_date || null,
       commercialName,
       stripeEnabled: isStripeEnabled,
+      orderNumber: quoteData.order_number,
     })
 
     const subject = buildDepositEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
@@ -819,6 +822,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
           eventDate: quoteData.date_start || booking?.event_date || null,
           commercialName: commercial.name,
           stripeEnabled: (restaurant as any)?.stripe_enabled !== false,
+          orderNumber: quoteData.order_number,
         })
 
         const subject = buildBalanceEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
@@ -915,6 +919,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       eventDate: quoteData.date_start || booking?.event_date || null,
       commercialName,
       stripeEnabled: isStripeEnabled,
+      orderNumber: quoteData.order_number,
     })
 
     const subject = buildBalanceEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')

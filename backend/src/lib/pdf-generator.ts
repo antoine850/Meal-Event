@@ -413,7 +413,7 @@ function buildDocDefinition(
               stack: [
                 ...(quote.title ? [{ text: quote.title, style: 'bold' as const }] : []),
                 ...(quote.date_start ? [{ text: `${l.serviceDate}: ${formatDate(quote.date_start)}${quote.booking?.start_time ? ` à ${quote.booking.start_time}` : ''}${quote.booking?.end_time ? ` — ${quote.booking.end_time}` : ''}${quote.date_end && quote.date_end !== quote.date_start ? ` | ${formatDate(quote.date_end)}` : ''}`, style: 'small' as const, color: '#666' }] : []),
-                ...(quote.order_number ? [{ text: `${l.orderNumber}: ${quote.order_number}`, style: 'tiny' as const, color: '#888' }] : []),
+                ...(quote.order_number ? [{ text: `${l.orderNumber}: ${quote.order_number}`, style: 'small' as const, color: '#666' }] : []),
               ],
               fillColor: '#faf5f0',
               margin: [8, 6, 8, 6] as [number, number, number, number],

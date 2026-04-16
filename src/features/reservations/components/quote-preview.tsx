@@ -397,7 +397,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 </p>
               )}
               {data.orderNumber && (
-                <p className='text-[10px] text-gray-500'>{l.orderNumber}: {data.orderNumber}</p>
+                <p className='text-[10px] text-gray-600'>{l.orderNumber}: {data.orderNumber}</p>
               )}
             </div>
           )}

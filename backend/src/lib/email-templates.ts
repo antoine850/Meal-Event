@@ -121,8 +121,9 @@ export function buildQuoteEmailHtml(params: {
   eventDate: string | null
   eventTitle: string | null
   commercialName?: string | null
+  orderNumber?: string | null
 }): string {
-  const { restaurant, contact, quoteNumber, totalTtc, eventDate, eventTitle, commercialName } = params
+  const { restaurant, contact, quoteNumber, totalTtc, eventDate, eventTitle, commercialName, orderNumber } = params
   const color = restaurant.color || '#0d7377'
 
   const body = `
@@ -149,6 +150,11 @@ export function buildQuoteEmailHtml(params: {
             <tr>
               <td style="font-size:12px;color:#666;padding:4px 0;">Date de l'événement</td>
               <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${formatDate(eventDate)}</td>
+            </tr>` : ''}
+            ${orderNumber ? `
+            <tr>
+              <td style="font-size:12px;color:#666;padding:4px 0;">N° commande</td>
+              <td style="font-size:12px;font-weight:600;text-align:right;padding:4px 0;">${orderNumber}</td>
             </tr>` : ''}
             <tr>
               <td colspan="2" style="padding:8px 0 4px;"><hr style="border:none;border-top:1px solid #e5e7eb;" /></td>
@@ -196,8 +202,9 @@ export function buildDepositEmailHtml(params: {
   eventDate: string | null
   commercialName?: string | null
   stripeEnabled?: boolean
+  orderNumber?: string | null
 }): string {
-  const { restaurant, contact, quoteNumber, depositPercentage, depositAmount, stripePaymentUrl, eventDate, commercialName, stripeEnabled = true } = params
+  const { restaurant, contact, quoteNumber, depositPercentage, depositAmount, stripePaymentUrl, eventDate, commercialName, stripeEnabled = true, orderNumber } = params
   const color = restaurant.color || '#0d7377'
 
   const bankSection = (restaurant.iban || restaurant.bic)
@@ -252,6 +259,7 @@ export function buildDepositEmailHtml(params: {
           <p style="margin:0 0 4px;font-size:12px;color:#666;">Montant de l'acompte (${depositPercentage}%)</p>
           <p style="margin:0;font-size:24px;font-weight:700;color:${color};">${formatCurrency(depositAmount)}</p>
           ${eventDate ? `<p style="margin:8px 0 0;font-size:12px;color:#666;">Événement du ${formatDate(eventDate)}</p>` : ''}
+          ${orderNumber ? `<p style="margin:4px 0 0;font-size:12px;color:#666;">N° commande: <strong>${orderNumber}</strong></p>` : ''}
         </td>
       </tr>
     </table>
@@ -289,8 +297,9 @@ export function buildBalanceEmailHtml(params: {
   eventDate: string | null
   commercialName?: string | null
   stripeEnabled?: boolean
+  orderNumber?: string | null
 }): string {
-  const { restaurant, contact, quoteNumber, balanceAmount, stripePaymentUrl, eventDate, commercialName, stripeEnabled = true } = params
+  const { restaurant, contact, quoteNumber, balanceAmount, stripePaymentUrl, eventDate, commercialName, stripeEnabled = true, orderNumber } = params
   const color = restaurant.color || '#0d7377'
 
   const bankSection = (restaurant.iban || restaurant.bic)
@@ -348,6 +357,8 @@ export function buildBalanceEmailHtml(params: {
         <td style="padding:16px;text-align:center;">
           <p style="margin:0 0 4px;font-size:12px;color:#666;">Montant du solde restant</p>
           <p style="margin:0;font-size:24px;font-weight:700;color:${color};">${formatCurrency(balanceAmount)}</p>
+          ${eventDate ? `<p style="margin:8px 0 0;font-size:12px;color:#666;">Événement du ${formatDate(eventDate)}</p>` : ''}
+          ${orderNumber ? `<p style="margin:4px 0 0;font-size:12px;color:#666;">N° commande: <strong>${orderNumber}</strong></p>` : ''}
         </td>
       </tr>
     </table>
