@@ -303,7 +303,7 @@ export function groupByUser(bookings: BookingWithRelations[], users: { id: strin
     }
     ids.forEach(userId => {
       if (!groups[userId]) {
-        groups[userId] = { user: userMap.get(userId) || b.assigned_user || null, bookings: [] }
+        groups[userId] = { user: userMap.get(userId) || null, bookings: [] }
       }
       groups[userId].bookings.push(b)
     })
