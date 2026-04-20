@@ -1,4 +1,10 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DoubleArrowLeftIcon,
+  DoubleArrowRightIcon,
+} from '@radix-ui/react-icons'
 import { Link } from '@tanstack/react-router'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -101,6 +107,12 @@ const statusConfig: Record<QuoteDisplayStatus, { label: string; color: string }>
 export function Contracts() {
   const [activeTab, setActiveTab] = useState('quotes')
   const [search, setSearch] = useState('')
+  const [quotesPage, setQuotesPage] = useState(0)
+  const [clientsPage, setClientsPage] = useState(0)
+  const PAGE_SIZE = 50
+
+  useEffect(() => { setQuotesPage(0) }, [search])
+  useEffect(() => { setClientsPage(0) }, [search])
   const { data: bookings = [], isLoading: bookingsLoading } = useBookings()
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
   const { data: companies = [], isLoading: companiesLoading } = useCompanies()
@@ -223,6 +235,15 @@ export function Contracts() {
       c.contactEmail.toLowerCase().includes(searchLower)
     ) : clientHistory,
     [clientHistory, searchLower]
+  )
+
+  const paginatedQuotes = useMemo(
+    () => filteredQuotes.slice(quotesPage * PAGE_SIZE, (quotesPage + 1) * PAGE_SIZE),
+    [filteredQuotes, quotesPage]
+  )
+  const paginatedClients = useMemo(
+    () => filteredClients.slice(clientsPage * PAGE_SIZE, (clientsPage + 1) * PAGE_SIZE),
+    [filteredClients, clientsPage]
   )
 
   // ─── Stats ───
@@ -487,7 +508,7 @@ export function Contracts() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredQuotes.length > 0 ? filteredQuotes.map((q) => {
+                    {paginatedQuotes.length > 0 ? paginatedQuotes.map((q) => {
                       const st = statusConfig[q.status]
                       return (
                         <TableRow
@@ -556,6 +577,28 @@ export function Contracts() {
                   </TableBody>
                 </Table>
               </CardContent>
+              {filteredQuotes.length > PAGE_SIZE && (
+                <div className='flex items-center justify-between px-4 py-3 border-t'>
+                  <span className='text-sm text-muted-foreground'>
+                    {quotesPage * PAGE_SIZE + 1}–{Math.min((quotesPage + 1) * PAGE_SIZE, filteredQuotes.length)} sur {filteredQuotes.length}
+                  </span>
+                  <div className='flex items-center gap-1'>
+                    <Button variant='outline' size='icon' className='h-8 w-8' onClick={() => setQuotesPage(0)} disabled={quotesPage === 0}>
+                      <DoubleArrowLeftIcon className='h-4 w-4' />
+                    </Button>
+                    <Button variant='outline' size='icon' className='h-8 w-8' onClick={() => setQuotesPage(p => p - 1)} disabled={quotesPage === 0}>
+                      <ChevronLeftIcon className='h-4 w-4' />
+                    </Button>
+                    <span className='text-sm px-2'>Page {quotesPage + 1} / {Math.ceil(filteredQuotes.length / PAGE_SIZE)}</span>
+                    <Button variant='outline' size='icon' className='h-8 w-8' onClick={() => setQuotesPage(p => p + 1)} disabled={(quotesPage + 1) * PAGE_SIZE >= filteredQuotes.length}>
+                      <ChevronRightIcon className='h-4 w-4' />
+                    </Button>
+                    <Button variant='outline' size='icon' className='h-8 w-8' onClick={() => setQuotesPage(Math.ceil(filteredQuotes.length / PAGE_SIZE) - 1)} disabled={(quotesPage + 1) * PAGE_SIZE >= filteredQuotes.length}>
+                      <DoubleArrowRightIcon className='h-4 w-4' />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Card>
           </TabsContent>
 
@@ -581,7 +624,7 @@ export function Contracts() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredClients.length > 0 ? filteredClients.map((c) => (
+                    {paginatedClients.length > 0 ? paginatedClients.map((c) => (
                       <TableRow
                         key={c.contactId}
                         className='cursor-pointer hover:bg-muted/50'
@@ -642,6 +685,28 @@ export function Contracts() {
                   </TableBody>
                 </Table>
               </CardContent>
+              {filteredClients.length > PAGE_SIZE && (
+                <div className='flex items-center justify-between px-4 py-3 border-t'>
+                  <span className='text-sm text-muted-foreground'>
+                    {clientsPage * PAGE_SIZE + 1}–{Math.min((clientsPage + 1) * PAGE_SIZE, filteredClients.length)} sur {filteredClients.length}
+                  </span>
+                  <div className='flex items-center gap-1'>
+                    <Button variant='outline' size='icon' className='h-8 w-8' onClick={() => setClientsPage(0)} disabled={clientsPage === 0}>
+                      <DoubleArrowLeftIcon className='h-4 w-4' />
+                    </Button>
+                    <Button variant='outline' size='icon' className='h-8 w-8' onClick={() => setClientsPage(p => p - 1)} disabled={clientsPage === 0}>
+                      <ChevronLeftIcon className='h-4 w-4' />
+                    </Button>
+                    <span className='text-sm px-2'>Page {clientsPage + 1} / {Math.ceil(filteredClients.length / PAGE_SIZE)}</span>
+                    <Button variant='outline' size='icon' className='h-8 w-8' onClick={() => setClientsPage(p => p + 1)} disabled={(clientsPage + 1) * PAGE_SIZE >= filteredClients.length}>
+                      <ChevronRightIcon className='h-4 w-4' />
+                    </Button>
+                    <Button variant='outline' size='icon' className='h-8 w-8' onClick={() => setClientsPage(Math.ceil(filteredClients.length / PAGE_SIZE) - 1)} disabled={(clientsPage + 1) * PAGE_SIZE >= filteredClients.length}>
+                      <DoubleArrowRightIcon className='h-4 w-4' />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Card>
           </TabsContent>
         </Tabs>
