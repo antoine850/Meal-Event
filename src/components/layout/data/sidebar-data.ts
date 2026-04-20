@@ -57,7 +57,7 @@ export const sidebarData: SidebarData = {
           icon: CalendarDays,
         },
         {
-          title: 'Contrats & Factures',
+          title: 'Devis & Factures',
           url: '/contracts',
           icon: FileText,
         },

@@ -161,7 +161,7 @@ export function Dashboard() {
           </Select>
         </div>
         <TabsContent value='general' className='space-y-4 mt-0'>
-          <GeneralTab {...tabProps} />
+          <GeneralTab {...tabProps} statuses={statuses} />
         </TabsContent>
         <TabsContent value='commercial' className='space-y-4 mt-0'>
           <CommercialTab {...tabProps} />

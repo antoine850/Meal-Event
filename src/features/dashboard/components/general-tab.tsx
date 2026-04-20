@@ -6,7 +6,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import { Euro, TrendingUp, Users, Utensils, Loader2, Info, FileSignature } from 'lucide-react'
+import { Euro, TrendingUp, Users, Utensils, Loader2, Info } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -24,10 +24,11 @@ import {
 } from '@/components/ui/tooltip'
 import {
   type DashboardTabProps,
-  calcRevenue,
+  calcSignedRevenue,
+  calcSignedCount,
   calcAvgTicket,
   calcConversionRate,
-  calcSignatureRate,
+  calcPipeline,
   groupByRestaurant,
 } from '../hooks/use-dashboard-data'
 
@@ -48,18 +49,24 @@ function KpiTooltip({ text }: { text: string }) {
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e', '#a855f7']
 
-export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabProps) {
-  const totalRevenue = useMemo(() => calcRevenue(bookings), [bookings])
+interface GeneralTabProps extends DashboardTabProps {
+  statuses?: { id: string; name: string; color: string; slug: string }[]
+}
+
+export function GeneralTab({ bookings, isLoading, restaurants, statuses = [] }: GeneralTabProps) {
+  const signedRevenue = useMemo(() => calcSignedRevenue(bookings), [bookings])
+  const signedCount = useMemo(() => calcSignedCount(bookings), [bookings])
   const avgTicket = useMemo(() => calcAvgTicket(bookings), [bookings])
-  const signatureRate = useMemo(() => calcSignatureRate(bookings), [bookings])
   const conversionRate = useMemo(() => calcConversionRate(bookings), [bookings])
+
+  const pipeline = useMemo(() => calcPipeline(bookings, statuses), [bookings, statuses])
 
   const restaurantKPIs = useMemo(() => {
     const groups = groupByRestaurant(bookings)
     return Object.entries(groups)
       .map(([name, items]) => ({
         name,
-        revenue: calcRevenue(items),
+        revenue: calcSignedRevenue(items),
         bookings: items.length,
         avgTicket: calcAvgTicket(items),
         color: restaurants.find(r => r.name === name)?.color || null,
@@ -68,7 +75,7 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
   }, [bookings, restaurants])
 
   const pieData = useMemo(() =>
-    restaurantKPIs.map(r => ({ name: r.name, value: r.revenue })),
+    restaurantKPIs.filter(r => r.revenue > 0).map(r => ({ name: r.name, value: r.revenue })),
     [restaurantKPIs]
   )
 
@@ -90,18 +97,18 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
   return (
     <div className='space-y-4'>
       {/* KPI Cards */}
-      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
+      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Somme des paiements encaissés (acomptes + soldes + extras) sur les événements confirmés" />
-              <CardTitle className='text-sm font-medium'>CA encaissé</CardTitle>
+              <KpiTooltip text="Montant total TTC des devis signés (primary quote)" />
+              <CardTitle className='text-sm font-medium'>CA Signé</CardTitle>
             </div>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{totalRevenue.toLocaleString('fr-FR')} €</div>
-            <p className='text-xs text-muted-foreground'>{bookings.length} événements</p>
+            <div className='text-2xl font-bold'>{signedRevenue.toLocaleString('fr-FR')} €</div>
+            <p className='text-xs text-muted-foreground'>{signedCount} événements signés</p>
           </CardContent>
         </Card>
         <Card>
@@ -122,50 +129,84 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="CA encaissé / nombre d'événements confirmés" />
-              <CardTitle className='text-sm font-medium'>Panier moyen</CardTitle>
+              <KpiTooltip text="CA signé / nombre d'événements signés" />
+              <CardTitle className='text-sm font-medium'>Ticket moyen</CardTitle>
             </div>
             <Utensils className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{avgTicket.toLocaleString('fr-FR')} €</div>
-            <p className='text-xs text-muted-foreground'>Par événement confirmé</p>
+            <p className='text-xs text-muted-foreground'>Par événement signé</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
               <KpiTooltip text="Événements avec devis signé / total (hors annulés)" />
-              <CardTitle className='text-sm font-medium'>Taux de signature</CardTitle>
-            </div>
-            <FileSignature className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{signatureRate}%</div>
-            <p className='text-xs text-muted-foreground'>Devis signés / total</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Événements avec acompte reçu / total (hors annulés)" />
               <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
             </div>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{conversionRate}%</div>
-            <p className='text-xs text-muted-foreground'>Acompte reçu / total</p>
+            <p className='text-xs text-muted-foreground'>Signés / total</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Pipeline by statuses */}
+      {pipeline.length > 0 && (
+        <Card>
+          <CardHeader className='pb-3'>
+            <CardTitle>Pipeline</CardTitle>
+            <CardDescription>Répartition des événements par statut</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {/* Stacked bar */}
+            <div className='mb-4'>
+              <div className='flex h-3 w-full overflow-hidden rounded-full bg-muted'>
+                {pipeline.map((stage) => {
+                  const totalCount = pipeline.reduce((s, p) => s + p.count, 0)
+                  const widthPercent = totalCount > 0 ? (stage.count / totalCount) * 100 : 0
+                  if (widthPercent === 0) return null
+                  return (
+                    <div
+                      key={stage.statusId}
+                      className='h-full transition-all'
+                      style={{ width: `${widthPercent}%`, backgroundColor: stage.color }}
+                      title={`${stage.name}: ${stage.count}`}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+            {/* Status grid */}
+            <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
+              {pipeline.map((stage) => (
+                <div key={stage.statusId} className='flex items-center gap-3 rounded-lg border p-3'>
+                  <div className='h-8 w-1 rounded-full shrink-0' style={{ backgroundColor: stage.color }} />
+                  <div className='min-w-0 flex-1'>
+                    <p className='text-sm font-medium truncate'>{stage.name}</p>
+                    <div className='flex items-baseline gap-2'>
+                      <span className='text-lg font-bold'>{stage.count}</span>
+                      <span className='text-xs text-muted-foreground'>
+                        {stage.amount > 0 ? `${stage.amount.toLocaleString('fr-FR')} €` : ''}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Charts */}
       <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
         <Card className='col-span-1 lg:col-span-4'>
           <CardHeader>
             <CardTitle>CA par restaurant</CardTitle>
-            <CardDescription>Répartition du chiffre d'affaires</CardDescription>
+            <CardDescription>Répartition du chiffre d'affaires signé</CardDescription>
           </CardHeader>
           <CardContent>
             {pieData.length > 0 ? (
@@ -198,7 +239,7 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
         <Card className='col-span-1 lg:col-span-3'>
           <CardHeader>
             <CardTitle>Performance par restaurant</CardTitle>
-            <CardDescription>CA, événements et panier moyen</CardDescription>
+            <CardDescription>CA signé, événements et ticket moyen</CardDescription>
           </CardHeader>
           <CardContent>
             <div className='space-y-4'>
@@ -241,6 +282,8 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
               const contactName = booking.contact
                 ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`.trim()
                 : 'Sans contact'
+              const primaryQuote = booking.quotes?.find(q => q.primary_quote)
+              const quoteTtc = primaryQuote?.total_ttc || 0
               return (
                 <div key={booking.id} className='flex items-center gap-4'>
                   <Avatar className='h-9 w-9'>
@@ -268,7 +311,7 @@ export function GeneralTab({ bookings, isLoading, restaurants }: DashboardTabPro
                         </Badge>
                       )}
                       <span className='font-medium'>
-                        {(booking.payments?.filter(p => p.status === 'paid' || p.status === 'completed').reduce((s, p) => s + (p.amount || 0), 0) || 0).toLocaleString('fr-FR')} €
+                        {quoteTtc > 0 ? `${quoteTtc.toLocaleString('fr-FR')} €` : '-'}
                       </span>
                     </div>
                   </div>

@@ -158,6 +158,27 @@ const SIGNED_SLUGS = ['attente_paiement', 'relance_paiement', ...CONFIRMED_SLUGS
 
 // ─── Helper functions for KPI calculations ───
 
+/** CA signé: sum of primary quote total_ttc for signed bookings */
+export function calcSignedRevenue(bookings: BookingWithRelations[]) {
+  return bookings
+    .filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
+    .reduce((sum, b) => sum + getSignedQuoteTtc(b), 0)
+}
+
+/** Count of signed events */
+export function calcSignedCount(bookings: BookingWithRelations[]) {
+  return bookings.filter(b => SIGNED_SLUGS.includes(b.status?.slug || '')).length
+}
+
+/** Get primary quote total_ttc for a booking */
+function getSignedQuoteTtc(b: BookingWithRelations) {
+  const primaryQuote = b.quotes?.find(q => q.primary_quote)
+  if (primaryQuote) return primaryQuote.total_ttc || 0
+  // Fallback: first signed quote
+  const signedQuote = b.quotes?.find(q => q.status === 'quote_signed' || q.status === 'deposit_paid' || q.status === 'balance_paid' || q.status === 'completed')
+  return signedQuote?.total_ttc || 0
+}
+
 /** Sum of all paid payments (acompte + solde + extras) for confirmed bookings */
 export function calcRevenue(bookings: BookingWithRelations[]) {
   return bookings
@@ -166,31 +187,88 @@ export function calcRevenue(bookings: BookingWithRelations[]) {
 }
 
 /** Sum of paid payments for a single booking */
-function getPaidAmount(b: BookingWithRelations) {
+export function getPaidAmount(b: BookingWithRelations) {
   if (!b.payments?.length) return 0
   return b.payments
     .filter(p => p.status === 'paid' || p.status === 'completed')
     .reduce((sum, p) => sum + (p.amount || 0), 0)
 }
 
+/** Ticket moyen: CA signé / nb événements signés */
 export function calcAvgTicket(bookings: BookingWithRelations[]) {
-  const confirmed = bookings.filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || ''))
-  if (confirmed.length === 0) return 0
-  return Math.round(calcRevenue(bookings) / confirmed.length)
+  const signedCount = calcSignedCount(bookings)
+  if (signedCount === 0) return 0
+  return Math.round(calcSignedRevenue(bookings) / signedCount)
 }
 
+/** Taux de conversion based on signatures (signed / total hors annulés) */
 export function calcConversionRate(bookings: BookingWithRelations[]) {
-  const nonCancelled = bookings.filter(b => b.status?.slug !== 'cancelled')
-  if (nonCancelled.length === 0) return 0
-  const confirmed = nonCancelled.filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || '')).length
-  return Math.round((confirmed / nonCancelled.length) * 1000) / 10
-}
-
-export function calcSignatureRate(bookings: BookingWithRelations[]) {
   const nonCancelled = bookings.filter(b => b.status?.slug !== 'cancelled')
   if (nonCancelled.length === 0) return 0
   const signed = nonCancelled.filter(b => SIGNED_SLUGS.includes(b.status?.slug || '')).length
   return Math.round((signed / nonCancelled.length) * 1000) / 10
+}
+
+export function calcSignatureRate(bookings: BookingWithRelations[]) {
+  return calcConversionRate(bookings)
+}
+
+/** Pipeline: group bookings by status with counts and amounts */
+export function calcPipeline(bookings: BookingWithRelations[], statuses: { id: string; name: string; color: string; slug: string }[]) {
+  const pipeline: { statusId: string; name: string; color: string; slug: string; count: number; amount: number }[] = []
+
+  statuses.forEach(s => {
+    const statusBookings = bookings.filter(b => b.status_id === s.id)
+    if (statusBookings.length > 0 || true) { // show all statuses
+      pipeline.push({
+        statusId: s.id,
+        name: s.name,
+        color: s.color,
+        slug: s.slug,
+        count: statusBookings.length,
+        amount: statusBookings.reduce((sum, b) => sum + getSignedQuoteTtc(b), 0),
+      })
+    }
+  })
+
+  return pipeline.filter(p => p.count > 0)
+}
+
+/** Stale proposals: quotes sent/signature_requested with no action for >3 days */
+export function getStaleProposals(bookings: BookingWithRelations[]) {
+  const threeDaysAgo = new Date()
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+
+  const results: { bookingId: string; contactName: string; restaurantName: string; quoteNumber: string; amount: number; sentAt: string; daysSince: number }[] = []
+
+  bookings.forEach(b => {
+    if (!b.quotes) return
+    b.quotes.forEach(q => {
+      const isSent = q.status === 'sent' || q.status === 'signature_requested'
+      if (!isSent) return
+
+      const sentDate = q.signature_requested_at || q.quote_sent_at
+      if (!sentDate) return
+
+      const sent = new Date(sentDate)
+      if (sent > threeDaysAgo) return
+
+      const daysSince = Math.floor((Date.now() - sent.getTime()) / (1000 * 60 * 60 * 24))
+      const contactName = b.contact ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim() : 'Sans contact'
+
+      results.push({
+        bookingId: b.id,
+        contactName,
+        restaurantName: b.restaurant?.name || '',
+        quoteNumber: q.quote_number || '',
+        amount: q.total_ttc || 0,
+        sentAt: sentDate,
+        daysSince,
+      })
+    })
+  })
+
+  return results.sort((a, b) => b.daysSince - a.daysSince)
 }
 
 export function groupByMonth(bookings: BookingWithRelations[]) {
@@ -225,7 +303,7 @@ export function groupByUser(bookings: BookingWithRelations[], users: { id: strin
     }
     ids.forEach(userId => {
       if (!groups[userId]) {
-        groups[userId] = { user: userMap.get(userId) || null, bookings: [] }
+        groups[userId] = { user: userMap.get(userId) || b.assigned_user || null, bookings: [] }
       }
       groups[userId].bookings.push(b)
     })
@@ -258,8 +336,8 @@ export function getMonthlyRevenueByRestaurant(bookings: BookingWithRelations[]) 
     const row: Record<string, string | number> = { month: m.label }
     restaurantNames.forEach(name => {
       row[name] = monthBookings
-        .filter(b => b.restaurant?.name === name && CONFIRMED_SLUGS.includes(b.status?.slug || ''))
-        .reduce((sum, b) => sum + getPaidAmount(b), 0)
+        .filter(b => b.restaurant?.name === name && SIGNED_SLUGS.includes(b.status?.slug || ''))
+        .reduce((sum, b) => sum + getSignedQuoteTtc(b), 0)
     })
     return row
   })
@@ -325,8 +403,8 @@ export function getMonthlyTrend(bookings: BookingWithRelations[]) {
       month: m.label,
       reservations: monthBookings.length,
       revenue: monthBookings
-        .filter(b => CONFIRMED_SLUGS.includes(b.status?.slug || ''))
-        .reduce((sum, b) => sum + getPaidAmount(b), 0),
+        .filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
+        .reduce((sum, b) => sum + getSignedQuoteTtc(b), 0),
     }
   })
 }
@@ -362,9 +440,9 @@ export function getMonthlyRevenueByCommercial(bookings: BookingWithRelations[], 
       row[name] = monthBookings
         .filter(b => {
           const ids = b.assigned_user_ids || []
-          return ids.some(id => userMap.get(id) === name) && CONFIRMED_SLUGS.includes(b.status?.slug || '')
+          return ids.some(id => userMap.get(id) === name) && SIGNED_SLUGS.includes(b.status?.slug || '')
         })
-        .reduce((sum, b) => sum + getPaidAmount(b), 0)
+        .reduce((sum, b) => sum + getSignedQuoteTtc(b), 0)
     })
     return row
   })
@@ -385,8 +463,8 @@ export function getContactsBySource(contacts: ContactWithRelations[], bookings: 
     const source = (contact as any)?.source || 'Autre'
     if (!sourceGroups[source]) sourceGroups[source] = { leads: 0, bookings: 0, revenue: 0 }
     sourceGroups[source].bookings++
-    if (CONFIRMED_SLUGS.includes(b.status?.slug || '')) {
-      sourceGroups[source].revenue += getPaidAmount(b)
+    if (SIGNED_SLUGS.includes(b.status?.slug || '')) {
+      sourceGroups[source].revenue += getSignedQuoteTtc(b)
     }
   })
 

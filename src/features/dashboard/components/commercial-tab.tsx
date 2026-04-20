@@ -11,7 +11,7 @@ import {
   PieChart,
   Pie,
 } from 'recharts'
-import { Euro, Target, TrendingUp, Users, Loader2, Info } from 'lucide-react'
+import { Euro, Target, TrendingUp, Users, Loader2, Info, AlertTriangle } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -20,6 +20,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
   Tooltip as UITooltip,
@@ -29,10 +30,13 @@ import {
 } from '@/components/ui/tooltip'
 import {
   type DashboardTabProps,
-  calcRevenue,
+  calcSignedRevenue,
+  calcSignedCount,
   calcConversionRate,
+  calcAvgTicket,
   groupByUser,
   getMonthlyRevenueByCommercial,
+  getStaleProposals,
 } from '../hooks/use-dashboard-data'
 
 function KpiTooltip({ text }: { text: string }) {
@@ -60,19 +64,18 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
       .map(([, data]) => ({
         name: data.user ? `${data.user.first_name} ${data.user.last_name}` : 'Inconnu',
         initials: data.user ? `${data.user.first_name?.[0] || ''}${data.user.last_name?.[0] || ''}`.toUpperCase() || '??' : '??',
-        sales: calcRevenue(data.bookings),
+        sales: calcSignedRevenue(data.bookings),
         bookings: data.bookings.length,
+        signed: calcSignedCount(data.bookings),
         conversionRate: calcConversionRate(data.bookings),
+        avgTicket: calcAvgTicket(data.bookings),
       }))
       .sort((a, b) => b.sales - a.sales)
-  }, [bookings])
+  }, [bookings, users])
 
-  const totalSales = useMemo(() => commercialStats.reduce((acc, c) => acc + c.sales, 0), [commercialStats])
+  const totalSales = useMemo(() => calcSignedRevenue(bookings), [bookings])
   const totalBookings = useMemo(() => commercialStats.reduce((acc, c) => acc + c.bookings, 0), [commercialStats])
-  const avgConversion = useMemo(() => {
-    if (totalBookings === 0) return '0'
-    return calcConversionRate(bookings).toFixed(1)
-  }, [bookings, totalBookings])
+  const avgConversion = useMemo(() => calcConversionRate(bookings).toFixed(1), [bookings])
 
   const bestPerformer = commercialStats[0]
 
@@ -83,6 +86,8 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
 
   const monthlyData = useMemo(() => getMonthlyRevenueByCommercial(bookings, users), [bookings, users])
   const commercialNames = useMemo(() => commercialStats.map(c => c.name), [commercialStats])
+
+  const staleProposals = useMemo(() => getStaleProposals(bookings), [bookings])
 
   // Dynamic target: max commercial sales * 1.2 rounded to nearest 10k
   const target = useMemo(() => {
@@ -114,8 +119,8 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Paiements encaissés (acomptes + soldes + extras) sur les événements confirmés de l'équipe" />
-              <CardTitle className='text-sm font-medium'>CA Encaissé Équipe</CardTitle>
+              <KpiTooltip text="Montant total TTC des devis signés sur les événements assignés à l'équipe" />
+              <CardTitle className='text-sm font-medium'>CA Signé Équipe</CardTitle>
             </div>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
@@ -144,20 +149,20 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Moyenne pondérée : total confirmés / total non-annulés" />
+              <KpiTooltip text="Moyenne pondérée : total signés / total non-annulés" />
               <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
             </div>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{avgConversion}%</div>
-            <p className='text-xs text-muted-foreground'>Acompte reçu / total</p>
+            <p className='text-xs text-muted-foreground'>Signés / total hors annulés</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Commercial avec le plus de CA encaissé" />
+              <KpiTooltip text="Commercial avec le plus de CA signé" />
               <CardTitle className='text-sm font-medium'>Meilleur performeur</CardTitle>
             </div>
             <Target className='h-4 w-4 text-muted-foreground' />
@@ -171,12 +176,47 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
         </Card>
       </div>
 
+      {/* Stale Proposals */}
+      {staleProposals.length > 0 && (
+        <Card className='border-yellow-200 dark:border-yellow-900'>
+          <CardHeader className='pb-3'>
+            <div className='flex items-center gap-2'>
+              <AlertTriangle className='h-4 w-4 text-yellow-500' />
+              <CardTitle className='text-base'>Propositions sans réponse</CardTitle>
+            </div>
+            <CardDescription>Devis envoyés depuis plus de 3 jours sans action</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className='space-y-3'>
+              {staleProposals.map((proposal) => (
+                <div key={`${proposal.bookingId}-${proposal.quoteNumber}`} className='flex items-center justify-between rounded-lg border p-3'>
+                  <div className='flex-1 min-w-0'>
+                    <p className='text-sm font-medium truncate'>{proposal.contactName}</p>
+                    <p className='text-xs text-muted-foreground'>
+                      {proposal.restaurantName}{proposal.quoteNumber ? ` • ${proposal.quoteNumber}` : ''}
+                    </p>
+                  </div>
+                  <div className='flex items-center gap-3'>
+                    <span className='text-sm font-medium'>
+                      {proposal.amount > 0 ? `${proposal.amount.toLocaleString('fr-FR')} €` : '-'}
+                    </span>
+                    <Badge variant='outline' className='text-yellow-600 border-yellow-300 dark:border-yellow-800'>
+                      {proposal.daysSince}j
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Charts */}
       <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
         <Card className='col-span-1 lg:col-span-4'>
           <CardHeader>
             <CardTitle>Performance mensuelle</CardTitle>
-            <CardDescription>CA par commercial sur les 6 derniers mois</CardDescription>
+            <CardDescription>CA signé par commercial sur les 6 derniers mois</CardDescription>
           </CardHeader>
           <CardContent className='ps-2'>
             <ResponsiveContainer width='100%' height={350}>
@@ -198,7 +238,7 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
         <Card className='col-span-1 lg:col-span-3'>
           <CardHeader>
             <CardTitle>Répartition du CA</CardTitle>
-            <CardDescription>Part de chaque commercial dans le CA total</CardDescription>
+            <CardDescription>Part de chaque commercial dans le CA signé</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width='100%' height={250}>
@@ -247,7 +287,7 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
                       <div className='space-y-1'>
                         <p className='text-sm font-medium leading-none'>{commercial.name}</p>
                         <p className='text-xs text-muted-foreground'>
-                          {commercial.bookings} événements • {commercial.conversionRate}% conversion
+                          {commercial.bookings} événements • {commercial.signed} signés • {commercial.conversionRate}% conversion
                         </p>
                       </div>
                       <div className='text-right'>
@@ -255,7 +295,7 @@ export function CommercialTab({ bookings, users, isLoading }: DashboardTabProps)
                           {commercial.sales.toLocaleString('fr-FR')} €
                         </p>
                         <p className='text-xs text-muted-foreground'>
-                          Objectif: {target.toLocaleString('fr-FR')} €
+                          Ø {commercial.avgTicket.toLocaleString('fr-FR')} €/événement
                         </p>
                       </div>
                     </div>
