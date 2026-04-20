@@ -9,7 +9,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
 import type { BookingWithRelations } from '../hooks/use-bookings'
 
-export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
+type OrgUser = { id: string; first_name: string; last_name: string }
+
+export const buildBookingsColumns = (users: OrgUser[]): ColumnDef<BookingWithRelations>[] => [
   {
     id: 'select',
     header: ({ table }) => (
@@ -162,21 +164,28 @@ export const bookingsColumns: ColumnDef<BookingWithRelations>[] = [
     },
   },
   {
-    accessorKey: 'assigned_to',
+    accessorKey: 'assigned_user_ids',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Commercial' />
+      <DataTableColumnHeader column={column} title='Commerciaux' />
     ),
     cell: ({ row }) => {
-      const user = row.original.assigned_user
-      if (!user) return <span className='text-muted-foreground'>-</span>
+      const ids = row.original.assigned_user_ids || []
+      if (ids.length === 0) return <span className='text-muted-foreground'>-</span>
+      const assigned = users.filter(u => ids.includes(u.id))
+      if (assigned.length === 0) return <span className='text-muted-foreground'>-</span>
+      const [first, ...rest] = assigned
       return (
         <span className='text-sm'>
-          {user.first_name} {user.last_name}
+          {first.first_name} {first.last_name}
+          {rest.length > 0 && (
+            <span className='text-muted-foreground'> +{rest.length}</span>
+          )}
         </span>
       )
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
+    filterFn: (row, _id, value: string[]) => {
+      const ids = row.original.assigned_user_ids || []
+      return value.some(v => ids.includes(v))
     },
   },
   {

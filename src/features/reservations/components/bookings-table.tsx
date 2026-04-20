@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   type SortingState,
@@ -20,15 +20,19 @@ import {
 } from '@/components/ui/table'
 import { DataTablePagination } from '@/components/data-table'
 import type { BookingWithRelations } from '../hooks/use-bookings'
-import { bookingsColumns as columns } from './bookings-columns'
+import { buildBookingsColumns } from './bookings-columns'
 import { BookingsBulkActions } from './bookings-bulk-actions'
+
+type OrgUser = { id: string; first_name: string; last_name: string }
 
 type BookingsTableProps = {
   data: BookingWithRelations[]
+  users: OrgUser[]
   sorting?: SortingState
 }
 
-export function BookingsTable({ data, sorting: externalSorting }: BookingsTableProps) {
+export function BookingsTable({ data, users, sorting: externalSorting }: BookingsTableProps) {
+  const columns = useMemo(() => buildBookingsColumns(users), [users])
   const navigate = useNavigate()
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>(externalSorting || [{ id: 'event_date', desc: false }])

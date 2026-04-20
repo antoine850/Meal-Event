@@ -387,7 +387,6 @@ export type Database = {
       bookings: {
         Row: {
           allergies_regimes: string | null
-          assigned_to: string | null
           assigned_user_ids: string[] | null
           budget_client: string | null
           client_preferred_time: string | null
@@ -449,7 +448,6 @@ export type Database = {
         }
         Insert: {
           allergies_regimes?: string | null
-          assigned_to?: string | null
           assigned_user_ids?: string[] | null
           budget_client?: string | null
           client_preferred_time?: string | null
@@ -511,7 +509,6 @@ export type Database = {
         }
         Update: {
           allergies_regimes?: string | null
-          assigned_to?: string | null
           assigned_user_ids?: string[] | null
           budget_client?: string | null
           client_notes?: string | null
@@ -572,13 +569,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "bookings_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "bookings_contact_id_fkey"
             columns: ["contact_id"]

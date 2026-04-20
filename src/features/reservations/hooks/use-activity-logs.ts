@@ -227,14 +227,18 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    bookingAssigned: (bookingId: string, userName: string | null) => {
+    bookingAssigned: (bookingId: string, userNames: string[]) => {
+      const label =
+        userNames.length === 0
+          ? 'Assignation retirée'
+          : `Assigné à ${userNames.join(', ')}`
       logActivity({
         bookingId,
         actionType: 'booking.assigned',
-        actionLabel: userName ? `Assigné à ${userName}` : 'Assignation retirée',
+        actionLabel: label,
         entityType: 'booking',
         entityId: bookingId,
-        metadata: { assigned_to: userName },
+        metadata: { assigned_users: userNames },
       })
     },
 

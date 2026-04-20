@@ -9,7 +9,6 @@ export type BookingWithRelations = {
   restaurant_id: string | null
   contact_id: string | null
   status_id: string | null
-  assigned_to: string | null
   space_id: string | null
   time_slot_id: string | null
   event_type: string | null
@@ -60,7 +59,6 @@ export type BookingWithRelations = {
   restaurant?: { id: string; name: string; color: string | null } | null
   contact?: { id: string; first_name: string; last_name: string | null; email: string | null; phone: string | null; source?: string | null; created_at?: string | null; company?: { id: string; name: string } | null } | null
   status?: { id: string; name: string; color: string; slug: string } | null
-  assigned_user?: { id: string; first_name: string; last_name: string } | null
   payments?: { id: string; amount: number; status: string | null; payment_modality: string | null; paid_at: string | null }[]
   quotes?: { id: string; total_ttc: number; status: string | null; primary_quote: boolean | null; quote_number: string | null; quote_sent_at: string | null; signature_requested_at: string | null; quote_signed_at: string | null }[]
 }
@@ -79,7 +77,6 @@ export function useBookings() {
           restaurant:restaurants(id, name, color),
           contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
           status:statuses(id, name, color, slug),
-          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name),
           payments(id, amount, status, payment_modality, paid_at),
           quotes(id, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
         `)
@@ -105,8 +102,7 @@ export function useBooking(id: string) {
           *,
           restaurant:restaurants(id, name, color),
           contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
-          status:statuses(id, name, color, slug),
-          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
+          status:statuses(id, name, color, slug)
         `)
         .eq('id', id)
         .eq('organization_id', orgId)
@@ -133,8 +129,7 @@ export function useBookingsByContact(contactId: string | null | undefined) {
         .select(`
           *,
           restaurant:restaurants(id, name, color),
-          status:statuses(id, name, color, slug),
-          assigned_user:users!bookings_assigned_to_fkey(id, first_name, last_name)
+          status:statuses(id, name, color, slug)
         `)
         .eq('contact_id', contactId)
         .eq('organization_id', orgId)
@@ -216,6 +211,31 @@ export function useUpdateBooking() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<BookingWithRelations> & { id: string }) => {
+      // Auto-assignation : si, après application de cet update, le booking reste
+      // sans commercial assigné, assigner l'utilisateur courant.
+      const u = updates as Partial<BookingWithRelations>
+      const { data: current } = await supabase
+        .from('bookings')
+        .select('assigned_user_ids')
+        .eq('id', id)
+        .single()
+
+      const currentRow = current as
+        | { assigned_user_ids: string[] | null }
+        | null
+
+      const finalAssignedIds =
+        'assigned_user_ids' in u
+          ? u.assigned_user_ids
+          : currentRow?.assigned_user_ids ?? null
+
+      if ((finalAssignedIds?.length ?? 0) === 0) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          u.assigned_user_ids = [user.id]
+        }
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .update(updates as never)
@@ -271,7 +291,6 @@ export function useDuplicateBooking() {
           restaurant_id: sourceBooking.restaurant_id,
           contact_id: sourceBooking.contact_id,
           status_id: sourceBooking.status_id,
-          assigned_to: sourceBooking.assigned_to,
           space_id: sourceBooking.space_id,
           occasion: sourceBooking.occasion,
           option: sourceBooking.option,

@@ -129,7 +129,6 @@ const bookingDetailSchema = z.object({
   contact_id: z.string().min(1, 'Le contact est requis'),
   restaurant_id: z.string().min(1, 'Le restaurant est requis'),
   status_id: z.string().optional(),
-  assigned_to: z.string().optional(),
   occasion: z.string().optional(),
   option: z.string().optional(),
   relance: z.string().optional().nullable(),
@@ -216,7 +215,6 @@ export const BookingDetail = forwardRef<
     contact_id: booking.contact_id || '',
     restaurant_id: booking.restaurant_id || '',
     status_id: booking.status_id || '',
-    assigned_to: booking.assigned_to || '',
     occasion: booking.occasion || '',
     option: booking.option || '',
     relance: booking.relance || '',
@@ -348,17 +346,18 @@ export const BookingDetail = forwardRef<
     const newStatusId = data.status_id || null
     const statusChanged = oldStatusId !== newStatusId
 
-    // Detect assignment change for logging
-    const oldAssignedTo = booking.assigned_to
-    const newAssignedTo = data.assigned_to || null
-    const assignmentChanged = oldAssignedTo !== newAssignedTo
+    // Detect assignment change (assigned_user_ids array)
+    const oldAssignedIds = (initialEventFormRef.current.assigned_user_ids as string[] | undefined) || []
+    const newAssignedIds = (eventForm.assigned_user_ids as string[] | undefined) || []
+    const assignmentChanged =
+      oldAssignedIds.length !== newAssignedIds.length ||
+      oldAssignedIds.some((id, i) => id !== newAssignedIds[i])
 
     const updateData = {
       id: booking.id,
       contact_id: data.contact_id,
       restaurant_id: data.restaurant_id,
       status_id: data.status_id || null,
-      assigned_to: data.assigned_to || null,
       occasion: data.occasion || null,
       option: data.option || null,
       relance: data.relance || null,
@@ -383,8 +382,10 @@ export const BookingDetail = forwardRef<
         }
         // Log assignment change
         else if (assignmentChanged) {
-          const newUserName = users.find(u => u.id === newAssignedTo)?.first_name || null
-          activityLogger.bookingAssigned(booking.id, newUserName)
+          const names = users
+            .filter(u => newAssignedIds.includes(u.id))
+            .map(u => u.first_name)
+          activityLogger.bookingAssigned(booking.id, names)
         }
         // Log general update if no specific change detected
         else {

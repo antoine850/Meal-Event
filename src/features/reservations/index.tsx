@@ -126,7 +126,9 @@ export function Reservations() {
     }
 
     if (selectedCommercials.size > 0) {
-      result = result.filter(b => b.assigned_to && selectedCommercials.has(b.assigned_to))
+      result = result.filter(b =>
+        (b.assigned_user_ids || []).some(id => selectedCommercials.has(id))
+      )
     }
 
     if (selectedStatuses.size > 0) {
@@ -249,7 +251,7 @@ export function Reservations() {
         </div>
 
         {mainView === 'list' && (
-          <BookingsTable data={filteredBookings} sorting={tableSorting} />
+          <BookingsTable data={filteredBookings} users={users} sorting={tableSorting} />
         )}
         {mainView === 'calendar' && (
           <div className='flex-1 overflow-hidden'>
