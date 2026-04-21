@@ -218,13 +218,13 @@ export function calcAvgTicket(bookings: BookingWithRelations[]) {
   return Math.round(calcSignedRevenue(bookings) / signedCount)
 }
 
-/** Ticket moyen par client unique (sur bookings signés) */
-export function calcAvgTicketPerClient(bookings: BookingWithRelations[]) {
+/** Ticket moyen par convive (CA signé / nombre total de convives signés) */
+export function calcAvgTicketPerGuest(bookings: BookingWithRelations[]) {
   const signed = bookings.filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
-  const uniqueClients = new Set(signed.map(b => b.contact_id).filter(Boolean))
-  if (uniqueClients.size === 0) return 0
+  const totalGuests = signed.reduce((sum, b) => sum + (b.guests_count || 0), 0)
+  if (totalGuests === 0) return 0
   const total = signed.reduce((sum, b) => sum + getSignedQuoteTtc(b), 0)
-  return Math.round(total / uniqueClients.size)
+  return Math.round(total / totalGuests)
 }
 
 /** Total CA (TTC) d'un booking en incluant les extras — prend total_amount si défini, sinon fallback quote */

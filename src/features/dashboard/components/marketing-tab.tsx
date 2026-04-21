@@ -76,7 +76,8 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
   const totalLeads = useMemo(() => marketingBySource.reduce((acc, s) => acc + s.leads, 0), [marketingBySource])
   const totalBookings = useMemo(() => marketingBySource.reduce((acc, s) => acc + s.bookings, 0), [marketingBySource])
   const totalSigned = useMemo(() => marketingBySource.reduce((acc, s) => acc + s.signedCount, 0), [marketingBySource])
-  const avgConversion = useMemo(() => totalLeads > 0 ? ((totalBookings / totalLeads) * 100).toFixed(1) : '0', [totalLeads, totalBookings])
+  // Taux de conversion = événements signés (ou statut ultérieur) / événements de la période
+  const avgConversion = useMemo(() => totalBookings > 0 ? ((totalSigned / totalBookings) * 100).toFixed(1) : '0', [totalSigned, totalBookings])
 
   // Meilleure source = celle qui signe le plus (signatureRate, pas juste conversion leads→bookings)
   const bestSource = useMemo(() =>
@@ -138,14 +139,14 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Événements créés / total leads (toutes sources)" />
+              <KpiTooltip text="Événements signés (ou statut ultérieur) / total événements de la période" />
               <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
             </div>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{avgConversion}%</div>
-            <p className='text-xs text-muted-foreground'>{totalSigned} signés · {totalBookings} événements</p>
+            <p className='text-xs text-muted-foreground'>{totalSigned} signés / {totalBookings} événements</p>
           </CardContent>
         </Card>
         <Card>

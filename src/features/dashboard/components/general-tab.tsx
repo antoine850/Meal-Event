@@ -27,7 +27,7 @@ import {
   type DashboardTabProps,
   calcSignedRevenue,
   calcSignedCount,
-  calcAvgTicketPerClient,
+  calcAvgTicketPerGuest,
   calcConversionRate,
   calcPipeline,
   groupBySignedRestaurant,
@@ -60,7 +60,7 @@ interface GeneralTabProps extends DashboardTabProps {
 export function GeneralTab({ bookings, isLoading, restaurants, statuses = [] }: GeneralTabProps) {
   const signedRevenue = useMemo(() => calcSignedRevenue(bookings), [bookings])
   const signedCount = useMemo(() => calcSignedCount(bookings), [bookings])
-  const avgTicketPerClient = useMemo(() => calcAvgTicketPerClient(bookings), [bookings])
+  const avgTicketPerGuest = useMemo(() => calcAvgTicketPerGuest(bookings), [bookings])
   const conversionRate = useMemo(() => calcConversionRate(bookings), [bookings])
 
   // Carte Événements: ne compter que les événements signés
@@ -189,14 +189,14 @@ export function GeneralTab({ bookings, isLoading, restaurants, statuses = [] }: 
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="CA signé / nombre de clients uniques (contacts distincts)" />
+              <KpiTooltip text="CA signé / nombre total de convives signés" />
               <CardTitle className='text-sm font-medium'>Ticket moyen</CardTitle>
             </div>
             <Utensils className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{avgTicketPerClient.toLocaleString('fr-FR')} €</div>
-            <p className='text-xs text-muted-foreground'>Par client</p>
+            <div className='text-2xl font-bold'>{avgTicketPerGuest.toLocaleString('fr-FR')} €</div>
+            <p className='text-xs text-muted-foreground'>Par convive</p>
           </CardContent>
         </Card>
         <Card>
