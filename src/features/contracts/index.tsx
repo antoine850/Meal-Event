@@ -296,16 +296,22 @@ export function Contracts() {
   )
 
   // ─── Stats ───
+  // Aligné avec le dashboard : un événement est "signé" si son booking est dans SIGNED_SLUGS.
+  // On agrège au niveau booking (1 événement = 1 entrée) et on prend le CA du devis principal
+  // pour éviter le double-comptage quand un booking a plusieurs versions de devis (v1, v2, v3).
   const quoteStats = useMemo(() => {
-    const signed = allQuotes.filter(q => q.status === 'signed' || q.status === 'paid')
-    const sent = allQuotes.filter(q => q.status === 'sent')
+    const signedBookings = bookings.filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
+    const sentBookings = bookings.filter(b => {
+      const slug = b.status?.slug || ''
+      return slug === 'proposition' || slug === 'negociation'
+    })
     return {
-      total: allQuotes.length,
-      signed: signed.length,
-      sent: sent.length,
-      totalCA: signed.reduce((s, q) => s + q.totalTtc, 0),
+      total: allQuotes.length, // total des devis édités (toutes versions confondues)
+      signed: signedBookings.length, // nb d'événements signés (comme dashboard)
+      sent: sentBookings.length, // nb d'événements en attente de signature
+      totalCA: signedBookings.reduce((s, b) => s + getQuoteTtc(b), 0), // somme des devis principaux signés
     }
-  }, [allQuotes])
+  }, [bookings, allQuotes])
 
   const paymentStats = useMemo(() => {
     // Scope aux bookings signés pour cohérence "CA signé → reste à encaisser"
@@ -515,15 +521,17 @@ export function Contracts() {
                 </CardHeader>
                 <CardContent>
                   <div className='text-2xl font-bold'>{quoteStats.total}</div>
+                  <p className='text-xs text-muted-foreground'>Toutes versions confondues</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>Signés / Payés</CardTitle>
+                  <CardTitle className='text-sm font-medium'>Événements signés</CardTitle>
                   <CheckCircle className='h-4 w-4 text-green-500' />
                 </CardHeader>
                 <CardContent>
                   <div className='text-2xl font-bold text-green-600'>{quoteStats.signed}</div>
+                  <p className='text-xs text-muted-foreground'>Signés ou statut ultérieur</p>
                 </CardContent>
               </Card>
               <Card>
@@ -533,6 +541,7 @@ export function Contracts() {
                 </CardHeader>
                 <CardContent>
                   <div className='text-2xl font-bold text-yellow-600'>{quoteStats.sent}</div>
+                  <p className='text-xs text-muted-foreground'>Proposition / négociation</p>
                 </CardContent>
               </Card>
               <Card>
@@ -542,6 +551,7 @@ export function Contracts() {
                 </CardHeader>
                 <CardContent>
                   <div className='text-2xl font-bold'>{quoteStats.totalCA.toLocaleString('fr-FR')} €</div>
+                  <p className='text-xs text-muted-foreground'>Devis principal des événements signés</p>
                 </CardContent>
               </Card>
             </div>
