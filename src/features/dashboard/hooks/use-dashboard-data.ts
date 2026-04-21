@@ -7,12 +7,28 @@ import { useBookings, useBookingStatuses, useRestaurants, type BookingWithRelati
 import { useContacts, useOrganizationUsers, type ContactWithRelations } from '@/features/contacts/hooks/use-contacts'
 import { usePermissions } from '@/hooks/use-permissions'
 
+export type DashboardDateField = 'event_date' | 'signed_at' | 'created_at'
+
 export type DashboardFilters = {
   dateRange?: { from: Date; to: Date }
   restaurants: Set<string>
   statuses: Set<string>
   commercials: Set<string>
   clientType: Set<string> // 'b2b' | 'b2c'
+  /** Quelle date de référence utiliser pour filtrer (défaut: event_date) */
+  dateField?: DashboardDateField
+}
+
+/** Récupère la date effective d'un booking selon le champ demandé */
+export function getBookingRefDate(b: BookingWithRelations, field: DashboardDateField): Date | null {
+  if (field === 'event_date') return b.event_date ? parseISO(b.event_date) : null
+  if (field === 'created_at') return b.created_at ? parseISO(b.created_at) : null
+  if (field === 'signed_at') {
+    const primary = b.quotes?.find(q => q.primary_quote) || b.quotes?.find(q => q.quote_signed_at)
+    const signedAt = primary?.quote_signed_at
+    return signedAt ? parseISO(signedAt) : null
+  }
+  return null
 }
 
 export type DashboardTabProps = {
@@ -49,20 +65,21 @@ export function useDashboardData(filters: DashboardFilters) {
 
   const filteredBookings = useMemo(() => {
     let result = allBookings
+    const dateField: DashboardDateField = filters.dateField || 'event_date'
 
-    // Date range filter
+    // Date range filter (sur le champ de référence du tab)
     if (filters.dateRange?.from) {
       const from = startOfDay(filters.dateRange.from)
       result = result.filter(b => {
-        const eventDate = parseISO(b.event_date)
-        return !isBefore(eventDate, from)
+        const ref = getBookingRefDate(b, dateField)
+        return ref !== null && !isBefore(ref, from)
       })
     }
     if (filters.dateRange?.to) {
       const to = endOfDay(filters.dateRange.to)
       result = result.filter(b => {
-        const eventDate = parseISO(b.event_date)
-        return !isAfter(eventDate, to)
+        const ref = getBookingRefDate(b, dateField)
+        return ref !== null && !isAfter(ref, to)
       })
     }
 
@@ -153,8 +170,8 @@ export function useDashboardData(filters: DashboardFilters) {
 
 // ─── Status constants ───
 
-const CONFIRMED_SLUGS = ['confirme_fonctionnaire', 'fonction_envoyee', 'a_facturer', 'cloture']
-const SIGNED_SLUGS = ['attente_paiement', 'relance_paiement', ...CONFIRMED_SLUGS]
+export const CONFIRMED_SLUGS = ['confirme_fonctionnaire', 'fonction_envoyee', 'a_facturer', 'cloture']
+export const SIGNED_SLUGS = ['attente_paiement', 'relance_paiement', ...CONFIRMED_SLUGS]
 
 // ─── Helper functions for KPI calculations ───
 
@@ -194,11 +211,27 @@ export function getPaidAmount(b: BookingWithRelations) {
     .reduce((sum, p) => sum + (p.amount || 0), 0)
 }
 
-/** Ticket moyen: CA signé / nb événements signés */
+/** Ticket moyen par événement signé (legacy) */
 export function calcAvgTicket(bookings: BookingWithRelations[]) {
   const signedCount = calcSignedCount(bookings)
   if (signedCount === 0) return 0
   return Math.round(calcSignedRevenue(bookings) / signedCount)
+}
+
+/** Ticket moyen par client unique (sur bookings signés) */
+export function calcAvgTicketPerClient(bookings: BookingWithRelations[]) {
+  const signed = bookings.filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
+  const uniqueClients = new Set(signed.map(b => b.contact_id).filter(Boolean))
+  if (uniqueClients.size === 0) return 0
+  const total = signed.reduce((sum, b) => sum + getSignedQuoteTtc(b), 0)
+  return Math.round(total / uniqueClients.size)
+}
+
+/** Total CA (TTC) d'un booking en incluant les extras — prend total_amount si défini, sinon fallback quote */
+export function getBookingTotalCA(b: BookingWithRelations) {
+  const ta = (b as any).total_amount
+  if (ta && ta > 0) return ta as number
+  return getSignedQuoteTtc(b)
 }
 
 /** Taux de conversion based on signatures (signed / total hors annulés) */
@@ -289,6 +322,12 @@ export function groupByRestaurant(bookings: BookingWithRelations[]) {
     groups[name].push(b)
   })
   return groups
+}
+
+/** Performance par restaurant: uniquement les bookings signés (CA uniquement sur affaires signées) */
+export function groupBySignedRestaurant(bookings: BookingWithRelations[]) {
+  const signed = bookings.filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
+  return groupByRestaurant(signed)
 }
 
 export function groupByUser(bookings: BookingWithRelations[], users: { id: string; first_name: string; last_name: string }[]) {
@@ -449,22 +488,25 @@ export function getMonthlyRevenueByCommercial(bookings: BookingWithRelations[], 
 }
 
 export function getContactsBySource(contacts: ContactWithRelations[], bookings: BookingWithRelations[]) {
-  const sourceGroups: Record<string, { leads: number; bookings: number; revenue: number }> = {}
+  const sourceGroups: Record<string, { leads: number; bookings: number; signed: number; revenue: number }> = {}
 
   contacts.forEach(c => {
     const source = (c as any).source || 'Autre'
-    if (!sourceGroups[source]) sourceGroups[source] = { leads: 0, bookings: 0, revenue: 0 }
+    if (!sourceGroups[source]) sourceGroups[source] = { leads: 0, bookings: 0, signed: 0, revenue: 0 }
     sourceGroups[source].leads++
   })
 
-  // Count bookings per source via contact (revenue only from confirmed)
+  // Count bookings per source via contact
+  // revenue = total CA (avec extras) pour TOUS les bookings (pas seulement signés) pour cohérence avec dashboard
   bookings.forEach(b => {
     const contact = contacts.find(c => c.id === b.contact_id)
     const source = (contact as any)?.source || 'Autre'
-    if (!sourceGroups[source]) sourceGroups[source] = { leads: 0, bookings: 0, revenue: 0 }
+    if (!sourceGroups[source]) sourceGroups[source] = { leads: 0, bookings: 0, signed: 0, revenue: 0 }
     sourceGroups[source].bookings++
-    if (SIGNED_SLUGS.includes(b.status?.slug || '')) {
-      sourceGroups[source].revenue += getSignedQuoteTtc(b)
+    const isSigned = SIGNED_SLUGS.includes(b.status?.slug || '')
+    if (isSigned) {
+      sourceGroups[source].signed++
+      sourceGroups[source].revenue += getBookingTotalCA(b)
     }
   })
 
@@ -473,7 +515,10 @@ export function getContactsBySource(contacts: ContactWithRelations[], bookings: 
       source,
       leads: data.leads,
       bookings: data.bookings,
+      signedCount: data.signed,
       conversionRate: data.leads > 0 ? Math.round((data.bookings / data.leads) * 1000) / 10 : 0,
+      /** Taux de signature = signés / leads (pour identifier la "meilleure source") */
+      signatureRate: data.leads > 0 ? Math.round((data.signed / data.leads) * 1000) / 10 : 0,
       revenue: data.revenue,
     }))
     .sort((a, b) => b.leads - a.leads)

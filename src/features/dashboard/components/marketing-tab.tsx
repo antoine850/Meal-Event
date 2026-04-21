@@ -75,11 +75,13 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
 
   const totalLeads = useMemo(() => marketingBySource.reduce((acc, s) => acc + s.leads, 0), [marketingBySource])
   const totalBookings = useMemo(() => marketingBySource.reduce((acc, s) => acc + s.bookings, 0), [marketingBySource])
+  const totalSigned = useMemo(() => marketingBySource.reduce((acc, s) => acc + s.signedCount, 0), [marketingBySource])
   const avgConversion = useMemo(() => totalLeads > 0 ? ((totalBookings / totalLeads) * 100).toFixed(1) : '0', [totalLeads, totalBookings])
 
+  // Meilleure source = celle qui signe le plus (signatureRate, pas juste conversion leads→bookings)
   const bestSource = useMemo(() =>
     marketingBySource.reduce((best, current) =>
-      current.conversionRate > (best?.conversionRate || 0) ? current : best,
+      current.signatureRate > (best?.signatureRate || 0) ? current : best,
       marketingBySource[0]
     ),
     [marketingBySource]
@@ -136,20 +138,20 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Événements créés / total leads" />
+              <KpiTooltip text="Événements créés / total leads (toutes sources)" />
               <CardTitle className='text-sm font-medium'>Taux de conversion</CardTitle>
             </div>
             <TrendingUp className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{avgConversion}%</div>
-            <p className='text-xs text-muted-foreground'>Moyenne toutes sources</p>
+            <p className='text-xs text-muted-foreground'>{totalSigned} signés · {totalBookings} événements</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Source avec le meilleur taux de conversion" />
+              <KpiTooltip text="Source avec le meilleur taux de signature (signés / leads)" />
               <CardTitle className='text-sm font-medium'>Meilleure source</CardTitle>
             </div>
             {bestSource && (sourceIcons[bestSource.source] || <Globe className='h-4 w-4 text-muted-foreground' />)}
@@ -157,7 +159,7 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
           <CardContent>
             <div className='text-2xl font-bold'>{bestSource?.source || '-'}</div>
             <p className='text-xs text-muted-foreground'>
-              {bestSource ? `${bestSource.conversionRate}% de conversion` : '-'}
+              {bestSource ? `${bestSource.signatureRate}% de signés` : '-'}
             </p>
           </CardContent>
         </Card>
@@ -237,14 +239,14 @@ export function MarketingTab({ bookings, contacts, isLoading }: DashboardTabProp
                       <div className='space-y-1'>
                         <p className='text-sm font-medium leading-none'>{source.source}</p>
                         <p className='text-xs text-muted-foreground'>
-                          {source.leads} leads • {source.bookings} événements • {source.conversionRate}% conversion
+                          {source.leads} leads • {source.bookings} événements • {source.signedCount} signés ({source.signatureRate}%)
                         </p>
                       </div>
                       <div className='text-right'>
                         <p className='font-medium text-green-600'>
                           {source.revenue.toLocaleString('fr-FR')} €
                         </p>
-                        <p className='text-xs text-muted-foreground'>CA généré</p>
+                        <p className='text-xs text-muted-foreground'>CA signé total</p>
                       </div>
                     </div>
                   </div>

@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useState } from 'react'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { type DateRange } from 'react-day-picker'
 import { type SortingState } from '@tanstack/react-table'
 import { useSearch, useNavigate } from '@tanstack/react-router'
@@ -75,6 +76,8 @@ export function Contacts() {
   )
 
   const [searchValue, setSearchValue] = useState(search.q || '')
+  // Valeur débouncée utilisée pour le filtrage effectif (évite un re-render par frappe sur gros volume)
+  const debouncedSearchValue = useDebouncedValue(searchValue, 150)
 
   const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
@@ -118,9 +121,9 @@ export function Contacts() {
       result = result.filter(c => c.created_at && new Date(c.created_at) <= toDate)
     }
 
-    if (searchValue) {
-      const q = searchValue.toLowerCase()
-      result = result.filter((c: any) => 
+    if (debouncedSearchValue) {
+      const q = debouncedSearchValue.toLowerCase()
+      result = result.filter((c: any) =>
         (c.first_name || '').toLowerCase().includes(q) ||
         (c.last_name || '').toLowerCase().includes(q) ||
         (c.email || '').toLowerCase().includes(q) ||
@@ -142,7 +145,7 @@ export function Contacts() {
     }
     
     return result
-  }, [contacts, dateRange, searchValue, selectedCommercials, selectedSources])
+  }, [contacts, dateRange, debouncedSearchValue, selectedCommercials, selectedCompanies, selectedSources])
 
   const isLoading = isLoadingContacts
 

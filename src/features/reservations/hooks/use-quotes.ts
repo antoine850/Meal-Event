@@ -551,8 +551,32 @@ export function useCreateQuote() {
       const now = new Date()
       const year = now.getFullYear()
       const month = String(now.getMonth() + 1).padStart(2, '0')
-      const shortId = Math.random().toString(36).substring(2, 6)
-      const quoteNumber = `${prefix}-${year}-${month}-${shortId}-v1`
+
+      // Versionnement : si d'autres devis existent sur ce booking, réutiliser le même shortId
+      // et incrémenter le numéro de version. Ex: DEV-2026-04-a3k2-v1 → ...-v2 → ...-v3
+      const { data: existingQuotes } = await supabase
+        .from('quotes')
+        .select('quote_number, version')
+        .eq('booking_id', bookingId)
+
+      let shortId: string
+      let version: number
+      if (existingQuotes && existingQuotes.length > 0) {
+        // Trouver le shortId depuis un quote_number existant (format PREFIX-YYYY-MM-XXXX-vN)
+        const sample = existingQuotes.find((q: any) => q.quote_number)?.quote_number || ''
+        const base = sample.split('-v')[0] // PREFIX-YYYY-MM-XXXX
+        const parts = base.split('-')
+        const existingShortId = parts[parts.length - 1]
+        shortId = existingShortId && existingShortId.length > 0
+          ? existingShortId
+          : Math.random().toString(36).substring(2, 6)
+        const maxVersion = existingQuotes.reduce((max: number, q: any) => Math.max(max, q.version || 1), 0)
+        version = maxVersion + 1
+      } else {
+        shortId = Math.random().toString(36).substring(2, 6)
+        version = 1
+      }
+      const quoteNumber = `${prefix}-${year}-${month}-${shortId}-v${version}`
 
       // Build restaurant billing info for CGV placeholder replacement
       const billingInfo: RestaurantBillingInfo = {
@@ -599,7 +623,7 @@ export function useCreateQuote() {
           conditions_solde: conditionsSolde ?? defaultCGV.conditionsSolde,
           additional_conditions: additionalConditions ?? null,
           language: 'fr',
-          version: 1,
+          version,
         } as never)
         .select()
         .single()
@@ -663,13 +687,27 @@ export function useDuplicateQuote() {
         .single()
       if (fetchError) throw fetchError
 
-      // Generate new quote number
+      // Generate new quote number : réutiliser shortId du booking, incrémenter version
       const now = new Date()
       const year = now.getFullYear()
       const month = String(now.getMonth() + 1).padStart(2, '0')
-      const shortId = Math.random().toString(36).substring(2, 6)
       const prefix = (original as any).quote_number?.split('-')[0] || 'DEV'
-      const quoteNumber = `${prefix}-${year}-${month}-${shortId}-v1`
+
+      const { data: existingQuotes } = await supabase
+        .from('quotes')
+        .select('quote_number, version')
+        .eq('booking_id', bookingId)
+
+      // Extraire le shortId d'un devis existant (toujours au moins l'original)
+      const sample = (original as any).quote_number || (existingQuotes?.[0] as any)?.quote_number || ''
+      const base = sample.split('-v')[0]
+      const parts = base.split('-')
+      const shortId = parts[parts.length - 1] && parts[parts.length - 1].length > 0
+        ? parts[parts.length - 1]
+        : Math.random().toString(36).substring(2, 6)
+      const maxVersion = (existingQuotes || []).reduce((max: number, q: any) => Math.max(max, q.version || 1), 0)
+      const version = maxVersion + 1
+      const quoteNumber = `${prefix}-${year}-${month}-${shortId}-v${version}`
 
       // Insert duplicate quote — keep content, reset workflow/payment fields
       const { data: newQuote, error: insertError } = await supabase
@@ -703,7 +741,7 @@ export function useDuplicateQuote() {
           total_ht: (original as any).total_ht,
           total_tva: (original as any).total_tva,
           total_ttc: (original as any).total_ttc,
-          version: 1,
+          version,
           primary_quote: false,
         } as never)
         .select()

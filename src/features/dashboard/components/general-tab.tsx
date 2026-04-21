@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link } from '@tanstack/react-router'
 import {
   ResponsiveContainer,
   Tooltip,
@@ -6,7 +7,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import { Euro, TrendingUp, Users, Utensils, Loader2, Info } from 'lucide-react'
+import { Euro, TrendingUp, Users, Utensils, Loader2, Info, AlertCircle } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -26,10 +27,13 @@ import {
   type DashboardTabProps,
   calcSignedRevenue,
   calcSignedCount,
-  calcAvgTicket,
+  calcAvgTicketPerClient,
   calcConversionRate,
   calcPipeline,
-  groupByRestaurant,
+  groupBySignedRestaurant,
+  getStaleProposals,
+  getPaidAmount,
+  SIGNED_SLUGS,
 } from '../hooks/use-dashboard-data'
 
 function KpiTooltip({ text }: { text: string }) {
@@ -56,23 +60,79 @@ interface GeneralTabProps extends DashboardTabProps {
 export function GeneralTab({ bookings, isLoading, restaurants, statuses = [] }: GeneralTabProps) {
   const signedRevenue = useMemo(() => calcSignedRevenue(bookings), [bookings])
   const signedCount = useMemo(() => calcSignedCount(bookings), [bookings])
-  const avgTicket = useMemo(() => calcAvgTicket(bookings), [bookings])
+  const avgTicketPerClient = useMemo(() => calcAvgTicketPerClient(bookings), [bookings])
   const conversionRate = useMemo(() => calcConversionRate(bookings), [bookings])
+
+  // Carte Événements: ne compter que les événements signés
+  const signedBookings = useMemo(
+    () => bookings.filter(b => SIGNED_SLUGS.includes(b.status?.slug || '')),
+    [bookings]
+  )
+  const signedGuests = useMemo(
+    () => signedBookings.reduce((sum, b) => sum + (b.guests_count || 0), 0),
+    [signedBookings]
+  )
 
   const pipeline = useMemo(() => calcPipeline(bookings, statuses), [bookings, statuses])
 
   const restaurantKPIs = useMemo(() => {
-    const groups = groupByRestaurant(bookings)
+    const groups = groupBySignedRestaurant(bookings)
     return Object.entries(groups)
       .map(([name, items]) => ({
         name,
         revenue: calcSignedRevenue(items),
-        bookings: items.length,
-        avgTicket: calcAvgTicket(items),
+        signedCount: items.length,
+        avgTicket: items.length > 0 ? Math.round(calcSignedRevenue(items) / items.length) : 0,
         color: restaurants.find(r => r.name === name)?.color || null,
       }))
+      .filter(r => r.revenue > 0)
       .sort((a, b) => b.revenue - a.revenue)
   }, [bookings, restaurants])
+
+  // Actions requises: propositions stale + paiements en retard + relances
+  const actionItems = useMemo(() => {
+    const stale = getStaleProposals(bookings).slice(0, 3).map(s => ({
+      type: 'stale' as const,
+      bookingId: s.bookingId,
+      title: s.contactName,
+      detail: `Devis envoyé depuis ${s.daysSince}j sans réponse`,
+      amount: s.amount,
+      severity: 'warning' as const,
+    }))
+
+    const now = new Date()
+    const overdue = bookings
+      .filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
+      .filter(b => {
+        const primary = b.quotes?.find(q => q.primary_quote)
+        const ttc = primary?.total_ttc || 0
+        const paid = getPaidAmount(b)
+        return ttc > 0 && paid < ttc && new Date(b.event_date) < now
+      })
+      .slice(0, 3)
+      .map(b => ({
+        type: 'overdue' as const,
+        bookingId: b.id,
+        title: b.contact ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim() : 'Sans contact',
+        detail: `Paiement en retard — événement du ${new Date(b.event_date).toLocaleDateString('fr-FR')}`,
+        amount: (b.quotes?.find(q => q.primary_quote)?.total_ttc || 0) - getPaidAmount(b),
+        severity: 'danger' as const,
+      }))
+
+    const relances = bookings
+      .filter(b => b.status?.slug === 'relance_paiement')
+      .slice(0, 3)
+      .map(b => ({
+        type: 'relance' as const,
+        bookingId: b.id,
+        title: b.contact ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim() : 'Sans contact',
+        detail: `Relance de paiement à envoyer`,
+        amount: b.quotes?.find(q => q.primary_quote)?.total_ttc || 0,
+        severity: 'warning' as const,
+      }))
+
+    return [...overdue, ...stale, ...relances].slice(0, 6)
+  }, [bookings])
 
   const pieData = useMemo(() =>
     restaurantKPIs.filter(r => r.revenue > 0).map(r => ({ name: r.name, value: r.revenue })),
@@ -114,29 +174,29 @@ export function GeneralTab({ bookings, isLoading, restaurants, statuses = [] }: 
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Nombre total d'événements sur la période (tous statuts)" />
+              <KpiTooltip text="Événements signés (après signature, hors annulés/nouveaux/qualification)" />
               <CardTitle className='text-sm font-medium'>Événements</CardTitle>
             </div>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{bookings.length}</div>
+            <div className='text-2xl font-bold'>{signedBookings.length}</div>
             <p className='text-xs text-muted-foreground'>
-              {bookings.reduce((sum, b) => sum + (b.guests_count || 0), 0).toLocaleString('fr-FR')} convives
+              {signedGuests.toLocaleString('fr-FR')} convives signés
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="CA signé / nombre d'événements signés" />
+              <KpiTooltip text="CA signé / nombre de clients uniques (contacts distincts)" />
               <CardTitle className='text-sm font-medium'>Ticket moyen</CardTitle>
             </div>
             <Utensils className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{avgTicket.toLocaleString('fr-FR')} €</div>
-            <p className='text-xs text-muted-foreground'>Par événement signé</p>
+            <div className='text-2xl font-bold'>{avgTicketPerClient.toLocaleString('fr-FR')} €</div>
+            <p className='text-xs text-muted-foreground'>Par client</p>
           </CardContent>
         </Card>
         <Card>
@@ -183,7 +243,12 @@ export function GeneralTab({ bookings, isLoading, restaurants, statuses = [] }: 
             {/* Status grid */}
             <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
               {pipeline.map((stage) => (
-                <div key={stage.statusId} className='flex items-center gap-3 rounded-lg border p-3'>
+                <Link
+                  key={stage.statusId}
+                  to='/evenements'
+                  search={{ view: 'list', status: stage.slug } as any}
+                  className='flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent cursor-pointer'
+                >
                   <div className='h-8 w-1 rounded-full shrink-0' style={{ backgroundColor: stage.color }} />
                   <div className='min-w-0 flex-1'>
                     <p className='text-sm font-medium truncate'>{stage.name}</p>
@@ -194,7 +259,45 @@ export function GeneralTab({ bookings, isLoading, restaurants, statuses = [] }: 
                       </span>
                     </div>
                   </div>
-                </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions requises — sous la pipeline */}
+      {actionItems.length > 0 && (
+        <Card>
+          <CardHeader className='pb-3'>
+            <CardTitle className='flex items-center gap-2'>
+              <AlertCircle className='h-5 w-5 text-orange-500' />
+              Actions requises
+            </CardTitle>
+            <CardDescription>Événements nécessitant une action immédiate</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className='space-y-2'>
+              {actionItems.map((item) => (
+                <Link
+                  key={`${item.type}-${item.bookingId}`}
+                  to='/evenements/booking/$id'
+                  params={{ id: item.bookingId }}
+                  className='flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent'
+                >
+                  <div className='flex items-center gap-3 min-w-0'>
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${item.severity === 'danger' ? 'bg-red-500' : 'bg-orange-500'}`} />
+                    <div className='min-w-0 flex-1'>
+                      <p className='text-sm font-medium truncate'>{item.title}</p>
+                      <p className='text-xs text-muted-foreground truncate'>{item.detail}</p>
+                    </div>
+                  </div>
+                  {item.amount > 0 && (
+                    <span className='text-sm font-medium ml-2 shrink-0'>
+                      {item.amount.toLocaleString('fr-FR')} €
+                    </span>
+                  )}
+                </Link>
               ))}
             </div>
           </CardContent>
@@ -254,7 +357,7 @@ export function GeneralTab({ bookings, isLoading, restaurants, statuses = [] }: 
                     <div className='space-y-1'>
                       <p className='text-sm font-medium leading-none'>{restaurant.name}</p>
                       <p className='text-xs text-muted-foreground'>
-                        {restaurant.bookings} événements  Ø {restaurant.avgTicket.toLocaleString('fr-FR')} €
+                        {restaurant.signedCount} événements signés · Ø {restaurant.avgTicket.toLocaleString('fr-FR')} €
                       </p>
                     </div>
                     <div className='font-medium text-green-600'>

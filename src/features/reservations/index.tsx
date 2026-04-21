@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { type DateRange } from 'react-day-picker'
 import { type SortingState } from '@tanstack/react-table'
 import { useSearch, useNavigate } from '@tanstack/react-router'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { Calendar as CalendarIcon, Columns3, List, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -30,12 +31,21 @@ export function Reservations() {
   const navigate = useNavigate({ from: '/evenements' })
 
   // Derive state from URL search params
-  const mainView = (search.view || 'calendar') as MainView
+  // Vue par défaut : Liste + événements à venir (décision client)
+  const mainView = (search.view || 'list') as MainView
   const calendarMode = (search.calendarMode || 'week') as CalendarMode
   const searchValue = search.q || ''
+
+  // Date par défaut : aujourd'hui (pour afficher les événements à venir sur la vue liste)
+  const defaultFrom = useMemo(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  }, [])
+
   const dateRange: DateRange | undefined = search.from
     ? { from: new Date(search.from), to: search.to ? new Date(search.to) : undefined }
-    : undefined
+    : (mainView === 'list' && search.from === undefined ? { from: defaultFrom, to: undefined } : undefined)
   const selectedCommercials = useMemo(
     () => new Set(search.commercial ? search.commercial.split(',') : []),
     [search.commercial]
@@ -53,6 +63,27 @@ export function Reservations() {
   const [bookingDialogDate, setBookingDialogDate] = useState<Date | undefined>()
   const [sortValue, setSortValue] = useState('event_date:asc')
   const tableSorting: SortingState = useMemo(() => [parseSortValue(sortValue)], [sortValue])
+
+  // Recherche : input local + debounce pour ne pas mettre à jour l'URL à chaque frappe
+  const [searchInput, setSearchInput] = useState(searchValue)
+  const debouncedSearch = useDebouncedValue(searchInput, 150)
+  useEffect(() => {
+    if (debouncedSearch !== searchValue) {
+      // setSearch appelé seulement quand la valeur débouncée change
+      navigate({
+        search: (prev: Record<string, unknown>) => {
+          const next = { ...prev, q: debouncedSearch || undefined } as Record<string, unknown>
+          Object.keys(next).forEach(k => {
+            if (next[k] === undefined || next[k] === '') delete next[k]
+          })
+          return next
+        },
+        replace: true,
+      })
+    }
+    // Ne dépend que du debouncedSearch pour éviter une boucle
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch])
 
   const eventSortOptions = [
     { label: 'Date de création (récent)', value: 'created_at:desc' },
@@ -89,6 +120,7 @@ export function Reservations() {
   const hasActiveFilters = !!(searchValue || dateRange?.from || selectedCommercials.size || selectedStatuses.size || selectedRestaurants.size)
 
   const onResetFilters = useCallback(() => {
+    setSearchInput('')
     setSearch({
       q: undefined,
       from: undefined,
@@ -174,8 +206,8 @@ export function Reservations() {
         <div className='flex flex-wrap items-center gap-2'>
           <Input
             placeholder='Rechercher par contact, type, restaurant...'
-            value={searchValue}
-            onChange={(e) => setSearch({ q: e.target.value || undefined })}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className='h-8 w-full sm:w-[200px] lg:w-[250px]'
           />
           <div className='flex flex-wrap gap-2'>

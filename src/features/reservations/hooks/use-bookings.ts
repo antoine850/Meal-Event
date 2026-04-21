@@ -70,7 +70,26 @@ export function useBookings() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
-      const { data, error } = await supabase
+      // Permissions restaurant-scoped : admin = tout, commercial/gérant = ses restaurants assignés uniquement
+      const { data: { user } } = await supabase.auth.getUser()
+      let restaurantFilter: string[] | null = null
+      if (user) {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('role:roles(slug), user_restaurants(restaurant_id)')
+          .eq('id', user.id)
+          .single()
+        const roleSlug = (dbUser as any)?.role?.slug || ''
+        const assignedIds: string[] = ((dbUser as any)?.user_restaurants || [])
+          .map((ur: any) => ur.restaurant_id)
+          .filter(Boolean)
+        if (roleSlug !== 'admin') {
+          // Filtrer par restaurants assignés. Si aucun, on renvoie une liste vide.
+          restaurantFilter = assignedIds
+        }
+      }
+
+      let query = supabase
         .from('bookings')
         .select(`
           *,
@@ -83,6 +102,12 @@ export function useBookings() {
         .eq('organization_id', orgId)
         .order('event_date', { ascending: true })
 
+      if (restaurantFilter !== null) {
+        if (restaurantFilter.length === 0) return [] as BookingWithRelations[]
+        query = query.in('restaurant_id', restaurantFilter)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data as unknown as BookingWithRelations[]
     },

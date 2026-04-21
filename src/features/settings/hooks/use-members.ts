@@ -119,6 +119,11 @@ export function useUpdateMemberRole() {
       apiClient(`/api/members/${id}/role`, { method: 'PATCH', body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] })
+      // Changer l'assignation restaurant/rôle d'un commercial modifie la visibilité
+      // des bookings/contacts — forcer un refetch pour que les listes filtrées soient à jour.
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      queryClient.invalidateQueries({ queryKey: ['user-permissions'] })
     },
   })
 }
@@ -131,6 +136,8 @@ export function useRemoveMember() {
       apiClient(`/api/members/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] })
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
     },
   })
 }

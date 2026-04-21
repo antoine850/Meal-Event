@@ -19,7 +19,7 @@ import { GeneralTab } from './components/general-tab'
 import { CommercialTab } from './components/commercial-tab'
 import { MarketingTab } from './components/marketing-tab'
 import { ReservationsTab } from './components/reservations-tab'
-import { useDashboardData, type DashboardFilters } from './hooks/use-dashboard-data'
+import { useDashboardData, type DashboardFilters, type DashboardDateField } from './hooks/use-dashboard-data'
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -40,13 +40,25 @@ export function Dashboard() {
   const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
   const [selectedClientType, setSelectedClientType] = useState<Set<string>>(new Set())
 
+  // Date de référence par onglet :
+  // - commercial → date de signature du devis
+  // - reservations (événements) → date de l'événement
+  // - marketing → date d'import (created_at du booking)
+  // - general → date de l'événement (défaut)
+  const dateField: DashboardDateField = useMemo(() => {
+    if (activeTab === 'commercial') return 'signed_at'
+    if (activeTab === 'marketing') return 'created_at'
+    return 'event_date'
+  }, [activeTab])
+
   const filters: DashboardFilters = useMemo(() => ({
     dateRange: dateRange?.from && dateRange?.to ? { from: dateRange.from, to: dateRange.to } : undefined,
     restaurants: selectedRestaurants,
     statuses: selectedStatuses,
     commercials: selectedCommercials,
     clientType: selectedClientType,
-  }), [dateRange, selectedRestaurants, selectedStatuses, selectedCommercials, selectedClientType])
+    dateField,
+  }), [dateRange, selectedRestaurants, selectedStatuses, selectedCommercials, selectedClientType, dateField])
 
   const { bookings, contacts, restaurants, users, statuses, isAdmin, userName, isLoading } = useDashboardData(filters)
 

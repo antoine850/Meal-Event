@@ -14,6 +14,7 @@ import {
   Bar,
   BarChart,
   Cell,
+  Legend,
   Line,
   LineChart,
   Pie,
@@ -177,24 +178,28 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
           </CardHeader>
           <CardContent>
             {byType.length > 0 ? (
-              <ResponsiveContainer width='100%' height={250}>
+              <ResponsiveContainer width='100%' height={280}>
                 <PieChart>
                   <Pie
                     data={byType}
                     cx='50%'
-                    cy='50%'
+                    cy='45%'
                     innerRadius={50}
                     outerRadius={80}
                     paddingAngle={3}
                     dataKey='value'
-                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                    labelLine={false}
                   >
                     {byType.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => [`${value ?? 0} événements`, '']} />
+                  <Legend
+                    verticalAlign='bottom'
+                    height={36}
+                    iconType='circle'
+                    wrapperStyle={{ fontSize: '12px' }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (

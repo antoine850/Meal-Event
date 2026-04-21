@@ -46,9 +46,12 @@ import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { useBookings, type BookingWithRelations } from '@/features/reservations/hooks/use-bookings'
+import { useBookings, useRestaurants, type BookingWithRelations } from '@/features/reservations/hooks/use-bookings'
 import { useContacts } from '@/features/contacts/hooks/use-contacts'
 import { useCompanies } from '@/features/companies/hooks/use-companies'
+import { FacetedFilter } from '@/components/data-table/standalone-faceted-filter'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { RotateCcw } from 'lucide-react'
 
 // ─── Helpers ───
 
@@ -106,16 +109,21 @@ const statusConfig: Record<QuoteDisplayStatus, { label: string; color: string }>
 
 export function Contracts() {
   const [activeTab, setActiveTab] = useState('quotes')
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const search = useDebouncedValue(searchInput, 150)
   const [quotesPage, setQuotesPage] = useState(0)
   const [clientsPage, setClientsPage] = useState(0)
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set())
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set())
+  const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(new Set())
   const PAGE_SIZE = 50
 
-  useEffect(() => { setQuotesPage(0) }, [search])
+  useEffect(() => { setQuotesPage(0) }, [search, selectedStatuses, selectedSources, selectedRestaurants])
   useEffect(() => { setClientsPage(0) }, [search])
   const { data: bookings = [], isLoading: bookingsLoading } = useBookings()
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
   const { data: companies = [], isLoading: companiesLoading } = useCompanies()
+  const { data: restaurants = [] } = useRestaurants()
 
   const isLoading = bookingsLoading || contactsLoading || companiesLoading
 
@@ -128,6 +136,8 @@ export function Contracts() {
       contactEmail: string
       companyName: string
       restaurantName: string
+      restaurantId: string
+      source: string
       eventType: string
       eventDate: string
       totalTtc: number
@@ -151,6 +161,8 @@ export function Contracts() {
           contactEmail,
           companyName,
           restaurantName: b.restaurant?.name || '',
+          restaurantId: b.restaurant_id || '',
+          source: ((b.contact as any)?.source || '') as string,
           eventType: b.occasion || b.event_type || '',
           eventDate: b.event_date,
           totalTtc: q.total_ttc || 0,
@@ -165,6 +177,29 @@ export function Contracts() {
 
     return results.sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime())
   }, [bookings])
+
+  // Options de filtres
+  const sourceOptions = useMemo(() => {
+    const sources = new Set<string>()
+    bookings.forEach(b => {
+      const src = ((b.contact as any)?.source || '') as string
+      if (src) sources.add(src)
+    })
+    return Array.from(sources).sort().map(s => ({ label: s, value: s }))
+  }, [bookings])
+
+  const restaurantOptions = useMemo(
+    () => restaurants.map(r => ({ label: r.name, value: r.id })),
+    [restaurants]
+  )
+
+  const statusFilterOptions: { label: string; value: QuoteDisplayStatus }[] = [
+    { label: 'Brouillon', value: 'draft' },
+    { label: 'Envoyé', value: 'sent' },
+    { label: 'Signé', value: 'signed' },
+    { label: 'Payé', value: 'paid' },
+    { label: 'Annulé', value: 'cancelled' },
+  ]
 
   // ─── Client history (CA per contact) ───
   const clientHistory = useMemo(() => {
@@ -218,15 +253,22 @@ export function Contracts() {
 
   // ─── Filtered data ───
   const searchLower = search.toLowerCase()
-  const filteredQuotes = useMemo(() =>
-    search ? allQuotes.filter(q =>
-      q.contactName.toLowerCase().includes(searchLower) ||
-      q.companyName.toLowerCase().includes(searchLower) ||
-      q.quoteNumber.toLowerCase().includes(searchLower) ||
-      q.restaurantName.toLowerCase().includes(searchLower)
-    ) : allQuotes,
-    [allQuotes, searchLower]
-  )
+  const filteredQuotes = useMemo(() => {
+    return allQuotes.filter(q => {
+      if (search) {
+        const matchSearch =
+          q.contactName.toLowerCase().includes(searchLower) ||
+          q.companyName.toLowerCase().includes(searchLower) ||
+          q.quoteNumber.toLowerCase().includes(searchLower) ||
+          q.restaurantName.toLowerCase().includes(searchLower)
+        if (!matchSearch) return false
+      }
+      if (selectedStatuses.size > 0 && !selectedStatuses.has(q.status)) return false
+      if (selectedSources.size > 0 && !selectedSources.has(q.source)) return false
+      if (selectedRestaurants.size > 0 && !selectedRestaurants.has(q.restaurantId)) return false
+      return true
+    })
+  }, [allQuotes, search, searchLower, selectedStatuses, selectedSources, selectedRestaurants])
 
   const filteredClients = useMemo(() =>
     search ? clientHistory.filter(c =>
@@ -234,8 +276,15 @@ export function Contracts() {
       c.companyName.toLowerCase().includes(searchLower) ||
       c.contactEmail.toLowerCase().includes(searchLower)
     ) : clientHistory,
-    [clientHistory, searchLower]
+    [clientHistory, search, searchLower]
   )
+
+  const hasFilters = selectedStatuses.size > 0 || selectedSources.size > 0 || selectedRestaurants.size > 0
+  const resetFilters = () => {
+    setSelectedStatuses(new Set())
+    setSelectedSources(new Set())
+    setSelectedRestaurants(new Set())
+  }
 
   const paginatedQuotes = useMemo(
     () => filteredQuotes.slice(quotesPage * PAGE_SIZE, (quotesPage + 1) * PAGE_SIZE),
@@ -259,18 +308,25 @@ export function Contracts() {
   }, [allQuotes])
 
   const paymentStats = useMemo(() => {
-    const paid = bookings.reduce((sum, b) => sum + getPaidAmount(b), 0)
-    const totalSigned = bookings
-      .filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
-      .reduce((sum, b) => sum + getQuoteTtc(b), 0)
-    const pending = totalSigned - paid
+    // Scope aux bookings signés pour cohérence "CA signé → reste à encaisser"
+    // (évite que paid > totalSigned quand un acompte a été encaissé sur un booking non-signé)
+    const signedBookings = bookings.filter(b => SIGNED_SLUGS.includes(b.status?.slug || ''))
+    const paid = signedBookings.reduce((sum, b) => sum + getPaidAmount(b), 0)
+    const totalSigned = signedBookings.reduce((sum, b) => sum + getQuoteTtc(b), 0)
+    const pending = Math.max(0, totalSigned - paid)
+
+    // "Événements en retard" = tous les statuts SAUF proposition/qualification/nouveau/cancelled
+    // + event_date passé + non soldé
+    const OVERDUE_EXCLUDE = ['proposition', 'qualification', 'cancelled', 'nouveau']
+    const now = new Date()
     const overdueCount = bookings.filter(b => {
-      if (!SIGNED_SLUGS.includes(b.status?.slug || '')) return false
+      const slug = b.status?.slug || ''
+      if (OVERDUE_EXCLUDE.includes(slug)) return false
       const ttc = getQuoteTtc(b)
       const paidAmt = getPaidAmount(b)
-      return paidAmt < ttc && new Date(b.event_date) < new Date()
+      return ttc > 0 && paidAmt < ttc && new Date(b.event_date) < now
     }).length
-    return { totalPaid: paid, totalPending: Math.max(0, pending), overdueCount }
+    return { totalPaid: paid, totalPending: pending, overdueCount }
   }, [bookings])
 
   // ─── Exports ───
@@ -377,16 +433,48 @@ export function Contracts() {
                 Historique clients
               </TabsTrigger>
             </TabsList>
-            <div className='flex items-center gap-2'>
+            <div className='flex flex-wrap items-center gap-2'>
               <div className='relative'>
                 <Search className='absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground' />
                 <Input
                   placeholder='Rechercher...'
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   className='pl-9 w-[200px]'
                 />
               </div>
+              {activeTab === 'quotes' && (
+                <>
+                  <FacetedFilter
+                    title='Statut'
+                    options={statusFilterOptions.map(o => ({ label: o.label, value: o.value }))}
+                    selected={selectedStatuses}
+                    onSelectionChange={setSelectedStatuses}
+                  />
+                  {sourceOptions.length > 0 && (
+                    <FacetedFilter
+                      title='Source'
+                      options={sourceOptions}
+                      selected={selectedSources}
+                      onSelectionChange={setSelectedSources}
+                    />
+                  )}
+                  {restaurantOptions.length > 0 && (
+                    <FacetedFilter
+                      title='Restaurant'
+                      options={restaurantOptions}
+                      selected={selectedRestaurants}
+                      onSelectionChange={setSelectedRestaurants}
+                    />
+                  )}
+                  {hasFilters && (
+                    <Button variant='ghost' size='sm' className='h-8 px-2' onClick={resetFilters}>
+                      <RotateCcw className='mr-1 h-3 w-3' />
+                      Réinitialiser
+                    </Button>
+                  )}
+                </>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant='outline'>

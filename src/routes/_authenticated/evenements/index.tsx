@@ -9,7 +9,7 @@ const reservationsSearchSchema = z.object({
   status: z.string().optional().catch(undefined),
   from: z.string().optional().catch(undefined),
   to: z.string().optional().catch(undefined),
-  view: z.enum(['calendar', 'list', 'pipeline']).optional().catch('calendar'),
+  view: z.enum(['calendar', 'list', 'pipeline']).optional().catch('list'),
   calendarMode: z.enum(['month', 'week', 'day']).optional().catch('week'),
 })
 
