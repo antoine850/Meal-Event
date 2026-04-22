@@ -1556,6 +1556,8 @@ export const BookingDetail = forwardRef<
                 onOpenChange={setPaymentDialogOpen}
                 bookingId={booking.id}
                 payment={editingPayment}
+                contactEmail={booking.contact?.email || null}
+                primaryQuoteId={(quotes.find((q: any) => q.primary_quote)?.id || quotes[0]?.id) || null}
               />
 
               {/* Quote Editor Dialog */}

@@ -383,6 +383,101 @@ export function buildBalanceEmailSubject(quoteNumber: string, restaurantName: st
 }
 
 // ═══════════════════════════════════════════════
+// Template C.2: Lien de paiement générique (Stripe)
+// ═══════════════════════════════════════════════
+
+export function buildPaymentLinkEmailHtml(params: {
+  restaurant: RestaurantBranding
+  contact: ContactInfo
+  quoteNumber: string | null
+  modality: 'acompte' | 'solde' | 'autre'
+  amount: number
+  stripePaymentUrl: string
+  eventDate: string | null
+  commercialName?: string | null
+  orderNumber?: string | null
+}): string {
+  const { restaurant, contact, quoteNumber, modality, amount, stripePaymentUrl, eventDate, commercialName, orderNumber } = params
+  const color = restaurant.color || '#0d7377'
+
+  const modalityLabel = modality === 'acompte' ? 'acompte' : modality === 'solde' ? 'solde' : 'paiement'
+  const ctaLabel = modality === 'acompte' ? 'Payer mon acompte' : modality === 'solde' ? 'Payer le solde' : 'Régler mon paiement'
+  const virementLabel = modality === 'acompte' ? `ACOMPTE${quoteNumber ? '-' + quoteNumber : ''}` : modality === 'solde' ? `SOLDE${quoteNumber ? '-' + quoteNumber : ''}` : `PAIEMENT${quoteNumber ? '-' + quoteNumber : ''}`
+
+  const bankSection = (restaurant.iban || restaurant.bic)
+    ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background-color:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;">
+      <tr>
+        <td style="padding:16px;">
+          <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:#0369a1;">Paiement par virement bancaire</p>
+          ${restaurant.bank_name ? `<p style="margin:0 0 4px;font-size:12px;color:#444;">Banque: <strong>${restaurant.bank_name}</strong></p>` : ''}
+          ${restaurant.iban ? `<p style="margin:0 0 4px;font-size:12px;color:#444;">IBAN: <strong>${restaurant.iban}</strong></p>` : ''}
+          ${restaurant.bic ? `<p style="margin:0 0 4px;font-size:12px;color:#444;">BIC: <strong>${restaurant.bic}</strong></p>` : ''}
+          <p style="margin:4px 0 0;font-size:12px;color:#444;">Libellé: <strong>${virementLabel}</strong></p>
+        </td>
+      </tr>
+    </table>`
+    : ''
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Bonjour <strong>${contact.first_name}${contact.last_name ? ' ' + contact.last_name : ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#444;">
+      Voici votre lien de paiement sécurisé pour le règlement de votre ${modalityLabel}${quoteNumber ? ` concernant le devis <strong>n°${quoteNumber}</strong>` : ''} chez <strong>${restaurant.name}</strong>.
+    </p>
+
+    <!-- Amount card -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background-color:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+      <tr>
+        <td style="padding:16px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:12px;color:#666;">Montant ${modality !== 'autre' ? 'de votre ' + modalityLabel : 'à régler'}</p>
+          <p style="margin:0;font-size:24px;font-weight:700;color:${color};">${formatCurrency(amount)}</p>
+          ${eventDate ? `<p style="margin:8px 0 0;font-size:12px;color:#666;">Événement du ${formatDate(eventDate)}</p>` : ''}
+          ${orderNumber ? `<p style="margin:4px 0 0;font-size:12px;color:#666;">N° commande: <strong>${orderNumber}</strong></p>` : ''}
+        </td>
+      </tr>
+    </table>
+
+    <!-- CTA Button -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+      <tr>
+        <td align="center">
+          <a href="${stripePaymentUrl}" target="_blank" style="display:inline-block;padding:14px 32px;background-color:${color};color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
+            ${ctaLabel}
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#666;text-align:center;">
+      Paiement sécurisé par carte bancaire via Stripe.
+    </p>
+
+    ${bankSection}
+
+    <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#666;">
+      Si vous avez la moindre question concernant ce règlement, n'hésitez pas à répondre directement à cet email.
+    </p>
+
+    <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#444;">
+      Cordialement,
+    </p>
+    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">
+      ${commercialName || restaurant.name}
+    </p>
+  `
+
+  return buildEmailWrapper(restaurant, body)
+}
+
+export function buildPaymentLinkEmailSubject(modality: 'acompte' | 'solde' | 'autre', restaurantName: string, quoteNumber: string | null): string {
+  const label = modality === 'acompte' ? "d'acompte" : modality === 'solde' ? 'de solde' : 'de paiement'
+  const suffix = quoteNumber ? ` ${quoteNumber}` : ''
+  return `Votre lien ${label}${suffix} — ${restaurantName}`
+}
+
+// ═══════════════════════════════════════════════
 // Template D: Notification Commercial — Devis signé
 // ═══════════════════════════════════════════════
 
