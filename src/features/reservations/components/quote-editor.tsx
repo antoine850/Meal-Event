@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import {
   ChevronDown,
   FileText,
@@ -316,6 +317,8 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const [orderNumber, setOrderNumber] = useState('')
   const [discountPercentage, setDiscountPercentage] = useState(0)
   const [depositPercentage, setDepositPercentage] = useState(80)
+  const [depositMode, setDepositMode] = useState<'percentage' | 'amount'>('percentage')
+  const [depositAmountOverride, setDepositAmountOverride] = useState('')
   const [depositLabel, setDepositLabel] = useState('Acompte à signature')
   const [depositDays, setDepositDays] = useState(7)
   const [balanceLabel, setBalanceLabel] = useState('Solde')
@@ -384,7 +387,15 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       setDateEnd(quoteData.date_end ? quoteData.date_end.split('T')[0] : '')
       setOrderNumber(quoteData.order_number || '')
       setDiscountPercentage(quoteData.discount_percentage || 0)
-      setDepositPercentage(quoteData.deposit_percentage || 80)
+      if ((quoteData as any).deposit_amount_override != null) {
+        setDepositMode('amount')
+        setDepositAmountOverride(String((quoteData as any).deposit_amount_override))
+        setDepositPercentage(0)
+      } else {
+        setDepositMode('percentage')
+        setDepositAmountOverride('')
+        setDepositPercentage(quoteData.deposit_percentage || 80)
+      }
       setDepositLabel(quoteData.deposit_label || 'Acompte à signature')
       setDepositDays(quoteData.deposit_days || 7)
       setBalanceLabel(quoteData.balance_label || 'Solde')
@@ -467,7 +478,8 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       date_end: dateEnd || null,
       order_number: orderNumber || null,
       discount_percentage: discountPercentage,
-      deposit_percentage: depositPercentage,
+      deposit_percentage: depositMode === 'percentage' ? depositPercentage : 0,
+      deposit_amount_override: depositMode === 'amount' ? (parseFloat(depositAmountOverride) || 0) : null,
       deposit_label: depositLabel,
       deposit_days: depositDays,
       balance_label: balanceLabel,
@@ -490,7 +502,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
       },
       onError: () => toast.error('Erreur lors de la sauvegarde'),
     })
-  }, [quoteId, updateQuote, title, dateStart, dateEnd, orderNumber, discountPercentage, depositPercentage, depositLabel, depositDays, balanceLabel, balanceDays, quoteDate, quoteDueDays, invoiceDueDays, commentsFr, commentsEn, conditionsDevis, conditionsFacture, conditionsAcompte, conditionsSolde, additionalConditions, language])
+  }, [quoteId, updateQuote, title, dateStart, dateEnd, orderNumber, discountPercentage, depositPercentage, depositMode, depositAmountOverride, depositLabel, depositDays, balanceLabel, balanceDays, quoteDate, quoteDueDays, invoiceDueDays, commentsFr, commentsEn, conditionsDevis, conditionsFacture, conditionsAcompte, conditionsSolde, additionalConditions, language])
 
   // Handle quit with dirty check
   const handleQuit = useCallback(() => {
@@ -648,7 +660,9 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const totalHt = Math.round(rawTotalHt * discountMultiplier * 100) / 100
   // Round TTC up to the next euro (ceiling)
   const totalTtc = Math.ceil(rawTotalTtc * discountMultiplier)
-  const depositAmount = Math.ceil(totalTtc * (depositPercentage / 100))
+  const depositAmount = depositMode === 'amount'
+    ? (parseFloat(depositAmountOverride) || 0)
+    : Math.ceil(totalTtc * (depositPercentage / 100))
   const balanceAmount = totalTtc - depositAmount
 
   // Build preview data
@@ -878,15 +892,41 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                             />
                           </div>
                           <div>
-                            <Label className='text-[10px]'>Pourcentage (%)</Label>
-                            <Input
-                              type='number'
-                              min={0}
-                              max={100}
-                              value={depositPercentage}
-                              onChange={e => dirty(setDepositPercentage)(parseFloat(e.target.value) || 0)}
-                              className='mt-0.5 h-8 text-xs'
-                            />
+                            <div className='flex items-center justify-between mb-0.5'>
+                              <Label className='text-[10px]'>{depositMode === 'percentage' ? 'Pourcentage' : 'Montant fixe'}</Label>
+                              <div className='flex rounded border border-input overflow-hidden text-[10px] h-4'>
+                                <button
+                                  type='button'
+                                  className={cn('px-1.5 leading-none transition-colors', depositMode === 'percentage' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent')}
+                                  onClick={() => dirty(setDepositMode)('percentage')}
+                                >%</button>
+                                <button
+                                  type='button'
+                                  className={cn('px-1.5 leading-none transition-colors border-l border-input', depositMode === 'amount' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent')}
+                                  onClick={() => dirty(setDepositMode)('amount')}
+                                >€</button>
+                              </div>
+                            </div>
+                            {depositMode === 'percentage' ? (
+                              <Input
+                                type='number'
+                                min={0}
+                                max={100}
+                                value={depositPercentage}
+                                onChange={e => dirty(setDepositPercentage)(parseFloat(e.target.value) || 0)}
+                                className='h-8 text-xs'
+                              />
+                            ) : (
+                              <Input
+                                type='number'
+                                min={0}
+                                step='0.01'
+                                value={depositAmountOverride}
+                                onChange={e => dirty(setDepositAmountOverride)(e.target.value)}
+                                placeholder='0.00'
+                                className='h-8 text-xs'
+                              />
+                            )}
                           </div>
                           <div>
                             <Label className='text-[10px]'>Échéance (J-)</Label>

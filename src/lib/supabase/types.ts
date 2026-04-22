@@ -1660,6 +1660,7 @@ export type Database = {
           date_end: string | null
           date_start: string | null
           deposit_days: number | null
+          deposit_amount_override: number | null
           deposit_label: string | null
           deposit_paid_at: string | null
           deposit_percentage: number | null
@@ -1718,6 +1719,7 @@ export type Database = {
           created_at?: string | null
           date_end?: string | null
           date_start?: string | null
+          deposit_amount_override?: number | null
           deposit_days?: number | null
           deposit_label?: string | null
           deposit_paid_at?: string | null
@@ -1777,6 +1779,7 @@ export type Database = {
           created_at?: string | null
           date_end?: string | null
           date_start?: string | null
+          deposit_amount_override?: number | null
           deposit_days?: number | null
           deposit_label?: string | null
           deposit_paid_at?: string | null

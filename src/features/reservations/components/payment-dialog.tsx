@@ -56,9 +56,10 @@ type Props = {
   payment?: Payment | null
   contactEmail?: string | null
   primaryQuoteId?: string | null
+  defaultDepositAmount?: number | null
 }
 
-export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactEmail, primaryQuoteId }: Props) {
+export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactEmail, primaryQuoteId, defaultDepositAmount }: Props) {
   const queryClient = useQueryClient()
   const { mutate: createPayment, isPending: isCreating } = useCreatePayment()
   const { mutate: updatePayment, isPending: isUpdating } = useUpdatePayment()
@@ -114,13 +115,17 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
     }
   }, [open, payment, contactEmail])
 
-  // When user picks Stripe for a new payment, keep modality in sync
+  // When user picks Stripe "link" mode: sync modality + pre-fill deposit amount
   useEffect(() => {
     if (isStripeCreate && stripeMode === 'link') {
       const current = paymentModality === 'acompte' || paymentModality === 'solde' ? paymentModality : 'autre'
       setLinkModality(current)
+      // Pre-fill amount from quote deposit when modality is acompte
+      if (current === 'acompte' && defaultDepositAmount && !amount) {
+        setAmount(String(defaultDepositAmount))
+      }
     }
-  }, [stripeMode, paymentModality, isStripeCreate])
+  }, [stripeMode, paymentModality, isStripeCreate, defaultDepositAmount, amount])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

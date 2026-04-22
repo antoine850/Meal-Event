@@ -515,14 +515,19 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       if (existingQuote?.stripe_deposit_url) {
         console.log(`[send-deposit] Reusing existing Stripe deposit invoice for quote ${quoteId}`)
         // Just resend the email with existing invoice link — no new Stripe invoice
-        const depositAmount = Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+        const depositAmount = (quoteData as any).deposit_amount_override != null
+          ? (quoteData as any).deposit_amount_override as number
+          : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+        const effectiveDepositPctResend = (quoteData as any).deposit_amount_override != null
+          ? Math.round((depositAmount / quoteData.total_ttc) * 100)
+          : quoteData.deposit_percentage
         const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
 
         const html = buildDepositEmailHtml({
           restaurant: restaurant as any,
           contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
           quoteNumber: quoteData.quote_number,
-          depositPercentage: quoteData.deposit_percentage,
+          depositPercentage: effectiveDepositPctResend,
           depositAmount,
           totalTtc: quoteData.total_ttc,
           stripePaymentUrl: existingQuote.stripe_deposit_url,
@@ -549,8 +554,13 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       }
     }
 
-    // Calculate deposit amount (rounded up to the next euro)
-    const depositAmount = Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+    // Calculate deposit amount — montant fixe en priorité, sinon % du TTC
+    const depositAmount = (quoteData as any).deposit_amount_override != null
+      ? (quoteData as any).deposit_amount_override as number
+      : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+    const effectiveDepositPct = (quoteData as any).deposit_amount_override != null
+      ? Math.round((depositAmount / quoteData.total_ttc) * 100)
+      : quoteData.deposit_percentage
 
     // Get commercial info
     const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
@@ -581,7 +591,9 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           quote_id: quoteId,
           link_type: 'deposit',
         },
-        description: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
+        description: (quoteData as any).deposit_amount_override != null
+          ? `Acompte ${depositAmount.toFixed(2)} € - ${quoteData.quote_number}`
+          : `Acompte ${effectiveDepositPct}% - ${quoteData.quote_number}`,
       })
 
       // Add invoice line item
@@ -590,7 +602,9 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
         customer: customerId,
         amount: Math.round(depositAmount * 100),
         currency: 'eur',
-        description: `Acompte ${quoteData.deposit_percentage}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
+        description: (quoteData as any).deposit_amount_override != null
+          ? `Acompte ${depositAmount.toFixed(2)} € pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
+          : `Acompte ${effectiveDepositPct}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
       })
 
       // Finalize invoice to make it payable
@@ -615,7 +629,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       restaurant: restaurant as any,
       contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
       quoteNumber: quoteData.quote_number,
-      depositPercentage: quoteData.deposit_percentage,
+      depositPercentage: effectiveDepositPct,
       depositAmount,
       totalTtc: quoteData.total_ttc,
       stripePaymentUrl: invoiceUrl,

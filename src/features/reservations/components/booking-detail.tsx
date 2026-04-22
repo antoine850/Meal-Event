@@ -1558,6 +1558,13 @@ export const BookingDetail = forwardRef<
                 payment={editingPayment}
                 contactEmail={booking.contact?.email || null}
                 primaryQuoteId={(quotes.find((q: any) => q.primary_quote)?.id || quotes[0]?.id) || null}
+                defaultDepositAmount={(() => {
+                  const pq = quotes.find((q: any) => q.primary_quote) || quotes[0]
+                  if (!pq) return null
+                  return (pq as any).deposit_amount_override != null
+                    ? (pq as any).deposit_amount_override as number
+                    : Math.ceil((pq.total_ttc || 0) * ((pq.deposit_percentage || 80) / 100))
+                })()}
               />
 
               {/* Quote Editor Dialog */}

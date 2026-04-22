@@ -30,6 +30,7 @@ interface QuoteData {
   total_ttc: number
   discount_percentage: number
   deposit_percentage: number
+  deposit_amount_override?: number | null
   deposit_label: string | null
   deposit_days: number
   balance_label: string | null
@@ -223,6 +224,44 @@ function addDays(dateStr: string | null | undefined, days: number): string {
 
 function formatCurrency(amount: number): string {
   return `${amount.toFixed(2)} €`
+}
+
+// Résout le montant TTC de l'acompte : montant fixe si défini, sinon % du TTC
+function resolveDepositTtc(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>): number {
+  if (quote.deposit_amount_override != null) return quote.deposit_amount_override
+  return Math.ceil(quote.total_ttc * (quote.deposit_percentage / 100))
+}
+
+// Résout le montant HT de l'acompte proportionnellement
+function resolveDepositHt(quote: Pick<QuoteData, 'total_ttc' | 'total_ht' | 'deposit_percentage' | 'deposit_amount_override'>): number {
+  if (quote.deposit_amount_override != null) {
+    if (quote.total_ttc === 0) return 0
+    return Math.round(quote.deposit_amount_override * (quote.total_ht / quote.total_ttc) * 100) / 100
+  }
+  return Math.round(quote.total_ht * (quote.deposit_percentage / 100) * 100) / 100
+}
+
+// Libellé du % affiché sur la facture acompte / planning de paiement
+function resolveDepositLabel(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>, prefix: string): string {
+  if (quote.deposit_amount_override != null) return prefix  // "Acompte" sans %
+  return `${prefix} ${quote.deposit_percentage}%`
+}
+
+// % effectif pour le tableau du planning (devis)
+function resolveDepositPctDisplay(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>): string {
+  if (quote.deposit_amount_override != null) {
+    if (quote.total_ttc === 0) return '—'
+    return `${Math.round((quote.deposit_amount_override / quote.total_ttc) * 100)}%`
+  }
+  return `${quote.deposit_percentage}%`
+}
+
+function resolveBalancePctDisplay(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>): string {
+  if (quote.deposit_amount_override != null) {
+    if (quote.total_ttc === 0) return '—'
+    return `${Math.round(((quote.total_ttc - quote.deposit_amount_override) / quote.total_ttc) * 100)}%`
+  }
+  return `${100 - quote.deposit_percentage}%`
 }
 
 // Helper to lighten a hex color
@@ -657,8 +696,8 @@ function buildDocDefinition(
     })
   } else if (documentType === 'acompte') {
     // Direct TTC calculation (consistent with send-deposit route)
-    const depositTtc = Math.ceil(quote.total_ttc * (quote.deposit_percentage / 100))
-    const depositHt = Math.round(quote.total_ht * (quote.deposit_percentage / 100) * 100) / 100
+    const depositTtc = resolveDepositTtc(quote)
+    const depositHt = resolveDepositHt(quote)
     const depositTva = Math.round((depositTtc - depositHt) * 100) / 100
     const discountPct = quote.discount_percentage || 0
 
@@ -675,7 +714,7 @@ function buildDocDefinition(
     }
 
     acompteStack.push(
-      { columns: [{ text: `${l.depositPercent} ${quote.deposit_percentage}%`, style: 'small' }, { text: formatCurrency(depositHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      { columns: [{ text: resolveDepositLabel(quote, l.depositPercent), style: 'small' }, { text: formatCurrency(depositHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
       { columns: [{ text: 'TVA', style: 'small' }, { text: formatCurrency(depositTva), alignment: 'right' as const }], margin: [0, 0, 0, 4] as [number, number, number, number] },
       { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
       {
@@ -768,7 +807,7 @@ function buildDocDefinition(
   // PAYMENT SCHEDULE (devis only)
   // ══════════════════════════════════════════════════════════════════
   if (documentType === 'devis') {
-    const depositAmount = quote.total_ttc * (quote.deposit_percentage / 100)
+    const depositAmount = resolveDepositTtc(quote)
     const balanceAmount = quote.total_ttc - depositAmount
 
     content.push({
@@ -780,13 +819,13 @@ function buildDocDefinition(
             body: [
               [
                 { text: quote.deposit_label || 'Acompte à signature', style: 'tableCell', fillColor: '#f9fafb' },
-                { text: `${quote.deposit_percentage}%`, style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
+                { text: resolveDepositPctDisplay(quote), style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
                 { text: `J-${quote.deposit_days}`, style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
                 { text: formatCurrency(depositAmount), style: 'tableCell', alignment: 'right' as const, bold: true, fillColor: '#f9fafb' },
               ],
               [
                 { text: quote.balance_label || 'Solde', style: 'tableCell' },
-                { text: `${100 - quote.deposit_percentage}%`, style: 'tableCell', alignment: 'center' as const },
+                { text: resolveBalancePctDisplay(quote), style: 'tableCell', alignment: 'center' as const },
                 { text: `J-${quote.balance_days}`, style: 'tableCell', alignment: 'center' as const },
                 { text: formatCurrency(balanceAmount), style: 'tableCell', alignment: 'right' as const, bold: true },
               ],
