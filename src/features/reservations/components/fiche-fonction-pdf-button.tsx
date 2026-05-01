@@ -40,48 +40,31 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
       }, 0)
       const nextVersion = maxVersion + 1
 
-      // 2. Canvas helper: converts any CSS color (incl. oklch/oklab) → rgb().
-      //    html2canvas bundles an old CSS parser that rejects CSS Color Level 4.
-      const convCanvas = document.createElement('canvas')
-      convCanvas.width = convCanvas.height = 1
-      const convCtx = convCanvas.getContext('2d', { willReadFrequently: true })
-      const colorToRgb = (color: string): string => {
-        if (!color || !convCtx) return color
-        try {
-          convCtx.clearRect(0, 0, 1, 1)
-          convCtx.fillStyle = color
-          convCtx.fillRect(0, 0, 1, 1)
-          const d = convCtx.getImageData(0, 0, 1, 1).data
-          if (d[3] === 0) return 'transparent'
-          return d[3] < 255
-            ? `rgba(${d[0]},${d[1]},${d[2]},${(d[3] / 255).toFixed(3)})`
-            : `rgb(${d[0]},${d[1]},${d[2]})`
-        } catch {
-          return color
-        }
-      }
-
-      // Replace all oklch()/oklab() occurrences in a CSS string with rgb().
-      const processCSS = (css: string): string =>
-        css.replace(/ok(?:lch|lab)\([^)]*\)/gi, (m) => colorToRgb(m))
-
-      // 3. Collect CSS via document.styleSheets — captures <style> elements AND
-      //    adopted stylesheets (Tailwind v4 + Vite injects via the latter in dev mode).
-      const cssParts: string[] = []
-      Array.from(document.styleSheets).forEach((sheet) => {
-        try {
-          const rules = Array.from(sheet.cssRules || [])
-            .map((r) => r.cssText)
-            .join('\n')
-          if (rules) cssParts.push(processCSS(rules))
-        } catch {
-          // SecurityError for cross-origin sheets — skip
-        }
-      })
-      const processedCss = cssParts.join('\n')
-
-      // 4. Generate PDF blob
+      // 2. Generate PDF blob (same oklch workaround as quote-pdf-export.tsx)
       const html2pdf = (await import('html2pdf.js')).default
+
+      const colorProps = [
+        'color',
+        'background-color',
+        'border-color',
+        'border-left-color',
+        'border-right-color',
+        'border-top-color',
+        'border-bottom-color',
+      ]
+
+      const origAll = [element, ...Array.from(element.querySelectorAll('*'))]
+      const computedMap: Map<number, Record<string, string>> = new Map()
+
+      origAll.forEach((el, idx) => {
+        ;(el as HTMLElement).setAttribute('data-pdf-idx', String(idx))
+        const computed = window.getComputedStyle(el)
+        const styles: Record<string, string> = {}
+        colorProps.forEach((prop) => {
+          styles[prop] = computed.getPropertyValue(prop)
+        })
+        computedMap.set(idx, styles)
+      })
 
       const filename = `Fiche-de-fonction-v${nextVersion}.pdf`
 
@@ -97,16 +80,21 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
             letterRendering: true,
             backgroundColor: '#ffffff',
             onclone: (clonedDoc: Document) => {
-              // Remove all original stylesheets (style elements + link + adopted)
               clonedDoc
                 .querySelectorAll('style, link[rel="stylesheet"]')
                 .forEach((el) => el.remove())
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ;(clonedDoc as any).adoptedStyleSheets = []
-              // Re-inject the processed (oklch-free) CSS so layout is preserved
-              const styleEl = clonedDoc.createElement('style')
-              styleEl.textContent = processedCss
-              clonedDoc.head.appendChild(styleEl)
+
+              const clonedAll = clonedDoc.querySelectorAll('[data-pdf-idx]')
+              clonedAll.forEach((el) => {
+                const htmlEl = el as HTMLElement
+                const idx = Number(htmlEl.getAttribute('data-pdf-idx'))
+                const styles = computedMap.get(idx)
+                if (styles) {
+                  Object.entries(styles).forEach(([prop, val]) => {
+                    if (val) htmlEl.style.setProperty(prop, val)
+                  })
+                }
+              })
             },
           },
           jsPDF: {
@@ -120,7 +108,10 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
 
       const blob: Blob = await worker.output('blob')
 
-      // 5. Upload to Supabase Storage
+      // Clean up temp attributes
+      origAll.forEach((el) => (el as HTMLElement).removeAttribute('data-pdf-idx'))
+
+      // 3. Upload to Supabase Storage
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
@@ -135,14 +126,14 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
 
       if (uploadError) throw uploadError
 
-      // 6. Get public URL
+      // 4. Get public URL
       const { data: publicUrlData } = supabase.storage
         .from('documents')
         .getPublicUrl(filePath)
 
       const fileUrl = publicUrlData.publicUrl
 
-      // 7. Insert documents row
+      // 5. Insert documents row
       const { error: insertError } = await supabase.from('documents').insert({
         organization_id: orgId,
         booking_id: bookingId,
@@ -155,7 +146,7 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
 
       if (insertError) throw insertError
 
-      // 8. Trigger direct download in the browser
+      // 6. Trigger direct download in the browser
       const downloadUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = downloadUrl
@@ -165,7 +156,7 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
       document.body.removeChild(a)
       URL.revokeObjectURL(downloadUrl)
 
-      // 9. Invalidate documents query
+      // 7. Invalidate documents query
       queryClient.invalidateQueries({ queryKey: ['documents', bookingId] })
 
       toast.success(`Fiche v${nextVersion} enregistrée`)

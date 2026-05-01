@@ -21,45 +21,26 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
     try {
       const html2pdf = (await import('html2pdf.js')).default
 
-      // Canvas helper: converts any CSS color (incl. oklch/oklab) → rgb().
-      // html2canvas bundles an old CSS parser that rejects CSS Color Level 4.
-      const convCanvas = document.createElement('canvas')
-      convCanvas.width = convCanvas.height = 1
-      const convCtx = convCanvas.getContext('2d', { willReadFrequently: true })
-      const colorToRgb = (color: string): string => {
-        if (!color || !convCtx) return color
-        try {
-          convCtx.clearRect(0, 0, 1, 1)
-          convCtx.fillStyle = color
-          convCtx.fillRect(0, 0, 1, 1)
-          const d = convCtx.getImageData(0, 0, 1, 1).data
-          if (d[3] === 0) return 'transparent'
-          return d[3] < 255
-            ? `rgba(${d[0]},${d[1]},${d[2]},${(d[3] / 255).toFixed(3)})`
-            : `rgb(${d[0]},${d[1]},${d[2]})`
-        } catch {
-          return color
-        }
-      }
+      // Pre-compute all RGB colors from the original DOM (browser resolves oklch→rgb)
+      const colorProps = [
+        'color', 'background-color', 'border-color',
+        'border-left-color', 'border-right-color',
+        'border-top-color', 'border-bottom-color',
+      ]
 
-      // Replace all oklch()/oklab() occurrences in a CSS string with rgb().
-      const processCSS = (css: string): string =>
-        css.replace(/ok(?:lch|lab)\([^)]*\)/gi, (m) => colorToRgb(m))
+      // Tag every element with a unique index so we can map original→clone
+      const origAll = [element, ...Array.from(element.querySelectorAll('*'))]
+      const computedMap: Map<number, Record<string, string>> = new Map()
 
-      // Collect CSS via document.styleSheets — captures <style> elements AND
-      // adopted stylesheets (Tailwind v4 + Vite injects via the latter in dev mode).
-      const cssParts: string[] = []
-      Array.from(document.styleSheets).forEach((sheet) => {
-        try {
-          const rules = Array.from(sheet.cssRules || [])
-            .map((r) => r.cssText)
-            .join('\n')
-          if (rules) cssParts.push(processCSS(rules))
-        } catch {
-          // SecurityError for cross-origin sheets — skip
-        }
+      origAll.forEach((el, idx) => {
+        (el as HTMLElement).setAttribute('data-pdf-idx', String(idx))
+        const computed = window.getComputedStyle(el)
+        const styles: Record<string, string> = {}
+        colorProps.forEach(prop => {
+          styles[prop] = computed.getPropertyValue(prop)
+        })
+        computedMap.set(idx, styles)
       })
-      const processedCss = cssParts.join('\n')
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (html2pdf() as any)
@@ -73,14 +54,21 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
             letterRendering: true,
             backgroundColor: '#ffffff',
             onclone: (clonedDoc: Document) => {
-              // Remove all original stylesheets (style elements + link + adopted)
+              // Remove all stylesheets from clone so html2canvas won't parse oklch
               clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => el.remove())
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ;(clonedDoc as any).adoptedStyleSheets = []
-              // Re-inject the processed (oklch-free) CSS so layout is preserved
-              const styleEl = clonedDoc.createElement('style')
-              styleEl.textContent = processedCss
-              clonedDoc.head.appendChild(styleEl)
+
+              // Apply pre-computed RGB styles to cloned elements
+              const clonedAll = clonedDoc.querySelectorAll('[data-pdf-idx]')
+              clonedAll.forEach(el => {
+                const htmlEl = el as HTMLElement
+                const idx = Number(htmlEl.getAttribute('data-pdf-idx'))
+                const styles = computedMap.get(idx)
+                if (styles) {
+                  Object.entries(styles).forEach(([prop, val]) => {
+                    if (val) htmlEl.style.setProperty(prop, val)
+                  })
+                }
+              })
             },
           },
           jsPDF: {
@@ -92,6 +80,9 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
         })
         .from(element)
         .save()
+
+      // Clean up data attributes
+      origAll.forEach(el => (el as HTMLElement).removeAttribute('data-pdf-idx'))
 
       toast.success('PDF téléchargé')
     } catch (err) {
