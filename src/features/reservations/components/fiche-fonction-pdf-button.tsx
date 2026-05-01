@@ -40,18 +40,136 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
       }, 0)
       const nextVersion = maxVersion + 1
 
-      // 2. Generate PDF blob (same oklch workaround as quote-pdf-export.tsx)
+      // 2. Generate PDF blob.
+      // Same oklch workaround as quote-pdf-export.tsx, BUT we also capture
+      // layout properties (padding, border, font, etc.) because the fiche
+      // uses pure Tailwind classes (cards, grids) that vanish when we strip
+      // the stylesheets in the clone — unlike the devis which has inline styles.
       const html2pdf = (await import('html2pdf.js')).default
 
-      const colorProps = [
+      // Canvas-based color converter — Chrome 111+ returns oklch() from
+      // getComputedStyle for Tailwind v4 colors; html2canvas can't parse them.
+      const convCanvas = document.createElement('canvas')
+      convCanvas.width = convCanvas.height = 1
+      const convCtx = convCanvas.getContext('2d', { willReadFrequently: true })
+      const colorToRgb = (color: string): string => {
+        if (!color || !convCtx) return color
+        try {
+          convCtx.clearRect(0, 0, 1, 1)
+          convCtx.fillStyle = color
+          convCtx.fillRect(0, 0, 1, 1)
+          const d = convCtx.getImageData(0, 0, 1, 1).data
+          if (d[3] === 0) return 'transparent'
+          return d[3] < 255
+            ? `rgba(${d[0]},${d[1]},${d[2]},${(d[3] / 255).toFixed(3)})`
+            : `rgb(${d[0]},${d[1]},${d[2]})`
+        } catch {
+          return color
+        }
+      }
+
+      const colorProps = new Set([
         'color',
         'background-color',
-        'border-color',
-        'border-left-color',
-        'border-right-color',
         'border-top-color',
+        'border-right-color',
         'border-bottom-color',
+        'border-left-color',
+        'outline-color',
+        'text-decoration-color',
+      ])
+
+      const layoutProps = [
+        // Display & flow
+        'display',
+        'box-sizing',
+        'position',
+        'top',
+        'right',
+        'bottom',
+        'left',
+        'z-index',
+        'float',
+        'clear',
+        'visibility',
+        'overflow',
+        'overflow-x',
+        'overflow-y',
+        // Sizing
+        'width',
+        'height',
+        'min-width',
+        'max-width',
+        'min-height',
+        'max-height',
+        // Spacing
+        'margin-top',
+        'margin-right',
+        'margin-bottom',
+        'margin-left',
+        'padding-top',
+        'padding-right',
+        'padding-bottom',
+        'padding-left',
+        // Flex / grid
+        'flex-direction',
+        'flex-wrap',
+        'flex-grow',
+        'flex-shrink',
+        'flex-basis',
+        'align-items',
+        'align-self',
+        'justify-content',
+        'justify-self',
+        'gap',
+        'column-gap',
+        'row-gap',
+        'grid-template-columns',
+        'grid-template-rows',
+        'grid-column',
+        'grid-row',
+        // Borders
+        'border-top-width',
+        'border-right-width',
+        'border-bottom-width',
+        'border-left-width',
+        'border-top-style',
+        'border-right-style',
+        'border-bottom-style',
+        'border-left-style',
+        'border-top-left-radius',
+        'border-top-right-radius',
+        'border-bottom-left-radius',
+        'border-bottom-right-radius',
+        // Background
+        'background-image',
+        'background-repeat',
+        'background-position',
+        'background-size',
+        // Typography
+        'font-family',
+        'font-size',
+        'font-weight',
+        'font-style',
+        'line-height',
+        'letter-spacing',
+        'text-align',
+        'text-decoration-line',
+        'text-transform',
+        'white-space',
+        'word-break',
+        'overflow-wrap',
+        'vertical-align',
+        // Tables
+        'table-layout',
+        'border-collapse',
+        'border-spacing',
+        // Misc
+        'opacity',
+        'box-shadow',
       ]
+
+      const allProps = [...colorProps, ...layoutProps]
 
       const origAll = [element, ...Array.from(element.querySelectorAll('*'))]
       const computedMap: Map<number, Record<string, string>> = new Map()
@@ -60,8 +178,10 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
         ;(el as HTMLElement).setAttribute('data-pdf-idx', String(idx))
         const computed = window.getComputedStyle(el)
         const styles: Record<string, string> = {}
-        colorProps.forEach((prop) => {
-          styles[prop] = computed.getPropertyValue(prop)
+        allProps.forEach((prop) => {
+          const raw = computed.getPropertyValue(prop)
+          if (!raw) return
+          styles[prop] = colorProps.has(prop) ? colorToRgb(raw) : raw
         })
         computedMap.set(idx, styles)
       })
