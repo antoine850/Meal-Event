@@ -21,12 +21,33 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
     try {
       const html2pdf = (await import('html2pdf.js')).default
 
-      // Pre-compute all RGB colors from the original DOM (browser resolves oklch→rgb)
+      // Pre-compute all RGB colors from the original DOM.
+      // Chrome 111+ returns oklch()/oklab() from getComputedStyle for Tailwind v4
+      // colors, but html2canvas can't parse them — convert via canvas first.
       const colorProps = [
         'color', 'background-color', 'border-color',
         'border-left-color', 'border-right-color',
         'border-top-color', 'border-bottom-color',
       ]
+
+      const convCanvas = document.createElement('canvas')
+      convCanvas.width = convCanvas.height = 1
+      const convCtx = convCanvas.getContext('2d', { willReadFrequently: true })
+      const colorToRgb = (color: string): string => {
+        if (!color || !convCtx) return color
+        try {
+          convCtx.clearRect(0, 0, 1, 1)
+          convCtx.fillStyle = color
+          convCtx.fillRect(0, 0, 1, 1)
+          const d = convCtx.getImageData(0, 0, 1, 1).data
+          if (d[3] === 0) return 'transparent'
+          return d[3] < 255
+            ? `rgba(${d[0]},${d[1]},${d[2]},${(d[3] / 255).toFixed(3)})`
+            : `rgb(${d[0]},${d[1]},${d[2]})`
+        } catch {
+          return color
+        }
+      }
 
       // Tag every element with a unique index so we can map original→clone
       const origAll = [element, ...Array.from(element.querySelectorAll('*'))]
@@ -37,7 +58,7 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
         const computed = window.getComputedStyle(el)
         const styles: Record<string, string> = {}
         colorProps.forEach(prop => {
-          styles[prop] = computed.getPropertyValue(prop)
+          styles[prop] = colorToRgb(computed.getPropertyValue(prop))
         })
         computedMap.set(idx, styles)
       })

@@ -53,6 +53,27 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
         'border-bottom-color',
       ]
 
+      // Canvas-based conversion: Chrome 111+ returns oklch()/oklab() from
+      // getComputedStyle for Tailwind v4 colors, but html2canvas can't parse them.
+      const convCanvas = document.createElement('canvas')
+      convCanvas.width = convCanvas.height = 1
+      const convCtx = convCanvas.getContext('2d', { willReadFrequently: true })
+      const colorToRgb = (color: string): string => {
+        if (!color || !convCtx) return color
+        try {
+          convCtx.clearRect(0, 0, 1, 1)
+          convCtx.fillStyle = color
+          convCtx.fillRect(0, 0, 1, 1)
+          const d = convCtx.getImageData(0, 0, 1, 1).data
+          if (d[3] === 0) return 'transparent'
+          return d[3] < 255
+            ? `rgba(${d[0]},${d[1]},${d[2]},${(d[3] / 255).toFixed(3)})`
+            : `rgb(${d[0]},${d[1]},${d[2]})`
+        } catch {
+          return color
+        }
+      }
+
       const origAll = [element, ...Array.from(element.querySelectorAll('*'))]
       const computedMap: Map<number, Record<string, string>> = new Map()
 
@@ -61,7 +82,7 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
         const computed = window.getComputedStyle(el)
         const styles: Record<string, string> = {}
         colorProps.forEach((prop) => {
-          styles[prop] = computed.getPropertyValue(prop)
+          styles[prop] = colorToRgb(computed.getPropertyValue(prop))
         })
         computedMap.set(idx, styles)
       })
