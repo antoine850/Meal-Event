@@ -820,7 +820,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         console.log(`[send-balance] Reusing existing Stripe balance invoice for quote ${quoteId}`)
         const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
         const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
-        const totalWithExtrasTtc = Math.ceil(quoteData.total_ttc + extrasTtc)
+        const totalWithExtrasTtc = Math.round((quoteData.total_ttc + extrasTtc) * 100) / 100
         const depositTtc = Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
         const balanceAmount = totalWithExtrasTtc - depositTtc
 
@@ -1180,8 +1180,8 @@ async function recalculateQuoteTotals(quoteId: string) {
 
   const finalHt = Math.round(totalHt * discountMultiplier * 100) / 100
   const finalTva = Math.round(totalTva * discountMultiplier * 100) / 100
-  // Round TTC up to the next euro (ceiling)
-  const finalTtc = Math.ceil(finalHt + finalTva)
+  // TTC rounded to cents — must match the editor preview and frontend totals.
+  const finalTtc = Math.round((finalHt + finalTva) * 100) / 100
 
   await supabase
     .from('quotes')

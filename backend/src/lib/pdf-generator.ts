@@ -745,8 +745,8 @@ function buildDocDefinition(
     // Solde — simplified: Total HT, Total TTC, paid payments, remaining balance
     const extrasHt = extras.reduce((sum, e) => sum + (e.total_ht || 0), 0)
     const extrasTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
-    const totalHt = quote.total_ht + extrasHt
-    const totalTtc = Math.ceil(quote.total_ttc + extrasTtc)
+    const totalHt = Math.round((quote.total_ht + extrasHt) * 100) / 100
+    const totalTtc = Math.round((quote.total_ttc + extrasTtc) * 100) / 100
     const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
     const balanceTtc = totalTtc - totalPaid
 
