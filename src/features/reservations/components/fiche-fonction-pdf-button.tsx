@@ -65,31 +65,19 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
       const processCSS = (css: string): string =>
         css.replace(/ok(?:lch|lab)\([^)]*\)/gi, (m) => colorToRgb(m))
 
-      // 3. Pre-fetch & process all page stylesheets BEFORE html2pdf runs.
-      //    We keep the full CSS (so layout is preserved) but replace the color
-      //    functions that html2canvas can't parse.
+      // 3. Collect CSS via document.styleSheets — captures <style> elements AND
+      //    adopted stylesheets (Tailwind v4 + Vite injects via the latter in dev mode).
       const cssParts: string[] = []
-
-      document.querySelectorAll('style').forEach((s) => {
-        cssParts.push(processCSS(s.textContent || ''))
-      })
-
-      const linkUrls = Array.from(
-        document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')
-      )
-        .map((l) => l.href)
-        .filter(Boolean)
-
-      for (const url of linkUrls) {
+      Array.from(document.styleSheets).forEach((sheet) => {
         try {
-          const res = await fetch(url)
-          const css = await res.text()
-          cssParts.push(processCSS(css))
+          const rules = Array.from(sheet.cssRules || [])
+            .map((r) => r.cssText)
+            .join('\n')
+          if (rules) cssParts.push(processCSS(rules))
         } catch {
-          // skip if unreachable
+          // SecurityError for cross-origin sheets — skip
         }
-      }
-
+      })
       const processedCss = cssParts.join('\n')
 
       // 4. Generate PDF blob
@@ -109,10 +97,13 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
             letterRendering: true,
             backgroundColor: '#ffffff',
             onclone: (clonedDoc: Document) => {
-              // Swap out all original stylesheets for the processed (oklch-free) version
+              // Remove all original stylesheets (style elements + link + adopted)
               clonedDoc
                 .querySelectorAll('style, link[rel="stylesheet"]')
                 .forEach((el) => el.remove())
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ;(clonedDoc as any).adoptedStyleSheets = []
+              // Re-inject the processed (oklch-free) CSS so layout is preserved
               const styleEl = clonedDoc.createElement('style')
               styleEl.textContent = processedCss
               clonedDoc.head.appendChild(styleEl)
