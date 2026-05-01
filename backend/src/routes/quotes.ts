@@ -821,8 +821,10 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
         const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
         const totalWithExtrasTtc = Math.round((quoteData.total_ttc + extrasTtc) * 100) / 100
-        const depositTtc = Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
-        const balanceAmount = totalWithExtrasTtc - depositTtc
+        const depositTtc = (quoteData as any).deposit_amount_override != null
+          ? (quoteData as any).deposit_amount_override as number
+          : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+        const balanceAmount = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
 
         const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
 
@@ -859,9 +861,12 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     // Calculate balance: total_ttc (products only, discount already applied) + extras - deposit
     const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
     const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
-    const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
-    // Use same direct TTC formula as send-deposit for consistency
-    const depositTtc = Math.round(quoteData.total_ttc * (quoteData.deposit_percentage / 100) * 100) / 100
+    const totalWithExtrasTtc = Math.round((quoteData.total_ttc + extrasTtc) * 100) / 100
+    // MUST mirror send-deposit exactly so the balance subtracts the *actual*
+    // amount that was invoiced as deposit (otherwise the customer over/under-pays).
+    const depositTtc = (quoteData as any).deposit_amount_override != null
+      ? (quoteData as any).deposit_amount_override as number
+      : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
     const balanceAmount = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
 
     // Get commercial info

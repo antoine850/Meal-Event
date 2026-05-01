@@ -740,7 +740,10 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       return
     }
 
-    const depositAmount = Math.round(quote.total_ttc * (quote.deposit_percentage / 100) * 100) / 100
+    // Mirror send-deposit logic: respect deposit_amount_override or ceil to next euro.
+    const depositAmount = (quote as any).deposit_amount_override != null
+      ? (quote as any).deposit_amount_override as number
+      : Math.ceil(quote.total_ttc * (quote.deposit_percentage / 100))
 
     // Get commercial info
     let commercialName: string | null = null
