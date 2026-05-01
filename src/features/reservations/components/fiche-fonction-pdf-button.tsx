@@ -181,6 +181,14 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
         allProps.forEach((prop) => {
           const raw = computed.getPropertyValue(prop)
           if (!raw) return
+          // Force a safe font stack — captured Tailwind fonts (Inter, ui-sans-serif…)
+          // render with collapsed spaces in html2canvas.
+          if (prop === 'font-family') {
+            styles[prop] = 'Helvetica, Arial, sans-serif'
+            return
+          }
+          // Drop letter/word spacing — html2canvas can compound them to negative.
+          if (prop === 'letter-spacing' || prop === 'word-spacing') return
           styles[prop] = colorProps.has(prop) ? colorToRgb(raw) : raw
         })
         computedMap.set(idx, styles)
@@ -213,6 +221,23 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
                   Object.entries(styles).forEach(([prop, val]) => {
                     if (val) htmlEl.style.setProperty(prop, val)
                   })
+                }
+                // Constrain the root and tables to the page width so columns
+                // don't overflow (the on-screen table has horizontal scroll).
+                if (idx === 0) {
+                  htmlEl.style.width = '794px'
+                  htmlEl.style.maxWidth = '794px'
+                }
+                if (htmlEl.tagName === 'TABLE') {
+                  htmlEl.style.minWidth = '0'
+                  htmlEl.style.width = '100%'
+                  htmlEl.style.tableLayout = 'fixed'
+                }
+                // Allow long words inside cells to wrap.
+                if (htmlEl.tagName === 'TD' || htmlEl.tagName === 'TH') {
+                  htmlEl.style.wordBreak = 'break-word'
+                  htmlEl.style.overflowWrap = 'break-word'
+                  htmlEl.style.whiteSpace = 'normal'
                 }
               })
             },
