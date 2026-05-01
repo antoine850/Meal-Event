@@ -196,6 +196,20 @@ function getSignedQuoteTtc(b: BookingWithRelations) {
   return signedQuote?.total_ttc || 0
 }
 
+/** Pipeline-friendly: return the most important quote's total_ttc regardless of status.
+ *  Priority: primary > signed/active > highest total_ttc among any quote.
+ *  Used so prospect/proposal bookings still contribute their estimated value
+ *  to the pipeline even before a quote is signed. */
+function getPipelineQuoteTtc(b: BookingWithRelations) {
+  if (!b.quotes?.length) return 0
+  const primary = b.quotes.find(q => q.primary_quote)
+  if (primary) return primary.total_ttc || 0
+  const signed = b.quotes.find(q => q.status === 'quote_signed' || q.status === 'deposit_paid' || q.status === 'balance_paid' || q.status === 'completed')
+  if (signed) return signed.total_ttc || 0
+  // Fallback: take the quote with the highest total_ttc (any status)
+  return b.quotes.reduce((max, q) => Math.max(max, q.total_ttc || 0), 0)
+}
+
 /** Sum of all paid payments (acompte + solde + extras) for confirmed bookings */
 export function calcRevenue(bookings: BookingWithRelations[]) {
   return bookings
@@ -259,7 +273,7 @@ export function calcPipeline(bookings: BookingWithRelations[], statuses: { id: s
         color: s.color,
         slug: s.slug,
         count: statusBookings.length,
-        amount: statusBookings.reduce((sum, b) => sum + getSignedQuoteTtc(b), 0),
+        amount: statusBookings.reduce((sum, b) => sum + getPipelineQuoteTtc(b), 0),
       })
     }
   })
