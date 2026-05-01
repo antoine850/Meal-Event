@@ -186,6 +186,18 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
           }
           // Drop letter/word spacing — html2canvas can compound them to negative.
           if (prop === 'letter-spacing' || prop === 'word-spacing') return
+          // grid-template-columns/rows from getComputedStyle are resolved to
+          // absolute pixel widths captured at the on-screen container size
+          // (e.g. "750px 750px" for grid-cols-2 in a 1500px viewport). When
+          // the PDF root is constrained to 794px, these pixel tracks overflow.
+          // Convert uniform pixel tracks to "1fr 1fr…" so they adapt.
+          if (prop === 'grid-template-columns' || prop === 'grid-template-rows') {
+            const tracks = raw.trim().split(/\s+/).filter(Boolean)
+            if (tracks.length > 0 && tracks.every((t) => t.endsWith('px'))) {
+              styles[prop] = tracks.map(() => '1fr').join(' ')
+              return
+            }
+          }
           styles[prop] = colorProps.has(prop) ? colorToRgb(raw) : raw
         })
         computedMap.set(idx, styles)
@@ -219,11 +231,12 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
                     if (val) htmlEl.style.setProperty(prop, val)
                   })
                 }
-                // Constrain the root and tables to the page width so columns
-                // don't overflow (the on-screen table has horizontal scroll).
+                // Constrain the root and tables to the printable width so
+                // columns don't overflow. A4 (210mm) minus 5mm L/R margins
+                // = 200mm ≈ 755px @ 96 DPI.
                 if (idx === 0) {
-                  htmlEl.style.width = '794px'
-                  htmlEl.style.maxWidth = '794px'
+                  htmlEl.style.width = '755px'
+                  htmlEl.style.maxWidth = '755px'
                 }
                 if (htmlEl.tagName === 'TABLE') {
                   htmlEl.style.minWidth = '0'
