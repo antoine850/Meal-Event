@@ -961,6 +961,7 @@ function buildDocDefinition(
     defaultStyle: {
       font: 'Helvetica',
       fontSize: 9,
+      lineHeight: 1.35,
     },
     styles: {
       headerTitle: { fontSize: 14, bold: true },
