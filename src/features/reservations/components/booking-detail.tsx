@@ -456,7 +456,7 @@ export const BookingDetail = forwardRef<
     <>
     <Form {...form}>
       <form id='booking-form' onSubmit={form.handleSubmit(onSubmit)}>
-        <div className='grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6'>
+        <div className='grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-6'>
 
           {/* ═══════ LEFT SIDEBAR ═══════ */}
           <div className='space-y-4'>
