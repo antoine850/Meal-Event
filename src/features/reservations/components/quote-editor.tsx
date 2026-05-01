@@ -658,8 +658,8 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   }, 0) * 100) / 100
   const discountMultiplier = discountPercentage > 0 ? (1 - discountPercentage / 100) : 1
   const totalHt = Math.round(rawTotalHt * discountMultiplier * 100) / 100
-  // Round TTC up to the next euro (ceiling)
-  const totalTtc = Math.ceil(rawTotalTtc * discountMultiplier)
+  // TTC rounded to cents so the displayed total matches the sum of item TTCs.
+  const totalTtc = Math.round(rawTotalTtc * discountMultiplier * 100) / 100
   const depositAmount = depositMode === 'amount'
     ? (parseFloat(depositAmountOverride) || 0)
     : Math.ceil(totalTtc * (depositPercentage / 100))

@@ -1429,7 +1429,7 @@ export const BookingDetail = forwardRef<
                     const extrasTtc = isDepositPaidStatus
                       ? ((primaryQuote as any)?.quote_items || []).filter((i: any) => i.item_type === 'extra').reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
                       : 0
-                    const totalDevisTtc = Math.ceil((primaryQuote?.total_ttc || 0) + extrasTtc)
+                    const totalDevisTtc = Math.round(((primaryQuote?.total_ttc || 0) + extrasTtc) * 100) / 100
                     const discountPct = (primaryQuote as any)?.discount_percentage || 0
                     // Only count payments with status 'paid' (from Stripe webhook) or 'completed' (manual)
                     const paiementsRecus = payments

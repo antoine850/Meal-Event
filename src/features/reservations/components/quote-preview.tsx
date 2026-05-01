@@ -768,8 +768,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
         {(() => {
           const extrasHt = (data.extras || []).reduce((sum, e) => sum + computeItemHt(e), 0)
           const extrasTtc = (data.extras || []).reduce((sum, e) => sum + computeItemTtc(e), 0)
-          const grandTotalHt = data.totalHt + extrasHt
-          const grandTotalTtc = Math.ceil(data.totalTtc + extrasTtc)
+          const grandTotalHt = Math.round((data.totalHt + extrasHt) * 100) / 100
+          const grandTotalTtc = Math.round((data.totalTtc + extrasTtc) * 100) / 100
           const paidPayments = (data.payments || []).filter(p => p.status === 'paid' || p.status === 'completed')
           const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
           const remainingTtc = grandTotalTtc - totalPaid
@@ -836,8 +836,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
       .reduce((sum, p) => sum + (p.amount || 0), 0)
     
     // Grand totals
-    const grandTotalHt = data.totalHt + extrasTotalHt
-    const grandTotalTtc = Math.ceil(data.totalTtc + extrasTotalTtc)
+    const grandTotalHt = Math.round((data.totalHt + extrasTotalHt) * 100) / 100
+    const grandTotalTtc = Math.round((data.totalTtc + extrasTotalTtc) * 100) / 100
     const remainingBalance = grandTotalTtc - paymentsReceived
 
     return (
