@@ -210,8 +210,8 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           </CardContent>
         </Card>
 
-        {/* Row 3: Compte / Contact / Coordonnées */}
-        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
+        {/* Row 3: Compte + Contact (2 cols) */}
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
           <Card className='print:shadow-none print:border-0 print:bg-white'>
             <CardContent className='pt-4 pb-4 space-y-1'>
               <div className='text-xs text-muted-foreground uppercase tracking-wider'>
@@ -230,20 +230,22 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
               <div className='text-sm font-medium'>{contactName || DASH}</div>
             </CardContent>
           </Card>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
-                Coordonnées
-              </div>
-              <div className='text-sm font-medium space-y-0.5'>
-                <div>{booking.contact?.phone || DASH}</div>
-                <div className='text-muted-foreground'>
-                  {booking.contact?.email || DASH}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
+
+        {/* Row 4: Coordonnées (full width) */}
+        <Card className='print:shadow-none print:border-0 print:bg-white'>
+          <CardContent className='pt-4 pb-4 space-y-1'>
+            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+              Coordonnées
+            </div>
+            <div className='text-sm font-medium grid grid-cols-1 sm:grid-cols-2 gap-1'>
+              <div>{booking.contact?.phone || DASH}</div>
+              <div className='text-muted-foreground break-all'>
+                {booking.contact?.email || DASH}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Prestations / Total / Acomptes / Reste */}
         {!activeQuote ? (

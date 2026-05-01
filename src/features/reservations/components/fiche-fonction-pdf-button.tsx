@@ -95,12 +95,9 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
         'overflow',
         'overflow-x',
         'overflow-y',
-        // Sizing
-        'width',
+        // Sizing — width/min-width intentionally NOT captured so the cloned
+        // content fits the page rather than its on-screen pixel width.
         'height',
-        'min-width',
-        'max-width',
-        'min-height',
         'max-height',
         // Spacing
         'margin-top',
