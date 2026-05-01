@@ -529,6 +529,18 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           </CardContent>
         </Card>
 
+        {/* Déroulé de l'événement */}
+        <Card className='print:shadow-none print:border-0 print:bg-white'>
+          <CardContent className='pt-4 pb-4 space-y-1'>
+            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+              Déroulé
+            </div>
+            <p className='text-sm font-medium whitespace-pre-wrap'>
+              {booking.deroulement || DASH}
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Menu */}
         <Card className='print:shadow-none print:border-0 print:bg-white'>
           <CardHeader className='pb-2'>

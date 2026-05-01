@@ -402,6 +402,14 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             </div>
           )}
 
+          {/* Déroulé */}
+          {data.booking?.deroulement && (
+            <div className='border rounded px-3 py-2'>
+              <h3 className='text-[10px] font-bold uppercase text-gray-400 mb-1'>{data.language === 'en' ? 'Schedule' : 'Déroulé'}</h3>
+              <p className='text-[10px] text-gray-700 whitespace-pre-line'>{data.booking.deroulement}</p>
+            </div>
+          )}
+
           {/* Comments */}
           {comments && (
             <div className='bg-amber-50 border border-amber-200 rounded px-3 py-2'>

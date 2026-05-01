@@ -68,6 +68,7 @@ interface QuoteData {
     end_time: string | null
     occasion: string | null
     guests_count: number | null
+    deroulement: string | null
     contact: {
       id: string
       first_name: string
@@ -127,6 +128,7 @@ const labels = {
     billingAddress: 'Adresse facturation',
     serviceDate: 'Date de prestation',
     orderNumber: 'N° commande',
+    schedule: 'Déroulé',
     comments: 'Commentaires',
     designation: 'Désignation',
     quantity: 'Qté',
@@ -172,6 +174,7 @@ const labels = {
     billingAddress: 'Billing address',
     serviceDate: 'Service date',
     orderNumber: 'Order #',
+    schedule: 'Schedule',
     comments: 'Comments',
     designation: 'Description',
     quantity: 'Qty',
@@ -288,7 +291,7 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
       *,
       quote_items(*),
       booking:bookings(
-        id, event_date, start_time, end_time, occasion, guests_count,
+        id, event_date, start_time, end_time, occasion, guests_count, deroulement,
         contact:contacts(
           id, first_name, last_name, email, phone,
           company:companies(name, billing_address, billing_city, billing_postal_code, siret, tva_number)
@@ -461,6 +464,35 @@ function buildDocDefinition(
         ],
       },
       layout: 'noBorders',
+      margin: [0, 0, 0, 10] as [number, number, number, number],
+    })
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // SCHEDULE / DÉROULÉ BLOCK
+  // ══════════════════════════════════════════════════════════════════
+  if (quote.booking?.deroulement) {
+    content.push({
+      table: {
+        widths: ['*'],
+        body: [
+          [
+            {
+              stack: [
+                { text: l.schedule, style: 'tiny' as const, bold: true, color: '#9ca3af' },
+                { text: quote.booking.deroulement, style: 'small' as const, color: '#666' },
+              ],
+              margin: [8, 6, 8, 6] as [number, number, number, number],
+            },
+          ],
+        ],
+      },
+      layout: {
+        hLineWidth: () => 1,
+        vLineWidth: () => 1,
+        hLineColor: () => '#e5e7eb',
+        vLineColor: () => '#e5e7eb',
+      },
       margin: [0, 0, 0, 10] as [number, number, number, number],
     })
   }
