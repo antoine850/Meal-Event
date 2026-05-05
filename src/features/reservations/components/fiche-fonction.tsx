@@ -25,6 +25,7 @@ import {
   getPaidDeposits,
   getRemainingBalance,
 } from '../lib/booking-totals'
+import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { FicheFonctionPdfButton } from './fiche-fonction-pdf-button'
 
 type QuoteWithItems = Quote & { quote_items?: QuoteItem[] }
@@ -82,8 +83,29 @@ function paymentStatusLabel(status: string | null | undefined): {
   return { label: 'En attente', variant: 'secondary' }
 }
 
+function formatBool(v: boolean | null | undefined): string {
+  if (v === true) return 'Oui'
+  if (v === false) return 'Non'
+  return DASH
+}
+
+function formatDate(v: string | null | undefined): string {
+  if (!v) return DASH
+  try {
+    return format(new Date(v), 'd MMM yyyy', { locale: fr })
+  } catch {
+    return v
+  }
+}
+
+function formatNumber(v: number | null | undefined, suffix = ''): string {
+  if (v == null || !Number.isFinite(v)) return DASH
+  return `${new Intl.NumberFormat('fr-FR').format(v)}${suffix}`
+}
+
 export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
+  const { data: orgUsers = [] } = useOrganizationUsers()
 
   const activeQuote = useMemo(
     () => getActiveQuote(quotes) as QuoteWithItems | null,
@@ -160,6 +182,17 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         .filter(Boolean)
         .join(' ')
     : ''
+
+  // Resolve assigned commercial names from IDs
+  const assignedNames = useMemo(() => {
+    const ids = booking.assigned_user_ids || []
+    if (ids.length === 0) return DASH
+    const names = orgUsers
+      .filter((u) => ids.includes(u.id))
+      .map((u) => `${u.first_name} ${u.last_name}`.trim())
+      .filter(Boolean)
+    return names.length > 0 ? names.join(', ') : DASH
+  }, [booking.assigned_user_ids, orgUsers])
 
   return (
     <div className='space-y-4'>
@@ -522,6 +555,55 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           </Card>
         </div>
 
+        {/* Type & format de l'événement */}
+        <Card className='print:shadow-none print:border-0 print:bg-white'>
+          <CardHeader className='pb-2'>
+            <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+              Type & format
+            </CardTitle>
+          </CardHeader>
+          <CardContent className='pb-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm'>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Type d&apos;événement</div>
+                <div className='font-medium'>{booking.event_type || DASH}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Type de réservation</div>
+                <div className='font-medium'>{booking.reservation_type || DASH}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Privatif</div>
+                <div className='font-medium'>{formatBool(booking.is_privatif)}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Format souhaité</div>
+                <div className='font-medium'>{booking.format_souhaite || DASH}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Heure préférée client</div>
+                <div className='font-medium'>{booking.client_preferred_time || DASH}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Date flexible</div>
+                <div className='font-medium'>{formatBool(booking.is_date_flexible)}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Restaurant flexible</div>
+                <div className='font-medium'>{formatBool(booking.is_restaurant_flexible)}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Table bloquée</div>
+                <div className='font-medium'>{formatBool(booking.is_table_blocked)}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Prestataire externe</div>
+                <div className='font-medium'>{formatBool(booking.has_extra_provider)}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Mise en place */}
         <Card className='print:shadow-none print:border-0 print:bg-white'>
           <CardContent className='pt-4 pb-4 space-y-1'>
@@ -606,6 +688,47 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
             <p className='text-sm font-medium whitespace-pre-wrap'>
               {commentairesText || DASH}
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Suivi commercial */}
+        <Card className='print:shadow-none print:border-0 print:bg-white'>
+          <CardHeader className='pb-2'>
+            <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+              Suivi commercial
+            </CardTitle>
+          </CardHeader>
+          <CardContent className='pb-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm'>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Commerciaux assignés</div>
+                <div className='font-medium'>{assignedNames}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Source</div>
+                <div className='font-medium'>{booking.source || DASH}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Occasion</div>
+                <div className='font-medium'>{booking.occasion || DASH}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Option</div>
+                <div className='font-medium'>{booking.option || DASH}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Relance</div>
+                <div className='font-medium'>{booking.relance || DASH}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Date signature devis</div>
+                <div className='font-medium'>{formatDate(booking.date_signature_devis)}</div>
+              </div>
+              <div className='space-y-0.5'>
+                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Budget client</div>
+                <div className='font-medium'>{formatNumber(booking.budget_client, ' €')}</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
