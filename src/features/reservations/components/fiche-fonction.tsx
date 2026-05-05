@@ -142,13 +142,18 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
     contactSurPlaceLines.push(`Société : ${booking.contact_sur_place_societe}`)
   }
 
-  const commentairesText = [
-    booking.commentaires || '',
-    contactSurPlaceLines.join('\n'),
-  ]
-    .filter(Boolean)
-    .join('\n\n')
-    .trim()
+  // Combine all free-text comment fields so the export carries everything the
+  // booking form captures (commentaires, instructions spéciales, contact sur place).
+  const commentairesBlocks: string[] = []
+  if (booking.commentaires) commentairesBlocks.push(booking.commentaires)
+  if (booking.instructions_speciales) {
+    commentairesBlocks.push(`Instructions spéciales :\n${booking.instructions_speciales}`)
+  }
+  if (contactSurPlaceLines.length > 0) {
+    commentairesBlocks.push(contactSurPlaceLines.join('\n'))
+  }
+
+  const commentairesText = commentairesBlocks.join('\n\n').trim()
 
   const contactName = booking.contact
     ? [booking.contact.first_name, booking.contact.last_name]
@@ -568,17 +573,29 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           </CardContent>
         </Card>
 
-        {/* Allergies et régimes */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardContent className='pt-4 pb-4 space-y-1'>
-            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
-              Allergies et Régimes
-            </div>
-            <p className='text-sm font-medium whitespace-pre-wrap'>
-              {booking.allergies_regimes || DASH}
-            </p>
-          </CardContent>
-        </Card>
+        {/* Allergies et régimes + Prestations souhaitées */}
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+          <Card className='print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='pt-4 pb-4 space-y-1'>
+              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+                Allergies et Régimes
+              </div>
+              <p className='text-sm font-medium whitespace-pre-wrap'>
+                {booking.allergies_regimes || DASH}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className='print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='pt-4 pb-4 space-y-1'>
+              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+                Prestations souhaitées
+              </div>
+              <p className='text-sm font-medium whitespace-pre-wrap'>
+                {booking.prestations_souhaitees || DASH}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Commentaires */}
         <Card className='print:shadow-none print:border-0 print:bg-white'>

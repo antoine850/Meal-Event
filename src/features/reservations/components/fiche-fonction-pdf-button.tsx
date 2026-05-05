@@ -92,13 +92,9 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
         'float',
         'clear',
         'visibility',
-        'overflow',
-        'overflow-x',
-        'overflow-y',
-        // Sizing — width/min-width intentionally NOT captured so the cloned
-        // content fits the page rather than its on-screen pixel width.
-        'height',
-        'max-height',
+        // overflow + height/max-height intentionally NOT captured: shadcn Card
+        // has overflow:hidden and on-screen heights are fixed pixel values that
+        // would clip table rows / textarea content when the PDF re-flows.
         // Spacing
         'margin-top',
         'margin-right',
@@ -231,6 +227,13 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
                     if (val) htmlEl.style.setProperty(prop, val)
                   })
                 }
+                // Force every element to grow naturally — kills the on-screen
+                // height/overflow that was clipping table rows and comments.
+                htmlEl.style.overflow = 'visible'
+                htmlEl.style.height = 'auto'
+                htmlEl.style.maxHeight = 'none'
+                htmlEl.style.minHeight = '0'
+
                 // Constrain the root and tables to the printable width so
                 // columns don't overflow. A4 (210mm) minus 5mm L/R margins
                 // = 200mm ≈ 755px @ 96 DPI.
@@ -249,6 +252,12 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
                   htmlEl.style.overflowWrap = 'break-word'
                   htmlEl.style.whiteSpace = 'normal'
                 }
+                // Allow cards to break across pages if their content doesn't
+                // fit on one page — but keep table rows + grid pairs together.
+                if (htmlEl.tagName === 'TR') {
+                  htmlEl.style.pageBreakInside = 'avoid'
+                  htmlEl.style.breakInside = 'avoid'
+                }
               })
             },
           },
@@ -257,7 +266,10 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
             format: 'a4',
             orientation: 'portrait',
           },
-          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+          // 'css' + 'legacy' only: 'avoid-all' was forcing every card to stay
+          // intact, which caused content to be silently truncated when a card
+          // (Reste, Commentaires) didn't fit on the remaining page.
+          pagebreak: { mode: ['css', 'legacy'] },
         })
         .from(element)
 
