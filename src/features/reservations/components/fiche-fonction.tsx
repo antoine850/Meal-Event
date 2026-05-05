@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { Fragment, useMemo, useRef } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
@@ -22,7 +22,6 @@ import {
   computeVatBreakdown,
   formatBookingId,
   getActiveQuote,
-  getPaidDeposits,
   getRemainingBalance,
 } from '../lib/booking-totals'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
@@ -68,21 +67,6 @@ function formatHorairesGlobal(
   }
 }
 
-function capitalize(s: string | null | undefined): string {
-  if (!s) return DASH
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-
-function paymentStatusLabel(status: string | null | undefined): {
-  label: string
-  variant: 'default' | 'secondary' | 'outline'
-} {
-  if (status === 'paid' || status === 'completed') {
-    return { label: 'Payé', variant: 'default' }
-  }
-  return { label: 'En attente', variant: 'secondary' }
-}
-
 function formatBool(v: boolean | null | undefined): string {
   if (v === true) return 'Oui'
   if (v === false) return 'Non'
@@ -103,6 +87,73 @@ function formatNumber(v: number | null | undefined, suffix = ''): string {
   return `${new Intl.NumberFormat('fr-FR').format(v)}${suffix}`
 }
 
+function ItemsTable({ title, items }: { title: string; items: QuoteItem[] }) {
+  return (
+    <Card className='print:shadow-none print:border-0 print:bg-white'>
+      <CardHeader className='pb-2'>
+        <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className='pb-4'>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Titre</TableHead>
+              <TableHead className='text-right'>Qté</TableHead>
+              <TableHead className='text-right'>TVA</TableHead>
+              <TableHead className='text-right'>Prix U HT</TableHead>
+              <TableHead className='text-right'>Prix U TTC</TableHead>
+              <TableHead className='text-right'>Total HT</TableHead>
+              <TableHead className='text-right'>Total TTC</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className='text-center text-muted-foreground text-sm'
+                >
+                  Aucune ligne
+                </TableCell>
+              </TableRow>
+            ) : (
+              items.map((item) => {
+                const tvaRate = item.tva_rate || 0
+                const unitTtc = (item.unit_price || 0) * (1 + tvaRate / 100)
+                return (
+                  <Fragment key={item.id}>
+                    <TableRow>
+                      <TableCell className='font-medium'>{item.name}</TableCell>
+                      <TableCell className='text-right'>{item.quantity ?? DASH}</TableCell>
+                      <TableCell className='text-right'>{tvaRate.toFixed(2)}%</TableCell>
+                      <TableCell className='text-right'>{formatCurrency(item.unit_price)}</TableCell>
+                      <TableCell className='text-right'>{formatCurrency(unitTtc)}</TableCell>
+                      <TableCell className='text-right'>{formatCurrency(item.total_ht)}</TableCell>
+                      <TableCell className='text-right'>{formatCurrency(item.total_ttc)}</TableCell>
+                    </TableRow>
+                    {item.description && (
+                      <TableRow className='border-t-0'>
+                        <TableCell
+                          colSpan={7}
+                          className='pt-0 text-xs text-muted-foreground whitespace-pre-wrap'
+                        >
+                          {item.description}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
   const { data: orgUsers = [] } = useOrganizationUsers()
@@ -117,7 +168,25 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
   )
   const totals = useMemo(() => computeVatBreakdown(items), [items])
 
-  const paidDeposits = useMemo(() => getPaidDeposits(payments), [payments])
+  // Old CRM split: Food = TVA 10% (restauration sur place), Prestations = autres
+  // (boissons, services). Match the legacy 2-table layout.
+  const foodItems = useMemo(
+    () => items.filter((i) => i.tva_rate === 10),
+    [items]
+  )
+  const prestationItems = useMemo(
+    () => items.filter((i) => i.tva_rate !== 10),
+    [items]
+  )
+
+  // Show all deposits (paid + pending) — old CRM displayed pending acomptes too.
+  const allDeposits = useMemo(
+    () =>
+      payments.filter(
+        (p) => p.payment_modality === 'acompte' || p.payment_type === 'deposit'
+      ),
+    [payments]
+  )
 
   // Quote number lookup by quote_id for acomptes
   const quoteNumberById = useMemo(() => {
@@ -194,6 +263,8 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
     return names.length > 0 ? names.join(', ') : DASH
   }, [booking.assigned_user_ids, orgUsers])
 
+  const printedAt = format(new Date(), "EEEE d MMM yyyy 'à' HH:mm", { locale: fr })
+
   return (
     <div className='space-y-4'>
       {/* Header with print button (not inside the PDF area) */}
@@ -206,8 +277,15 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
       <div
         ref={printRef}
         id='fiche-fonction-content'
-        className='space-y-4 bg-muted/30 p-4 sm:p-6 rounded-lg print:bg-white print:p-0'
+        className='space-y-3 bg-muted/30 p-4 sm:p-6 rounded-lg print:bg-white print:p-0'
       >
+        {/* Print header (only visible inside the PDF area) */}
+        <div className='flex items-baseline justify-between border-b pb-2'>
+          <h3 className='text-base font-semibold'>Récapitulatif d&apos;évènements</h3>
+          <span className='text-xs text-muted-foreground'>
+            Imprimé le : {printedAt}
+          </span>
+        </div>
         {/* Row 1: Nom de l'établissement + Identifiant */}
         <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
           <Card className='print:shadow-none print:border-0 print:bg-white'>
@@ -248,8 +326,8 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           </CardContent>
         </Card>
 
-        {/* Row 3: Compte + Contact (2 cols) */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+        {/* Compte + Contact + Coordonnées (3 cols, matches legacy CRM) */}
+        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
           <Card className='print:shadow-none print:border-0 print:bg-white'>
             <CardContent className='pt-4 pb-4 space-y-1'>
               <div className='text-xs text-muted-foreground uppercase tracking-wider'>
@@ -268,24 +346,22 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
               <div className='text-sm font-medium'>{contactName || DASH}</div>
             </CardContent>
           </Card>
+          <Card className='print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='pt-4 pb-4 space-y-1'>
+              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+                Coordonnées
+              </div>
+              <div className='text-sm font-medium space-y-0.5'>
+                <div>{booking.contact?.phone || DASH}</div>
+                <div className='text-muted-foreground break-all text-xs'>
+                  {booking.contact?.email || DASH}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Row 4: Coordonnées (full width) */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardContent className='pt-4 pb-4 space-y-1'>
-            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
-              Coordonnées
-            </div>
-            <div className='text-sm font-medium grid grid-cols-1 sm:grid-cols-2 gap-1'>
-              <div>{booking.contact?.phone || DASH}</div>
-              <div className='text-muted-foreground break-all'>
-                {booking.contact?.email || DASH}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Prestations / Total / Acomptes / Reste */}
+        {/* Prestations + Food + Total + Acomptes + Reste */}
         {!activeQuote ? (
           <Card className='print:shadow-none print:border-0 print:bg-white'>
             <CardContent className='pt-6 pb-6 text-center text-sm text-muted-foreground'>
@@ -294,72 +370,20 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           </Card>
         ) : (
           <>
-            {/* Prestations */}
-            <Card className='print:shadow-none print:border-0 print:bg-white'>
-              <CardHeader className='pb-2'>
-                <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
-                  Prestations
-                </CardTitle>
-              </CardHeader>
-              <CardContent className='pb-4'>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Titre</TableHead>
-                      <TableHead className='text-right'>Qté</TableHead>
-                      <TableHead className='text-right'>Prix U HT</TableHead>
-                      <TableHead className='text-right'>TVA</TableHead>
-                      <TableHead className='text-right'>Prix U TTC</TableHead>
-                      <TableHead className='text-right'>Total HT</TableHead>
-                      <TableHead className='text-right'>Total TTC</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={7}
-                          className='text-center text-muted-foreground text-sm'
-                        >
-                          Aucune prestation
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      items.map((item) => {
-                        const tvaRate = item.tva_rate || 0
-                        const unitTtc =
-                          (item.unit_price || 0) * (1 + tvaRate / 100)
-                        return (
-                          <TableRow key={item.id}>
-                            <TableCell className='font-medium'>
-                              {item.name}
-                            </TableCell>
-                            <TableCell className='text-right'>
-                              {item.quantity ?? DASH}
-                            </TableCell>
-                            <TableCell className='text-right'>
-                              {formatCurrency(item.unit_price)}
-                            </TableCell>
-                            <TableCell className='text-right'>
-                              {tvaRate}%
-                            </TableCell>
-                            <TableCell className='text-right'>
-                              {formatCurrency(unitTtc)}
-                            </TableCell>
-                            <TableCell className='text-right'>
-                              {formatCurrency(item.total_ht)}
-                            </TableCell>
-                            <TableCell className='text-right'>
-                              {formatCurrency(item.total_ttc)}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            {/* Prestations (TVA != 10%) — boissons / services */}
+            {prestationItems.length > 0 && (
+              <ItemsTable title='Prestations' items={prestationItems} />
+            )}
+
+            {/* Food (TVA = 10%) — restauration */}
+            {foodItems.length > 0 && (
+              <ItemsTable title='Food' items={foodItems} />
+            )}
+
+            {/* Fallback when no items split worked */}
+            {prestationItems.length === 0 && foodItems.length === 0 && (
+              <ItemsTable title='Prestations' items={[]} />
+            )}
 
             {/* Total */}
             <Card className='print:shadow-none print:border-0 print:bg-white'>
@@ -398,7 +422,7 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
               </CardContent>
             </Card>
 
-            {/* Acomptes */}
+            {/* Acomptes — pending + paid (matches legacy CRM) */}
             <Card className='print:shadow-none print:border-0 print:bg-white'>
               <CardHeader className='pb-2'>
                 <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
@@ -409,7 +433,6 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Titre</TableHead>
                       <TableHead>Statut</TableHead>
                       <TableHead>Facture</TableHead>
                       <TableHead className='text-right'>Total HT</TableHead>
@@ -419,41 +442,38 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paidDeposits.length === 0 ? (
+                    {allDeposits.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={6}
                           className='text-center text-muted-foreground text-sm'
                         >
-                          Aucun acompte encaissé
+                          Aucun acompte
                         </TableCell>
                       </TableRow>
                     ) : (
-                      paidDeposits.map((p) => {
-                        const statusInfo = paymentStatusLabel(p.status)
+                      allDeposits.map((p) => {
+                        const isPaid = p.status === 'paid' || p.status === 'completed'
+                        const totalRatio = (activeQuote.total_ttc || 0) > 0
+                          ? (p.amount || 0) / (activeQuote.total_ttc || 1)
+                          : 0
+                        const ht = totals.totalHt * totalRatio
+                        const v10 = totals.vat10 * totalRatio
+                        const v20 = totals.vat20 * totalRatio
                         const quoteNum = p.quote_id
                           ? quoteNumberById.get(p.quote_id) || DASH
                           : DASH
                         return (
                           <TableRow key={p.id}>
-                            <TableCell className='font-medium'>
-                              {capitalize(p.payment_modality) || 'Acompte'}
-                            </TableCell>
                             <TableCell>
-                              <Badge variant={statusInfo.variant}>
-                                {statusInfo.label}
+                              <Badge variant={isPaid ? 'default' : 'secondary'}>
+                                {isPaid ? 'Payé' : 'En attente'}
                               </Badge>
                             </TableCell>
-                            <TableCell>{quoteNum}</TableCell>
-                            <TableCell className='text-right text-muted-foreground'>
-                              {DASH}
-                            </TableCell>
-                            <TableCell className='text-right text-muted-foreground'>
-                              {DASH}
-                            </TableCell>
-                            <TableCell className='text-right text-muted-foreground'>
-                              {DASH}
-                            </TableCell>
+                            <TableCell className='font-mono text-xs'>{quoteNum}</TableCell>
+                            <TableCell className='text-right'>{formatCurrency(ht)}</TableCell>
+                            <TableCell className='text-right'>{formatCurrency(v10)}</TableCell>
+                            <TableCell className='text-right'>{formatCurrency(v20)}</TableCell>
                             <TableCell className='text-right font-medium'>
                               {formatCurrency(p.amount)}
                             </TableCell>
@@ -466,7 +486,7 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
               </CardContent>
             </Card>
 
-            {/* Reste */}
+            {/* Reste — 4 colonnes (matches legacy CRM, no Facture/Statut) */}
             <Card className='print:shadow-none print:border-0 print:bg-white'>
               <CardHeader className='pb-2'>
                 <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
@@ -477,8 +497,6 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Facture</TableHead>
-                      <TableHead>Statut</TableHead>
                       <TableHead className='text-right'>Total HT</TableHead>
                       <TableHead className='text-right'>TVA 10%</TableHead>
                       <TableHead className='text-right'>TVA 20%</TableHead>
@@ -487,18 +505,6 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
                   </TableHeader>
                   <TableBody>
                     <TableRow>
-                      <TableCell className='font-medium'>
-                        {activeQuote.quote_number || DASH}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            remainingTtc > 0 ? 'secondary' : 'default'
-                          }
-                        >
-                          {remainingTtc > 0 ? 'En attente' : 'Payé'}
-                        </Badge>
-                      </TableCell>
                       <TableCell className='text-right'>
                         {formatCurrency(remainingVatBreakdown.ht)}
                       </TableCell>
@@ -628,30 +634,41 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           </CardContent>
         </Card>
 
-        {/* Menu */}
+        {/* Menu — 2 cols: food list / boissons (matches legacy CRM) */}
         <Card className='print:shadow-none print:border-0 print:bg-white'>
           <CardHeader className='pb-2'>
             <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
               Menu
             </CardTitle>
           </CardHeader>
-          <CardContent className='pb-4 space-y-4'>
-            {[
-              { label: 'Apéritif', value: booking.menu_aperitif },
-              { label: 'Entrée', value: booking.menu_entree },
-              { label: 'Plat', value: booking.menu_plat },
-              { label: 'Dessert', value: booking.menu_dessert },
-              { label: 'Boissons', value: booking.menu_boissons },
-            ].map((m) => (
-              <div key={m.label} className='space-y-1'>
+          <CardContent className='pb-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+              <div className='space-y-3'>
+                {[
+                  { label: 'Apéritif', value: booking.menu_aperitif },
+                  { label: 'Entrée', value: booking.menu_entree },
+                  { label: 'Plat', value: booking.menu_plat },
+                  { label: 'Dessert', value: booking.menu_dessert },
+                ].map((m) => (
+                  <div key={m.label} className='space-y-0.5'>
+                    <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+                      {m.label}
+                    </div>
+                    <p className='text-sm font-medium whitespace-pre-wrap'>
+                      {m.value || DASH}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className='space-y-0.5 sm:border-l sm:pl-4'>
                 <div className='text-xs text-muted-foreground uppercase tracking-wider'>
-                  {m.label}
+                  Boissons
                 </div>
                 <p className='text-sm font-medium whitespace-pre-wrap'>
-                  {m.value || DASH}
+                  {booking.menu_boissons || DASH}
                 </p>
               </div>
-            ))}
+            </div>
           </CardContent>
         </Card>
 
