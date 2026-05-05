@@ -1,5 +1,6 @@
 import { type Request, type Response, type NextFunction } from 'express'
 import { createClient } from '@supabase/supabase-js'
+import { supabase } from './supabase.js'
 
 const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -36,4 +37,29 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   } catch {
     return res.status(401).json({ error: 'Authentication failed' })
   }
+}
+
+/**
+ * Middleware (après requireAuth) — vérifie que l'utilisateur est admin org-wide.
+ * Attache req.organizationId pour les handlers en aval.
+ */
+export async function requireOrgAdmin(req: Request, res: Response, next: NextFunction) {
+  const userId = (req as any).user?.id
+  if (!userId) return res.status(401).json({ error: 'Unauthenticated' })
+
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('organization_id, roles(slug)')
+    .eq('id', userId)
+    .single()
+
+  if (error || !user) return res.status(403).json({ error: 'Forbidden' })
+
+  const roleSlug = (user.roles as any)?.slug as string | undefined
+  if (!roleSlug || !['admin', 'superadmin'].includes(roleSlug)) {
+    return res.status(403).json({ error: 'Admin access required' })
+  }
+
+  ;(req as any).organizationId = user.organization_id
+  next()
 }
