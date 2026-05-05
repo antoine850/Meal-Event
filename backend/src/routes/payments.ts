@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { notifyCommercialPayment } from '../lib/commercial-notifications.js'
 import { sendEmail } from '../lib/resend.js'
 import { buildPaymentLinkEmailHtml, buildPaymentLinkEmailSubject } from '../lib/email-templates.js'
+import { getRestaurantStripeContext, resolveStripeMode, stripeRequestOptions } from '../lib/stripe-connect.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -126,6 +127,25 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
     const restaurantBranding = bookingAny.restaurant || { name: 'Restaurant' }
     const contactFromDb = bookingAny.contact as { first_name: string; last_name: string | null; email: string | null } | null
 
+    // Resolve Stripe mode for this restaurant
+    const stripeCtx = bookingAny.restaurant_id
+      ? await getRestaurantStripeContext(bookingAny.restaurant_id)
+      : null
+    const stripeMode = stripeCtx ? resolveStripeMode(stripeCtx) : { mode: 'bank_transfer' as const }
+
+    if (stripeMode.mode === 'bank_transfer') {
+      return res.status(412).json({ error: 'BANK_TRANSFER_ONLY', message: 'Ce restaurant utilise le virement bancaire.' })
+    }
+    if (stripeMode.mode === 'error') {
+      return res.status(412).json({ error: stripeMode.code })
+    }
+    if (stripeMode.mode === 'legacy_platform') {
+      console.warn(`[Legacy] Restaurant ${bookingAny.restaurant_id} using platform key for payment link`)
+    }
+
+    const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
+    const stripeOpts = stripeRequestOptions(connectAcctId)
+
     // Resolve quote number (if quote_id provided)
     let quoteNumber: string | null = null
     let quoteOrderNumber: string | null = null
@@ -163,10 +183,11 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
         quote_id: quote_id || '',
         link_type: link_type || 'full',
         payment_modality: modality,
+        restaurant_id: bookingAny.restaurant_id || '',
       },
       success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?type=${link_type || 'full'}&booking=${booking_id}`,
       cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?status=cancelled`,
-    })
+    }, stripeOpts)
 
     const paymentLink = { url: session.url || '', id: session.id }
 
@@ -181,6 +202,7 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
         percentage: percentage ?? null,
         url: paymentLink.url,
         stripe_link_id: paymentLink.id,
+        stripe_account_id: connectAcctId,
       })
       .select()
       .single()
@@ -199,6 +221,7 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
         payment_modality: modality,
         payment_method: 'stripe',
         stripe_payment_id: session.id,
+        stripe_account_id: connectAcctId,
         status: 'pending',
         notes: notes || null,
       })
