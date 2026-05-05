@@ -222,7 +222,16 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
       onOpenChange(false)
     } catch (err) {
       console.error('[PaymentDialog] create-link error:', err)
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de la création du lien')
+      const msg = err instanceof Error ? err.message : 'Erreur lors de la création du lien'
+      if (msg === 'NOT_CONNECTED' || msg === 'CHARGES_DISABLED') {
+        toast.error('Stripe non configuré pour ce restaurant. Configurez-le dans Paramètres > Restaurants.', {
+          duration: 6000,
+        })
+      } else if (msg === 'BANK_TRANSFER_ONLY') {
+        toast.info('Ce restaurant utilise le virement bancaire. Créez un paiement manuel à la place.')
+      } else {
+        toast.error(msg)
+      }
     } finally {
       setIsCreatingLink(false)
     }
