@@ -89,66 +89,72 @@ function formatNumber(v: number | null | undefined, suffix = ''): string {
 
 function ItemsTable({ title, items }: { title: string; items: QuoteItem[] }) {
   return (
-    <Card className='print:shadow-none print:border-0 print:bg-white'>
-      <CardHeader className='pb-2'>
-        <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+    <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+      <CardHeader className='px-3 pt-0 pb-0'>
+        <CardTitle className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className='pb-4'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Titre</TableHead>
-              <TableHead className='text-right'>Qté</TableHead>
-              <TableHead className='text-right'>TVA</TableHead>
-              <TableHead className='text-right'>Prix U HT</TableHead>
-              <TableHead className='text-right'>Prix U TTC</TableHead>
-              <TableHead className='text-right'>Total HT</TableHead>
-              <TableHead className='text-right'>Total TTC</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      <CardContent className='px-3 pb-0 pt-0'>
+        <table className='w-full text-xs' style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '38%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+          </colgroup>
+          <thead>
+            <tr className='border-b text-[10px] text-muted-foreground'>
+              <th className='py-1 pr-2 text-left font-normal'>Titre</th>
+              <th className='py-1 px-1 text-right font-normal'>Qté</th>
+              <th className='py-1 px-1 text-right font-normal'>TVA</th>
+              <th className='py-1 px-1 text-right font-normal'>Prix U HT</th>
+              <th className='py-1 px-1 text-right font-normal'>Prix U TTC</th>
+              <th className='py-1 px-1 text-right font-normal'>Total HT</th>
+              <th className='py-1 pl-1 text-right font-normal'>Total TTC</th>
+            </tr>
+          </thead>
+          <tbody>
             {items.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className='text-center text-muted-foreground text-sm'
-                >
+              <tr>
+                <td colSpan={7} className='py-2 text-center text-muted-foreground'>
                   Aucune ligne
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ) : (
               items.map((item) => {
                 const tvaRate = item.tva_rate || 0
                 const unitTtc = (item.unit_price || 0) * (1 + tvaRate / 100)
                 return (
                   <Fragment key={item.id}>
-                    <TableRow>
-                      <TableCell className='font-medium'>{item.name}</TableCell>
-                      <TableCell className='text-right'>{item.quantity ?? DASH}</TableCell>
-                      <TableCell className='text-right'>{tvaRate.toFixed(2)}%</TableCell>
-                      <TableCell className='text-right'>{formatCurrency(item.unit_price)}</TableCell>
-                      <TableCell className='text-right'>{formatCurrency(unitTtc)}</TableCell>
-                      <TableCell className='text-right'>{formatCurrency(item.total_ht)}</TableCell>
-                      <TableCell className='text-right'>{formatCurrency(item.total_ttc)}</TableCell>
-                    </TableRow>
+                    <tr>
+                      <td className='py-1 pr-2 font-medium break-words'>{item.name}</td>
+                      <td className='py-1 px-1 text-right'>{item.quantity ?? DASH}</td>
+                      <td className='py-1 px-1 text-right'>{tvaRate.toFixed(2)}%</td>
+                      <td className='py-1 px-1 text-right'>{formatCurrency(item.unit_price)}</td>
+                      <td className='py-1 px-1 text-right'>{formatCurrency(unitTtc)}</td>
+                      <td className='py-1 px-1 text-right'>{formatCurrency(item.total_ht)}</td>
+                      <td className='py-1 pl-1 text-right'>{formatCurrency(item.total_ttc)}</td>
+                    </tr>
                     {item.description && (
-                      <TableRow className='border-t-0'>
-                        <TableCell
+                      <tr>
+                        <td
                           colSpan={7}
-                          className='pt-0 text-xs text-muted-foreground whitespace-pre-wrap'
+                          className='pb-1 text-[11px] text-muted-foreground whitespace-pre-wrap'
                         >
                           {item.description}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     )}
                   </Fragment>
                 )
               })
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </CardContent>
     </Card>
   )
@@ -277,30 +283,30 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
       <div
         ref={printRef}
         id='fiche-fonction-content'
-        className='space-y-3 bg-muted/30 p-4 sm:p-6 rounded-lg print:bg-white print:p-0'
+        className='space-y-1.5 bg-muted/30 p-3 sm:p-4 rounded-lg print:bg-white print:p-0'
       >
         {/* Print header (only visible inside the PDF area) */}
-        <div className='flex items-baseline justify-between border-b pb-2'>
-          <h3 className='text-base font-semibold'>Récapitulatif d&apos;évènements</h3>
-          <span className='text-xs text-muted-foreground'>
+        <div className='flex items-baseline justify-between border-b pb-1'>
+          <h3 className='text-sm font-semibold'>Récapitulatif d&apos;évènements</h3>
+          <span className='text-[10px] text-muted-foreground'>
             Imprimé le : {printedAt}
           </span>
         </div>
         {/* Row 1: Nom de l'établissement + Identifiant */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-1.5'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Nom de l&apos;établissement
               </div>
-              <div className='text-sm font-medium'>
+              <div className='text-xs'>
                 {booking.restaurant?.name || DASH}
               </div>
             </CardContent>
           </Card>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Identifiant
               </div>
               <div className='text-sm font-mono font-medium'>
@@ -311,9 +317,9 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         </div>
 
         {/* Row 2: Horaires */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardContent className='pt-4 pb-4 space-y-1'>
-            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+          <CardContent className='px-3 py-0 space-y-0.5'>
+            <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
               Horaires (Global)
             </div>
             <div className='text-sm font-medium'>
@@ -327,28 +333,28 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         </Card>
 
         {/* Compte + Contact + Coordonnées (3 cols, matches legacy CRM) */}
-        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <div className='grid grid-cols-1 sm:grid-cols-3 gap-1.5'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Nom du compte
               </div>
-              <div className='text-sm font-medium'>
+              <div className='text-xs'>
                 {booking.contact?.company?.name || DASH}
               </div>
             </CardContent>
           </Card>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Contact
               </div>
-              <div className='text-sm font-medium'>{contactName || DASH}</div>
+              <div className='text-xs font-medium'>{contactName || DASH}</div>
             </CardContent>
           </Card>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Coordonnées
               </div>
               <div className='text-sm font-medium space-y-0.5'>
@@ -363,7 +369,7 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
 
         {/* Prestations + Food + Total + Acomptes + Reste */}
         {!activeQuote ? (
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
             <CardContent className='pt-6 pb-6 text-center text-sm text-muted-foreground'>
               Aucun devis associé
             </CardContent>
@@ -386,13 +392,13 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
             )}
 
             {/* Total */}
-            <Card className='print:shadow-none print:border-0 print:bg-white'>
-              <CardHeader className='pb-2'>
-                <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+            <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+              <CardHeader className='px-3 pt-0 pb-0'>
+                <CardTitle className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>
                   Total
                 </CardTitle>
               </CardHeader>
-              <CardContent className='pb-4'>
+              <CardContent className='px-3 pb-0 pt-0'>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -423,13 +429,13 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
             </Card>
 
             {/* Acomptes — pending + paid (matches legacy CRM) */}
-            <Card className='print:shadow-none print:border-0 print:bg-white'>
-              <CardHeader className='pb-2'>
-                <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+            <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+              <CardHeader className='px-3 pt-0 pb-0'>
+                <CardTitle className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>
                   Acomptes
                 </CardTitle>
               </CardHeader>
-              <CardContent className='pb-4'>
+              <CardContent className='px-3 pb-0 pt-0'>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -487,13 +493,13 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
             </Card>
 
             {/* Reste — 4 colonnes (matches legacy CRM, no Facture/Statut) */}
-            <Card className='print:shadow-none print:border-0 print:bg-white'>
-              <CardHeader className='pb-2'>
-                <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+            <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+              <CardHeader className='px-3 pt-0 pb-0'>
+                <CardTitle className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>
                   Reste
                 </CardTitle>
               </CardHeader>
-              <CardContent className='pb-4'>
+              <CardContent className='px-3 pb-0 pt-0'>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -526,35 +532,35 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         )}
 
         {/* Commentaires facturation */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardContent className='pt-4 pb-4 space-y-1'>
-            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+          <CardContent className='px-3 py-0 space-y-0.5'>
+            <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
               Commentaires facturation
             </div>
-            <p className='text-sm font-medium whitespace-pre-wrap'>
+            <p className='text-xs whitespace-pre-wrap'>
               {booking.internal_notes || DASH}
             </p>
           </CardContent>
         </Card>
 
         {/* Espace + Nombre de personnes */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-1.5'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Espace
               </div>
-              <div className='text-sm font-medium'>
+              <div className='text-xs'>
                 {spaceName || DASH}
               </div>
             </CardContent>
           </Card>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Nombre de personnes
               </div>
-              <div className='text-sm font-medium'>
+              <div className='text-xs'>
                 {booking.guests_count ?? DASH}
               </div>
             </CardContent>
@@ -562,48 +568,48 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         </div>
 
         {/* Type & format de l'événement */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardHeader className='pb-2'>
-            <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+        <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+          <CardHeader className='px-3 pt-0 pb-0'>
+            <CardTitle className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>
               Type & format
             </CardTitle>
           </CardHeader>
-          <CardContent className='pb-4'>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm'>
+          <CardContent className='px-3 pb-0 pt-0'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs'>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Type d&apos;événement</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Type d&apos;événement</div>
                 <div className='font-medium'>{booking.event_type || DASH}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Type de réservation</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Type de réservation</div>
                 <div className='font-medium'>{booking.reservation_type || DASH}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Privatif</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Privatif</div>
                 <div className='font-medium'>{formatBool(booking.is_privatif)}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Format souhaité</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Format souhaité</div>
                 <div className='font-medium'>{booking.format_souhaite || DASH}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Heure préférée client</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Heure préférée client</div>
                 <div className='font-medium'>{booking.client_preferred_time || DASH}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Date flexible</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Date flexible</div>
                 <div className='font-medium'>{formatBool(booking.is_date_flexible)}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Restaurant flexible</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Restaurant flexible</div>
                 <div className='font-medium'>{formatBool(booking.is_restaurant_flexible)}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Table bloquée</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Table bloquée</div>
                 <div className='font-medium'>{formatBool(booking.is_table_blocked)}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Prestataire externe</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Prestataire externe</div>
                 <div className='font-medium'>{formatBool(booking.has_extra_provider)}</div>
               </div>
             </div>
@@ -611,38 +617,38 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         </Card>
 
         {/* Mise en place */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardContent className='pt-4 pb-4 space-y-1'>
-            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+          <CardContent className='px-3 py-0 space-y-0.5'>
+            <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
               Mise en place
             </div>
-            <p className='text-sm font-medium whitespace-pre-wrap'>
+            <p className='text-xs whitespace-pre-wrap'>
               {booking.mise_en_place || DASH}
             </p>
           </CardContent>
         </Card>
 
         {/* Déroulé de l'événement */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardContent className='pt-4 pb-4 space-y-1'>
-            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+          <CardContent className='px-3 py-0 space-y-0.5'>
+            <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
               Déroulé
             </div>
-            <p className='text-sm font-medium whitespace-pre-wrap'>
+            <p className='text-xs whitespace-pre-wrap'>
               {booking.deroulement || DASH}
             </p>
           </CardContent>
         </Card>
 
         {/* Menu — 2 cols: food list / boissons (matches legacy CRM) */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardHeader className='pb-2'>
-            <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+        <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+          <CardHeader className='px-3 pt-0 pb-0'>
+            <CardTitle className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>
               Menu
             </CardTitle>
           </CardHeader>
-          <CardContent className='pb-4'>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+          <CardContent className='px-3 pb-0 pt-0'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-1.5'>
               <div className='space-y-3'>
                 {[
                   { label: 'Apéritif', value: booking.menu_aperitif },
@@ -651,20 +657,20 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
                   { label: 'Dessert', value: booking.menu_dessert },
                 ].map((m) => (
                   <div key={m.label} className='space-y-0.5'>
-                    <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+                    <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                       {m.label}
                     </div>
-                    <p className='text-sm font-medium whitespace-pre-wrap'>
+                    <p className='text-xs whitespace-pre-wrap'>
                       {m.value || DASH}
                     </p>
                   </div>
                 ))}
               </div>
               <div className='space-y-0.5 sm:border-l sm:pl-4'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                   Boissons
                 </div>
-                <p className='text-sm font-medium whitespace-pre-wrap'>
+                <p className='text-xs whitespace-pre-wrap'>
                   {booking.menu_boissons || DASH}
                 </p>
               </div>
@@ -673,23 +679,23 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         </Card>
 
         {/* Allergies et régimes + Prestations souhaitées */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 gap-1.5'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Allergies et Régimes
               </div>
-              <p className='text-sm font-medium whitespace-pre-wrap'>
+              <p className='text-xs whitespace-pre-wrap'>
                 {booking.allergies_regimes || DASH}
               </p>
             </CardContent>
           </Card>
-          <Card className='print:shadow-none print:border-0 print:bg-white'>
-            <CardContent className='pt-4 pb-4 space-y-1'>
-              <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+          <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+            <CardContent className='px-3 py-0 space-y-0.5'>
+              <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
                 Prestations souhaitées
               </div>
-              <p className='text-sm font-medium whitespace-pre-wrap'>
+              <p className='text-xs whitespace-pre-wrap'>
                 {booking.prestations_souhaitees || DASH}
               </p>
             </CardContent>
@@ -697,52 +703,52 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         </div>
 
         {/* Commentaires */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardContent className='pt-4 pb-4 space-y-1'>
-            <div className='text-xs text-muted-foreground uppercase tracking-wider'>
+        <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+          <CardContent className='px-3 py-0 space-y-0.5'>
+            <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>
               Commentaires
             </div>
-            <p className='text-sm font-medium whitespace-pre-wrap'>
+            <p className='text-xs whitespace-pre-wrap'>
               {commentairesText || DASH}
             </p>
           </CardContent>
         </Card>
 
         {/* Suivi commercial */}
-        <Card className='print:shadow-none print:border-0 print:bg-white'>
-          <CardHeader className='pb-2'>
-            <CardTitle className='text-sm font-semibold uppercase tracking-wider text-muted-foreground'>
+        <Card className='py-2 gap-1 print:shadow-none print:border-0 print:bg-white'>
+          <CardHeader className='px-3 pt-0 pb-0'>
+            <CardTitle className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>
               Suivi commercial
             </CardTitle>
           </CardHeader>
-          <CardContent className='pb-4'>
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm'>
+          <CardContent className='px-3 pb-0 pt-0'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs'>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Commerciaux assignés</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Commerciaux assignés</div>
                 <div className='font-medium'>{assignedNames}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Source</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Source</div>
                 <div className='font-medium'>{booking.source || DASH}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Occasion</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Occasion</div>
                 <div className='font-medium'>{booking.occasion || DASH}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Option</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Option</div>
                 <div className='font-medium'>{booking.option || DASH}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Relance</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Relance</div>
                 <div className='font-medium'>{booking.relance || DASH}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Date signature devis</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Date signature devis</div>
                 <div className='font-medium'>{formatDate(booking.date_signature_devis)}</div>
               </div>
               <div className='space-y-0.5'>
-                <div className='text-xs text-muted-foreground uppercase tracking-wider'>Budget client</div>
+                <div className='text-[10px] text-muted-foreground uppercase tracking-wide'>Budget client</div>
                 <div className='font-medium'>{formatNumber(booking.budget_client, ' €')}</div>
               </div>
             </div>
