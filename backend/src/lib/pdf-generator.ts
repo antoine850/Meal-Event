@@ -1,5 +1,6 @@
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces'
 import { supabase } from './supabase.js'
+import { formatEuroWhole, formatEuroDecimal } from './quote-rounding.js'
 
 // pdfmake uses a CJS default export — use require
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -225,23 +226,20 @@ function addDays(dateStr: string | null | undefined, days: number): string {
   }
 }
 
-function formatCurrency(amount: number): string {
-  return `${amount.toFixed(2)} €`
-}
-
-// Résout le montant TTC de l'acompte : montant fixe si défini, sinon % du TTC
+// Résout le montant TTC de l'acompte : montant fixe si défini, sinon % du TTC.
+// Toujours arrondi au supérieur à l'euro entier (Math.ceil).
 function resolveDepositTtc(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>): number {
-  if (quote.deposit_amount_override != null) return quote.deposit_amount_override
+  if (quote.deposit_amount_override != null) return Math.ceil(quote.deposit_amount_override)
   return Math.ceil(quote.total_ttc * (quote.deposit_percentage / 100))
 }
 
-// Résout le montant HT de l'acompte proportionnellement
+// Résout le montant HT de l'acompte proportionnellement (décimal, dérivé du TTC).
 function resolveDepositHt(quote: Pick<QuoteData, 'total_ttc' | 'total_ht' | 'deposit_percentage' | 'deposit_amount_override'>): number {
   if (quote.deposit_amount_override != null) {
     if (quote.total_ttc === 0) return 0
-    return Math.round(quote.deposit_amount_override * (quote.total_ht / quote.total_ttc) * 100) / 100
+    return quote.deposit_amount_override * (quote.total_ht / quote.total_ttc)
   }
-  return Math.round(quote.total_ht * (quote.deposit_percentage / 100) * 100) / 100
+  return quote.total_ht * (quote.deposit_percentage / 100)
 }
 
 // Libellé du % affiché sur la facture acompte / planning de paiement
@@ -555,10 +553,10 @@ function buildDocDefinition(
             fillColor: rowColor,
           },
           { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
-          { text: formatCurrency(item.unit_price), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
+          { text: formatEuroDecimal(item.unit_price), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
           { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
-          { text: formatCurrency(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
-          { text: formatCurrency(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
+          { text: formatEuroDecimal(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
+          { text: formatEuroWhole(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
         ])
       })
 
@@ -607,10 +605,10 @@ function buildDocDefinition(
         tableBody.push([
           { stack: [{ text: item.name, style: 'tableCell', bold: true }, ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#888' }] : [])] },
           { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const },
-          { text: formatCurrency(item.unit_price), style: 'tableCell', alignment: 'right' as const },
+          { text: formatEuroDecimal(item.unit_price), style: 'tableCell', alignment: 'right' as const },
           { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
-          { text: formatCurrency(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
-          { text: formatCurrency(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
+          { text: formatEuroDecimal(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
+          { text: formatEuroWhole(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
         ])
       })
     }
@@ -624,10 +622,10 @@ function buildDocDefinition(
         tableBody.push([
           { stack: [{ text: extra.name, style: 'tableCell', bold: true }, ...(extra.description ? [{ text: extra.description, style: 'tiny' as const, color: '#888' }] : [])] },
           { text: String(extra.quantity), style: 'tableCell', alignment: 'center' as const },
-          { text: formatCurrency(extra.unit_price), style: 'tableCell', alignment: 'right' as const },
+          { text: formatEuroDecimal(extra.unit_price), style: 'tableCell', alignment: 'right' as const },
           { text: `${extra.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
-          { text: formatCurrency(extra.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
-          { text: formatCurrency(extra.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
+          { text: formatEuroDecimal(extra.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
+          { text: formatEuroWhole(extra.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
         ])
       })
     }
@@ -658,15 +656,15 @@ function buildDocDefinition(
   // TOTALS SECTION with TVA breakdown
   // ══════════════════════════════════════════════════════════════════
   
-  // Calculate TVA by rate (round per item to match line totals)
+  // Regroupement TVA par taux à partir des HT décimaux des items.
   const tvaByRate: Record<number, { ht: number; tva: number }> = {}
   for (const item of items) {
     const rate = item.tva_rate || 20
-    const ht = Math.round((item.total_ht || 0) * 100) / 100
-    const tva = Math.round(ht * (rate / 100) * 100) / 100
+    const ht = item.total_ht || 0
+    const tva = ht * (rate / 100)
     if (!tvaByRate[rate]) tvaByRate[rate] = { ht: 0, tva: 0 }
-    tvaByRate[rate].ht = Math.round((tvaByRate[rate].ht + ht) * 100) / 100
-    tvaByRate[rate].tva = Math.round((tvaByRate[rate].tva + tva) * 100) / 100
+    tvaByRate[rate].ht += ht
+    tvaByRate[rate].tva += tva
   }
 
   if (documentType === 'devis') {
@@ -675,42 +673,41 @@ function buildDocDefinition(
 
     if (discountPct > 0) {
       // Show pre-discount subtotal, then discount line
-      const rawHt = Math.round(quote.total_ht / (1 - discountPct / 100) * 100) / 100
-      const discountAmount = Math.round((rawHt - quote.total_ht) * 100) / 100
+      const rawHt = quote.total_ht / (1 - discountPct / 100)
+      const discountAmount = rawHt - quote.total_ht
       totalsStack.push(
-        { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatCurrency(rawHt), alignment: 'right' as const, style: 'small', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatCurrency(discountAmount)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `${l.subtotalHt} ${lang === 'fr' ? 'après remise' : 'after discount'}`, style: 'small', color: '#666' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatEuroDecimal(rawHt), alignment: 'right' as const, style: 'small', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatEuroDecimal(discountAmount)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `${l.subtotalHt} ${lang === 'fr' ? 'après remise' : 'after discount'}`, style: 'small', color: '#666' }, { text: formatEuroDecimal(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
       )
     } else {
       totalsStack.push(
-        { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatCurrency(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatEuroDecimal(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
       )
     }
 
-    // Add TVA breakdown by rate
+    // TVA par taux après application de la remise globale
     Object.entries(tvaByRate).forEach(([rate, val]) => {
-      // Apply discount to TVA display if applicable
       const discountMult = discountPct > 0 ? (1 - discountPct / 100) : 1
-      const tvaAmount = Math.round(val.tva * discountMult * 100) / 100
+      const tvaAmount = val.tva * discountMult
       totalsStack.push({
         columns: [
           { text: `TVA ${rate}%`, style: 'small', color: '#666' },
-          { text: formatCurrency(tvaAmount), alignment: 'right' as const, style: 'small' },
+          { text: formatEuroDecimal(tvaAmount), alignment: 'right' as const, style: 'small' },
         ],
         margin: [0, 0, 0, 2] as [number, number, number, number],
       })
     })
 
     totalsStack.push(
-      { columns: [{ text: l.totalTvaLabel, style: 'small', color: '#666' }, { text: formatCurrency(quote.total_tva), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      { columns: [{ text: l.totalTvaLabel, style: 'small', color: '#666' }, { text: formatEuroDecimal(quote.total_tva), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
       { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 180, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
       {
         table: {
           widths: ['*', 'auto'],
           body: [[
             { text: l.totalTtc, style: 'bold', color: 'white' },
-            { text: formatCurrency(quote.total_ttc), style: 'bold', color: 'white', alignment: 'right' as const },
+            { text: formatEuroWhole(quote.total_ttc), style: 'bold', color: 'white', alignment: 'right' as const },
           ]],
         },
         layout: 'noBorders',
@@ -730,37 +727,37 @@ function buildDocDefinition(
     // Direct TTC calculation (consistent with send-deposit route)
     const depositTtc = resolveDepositTtc(quote)
     const depositHt = resolveDepositHt(quote)
-    const depositTva = Math.round((depositTtc - depositHt) * 100) / 100
+    const depositTva = depositTtc - depositHt
     const discountPct = quote.discount_percentage || 0
 
     const acompteStack: Content[] = []
 
     // Show discount context if applicable
     if (discountPct > 0) {
-      const rawTtc = Math.round(quote.total_ttc / (1 - discountPct / 100) * 100) / 100
+      const rawTtc = quote.total_ttc / (1 - discountPct / 100)
       acompteStack.push(
-        { columns: [{ text: `Total ${lang === 'fr' ? 'avant remise' : 'before discount'}`, style: 'small', color: '#999' }, { text: formatCurrency(rawTtc), alignment: 'right' as const, style: 'small', color: '#999', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatCurrency(Math.round((rawTtc - quote.total_ttc) * 100) / 100)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `Total TTC ${lang === 'fr' ? 'après remise' : 'after discount'}`, style: 'small' }, { text: formatCurrency(quote.total_ttc), alignment: 'right' as const, style: 'small' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+        { columns: [{ text: `Total ${lang === 'fr' ? 'avant remise' : 'before discount'}`, style: 'small', color: '#999' }, { text: formatEuroDecimal(rawTtc), alignment: 'right' as const, style: 'small', color: '#999', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatEuroDecimal(rawTtc - quote.total_ttc)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        { columns: [{ text: `Total TTC ${lang === 'fr' ? 'après remise' : 'after discount'}`, style: 'small' }, { text: formatEuroWhole(quote.total_ttc), alignment: 'right' as const, style: 'small' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
       )
     }
 
     acompteStack.push(
-      { columns: [{ text: resolveDepositLabel(quote, l.depositPercent), style: 'small' }, { text: formatCurrency(depositHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-      { columns: [{ text: 'TVA', style: 'small' }, { text: formatCurrency(depositTva), alignment: 'right' as const }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      { columns: [{ text: resolveDepositLabel(quote, l.depositPercent), style: 'small' }, { text: formatEuroDecimal(depositHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      { columns: [{ text: 'TVA', style: 'small' }, { text: formatEuroDecimal(depositTva), alignment: 'right' as const }], margin: [0, 0, 0, 4] as [number, number, number, number] },
       { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
       {
         table: {
           widths: ['*', 'auto'],
           body: [[
             { text: l.totalTtc, style: 'bold', color: 'white' },
-            { text: formatCurrency(depositTtc), style: 'bold', color: 'white', alignment: 'right' as const },
+            { text: formatEuroWhole(depositTtc), style: 'bold', color: 'white', alignment: 'right' as const },
           ]],
         },
         layout: 'noBorders',
         fillColor: color,
       } as Content,
-      { text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatCurrency(quote.total_ttc)}`, style: 'tiny', color: '#888', margin: [0, 6, 0, 0] as [number, number, number, number] },
+      { text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatEuroWhole(quote.total_ttc)}`, style: 'tiny', color: '#888', margin: [0, 6, 0, 0] as [number, number, number, number] },
     )
 
     content.push({
@@ -777,24 +774,24 @@ function buildDocDefinition(
     // Solde — simplified: Total HT, Total TTC, paid payments, remaining balance
     const extrasHt = extras.reduce((sum, e) => sum + (e.total_ht || 0), 0)
     const extrasTtc = extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0)
-    const totalHt = Math.round((quote.total_ht + extrasHt) * 100) / 100
-    const totalTtc = Math.round((quote.total_ttc + extrasTtc) * 100) / 100
+    const totalHt = quote.total_ht + extrasHt
+    const totalTtc = quote.total_ttc + extrasTtc
     const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
     const balanceTtc = totalTtc - totalPaid
 
     const soldeStack: Content[] = []
 
-    // Total HT
+    // Total HT (décimal — dérivé du TTC arrondi)
     soldeStack.push(
-      { columns: [{ text: 'Total HT', style: 'small' }, { text: formatCurrency(totalHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+      { columns: [{ text: 'Total HT', style: 'small' }, { text: formatEuroDecimal(totalHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
     )
 
-    // Total TTC
+    // Total TTC (entier)
     soldeStack.push(
-      { columns: [{ text: 'Total TTC', style: 'small', bold: true }, { text: formatCurrency(totalTtc), alignment: 'right' as const, bold: true }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      { columns: [{ text: 'Total TTC', style: 'small', bold: true }, { text: formatEuroWhole(totalTtc), alignment: 'right' as const, bold: true }], margin: [0, 0, 0, 4] as [number, number, number, number] },
     )
 
-    // List each paid payment
+    // List each paid payment (les anciens paiements peuvent avoir des centimes)
     if (paidPayments.length > 0) {
       for (const p of paidPayments) {
         const label = p.payment_modality === 'acompte' ? (lang === 'fr' ? 'Acompte versé' : 'Deposit paid')
@@ -802,12 +799,12 @@ function buildDocDefinition(
           : (lang === 'fr' ? 'Paiement reçu' : 'Payment received')
         const dateStr = p.paid_at ? new Date(p.paid_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US') : ''
         soldeStack.push(
-          { columns: [{ text: `${label}${dateStr ? ` (${dateStr})` : ''}`, style: 'small', color: '#16a34a' }, { text: `- ${formatCurrency(p.amount)}`, alignment: 'right' as const, color: '#16a34a' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+          { columns: [{ text: `${label}${dateStr ? ` (${dateStr})` : ''}`, style: 'small', color: '#16a34a' }, { text: `- ${formatEuroDecimal(p.amount)}`, alignment: 'right' as const, color: '#16a34a' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
         )
       }
     }
 
-    // Separator + remaining balance
+    // Separator + remaining balance (entier)
     soldeStack.push(
       { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 240, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 4, 0, 4] as [number, number, number, number] },
       {
@@ -815,7 +812,7 @@ function buildDocDefinition(
           widths: ['*', 'auto'],
           body: [[
             { text: l.remainingBalance, style: 'bold', color: 'white' },
-            { text: formatCurrency(balanceTtc), style: 'bold', color: 'white', alignment: 'right' as const },
+            { text: formatEuroWhole(balanceTtc), style: 'bold', color: 'white', alignment: 'right' as const },
           ]],
         },
         layout: 'noBorders',
@@ -853,13 +850,13 @@ function buildDocDefinition(
                 { text: quote.deposit_label || 'Acompte à signature', style: 'tableCell', fillColor: '#f9fafb' },
                 { text: resolveDepositPctDisplay(quote), style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
                 { text: `J-${quote.deposit_days}`, style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
-                { text: formatCurrency(depositAmount), style: 'tableCell', alignment: 'right' as const, bold: true, fillColor: '#f9fafb' },
+                { text: formatEuroWhole(depositAmount), style: 'tableCell', alignment: 'right' as const, bold: true, fillColor: '#f9fafb' },
               ],
               [
                 { text: quote.balance_label || 'Solde', style: 'tableCell' },
                 { text: resolveBalancePctDisplay(quote), style: 'tableCell', alignment: 'center' as const },
                 { text: `J-${quote.balance_days}`, style: 'tableCell', alignment: 'center' as const },
-                { text: formatCurrency(balanceAmount), style: 'tableCell', alignment: 'right' as const, bold: true },
+                { text: formatEuroWhole(balanceAmount), style: 'tableCell', alignment: 'right' as const, bold: true },
               ],
             ],
           },

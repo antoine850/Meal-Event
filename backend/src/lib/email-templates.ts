@@ -2,6 +2,8 @@
 // All templates are in French, HTML inline-styled, responsive
 // Dynamic branding: restaurant logo, color, legal footer
 
+import { formatEuroWhole } from './quote-rounding.js'
+
 interface RestaurantBranding {
   name: string
   logo_url?: string | null
@@ -29,8 +31,10 @@ interface ContactInfo {
   email?: string | null
 }
 
+// Format des montants envoyés au client : tous arrondis à l'euro entier
+// (alignés sur la règle d'arrondi des devis).
 function formatCurrency(amount: number): string {
-  return `${amount.toFixed(2)} €`
+  return formatEuroWhole(amount)
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -644,5 +648,5 @@ export function buildPaymentNotificationSubject(amount: number, contactName: str
   const typeLabel = paymentType === 'deposit' || paymentType === 'acompte' ? 'Acompte'
     : paymentType === 'balance' || paymentType === 'solde' ? 'Solde'
     : 'Paiement'
-  return `${typeLabel} de ${amount.toFixed(2)} € reçu — ${contactName}`
+  return `${typeLabel} de ${formatEuroWhole(amount)} reçu — ${contactName}`
 }

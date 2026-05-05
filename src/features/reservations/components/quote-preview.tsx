@@ -3,6 +3,7 @@ import type { QuoteItem, Payment } from '@/lib/supabase/types'
 import type { BookingWithRelations } from '../hooks/use-bookings'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
 import type { QuoteWithItems } from '../hooks/use-quotes'
+import { roundLineTtc, deriveLineHt, formatEuroWhole, formatEuroDecimal } from '@/features/reservations/lib/quote-rounding'
 
 export type DocumentType = 'devis' | 'acompte' | 'solde' | 'facture_finale'
 
@@ -342,25 +343,29 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   const restaurant = data.restaurant as any
   const color = restaurant?.color || '#0d7377'
 
-  // Compute item totals from raw fields (avoids stale DB values)
-  function computeItemHt(item: { quantity?: number | null; unit_price?: number | null; discount_amount?: number | null }) {
-    return Math.round(((item.quantity ?? 1) * (item.unit_price ?? 0) - (item.discount_amount ?? 0)) * 100) / 100
-  }
+  // TTC ligne arrondi au supérieur via l'helper unifié, HT dérivé.
   function computeItemTtc(item: { quantity?: number | null; unit_price?: number | null; discount_amount?: number | null; tva_rate?: number | null }) {
-    const ht = computeItemHt(item)
-    return Math.round(ht * (1 + (item.tva_rate ?? 20) / 100) * 100) / 100
+    return roundLineTtc({
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      discount_amount: item.discount_amount,
+      tva_rate: item.tva_rate ?? 20,
+    })
+  }
+  function computeItemHt(item: { quantity?: number | null; unit_price?: number | null; discount_amount?: number | null; tva_rate?: number | null }) {
+    return deriveLineHt(computeItemTtc(item), item.tva_rate ?? 20)
   }
 
-  // Group TVA by rate, applying quote-level discount
+  // Regroupement TVA par taux après remise globale (HT/TVA décimaux dérivés).
   const discountMult = data.discountPercentage > 0 ? (1 - data.discountPercentage / 100) : 1
   const tvaByRate: Record<number, { ht: number; tva: number }> = {}
   for (const item of data.items) {
     const rate = item.tva_rate || 20
-    const ht = Math.round(computeItemHt(item) * discountMult * 100) / 100
-    const tva = Math.round(ht * (rate / 100) * 100) / 100
+    const ht = computeItemHt(item) * discountMult
+    const tva = ht * (rate / 100)
     if (!tvaByRate[rate]) tvaByRate[rate] = { ht: 0, tva: 0 }
-    tvaByRate[rate].ht = Math.round((tvaByRate[rate].ht + ht) * 100) / 100
-    tvaByRate[rate].tva = Math.round((tvaByRate[rate].tva + tva) * 100) / 100
+    tvaByRate[rate].ht += ht
+    tvaByRate[rate].tva += tva
   }
 
   const quoteNumber = data.quote?.quote_number || '—'
@@ -452,14 +457,14 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         <td className='text-center px-2 py-1.5'>{item.quantity}</td>
                         <td className='text-right px-2 py-1.5'>
                           {discountPct > 0 ? (
-                            <span className='line-through text-gray-400'>{(item.unit_price || 0).toFixed(2)} €</span>
+                            <span className='line-through text-gray-400'>{formatEuroDecimal(item.unit_price || 0)}</span>
                           ) : (
-                            <span>{(item.unit_price || 0).toFixed(2)} €</span>
+                            <span>{formatEuroDecimal(item.unit_price || 0)}</span>
                           )}
                         </td>
                         <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{computeItemHt(item).toFixed(2)} €</td>
-                        <td className='text-right px-2 py-1.5'>{computeItemTtc(item).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(item))}</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(item))}</td>
                       </tr>
                     )
                   })}
@@ -475,37 +480,37 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 <>
                   <div className='flex justify-between text-[10px]'>
                     <span className='text-gray-600'>{l.subtotalHt}</span>
-                    <span className='font-medium line-through text-gray-400'>{data.rawTotalHt.toFixed(2)} €</span>
+                    <span className='font-medium line-through text-gray-400'>{formatEuroDecimal(data.rawTotalHt)}</span>
                   </div>
                   <div className='flex justify-between text-[10px]'>
                     <span className='text-red-600'>{l.discount} {data.discountPercentage}%</span>
-                    <span className='font-medium text-red-600'>- {(data.rawTotalHt - data.totalHt).toFixed(2)} €</span>
+                    <span className='font-medium text-red-600'>- {formatEuroDecimal(data.rawTotalHt - data.totalHt)}</span>
                   </div>
                   <div className='flex justify-between text-[10px]'>
                     <span className='text-gray-600'>{l.subtotalHt} après remise</span>
-                    <span className='font-medium'>{data.totalHt.toFixed(2)} €</span>
+                    <span className='font-medium'>{formatEuroDecimal(data.totalHt)}</span>
                   </div>
                 </>
               ) : (
                 <div className='flex justify-between text-[10px]'>
                   <span className='text-gray-600'>{l.subtotalHt}</span>
-                  <span className='font-medium'>{data.totalHt.toFixed(2)} €</span>
+                  <span className='font-medium'>{formatEuroDecimal(data.totalHt)}</span>
                 </div>
               )}
               {Object.entries(tvaByRate).map(([rate, val]) => (
                 <div key={rate} className='flex justify-between text-[10px]'>
                   <span className='text-gray-600'>TVA {rate}%</span>
-                  <span>{val.tva.toFixed(2)} €</span>
+                  <span>{formatEuroDecimal(val.tva)}</span>
                 </div>
               ))}
               <div className='flex justify-between text-[10px]'>
                 <span className='text-gray-600'>{l.totalTvaLabel}</span>
-                <span className='font-medium'>{data.totalTva.toFixed(2)} €</span>
+                <span className='font-medium'>{formatEuroDecimal(data.totalTva)}</span>
               </div>
               <Separator className='bg-gray-300' />
               <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
                 <span>{l.totalTtc}</span>
-                <span>{data.totalTtc.toFixed(2)} €</span>
+                <span>{formatEuroWhole(data.totalTtc)}</span>
               </div>
             </div>
           </div>
@@ -520,13 +525,13 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                     <td className='px-2 py-1.5 font-medium'>{data.depositLabel}</td>
                     <td className='px-2 py-1.5 text-center'>{data.depositPercentage}%</td>
                     <td className='px-2 py-1.5 text-center'>J-{data.depositDays}</td>
-                    <td className='px-2 py-1.5 text-right font-semibold'>{data.depositAmount.toFixed(2)} €</td>
+                    <td className='px-2 py-1.5 text-right font-semibold'>{formatEuroWhole(data.depositAmount)}</td>
                   </tr>
                   <tr>
                     <td className='px-2 py-1.5 font-medium'>{data.balanceLabel}</td>
                     <td className='px-2 py-1.5 text-center'>{(100 - data.depositPercentage).toFixed(0)}%</td>
                     <td className='px-2 py-1.5 text-center'>J-{data.balanceDays}</td>
-                    <td className='px-2 py-1.5 text-right font-semibold'>{data.balanceAmount.toFixed(2)} €</td>
+                    <td className='px-2 py-1.5 text-right font-semibold'>{formatEuroWhole(data.balanceAmount)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -613,9 +618,9 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
                       </td>
                       <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                      <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
+                      <td className='text-right px-2 py-1.5'>{formatEuroDecimal(item.unit_price || 0)}</td>
                       <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                      <td className='text-right px-2 py-1.5'>{computeItemHt(item).toFixed(2)} €</td>
+                      <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(item))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -629,14 +634,14 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             <div className='w-56 space-y-1'>
               <div className='flex justify-between text-[10px]'>
                 <span className='text-gray-600'>{l.subtotalHt} (before deposit)</span>
-                <span className='text-[9px] text-gray-500'>{l.totalHt}: {data.totalHt.toFixed(2)} €</span>
+                <span className='text-[9px] text-gray-500'>{l.totalHt}: {formatEuroDecimal(data.totalHt)}</span>
               </div>
               <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
                 <span>{l.totalTtc}</span>
-                <span>{depositTtc.toFixed(2)} €</span>
+                <span>{formatEuroWhole(depositTtc)}</span>
               </div>
               <div className='text-[9px] text-gray-500 text-right'>
-                {l.totalHt}: {depositHt.toFixed(2)} €
+                {l.totalHt}: {formatEuroDecimal(depositHt)}
               </div>
             </div>
           </div>
@@ -723,17 +728,17 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
                         </td>
                         <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                        <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(item.unit_price || 0)}</td>
                         <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{computeItemHt(item).toFixed(2)} €</td>
-                        <td className='text-right px-2 py-1.5'>{computeItemTtc(item).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(item))}</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(item))}</td>
                       </tr>
                     ))}
                     {/* Subtotal for prestation */}
                     <tr className='border-t'>
                       <td colSpan={4} className='px-2 py-1 text-right text-[9px] text-gray-600'>{l.subtotalPrestation || 'Sous-total prestation'}</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{data.totalHt.toFixed(2)} €</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{data.totalTtc.toFixed(2)} €</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{formatEuroDecimal(data.totalHt)}</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{formatEuroWhole(data.totalTtc)}</td>
                     </tr>
                   </>
                 )}
@@ -753,17 +758,17 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           {extra.description && <span className='block text-gray-500 text-[9px]'>{extra.description}</span>}
                         </td>
                         <td className='text-center px-2 py-1.5'>{extra.quantity}</td>
-                        <td className='text-right px-2 py-1.5'>{(extra.unit_price || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(extra.unit_price || 0)}</td>
                         <td className='text-center px-2 py-1.5'>{extra.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{computeItemHt(extra).toFixed(2)} €</td>
-                        <td className='text-right px-2 py-1.5'>{computeItemTtc(extra).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(extra))}</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(extra))}</td>
                       </tr>
                     ))}
                     {/* Subtotal for extras */}
                     <tr className='border-t'>
                       <td colSpan={4} className='px-2 py-1 text-right text-[9px] text-gray-600'>{l.subtotalExtras || 'Sous-total extras'}</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{(data.extras || []).reduce((sum, e) => sum + computeItemHt(e), 0).toFixed(2)} €</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{(data.extras || []).reduce((sum, e) => sum + computeItemTtc(e), 0).toFixed(2)} €</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{formatEuroDecimal((data.extras || []).reduce((sum, e) => sum + computeItemHt(e), 0))}</td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{formatEuroWhole((data.extras || []).reduce((sum, e) => sum + computeItemTtc(e), 0))}</td>
                     </tr>
                   </>
                 )}
@@ -776,8 +781,8 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
         {(() => {
           const extrasHt = (data.extras || []).reduce((sum, e) => sum + computeItemHt(e), 0)
           const extrasTtc = (data.extras || []).reduce((sum, e) => sum + computeItemTtc(e), 0)
-          const grandTotalHt = Math.round((data.totalHt + extrasHt) * 100) / 100
-          const grandTotalTtc = Math.round((data.totalTtc + extrasTtc) * 100) / 100
+          const grandTotalHt = data.totalHt + extrasHt
+          const grandTotalTtc = data.totalTtc + extrasTtc
           const paidPayments = (data.payments || []).filter(p => p.status === 'paid' || p.status === 'completed')
           const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
           const remainingTtc = grandTotalTtc - totalPaid
@@ -788,11 +793,11 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
               <div className='w-64 space-y-1'>
                 <div className='flex justify-between text-[10px]'>
                   <span className='text-gray-600'>Total HT</span>
-                  <span>{grandTotalHt.toFixed(2)} €</span>
+                  <span>{formatEuroDecimal(grandTotalHt)}</span>
                 </div>
                 <div className='flex justify-between text-[10px] font-semibold'>
                   <span>Total TTC</span>
-                  <span>{grandTotalTtc.toFixed(2)} €</span>
+                  <span>{formatEuroWhole(grandTotalTtc)}</span>
                 </div>
                 {paidPayments.length > 0 && (
                   <>
@@ -806,7 +811,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                       return (
                         <div key={i} className='flex justify-between text-[10px] text-green-600'>
                           <span>{label}{dateStr ? ` (${dateStr})` : ''}</span>
-                          <span>- {(p.amount || 0).toFixed(2)} €</span>
+                          <span>- {formatEuroDecimal(p.amount || 0)}</span>
                         </div>
                       )
                     })}
@@ -815,7 +820,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 <Separator className='bg-gray-300' />
                 <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
                   <span>{l.remainingBalance} TTC</span>
-                  <span>{remainingTtc.toFixed(2)} €</span>
+                  <span>{formatEuroWhole(remainingTtc)}</span>
                 </div>
               </div>
             </div>
@@ -843,9 +848,9 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
       .filter(p => p.status === 'completed')
       .reduce((sum, p) => sum + (p.amount || 0), 0)
     
-    // Grand totals
-    const grandTotalHt = Math.round((data.totalHt + extrasTotalHt) * 100) / 100
-    const grandTotalTtc = Math.round((data.totalTtc + extrasTotalTtc) * 100) / 100
+    // Grand totals — TTC entier (somme d'entiers), HT décimal dérivé
+    const grandTotalHt = data.totalHt + extrasTotalHt
+    const grandTotalTtc = data.totalTtc + extrasTotalTtc
     const remainingBalance = grandTotalTtc - paymentsReceived
 
     return (
@@ -912,10 +917,10 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
                       </td>
                       <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                      <td className='text-right px-2 py-1.5'>{(item.unit_price || 0).toFixed(2)} €</td>
+                      <td className='text-right px-2 py-1.5'>{formatEuroDecimal(item.unit_price || 0)}</td>
                       <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                      <td className='text-right px-2 py-1.5'>{computeItemHt(item).toFixed(2)} €</td>
-                      <td className='text-right px-2 py-1.5'>{computeItemTtc(item).toFixed(2)} €</td>
+                      <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(item))}</td>
+                      <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(item))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -947,10 +952,10 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           {extra.description && <span className='block text-gray-500 text-[9px]'>{extra.description}</span>}
                         </td>
                         <td className='text-center px-2 py-1.5'>{extra.quantity}</td>
-                        <td className='text-right px-2 py-1.5'>{(extra.unit_price || 0).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(extra.unit_price || 0)}</td>
                         <td className='text-center px-2 py-1.5'>{extra.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{computeItemHt(extra).toFixed(2)} €</td>
-                        <td className='text-right px-2 py-1.5'>{computeItemTtc(extra).toFixed(2)} €</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(extra))}</td>
+                        <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(extra))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -964,28 +969,28 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             <div className='w-64 space-y-1'>
               <div className='flex justify-between text-[10px]'>
                 <span className='text-gray-600'>{l.subtotalHt} (Devis)</span>
-                <span>{data.totalHt.toFixed(2)} €</span>
+                <span>{formatEuroDecimal(data.totalHt)}</span>
               </div>
               {extras.length > 0 && (
                 <>
                   <div className='flex justify-between text-[10px]'>
                     <span className='text-gray-600'>{l.subtotalHt} ({l.extras})</span>
-                    <span>+ {extrasTotalHt.toFixed(2)} €</span>
+                    <span>+ {formatEuroDecimal(extrasTotalHt)}</span>
                   </div>
                   <Separator className='bg-gray-300' />
                   <div className='flex justify-between text-[10px] font-medium'>
                     <span>{l.totalWithExtras} HT</span>
-                    <span>{grandTotalHt.toFixed(2)} €</span>
+                    <span>{formatEuroDecimal(grandTotalHt)}</span>
                   </div>
                 </>
               )}
               <div className='flex justify-between text-[10px]'>
                 <span className='text-gray-600'>{l.totalTvaLabel}</span>
-                <span>{(grandTotalTtc - grandTotalHt).toFixed(2)} €</span>
+                <span>{formatEuroDecimal(grandTotalTtc - grandTotalHt)}</span>
               </div>
               <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
                 <span>{l.totalTtc}</span>
-                <span>{grandTotalTtc.toFixed(2)} €</span>
+                <span>{formatEuroWhole(grandTotalTtc)}</span>
               </div>
 
               {/* Payments received */}
@@ -997,14 +1002,14 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                     {payments.filter(p => p.status === 'completed').map(p => (
                       <div key={p.id} className='flex justify-between text-[10px]'>
                         <span className='text-gray-600'>{p.payment_modality || 'Paiement'}</span>
-                        <span className='text-green-600'>- {(p.amount || 0).toFixed(2)} €</span>
+                        <span className='text-green-600'>- {formatEuroDecimal(p.amount || 0)}</span>
                       </div>
                     ))}
                   </div>
                   <Separator className='bg-gray-300' />
                   <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: remainingBalance > 0 ? '#f97316' : '#22c55e', color: 'white' }}>
                     <span>{l.remainingBalance}</span>
-                    <span>{remainingBalance.toFixed(2)} €</span>
+                    <span>{formatEuroWhole(remainingBalance)}</span>
                   </div>
                 </>
               )}

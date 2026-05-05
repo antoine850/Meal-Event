@@ -1,3 +1,4 @@
+import { formatEuroWhole, formatEuroDecimal } from '@/features/reservations/lib/quote-rounding'
 import { useEffect, useMemo, useState, forwardRef, useImperativeHandle, useRef } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
@@ -1120,7 +1121,7 @@ export const BookingDetail = forwardRef<
                                   </Badge>
                                 </div>
                                 <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-                                  <span className='font-medium'>TTC: {(quote.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
+                                  <span className='font-medium'>TTC: {formatEuroWhole(quote.total_ttc || 0)}</span>
                                   {quote.title && <><span>•</span><span className='truncate max-w-[150px]'>{quote.title}</span></>}
                                 </div>
                               </div>
@@ -1429,7 +1430,8 @@ export const BookingDetail = forwardRef<
                     const extrasTtc = isDepositPaidStatus
                       ? ((primaryQuote as any)?.quote_items || []).filter((i: any) => i.item_type === 'extra').reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
                       : 0
-                    const totalDevisTtc = Math.round(((primaryQuote?.total_ttc || 0) + extrasTtc) * 100) / 100
+                    // Tous les TTC sont entiers (post-helper), somme reste entière
+                    const totalDevisTtc = (primaryQuote?.total_ttc || 0) + extrasTtc
                     const discountPct = (primaryQuote as any)?.discount_percentage || 0
                     // Only count payments with status 'paid' (from Stripe webhook) or 'completed' (manual)
                     const paiementsRecus = payments
@@ -1438,9 +1440,9 @@ export const BookingDetail = forwardRef<
                     const soldeRestant = totalDevisTtc - paiementsRecus
 
                     if (totalDevisTtc > 0 || paiementsRecus > 0) {
-                      // Calculate pre-discount total if discount is applied
-                      const totalAvantRemise = discountPct > 0 ? Math.round(totalDevisTtc / (1 - discountPct / 100) * 100) / 100 : 0
-                      const montantRemise = discountPct > 0 ? Math.round((totalAvantRemise - totalDevisTtc) * 100) / 100 : 0
+                      // Calcul du total avant remise (inverse — peut avoir des décimales)
+                      const totalAvantRemise = discountPct > 0 ? totalDevisTtc / (1 - discountPct / 100) : 0
+                      const montantRemise = discountPct > 0 ? totalAvantRemise - totalDevisTtc : 0
 
                       return (
                         <div className='mt-3 p-2 sm:p-3 bg-muted/50 rounded-lg space-y-1 text-xs'>
@@ -1448,32 +1450,32 @@ export const BookingDetail = forwardRef<
                             <>
                               <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
                                 <span className='text-muted-foreground'>Total avant remise</span>
-                                <span className='font-medium line-through text-muted-foreground'>{totalAvantRemise.toFixed(2)} €</span>
+                                <span className='font-medium line-through text-muted-foreground'>{formatEuroDecimal(totalAvantRemise)}</span>
                               </div>
                               <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
                                 <span className='text-red-600'>Remise {discountPct}%</span>
-                                <span className='font-medium text-red-600'>- {montantRemise.toFixed(2)} €</span>
+                                <span className='font-medium text-red-600'>- {formatEuroDecimal(montantRemise)}</span>
                               </div>
                             </>
                           )}
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
                             <span className='text-muted-foreground'>Total Devis TTC{discountPct > 0 ? ' après remise' : ''}</span>
-                            <span className='font-medium'>{(primaryQuote?.total_ttc || 0).toFixed(2)} €</span>
+                            <span className='font-medium'>{formatEuroWhole(primaryQuote?.total_ttc || 0)}</span>
                           </div>
                           {extrasTtc > 0 && (
                             <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
                               <span className='text-muted-foreground'>Extras TTC</span>
-                              <span className='font-medium'>+ {extrasTtc.toFixed(2)} €</span>
+                              <span className='font-medium'>+ {formatEuroWhole(extrasTtc)}</span>
                             </div>
                           )}
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
                             <span className='text-muted-foreground'>Paiements reçus</span>
-                            <span className='font-medium text-green-600'>- {paiementsRecus.toFixed(2)} €</span>
+                            <span className='font-medium text-green-600'>- {formatEuroDecimal(paiementsRecus)}</span>
                           </div>
                           <Separator className='my-1' />
                           <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2 font-semibold'>
                             <span>Solde restant</span>
-                            <span className={soldeRestant > 0 ? 'text-orange-600' : 'text-green-600'}>{soldeRestant.toFixed(2)} €</span>
+                            <span className={soldeRestant > 0 ? 'text-orange-600' : 'text-green-600'}>{formatEuroWhole(soldeRestant)}</span>
                           </div>
                         </div>
                       )
@@ -2173,7 +2175,7 @@ export const BookingDetail = forwardRef<
                 <span className='font-medium'>{q.quote_number}</span>
                 {q.title && <span className='ml-2 text-muted-foreground truncate'>{q.title}</span>}
                 <span className='ml-2 text-xs text-muted-foreground'>
-                  {(q.total_ttc || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                  {formatEuroWhole(q.total_ttc || 0)}
                 </span>
                 {(q as any).primary_quote && <span className='ml-2 text-[10px] text-emerald-600 font-medium'>Actif</span>}
               </label>

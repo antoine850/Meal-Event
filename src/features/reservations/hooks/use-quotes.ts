@@ -4,6 +4,7 @@ import { apiClient } from '@/lib/api-client'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import type { Quote, QuoteItem } from '@/lib/supabase/types'
 import type { ProductWithRestaurants } from '@/features/settings/hooks/use-products'
+import { roundLineTtc, deriveLineHt, computeQuoteTotals } from '@/features/reservations/lib/quote-rounding'
 
 // Set one quote as primary for a booking (single active quote)
 export function useSetPrimaryQuote() {
@@ -859,8 +860,13 @@ export function useAddQuoteItem() {
       position?: number
       itemType?: string
     }) => {
-      const totalHt = Math.round((quantity * unitPrice - (discountAmount || 0)) * 100) / 100
-      const totalTtc = Math.round(totalHt * (1 + tvaRate / 100) * 100) / 100
+      const totalTtc = roundLineTtc({
+        quantity,
+        unit_price: unitPrice,
+        discount_amount: discountAmount,
+        tva_rate: tvaRate,
+      })
+      const totalHt = deriveLineHt(totalTtc, tvaRate)
 
       const { data, error } = await supabase
         .from('quote_items')
@@ -920,8 +926,8 @@ export function useUpdateQuoteItem() {
         const t = tvaRate ?? (current as any)?.tva_rate ?? 20
         const d = discountAmount ?? (current as any)?.discount_amount ?? 0
 
-        const totalHt = Math.round((q * p - d) * 100) / 100
-        const totalTtc = Math.round(totalHt * (1 + t / 100) * 100) / 100
+        const totalTtc = roundLineTtc({ quantity: q, unit_price: p, discount_amount: d, tva_rate: t })
+        const totalHt = deriveLineHt(totalTtc, t)
 
         updates = { ...updates, total_ht: totalHt, total_ttc: totalTtc } as any
       }
@@ -992,45 +998,23 @@ async function recalculateQuoteTotals(quoteId: string) {
 
   if (!items) return
 
-  // Only include product items — extras are added separately in balance calculations
+  // Extras facturés séparément, exclus du total devis
   const productItems = (items as any[]).filter((item: any) => item.item_type !== 'extra')
 
-  let totalHt = 0
-  let totalTva = 0
-
-  for (const item of productItems) {
-    const itemHt = Math.round(((item.quantity || 0) * (item.unit_price || 0) - (item.discount_amount || 0)) * 100) / 100
-    const itemTva = Math.round(itemHt * ((item.tva_rate || 0) / 100) * 100) / 100
-    totalHt += itemHt
-    totalTva += itemTva
-  }
-
-  // Round accumulated totals to avoid floating-point drift
-  totalHt = Math.round(totalHt * 100) / 100
-  totalTva = Math.round(totalTva * 100) / 100
-
-  // Apply discount_percentage
   const { data: quote } = await supabase
     .from('quotes')
     .select('discount_percentage')
     .eq('id', quoteId)
     .single()
 
-  const discountPct = (quote as any)?.discount_percentage || 0
-  const discountMultiplier = discountPct > 0 ? (1 - discountPct / 100) : 1
-
-  const finalHt = Math.round(totalHt * discountMultiplier * 100) / 100
-  const finalTva = Math.round(totalTva * discountMultiplier * 100) / 100
-  // TTC rounded to cents — must match the sum of item TTCs displayed in the
-  // editor preview, the backend PDF, and the email/Stripe amounts.
-  const finalTtc = Math.round((finalHt + finalTva) * 100) / 100
+  const totals = computeQuoteTotals(productItems, (quote as any)?.discount_percentage)
 
   await supabase
     .from('quotes')
     .update({
-      total_ht: finalHt,
-      total_tva: finalTva,
-      total_ttc: finalTtc,
+      total_ht: totals.totalHt,
+      total_tva: totals.totalTva,
+      total_ttc: totals.totalTtc,
     } as never)
     .eq('id', quoteId)
 }

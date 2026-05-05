@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { computeQuoteTotals, formatEuroWhole, formatEuroDecimal } from '@/features/reservations/lib/quote-rounding'
 import {
   ChevronDown,
   FileText,
@@ -263,10 +264,10 @@ function SortableItemRow({
         </div>
       </TableCell>
       <TableCell className='text-right text-xs'>
-        {((item.total_ht as number) || 0).toFixed(2)} €
+        {formatEuroDecimal((item.total_ht as number) || 0)}
       </TableCell>
       <TableCell className='text-right text-xs'>
-        {((item.total_ttc as number) || 0).toFixed(2)} €
+        {formatEuroWhole((item.total_ttc as number) || 0)}
       </TableCell>
       <TableCell>
         <Button
@@ -645,21 +646,13 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
   const products = items.filter(item => item.item_type !== 'extra')
   const extras = items.filter(item => item.item_type === 'extra')
 
-  // Calculate totals (products only, not extras), applying quote-level discount
-  // Always compute from raw fields to avoid stale DB values
-  const rawTotalHt = Math.round(products.reduce((sum, item) => {
-    const ht = Math.round(((item.quantity ?? 1) * (item.unit_price ?? 0) - (item.discount_amount ?? 0)) * 100) / 100
-    return sum + ht
-  }, 0) * 100) / 100
-  const rawTotalTtc = Math.round(products.reduce((sum, item) => {
-    const ht = Math.round(((item.quantity ?? 1) * (item.unit_price ?? 0) - (item.discount_amount ?? 0)) * 100) / 100
-    const ttc = Math.round(ht * (1 + (item.tva_rate ?? 20) / 100) * 100) / 100
-    return sum + ttc
-  }, 0) * 100) / 100
-  const discountMultiplier = discountPercentage > 0 ? (1 - discountPercentage / 100) : 1
-  const totalHt = Math.round(rawTotalHt * discountMultiplier * 100) / 100
-  // TTC rounded to cents so the displayed total matches the sum of item TTCs.
-  const totalTtc = Math.round(rawTotalTtc * discountMultiplier * 100) / 100
+  // Totaux calculés depuis les champs bruts via l'helper unifié (TTC = Math.ceil à l'euro).
+  const rawTotals = computeQuoteTotals(products, 0)
+  const finalTotals = computeQuoteTotals(products, discountPercentage)
+  const rawTotalHt = rawTotals.totalHt
+  const rawTotalTtc = rawTotals.totalTtc
+  const totalHt = finalTotals.totalHt
+  const totalTtc = finalTotals.totalTtc
   const depositAmount = depositMode === 'amount'
     ? (parseFloat(depositAmountOverride) || 0)
     : Math.ceil(totalTtc * (depositPercentage / 100))
@@ -758,7 +751,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
           </div>
           <div className='flex items-center gap-2'>
             <span className='text-sm font-semibold'>
-              Total TTC: {totalTtc.toFixed(2)} €
+              Total TTC: {formatEuroWhole(totalTtc)}
             </span>
             {isDirty && (
               <Button size='sm' onClick={saveAllFields}>
@@ -880,7 +873,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <CardContent className='p-3 space-y-3'>
                         <div className='flex items-center justify-between'>
                           <span className='text-sm font-medium'>Acompte</span>
-                          <Badge variant='outline'>{depositAmount.toFixed(2)} €</Badge>
+                          <Badge variant='outline'>{formatEuroWhole(depositAmount)}</Badge>
                         </div>
                         <div className='grid grid-cols-3 gap-2'>
                           <div>
@@ -945,7 +938,7 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <CardContent className='p-3 space-y-3'>
                         <div className='flex items-center justify-between'>
                           <span className='text-sm font-medium'>Solde</span>
-                          <Badge variant='outline'>{balanceAmount.toFixed(2)} €</Badge>
+                          <Badge variant='outline'>{formatEuroWhole(balanceAmount)}</Badge>
                         </div>
                         <div className='grid grid-cols-2 gap-2'>
                           <div>
@@ -1563,31 +1556,31 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                           <>
                             <div className='flex justify-between text-xs'>
                               <span className='text-muted-foreground'>Sous-total HT</span>
-                              <span className='font-medium line-through text-muted-foreground'>{rawTotalHt.toFixed(2)} €</span>
+                              <span className='font-medium line-through text-muted-foreground'>{formatEuroDecimal(rawTotalHt)}</span>
                             </div>
                             <div className='flex justify-between text-xs'>
                               <span className='text-muted-foreground text-red-600'>Remise {discountPercentage}%</span>
-                              <span className='font-medium text-red-600'>- {(rawTotalHt - totalHt).toFixed(2)} €</span>
+                              <span className='font-medium text-red-600'>- {formatEuroDecimal(rawTotalHt - totalHt)}</span>
                             </div>
                             <div className='flex justify-between text-xs'>
                               <span className='text-muted-foreground'>Total HT après remise</span>
-                              <span className='font-medium'>{totalHt.toFixed(2)} €</span>
+                              <span className='font-medium'>{formatEuroDecimal(totalHt)}</span>
                             </div>
                           </>
                         ) : (
                           <div className='flex justify-between text-xs'>
                             <span className='text-muted-foreground'>Total HT</span>
-                            <span className='font-medium'>{totalHt.toFixed(2)} €</span>
+                            <span className='font-medium'>{formatEuroDecimal(totalHt)}</span>
                           </div>
                         )}
                         <div className='flex justify-between text-xs'>
                           <span className='text-muted-foreground'>TVA</span>
-                          <span className='font-medium'>{(totalTtc - totalHt).toFixed(2)} €</span>
+                          <span className='font-medium'>{formatEuroDecimal(totalTtc - totalHt)}</span>
                         </div>
                         <Separator />
                         <div className='flex justify-between text-sm font-semibold'>
                           <span>Total TTC</span>
-                          <span>{totalTtc.toFixed(2)} €</span>
+                          <span>{formatEuroWhole(totalTtc)}</span>
                         </div>
                       </div>
                     </div>
@@ -1765,10 +1758,10 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                                 </div>
                               </TableCell>
                               <TableCell className='text-xs'>{extra.quantity}</TableCell>
-                              <TableCell className='text-xs'>{(extra.unit_price || 0).toFixed(2)} €</TableCell>
+                              <TableCell className='text-xs'>{formatEuroDecimal(extra.unit_price || 0)}</TableCell>
                               <TableCell className='text-xs'>{extra.tva_rate}%</TableCell>
                               <TableCell className='text-right text-xs font-medium'>
-                                {(extra.total_ttc || 0).toFixed(2)} €
+                                {formatEuroWhole(extra.total_ttc || 0)}
                               </TableCell>
                               <TableCell>
                                 <div className='flex items-center gap-1'>
@@ -1812,11 +1805,11 @@ export function QuoteEditor({ open, onOpenChange, quoteId, booking, restaurant, 
                       <div className='border-t px-4 py-2 space-y-1'>
                         <div className='flex justify-between text-xs'>
                           <span className='text-muted-foreground'>Total Extras HT</span>
-                          <span className='font-medium'>{extras.reduce((sum, e) => sum + ((e.quantity ?? 1) * (e.unit_price ?? 0)), 0).toFixed(2)} €</span>
+                          <span className='font-medium'>{formatEuroDecimal(extras.reduce((sum, e) => sum + ((e.quantity ?? 1) * (e.unit_price ?? 0)), 0))}</span>
                         </div>
                         <div className='flex justify-between text-sm font-semibold'>
                           <span>Total Extras TTC</span>
-                          <span>{extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0).toFixed(2)} €</span>
+                          <span>{formatEuroWhole(extras.reduce((sum, e) => sum + (e.total_ttc || 0), 0))}</span>
                         </div>
                       </div>
                     </div>

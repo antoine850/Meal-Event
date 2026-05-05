@@ -12,6 +12,7 @@ import {
   uploadDocument, addSignatureField, createSigningInvite,
 } from '../lib/signnow.js'
 import { notifyCommercialSignature } from '../lib/commercial-notifications.js'
+import { formatEuroWhole, computeQuoteTotals } from '../lib/quote-rounding.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -515,8 +516,9 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       if (existingQuote?.stripe_deposit_url) {
         console.log(`[send-deposit] Reusing existing Stripe deposit invoice for quote ${quoteId}`)
         // Just resend the email with existing invoice link — no new Stripe invoice
+        // Acompte toujours arrondi au supérieur à l'euro entier
         const depositAmount = (quoteData as any).deposit_amount_override != null
-          ? (quoteData as any).deposit_amount_override as number
+          ? Math.ceil((quoteData as any).deposit_amount_override as number)
           : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
         const effectiveDepositPctResend = (quoteData as any).deposit_amount_override != null
           ? Math.round((depositAmount / quoteData.total_ttc) * 100)
@@ -554,9 +556,10 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       }
     }
 
-    // Calculate deposit amount — montant fixe en priorité, sinon % du TTC
+    // Calculate deposit amount — montant fixe en priorité, sinon % du TTC.
+    // Toujours arrondi au supérieur à l'euro entier.
     const depositAmount = (quoteData as any).deposit_amount_override != null
-      ? (quoteData as any).deposit_amount_override as number
+      ? Math.ceil((quoteData as any).deposit_amount_override as number)
       : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
     const effectiveDepositPct = (quoteData as any).deposit_amount_override != null
       ? Math.round((depositAmount / quoteData.total_ttc) * 100)
@@ -575,7 +578,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
 
     if (isStripeEnabled) {
       // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-      console.log(`[send-deposit] Creating Stripe invoice for deposit: €${depositAmount.toFixed(2)}`)
+      console.log(`[send-deposit] Creating Stripe invoice for deposit: ${formatEuroWhole(depositAmount)}`)
 
       const customerId = await getOrCreateStripeCustomer(
         contact.email,
@@ -592,18 +595,18 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           link_type: 'deposit',
         },
         description: (quoteData as any).deposit_amount_override != null
-          ? `Acompte ${depositAmount.toFixed(2)} € - ${quoteData.quote_number}`
+          ? `Acompte ${formatEuroWhole(depositAmount)} - ${quoteData.quote_number}`
           : `Acompte ${effectiveDepositPct}% - ${quoteData.quote_number}`,
       })
 
-      // Add invoice line item
+      // Stripe est appelé en cents : depositAmount est entier, donc × 100 = entier exact.
       await stripe.invoiceItems.create({
         invoice: invoice.id,
         customer: customerId,
         amount: Math.round(depositAmount * 100),
         currency: 'eur',
         description: (quoteData as any).deposit_amount_override != null
-          ? `Acompte ${depositAmount.toFixed(2)} € pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
+          ? `Acompte ${formatEuroWhole(depositAmount)} pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
           : `Acompte ${effectiveDepositPct}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
       })
 
@@ -612,7 +615,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
     } else {
-      console.log(`[send-deposit] Stripe disabled for restaurant — sending bank transfer only deposit for €${depositAmount.toFixed(2)}`)
+      console.log(`[send-deposit] Stripe disabled for restaurant — sending bank transfer only deposit for ${formatEuroWhole(depositAmount)}`)
     }
 
     // Generate deposit invoice PDF with error handling
@@ -820,11 +823,12 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         console.log(`[send-balance] Reusing existing Stripe balance invoice for quote ${quoteId}`)
         const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
         const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
-        const totalWithExtrasTtc = Math.round((quoteData.total_ttc + extrasTtc) * 100) / 100
+        // total_ttc et extras.total_ttc sont des entiers, leur somme est entière
+        const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
         const depositTtc = (quoteData as any).deposit_amount_override != null
-          ? (quoteData as any).deposit_amount_override as number
+          ? Math.ceil((quoteData as any).deposit_amount_override as number)
           : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
-        const balanceAmount = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
+        const balanceAmount = totalWithExtrasTtc - depositTtc
 
         const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
 
@@ -859,15 +863,16 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     }
 
     // Calculate balance: total_ttc (products only, discount already applied) + extras - deposit
+    // Tous les montants sont des entiers (post-helper), donc pas besoin de Math.round.
     const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
     const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
-    const totalWithExtrasTtc = Math.round((quoteData.total_ttc + extrasTtc) * 100) / 100
+    const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
     // MUST mirror send-deposit exactly so the balance subtracts the *actual*
     // amount that was invoiced as deposit (otherwise the customer over/under-pays).
     const depositTtc = (quoteData as any).deposit_amount_override != null
-      ? (quoteData as any).deposit_amount_override as number
+      ? Math.ceil((quoteData as any).deposit_amount_override as number)
       : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
-    const balanceAmount = Math.round((totalWithExtrasTtc - depositTtc) * 100) / 100
+    const balanceAmount = totalWithExtrasTtc - depositTtc
 
     // Get commercial info
     const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
@@ -882,7 +887,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
 
     if (isStripeEnabled) {
       // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-      console.log(`[send-balance] Creating Stripe invoice for balance: €${balanceAmount.toFixed(2)}`)
+      console.log(`[send-balance] Creating Stripe invoice for balance: ${formatEuroWhole(balanceAmount)}`)
 
       const customerId = await getOrCreateStripeCustomer(
         contact.email,
@@ -915,7 +920,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
     } else {
-      console.log(`[send-balance] Stripe disabled for restaurant — sending bank transfer only balance for €${balanceAmount.toFixed(2)}`)
+      console.log(`[send-balance] Stripe disabled for restaurant — sending bank transfer only balance for ${formatEuroWhole(balanceAmount)}`)
     }
 
     // Generate balance invoice PDF with error handling
@@ -1148,7 +1153,8 @@ quotesRouter.delete('/:id/items/:itemId', async (req: Request, res: Response) =>
   }
 })
 
-// Helper function to recalculate quote totals (products only, excludes extras)
+// Recalcule les totaux d'un devis via l'helper unifié (TTC entier au supérieur).
+// Symétrique à recalculateQuoteTotals dans src/features/reservations/hooks/use-quotes.ts.
 async function recalculateQuoteTotals(quoteId: string) {
   const { data: items } = await supabase
     .from('quote_items')
@@ -1157,43 +1163,23 @@ async function recalculateQuoteTotals(quoteId: string) {
 
   if (!items) return
 
-  // Only include product items — extras are added separately in balance calculations
+  // Extras facturés séparément, exclus du total devis
   const productItems = items.filter((item: any) => item.item_type !== 'extra')
 
-  let totalHt = 0
-  let totalTva = 0
-
-  for (const item of productItems) {
-    const itemTotalHt = Math.round(((item.unit_price * item.quantity) - (item.discount_amount || 0)) * 100) / 100
-    const itemTva = Math.round(itemTotalHt * (item.tva_rate / 100) * 100) / 100
-    totalHt += itemTotalHt
-    totalTva += itemTva
-  }
-
-  totalHt = Math.round(totalHt * 100) / 100
-  totalTva = Math.round(totalTva * 100) / 100
-
-  // Apply discount_percentage
   const { data: quote } = await supabase
     .from('quotes')
     .select('discount_percentage')
     .eq('id', quoteId)
     .single()
 
-  const discountPct = (quote as any)?.discount_percentage || 0
-  const discountMultiplier = discountPct > 0 ? (1 - discountPct / 100) : 1
-
-  const finalHt = Math.round(totalHt * discountMultiplier * 100) / 100
-  const finalTva = Math.round(totalTva * discountMultiplier * 100) / 100
-  // TTC rounded to cents — must match the editor preview and frontend totals.
-  const finalTtc = Math.round((finalHt + finalTva) * 100) / 100
+  const totals = computeQuoteTotals(productItems, (quote as any)?.discount_percentage)
 
   await supabase
     .from('quotes')
     .update({
-      total_ht: finalHt,
-      total_tva: finalTva,
-      total_ttc: finalTtc,
+      total_ht: totals.totalHt,
+      total_tva: totals.totalTva,
+      total_ttc: totals.totalTtc,
     })
     .eq('id', quoteId)
 }
