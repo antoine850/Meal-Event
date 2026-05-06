@@ -65,9 +65,14 @@ cp .env.example .env
 SUPABASE_URL=https://geofmvmydyjuculbbmil.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=votre-service-role-key
 
-# Stripe (optionnel, pour les paiements)
+# Stripe — clé plateforme
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Stripe Connect (par restaurant)
+STRIPE_CLIENT_ID=ca_test_...                           # Dashboard Stripe > Connect > Paramètres
+STRIPE_CONNECT_REDIRECT_URI=http://localhost:3001/api/stripe-connect/oauth/callback
+STRIPE_CONNECT_LEGACY_MODE=true                        # true = fallback clé plateforme pour restaurants non connectés
 
 # Frontend URL (pour les redirections Stripe)
 FRONTEND_URL=http://localhost:5173

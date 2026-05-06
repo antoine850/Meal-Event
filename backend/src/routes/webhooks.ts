@@ -6,6 +6,7 @@ import { generateQuotePdf } from '../lib/pdf-generator.js'
 import { sendEmail } from '../lib/resend.js'
 import { buildDepositEmailHtml, buildDepositEmailSubject } from '../lib/email-templates.js'
 import { notifyCommercialSignature, notifyCommercialPayment } from '../lib/commercial-notifications.js'
+import { getRestaurantStripeContext, resolveStripeMode, stripeRequestOptions, getOrCreateStripeCustomerOnAccount } from '../lib/stripe-connect.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -54,12 +55,12 @@ webhooksRouter.post('/stripe', async (req: Request, res: Response) => {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
-      await handlePaymentSuccess(session)
+      await handlePaymentSuccess(session, event.account)
       break
     }
     case 'invoice.paid': {
       const invoice = event.data.object as Stripe.Invoice
-      await handleInvoicePaymentSuccess(invoice)
+      await handleInvoicePaymentSuccess(invoice, event.account)
       break
     }
     case 'payment_intent.succeeded': {
@@ -69,7 +70,33 @@ webhooksRouter.post('/stripe', async (req: Request, res: Response) => {
     }
     case 'payment_intent.payment_failed': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
-      await handlePaymentFailed(paymentIntent)
+      await handlePaymentFailed(paymentIntent, event.account)
+      break
+    }
+    // Nouveaux Connect lifecycle
+    case 'account.updated': {
+      await handleAccountUpdated(event.data.object as Stripe.Account)
+      break
+    }
+    case 'account.application.deauthorized': {
+      await handleAccountDeauthorized(event.account)
+      break
+    }
+    // Nouveaux business events
+    case 'charge.refunded': {
+      await handleChargeRefunded(event.data.object as Stripe.Charge, event.account)
+      break
+    }
+    case 'charge.dispute.created': {
+      await handleDisputeOpened(event.data.object as Stripe.Dispute, event.account)
+      break
+    }
+    case 'charge.dispute.closed': {
+      await handleDisputeClosed(event.data.object as Stripe.Dispute, event.account)
+      break
+    }
+    case 'payout.paid': {
+      await handlePayoutPaid(event.data.object as Stripe.Payout, event.account)
       break
     }
     default:
@@ -144,7 +171,7 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
 // ═══════════════════════════════════════════════════════════════
 // Stripe: Handle successful payment
 // ═══════════════════════════════════════════════════════════════
-async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
+async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccount?: string) {
   const { booking_id, quote_id, link_type } = session.metadata || {}
 
   console.log(`[Stripe] Payment success - booking: ${booking_id}, quote: ${quote_id}, type: ${link_type}`)
@@ -159,10 +186,10 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
     let receiptUrl: string | null = null
     if (session.payment_intent) {
       try {
-        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string)
+        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, stripeRequestOptions(eventAccount ?? null) ?? {})
         // Get the latest charge to find receipt URL
         if (paymentIntent.latest_charge) {
-          const charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string)
+          const charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string, stripeRequestOptions(eventAccount ?? null) ?? {})
           receiptUrl = charge.receipt_url || null
           console.log(`[Stripe] Receipt URL: ${receiptUrl}`)
         }
@@ -348,7 +375,7 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session) {
 // ═══════════════════════════════════════════════════════════════
 // Stripe: Handle Invoice paid (Stripe Invoice flow)
 // ═══════════════════════════════════════════════════════════════
-async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice) {
+async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount?: string) {
   const { booking_id, quote_id, link_type } = invoice.metadata || {}
 
   console.log(`[Stripe Invoice] Payment success - booking: ${booking_id}, quote: ${quote_id}, type: ${link_type}, invoice: ${invoice.id}`)
@@ -363,7 +390,7 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice) {
     let receiptUrl: string | null = null
     if (invoice.charge) {
       try {
-        const charge = await stripe.charges.retrieve(invoice.charge as string)
+        const charge = await stripe.charges.retrieve(invoice.charge as string, stripeRequestOptions(eventAccount ?? null) ?? {})
         receiptUrl = charge.receipt_url || null
         console.log(`[Stripe Invoice] Receipt URL: ${receiptUrl}`)
       } catch (err) {
@@ -514,7 +541,7 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice) {
 // ═══════════════════════════════════════════════════════════════
 // Stripe: Handle failed payment
 // ═══════════════════════════════════════════════════════════════
-async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
+async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent, eventAccount?: string) {
   let bookingId = paymentIntent.metadata?.booking_id
   let quoteId = paymentIntent.metadata?.quote_id
   let linkType = paymentIntent.metadata?.link_type
@@ -525,7 +552,7 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
       const sessions = await stripe.checkout.sessions.list({
         payment_intent: paymentIntent.id,
         limit: 1,
-      })
+      }, stripeRequestOptions(eventAccount ?? null) ?? {})
       const session = sessions.data[0]
       if (session?.metadata) {
         bookingId = session.metadata.booking_id
@@ -559,6 +586,132 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   } catch (error) {
     console.error('Error handling payment failure:', error)
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Stripe Connect: Handle account.updated
+// ═══════════════════════════════════════════════════════════════
+async function handleAccountUpdated(account: Stripe.Account) {
+  await supabase
+    .from('restaurants')
+    .update({
+      stripe_charges_enabled: account.charges_enabled,
+      stripe_payouts_enabled: account.payouts_enabled,
+      stripe_disabled_reason: (account.requirements as any)?.disabled_reason || null,
+    })
+    .eq('stripe_account_id', account.id)
+  console.log('[stripe-connect.metric]', JSON.stringify({
+    event: 'webhook_account_updated',
+    acct_id: account.id,
+    charges_enabled: account.charges_enabled,
+    payouts_enabled: account.payouts_enabled,
+  }))
+}
+
+async function handleAccountDeauthorized(acctId?: string) {
+  if (!acctId) return
+  await supabase
+    .from('restaurants')
+    .update({
+      stripe_account_id: null,
+      stripe_account_name: null,
+      stripe_account_email: null,
+      stripe_charges_enabled: false,
+      stripe_payouts_enabled: false,
+      stripe_connected_at: null,
+      stripe_connected_by: null,
+      stripe_disabled_reason: null,
+    })
+    .eq('stripe_account_id', acctId)
+  console.log('[stripe-connect.metric]', JSON.stringify({ event: 'webhook_account_deauthorized', acct_id: acctId }))
+}
+
+async function handleChargeRefunded(charge: Stripe.Charge, acctId?: string) {
+  if (!charge.payment_intent) return
+  const { data: payment } = await supabase
+    .from('payments')
+    .select('id, booking_id, organization_id')
+    .eq('stripe_payment_intent_id', charge.payment_intent as string)
+    .maybeSingle()
+  if (!payment) return
+  await supabase.from('payments').update({ status: 'refunded' }).eq('id', payment.id)
+  await supabase.from('activity_logs').insert({
+    organization_id: payment.organization_id,
+    booking_id: payment.booking_id,
+    action_type: 'payment.refunded',
+    action_label: `Remboursement Stripe de ${((charge.amount_refunded || 0) / 100).toLocaleString('fr-FR')} €`,
+    actor_type: 'webhook',
+    actor_name: 'Stripe',
+    entity_type: 'payment',
+    entity_id: payment.id,
+    metadata: { acct_id: acctId, charge_id: charge.id },
+  })
+  console.log('[stripe-connect.metric]', JSON.stringify({ event: 'refund', acct_id: acctId, payment_id: payment.id }))
+}
+
+async function handleDisputeOpened(dispute: Stripe.Dispute, acctId?: string) {
+  if (!dispute.payment_intent) return
+  const { data: payment } = await supabase
+    .from('payments')
+    .select('id, booking_id, organization_id')
+    .eq('stripe_payment_intent_id', dispute.payment_intent as string)
+    .maybeSingle()
+  if (!payment) return
+  await supabase.from('payments').update({ status: 'disputed' }).eq('id', payment.id)
+  await supabase.from('activity_logs').insert({
+    organization_id: payment.organization_id,
+    booking_id: payment.booking_id,
+    action_type: 'payment.dispute_opened',
+    action_label: `Litige Stripe ouvert — ${((dispute.amount || 0) / 100).toLocaleString('fr-FR')} € — action requise`,
+    actor_type: 'webhook',
+    actor_name: 'Stripe',
+    entity_type: 'payment',
+    entity_id: payment.id,
+    metadata: { acct_id: acctId, dispute_id: dispute.id, reason: dispute.reason },
+  })
+  console.log('[stripe-connect.metric]', JSON.stringify({ event: 'dispute_opened', acct_id: acctId, payment_id: payment.id }))
+}
+
+async function handleDisputeClosed(dispute: Stripe.Dispute, acctId?: string) {
+  if (!dispute.payment_intent) return
+  const { data: payment } = await supabase
+    .from('payments')
+    .select('id, booking_id, organization_id')
+    .eq('stripe_payment_intent_id', dispute.payment_intent as string)
+    .maybeSingle()
+  if (!payment) return
+  const newStatus = dispute.status === 'won' ? 'paid' : 'dispute_lost'
+  await supabase.from('payments').update({ status: newStatus }).eq('id', payment.id)
+  await supabase.from('activity_logs').insert({
+    organization_id: payment.organization_id,
+    booking_id: payment.booking_id,
+    action_type: 'payment.dispute_closed',
+    action_label: `Litige Stripe clôturé — résultat : ${dispute.status}`,
+    actor_type: 'webhook',
+    actor_name: 'Stripe',
+    entity_type: 'payment',
+    entity_id: payment.id,
+    metadata: { acct_id: acctId, dispute_id: dispute.id, status: dispute.status },
+  })
+}
+
+async function handlePayoutPaid(payout: Stripe.Payout, acctId?: string) {
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('id, organization_id, name')
+    .eq('stripe_account_id', acctId)
+    .maybeSingle()
+  if (!restaurant) return
+  await supabase.from('activity_logs').insert({
+    organization_id: restaurant.organization_id,
+    action_type: 'payment.payout_paid',
+    action_label: `Virement Stripe de ${((payout.amount || 0) / 100).toLocaleString('fr-FR')} € effectué vers l'IBAN de ${restaurant.name}`,
+    actor_type: 'webhook',
+    actor_name: 'Stripe',
+    entity_type: 'restaurant',
+    entity_id: restaurant.id,
+    metadata: { acct_id: acctId, payout_id: payout.id },
+  })
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -703,7 +856,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
             id, name, address, city, postal_code, phone, email,
             logo_url, color, siret, tva_number, iban, bic, bank_name,
             legal_name, legal_form, share_capital, rcs, siren,
-            stripe_enabled
+            stripe_enabled, stripe_account_id
           )
         )
       `)
@@ -764,8 +917,17 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       throw new Error('Booking ID is required for deposit')
     }
 
-    // Check if Stripe is enabled for this restaurant
-    const isStripeEnabled = restaurant?.stripe_enabled !== false
+    const stripeCtx = restaurant?.id
+      ? await getRestaurantStripeContext(restaurant.id)
+      : null
+    const stripeMode = stripeCtx ? resolveStripeMode(stripeCtx) : { mode: 'bank_transfer' as const }
+
+    if (stripeMode.mode === 'legacy_platform') {
+      console.warn(`[Legacy] Restaurant ${restaurant?.id} using platform key for auto-deposit`)
+    }
+
+    const isStripeEnabled = stripeMode.mode !== 'bank_transfer'
+    const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
 
     let invoiceUrl = ''
     let invoiceId = ''
@@ -774,10 +936,18 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
       console.log(`[Stripe] Creating deposit invoice for quote ${quote.quote_number}`)
 
-      const customerId = await getOrCreateStripeCustomer(
-        contact.email,
-        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
-      )
+      const customerId = connectAcctId
+        ? await getOrCreateStripeCustomerOnAccount(
+            contact.email,
+            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null,
+            connectAcctId
+          )
+        : await getOrCreateStripeCustomer(
+            contact.email,
+            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+          )
+
+      const stripeOpts = stripeRequestOptions(connectAcctId)
 
       const invoice = await stripe.invoices.create({
         customer: customerId,
@@ -787,9 +957,10 @@ async function autoSendDepositAfterSignature(quoteId: string) {
           booking_id: booking.id,
           quote_id: quoteId,
           link_type: 'deposit',
+          restaurant_id: restaurant?.id || '',
         },
         description: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
-      })
+      }, stripeOpts ?? {})
 
       await stripe.invoiceItems.create({
         invoice: invoice.id,
@@ -797,9 +968,9 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         amount: Math.round(depositAmount * 100),
         currency: 'eur',
         description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
-      })
+      }, stripeOpts ?? {})
 
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, undefined, stripeOpts ?? {})
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
 
@@ -906,6 +1077,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
           percentage: quote.deposit_percentage,
           url: invoiceUrl,
           stripe_link_id: invoiceId,
+          stripe_account_id: connectAcctId,
         })
 
       // Create pending payment record (will be updated to 'paid' by webhook)
@@ -920,6 +1092,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
           payment_modality: 'acompte',
           payment_method: 'stripe',
           stripe_payment_id: invoiceId,
+          stripe_account_id: connectAcctId,
           status: 'pending',
           notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
         })

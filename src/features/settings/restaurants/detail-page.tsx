@@ -1,19 +1,45 @@
-import { useParams, Link } from '@tanstack/react-router'
+import { useEffect } from 'react'
+import { useParams, useSearch, useRouter, Link } from '@tanstack/react-router'
 import { Loader2, ArrowLeft } from 'lucide-react'
+import { toast } from 'sonner'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { RestaurantDetail } from './restaurant-detail'
+import { StripeConnectSection } from './components/stripe-connect-section'
 import { useRestaurants } from '../hooks/use-settings'
 import { Button } from '@/components/ui/button'
 
 export function RestaurantDetailPage() {
   const { id } = useParams({ from: '/_authenticated/settings/restaurant/$id' })
+  const search = useSearch({ from: '/_authenticated/settings/restaurant/$id' })
+  const router = useRouter()
   const { data: restaurants = [], isLoading } = useRestaurants()
-  
+
   const restaurant = restaurants.find(r => r.id === id)
+
+  // Gestion du retour OAuth Stripe
+  useEffect(() => {
+    if (search.stripe_success === 1) {
+      toast.success('Compte Stripe connecté avec succès')
+      router.navigate({
+        to: '/settings/restaurant/$id',
+        params: { id },
+        search: {},
+        replace: true,
+      })
+    } else if (search.stripe_error) {
+      toast.error(`Erreur Stripe : ${search.stripe_error}`)
+      router.navigate({
+        to: '/settings/restaurant/$id',
+        params: { id },
+        search: {},
+        replace: true,
+      })
+    }
+  }, [search.stripe_success, search.stripe_error, id, router])
 
   if (isLoading) {
     return (
@@ -46,8 +72,8 @@ export function RestaurantDetailPage() {
             </Link>
           </Button>
           <div className='flex items-center gap-3'>
-            <div 
-              className='w-8 h-8 rounded-full border-2' 
+            <div
+              className='w-8 h-8 rounded-full border-2'
               style={{ backgroundColor: restaurant.color || '#3b82f6' }}
             />
             <Header fixed>
@@ -63,6 +89,7 @@ export function RestaurantDetailPage() {
       </Header>
 
       <Main className='flex flex-1 flex-col'>
+        <StripeConnectSection restaurant={restaurant} />
         <RestaurantDetail restaurant={restaurant} />
       </Main>
     </>

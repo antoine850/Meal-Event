@@ -169,6 +169,13 @@ export type Restaurant = {
   iban: string | null
   bic: string | null
   stripe_enabled: boolean
+  stripe_account_id: string | null
+  stripe_account_name: string | null
+  stripe_account_email: string | null
+  stripe_connected_at: string | null
+  stripe_charges_enabled: boolean
+  stripe_payouts_enabled: boolean
+  stripe_disabled_reason: string | null
   invoice_prefix: string | null
   quote_validity_days: number
   invoice_due_days: number | null
@@ -191,7 +198,7 @@ export function useRestaurants() {
         .order('name', { ascending: true })
 
       if (error) throw error
-      return data as Restaurant[]
+      return data as unknown as Restaurant[]
     },
   })
 }

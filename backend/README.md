@@ -28,9 +28,12 @@ cp .env.example .env
 Variables requises :
 - `SUPABASE_URL` - URL du projet Supabase
 - `SUPABASE_SERVICE_ROLE_KEY` - Clé service role Supabase
-- `STRIPE_SECRET_KEY` - Clé secrète Stripe
-- `STRIPE_WEBHOOK_SECRET` - Secret du webhook Stripe
-- `FRONTEND_URL` - URL du frontend (pour CORS)
+- `STRIPE_SECRET_KEY` - Clé secrète Stripe (plateforme)
+- `STRIPE_WEBHOOK_SECRET` - Secret du webhook Stripe (events plateforme + Connect)
+- `STRIPE_CLIENT_ID` - Client ID Stripe Connect (Dashboard > Connect > Paramètres)
+- `STRIPE_CONNECT_REDIRECT_URI` - URI callback OAuth (ex: `https://api.xxx/api/stripe-connect/oauth/callback`)
+- `STRIPE_CONNECT_LEGACY_MODE` - `true` = fallback clé plateforme pour restaurants non connectés (migration), `false` = strict Connect
+- `FRONTEND_URL` - URL du frontend (pour CORS et redirections OAuth)
 
 ## Développement
 
@@ -103,5 +106,11 @@ npm start
 - `POST /api/payments/:id/remind` - Envoyer une relance
 - `POST /api/payments/receipts` - Ajouter un ticket de caisse
 
+### Stripe Connect (par restaurant)
+- `GET /api/stripe-connect/oauth/authorize?restaurant_id=<uuid>` - Démarrer OAuth Connect (admin requis)
+- `GET /api/stripe-connect/oauth/callback` - Callback OAuth Stripe (public)
+- `POST /api/stripe-connect/disconnect` - Déconnecter un compte (admin requis)
+- `GET /api/stripe-connect/restaurants/:id/status` - Vérifier le statut Stripe (admin requis)
+
 ### Webhooks
-- `POST /api/webhooks/stripe` - Webhook Stripe
+- `POST /api/webhooks/stripe` - Webhook Stripe (plateforme + Connect)
