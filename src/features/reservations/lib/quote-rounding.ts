@@ -20,7 +20,10 @@ export function roundLineTtc(input: LineInput): number {
   return Math.ceil(rawTtc)
 }
 
-export function deriveLineHt(lineTtc: number, tvaRate: number | null | undefined): number {
+export function deriveLineHt(
+  lineTtc: number,
+  tvaRate: number | null | undefined
+): number {
   const rate = tvaRate ?? 0
   if (rate <= -100) return 0
   return lineTtc / (1 + rate / 100)
@@ -34,7 +37,7 @@ export type QuoteTotals = {
 
 export function computeQuoteTotals(
   items: LineInput[],
-  discountPercentage: number | null | undefined = 0,
+  discountPercentage: number | null | undefined = 0
 ): QuoteTotals {
   const discountPct = discountPercentage ?? 0
   const discountMult = discountPct > 0 ? 1 - discountPct / 100 : 1
@@ -72,4 +75,11 @@ export function formatEuroDecimal(amount: number): string {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
   }).format(amount)
+}
+
+// Entier si rond (à 0,5 cent près), décimal sinon. Pour montants pouvant
+// venir de Stripe (entiers) OU saisis manuellement (décimaux possibles).
+export function formatEuroAdaptive(amount: number): string {
+  const isWhole = Math.abs(amount - Math.round(amount)) < 0.005
+  return isWhole ? formatEuroWhole(amount) : formatEuroDecimal(amount)
 }

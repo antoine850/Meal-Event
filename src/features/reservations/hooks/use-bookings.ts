@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
 import type { Quote, Payment } from '@/lib/supabase/types'
 
 export type BookingWithRelations = {
@@ -57,10 +57,34 @@ export type BookingWithRelations = {
   created_at: string
   updated_at: string
   restaurant?: { id: string; name: string; color: string | null } | null
-  contact?: { id: string; first_name: string; last_name: string | null; email: string | null; phone: string | null; source?: string | null; created_at?: string | null; company?: { id: string; name: string } | null } | null
+  contact?: {
+    id: string
+    first_name: string
+    last_name: string | null
+    email: string | null
+    phone: string | null
+    source?: string | null
+    created_at?: string | null
+    company?: { id: string; name: string } | null
+  } | null
   status?: { id: string; name: string; color: string; slug: string } | null
-  payments?: { id: string; amount: number; status: string | null; payment_modality: string | null; paid_at: string | null }[]
-  quotes?: { id: string; total_ttc: number; status: string | null; primary_quote: boolean | null; quote_number: string | null; quote_sent_at: string | null; signature_requested_at: string | null; quote_signed_at: string | null }[]
+  payments?: {
+    id: string
+    amount: number
+    status: string | null
+    payment_modality: string | null
+    paid_at: string | null
+  }[]
+  quotes?: {
+    id: string
+    total_ttc: number
+    status: string | null
+    primary_quote: boolean | null
+    quote_number: string | null
+    quote_sent_at: string | null
+    signature_requested_at: string | null
+    quote_signed_at: string | null
+  }[]
 }
 
 export function useBookings() {
@@ -71,7 +95,9 @@ export function useBookings() {
       if (!orgId) throw new Error('No organization found')
 
       // Permissions restaurant-scoped : admin = tout, commercial/gérant = ses restaurants assignés uniquement
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       let restaurantFilter: string[] | null = null
       if (user) {
         const { data: dbUser } = await supabase
@@ -91,14 +117,16 @@ export function useBookings() {
 
       let query = supabase
         .from('bookings')
-        .select(`
+        .select(
+          `
           *,
           restaurant:restaurants(id, name, color),
           contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
           status:statuses(id, name, color, slug),
           payments(id, amount, status, payment_modality, paid_at),
           quotes(id, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
-        `)
+        `
+        )
         .eq('organization_id', orgId)
         .order('event_date', { ascending: true })
 
@@ -123,12 +151,14 @@ export function useBooking(id: string) {
 
       const { data, error } = await supabase
         .from('bookings')
-        .select(`
+        .select(
+          `
           *,
           restaurant:restaurants(id, name, color),
           contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
           status:statuses(id, name, color, slug)
-        `)
+        `
+        )
         .eq('id', id)
         .eq('organization_id', orgId)
         .single()
@@ -151,11 +181,13 @@ export function useBookingsByContact(contactId: string | null | undefined) {
 
       const { data, error } = await supabase
         .from('bookings')
-        .select(`
+        .select(
+          `
           *,
           restaurant:restaurants(id, name, color),
           status:statuses(id, name, color, slug)
-        `)
+        `
+        )
         .eq('contact_id', contactId)
         .eq('organization_id', orgId)
         .order('event_date', { ascending: false })
@@ -182,7 +214,13 @@ export function useBookingStatuses() {
         .order('position', { ascending: true })
 
       if (error) throw error
-      return data as { id: string; name: string; slug: string; color: string; position: number }[]
+      return data as {
+        id: string
+        name: string
+        slug: string
+        color: string
+        position: number
+      }[]
     },
   })
 }
@@ -235,7 +273,10 @@ export function useUpdateBooking() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<BookingWithRelations> & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...updates
+    }: Partial<BookingWithRelations> & { id: string }) => {
       // Auto-assignation : si, après application de cet update, le booking reste
       // sans commercial assigné, assigner l'utilisateur courant.
       const u = updates as Partial<BookingWithRelations>
@@ -245,17 +286,19 @@ export function useUpdateBooking() {
         .eq('id', id)
         .single()
 
-      const currentRow = current as
-        | { assigned_user_ids: string[] | null }
-        | null
+      const currentRow = current as {
+        assigned_user_ids: string[] | null
+      } | null
 
       const finalAssignedIds =
         'assigned_user_ids' in u
           ? u.assigned_user_ids
-          : currentRow?.assigned_user_ids ?? null
+          : (currentRow?.assigned_user_ids ?? null)
 
       if ((finalAssignedIds?.length ?? 0) === 0) {
-        const { data: { user } } = await supabase.auth.getUser()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
         if (user) {
           u.assigned_user_ids = [user.id]
         }
@@ -283,15 +326,9 @@ export function useDeleteBooking() {
   return useMutation({
     mutationFn: async (id: string) => {
       // Delete related email_logs first (FK without CASCADE)
-      await supabase
-        .from('email_logs')
-        .delete()
-        .eq('booking_id', id)
+      await supabase.from('email_logs').delete().eq('booking_id', id)
 
-      const { error } = await supabase
-        .from('bookings')
-        .delete()
-        .eq('id', id)
+      const { error } = await supabase.from('bookings').delete().eq('id', id)
 
       if (error) throw error
     },
@@ -487,17 +524,36 @@ export function useCreatePayment() {
             .single()
 
           if (statusData) {
-            await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', bookingId)
+            await supabase
+              .from('bookings')
+              .update({ status_id: statusData.id })
+              .eq('id', bookingId)
           }
 
           if (quoteId) {
-            await supabase.from('quotes').update({ status: 'deposit_paid', deposit_paid_at: new Date().toISOString() }).eq('id', quoteId)
+            await supabase
+              .from('quotes')
+              .update({
+                status: 'deposit_paid',
+                deposit_paid_at: new Date().toISOString(),
+              })
+              .eq('id', quoteId)
           }
         } else if (modality === 'solde' || paymentType === 'balance') {
           // Balance paid → update quote status only (booking status "Fonction envoyée" is manual)
           if (quoteId) {
-            await supabase.from('quotes').update({ status: 'balance_paid', balance_paid_at: new Date().toISOString() }).eq('id', quoteId)
-            await supabase.from('quotes').update({ status: 'completed' }).eq('id', quoteId).eq('status', 'balance_paid')
+            await supabase
+              .from('quotes')
+              .update({
+                status: 'balance_paid',
+                balance_paid_at: new Date().toISOString(),
+              })
+              .eq('id', quoteId)
+            await supabase
+              .from('quotes')
+              .update({ status: 'completed' })
+              .eq('id', quoteId)
+              .eq('status', 'balance_paid')
           }
         }
       }
@@ -505,9 +561,13 @@ export function useCreatePayment() {
       return { ...(data as Payment), bookingId }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['payments', (data as any).bookingId || data.booking_id] })
+      queryClient.invalidateQueries({
+        queryKey: ['payments', (data as any).bookingId || data.booking_id],
+      })
       queryClient.invalidateQueries({ queryKey: ['bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['quotes', (data as any).bookingId || data.booking_id] })
+      queryClient.invalidateQueries({
+        queryKey: ['quotes', (data as any).bookingId || data.booking_id],
+      })
     },
   })
 }
@@ -529,6 +589,7 @@ export function useUpdatePayment() {
       file,
       removeAttachment,
       currentAttachmentPath,
+      quoteId,
     }: {
       id: string
       bookingId: string
@@ -542,6 +603,7 @@ export function useUpdatePayment() {
       file?: File
       removeAttachment?: boolean
       currentAttachmentPath?: string | null
+      quoteId?: string
     }) => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
@@ -549,17 +611,22 @@ export function useUpdatePayment() {
       const updates: Record<string, unknown> = {}
       if (amount !== undefined) updates.amount = amount
       if (paymentType !== undefined) updates.payment_type = paymentType
-      if (paymentModality !== undefined) updates.payment_modality = paymentModality
+      if (paymentModality !== undefined)
+        updates.payment_modality = paymentModality
       if (paymentMethod !== undefined) updates.payment_method = paymentMethod
       if (status !== undefined) updates.status = status
       if (paidAt !== undefined) updates.paid_at = paidAt
       if (notes !== undefined) updates.notes = notes
+      // Backfill quote_id si un paiement existant n'en a pas (créé avant le fix).
+      if (quoteId !== undefined) updates.quote_id = quoteId
 
       // Handle file upload
       if (file) {
         // Delete old file if exists
         if (currentAttachmentPath) {
-          await supabase.storage.from('documents').remove([currentAttachmentPath])
+          await supabase.storage
+            .from('documents')
+            .remove([currentAttachmentPath])
         }
 
         const fileExt = file.name.split('.').pop()
@@ -599,11 +666,15 @@ export function useUpdatePayment() {
       // When a payment is marked as "paid", update booking status and quote status
       // This handles the bank transfer flow where there's no Stripe webhook
       if (status === 'paid' && payment) {
-        const paymentModality_ = paymentModality || (payment as any).payment_modality
-        const quoteId = payment.quote_id
+        const paymentModality_ =
+          paymentModality || (payment as any).payment_modality
+        const resolvedQuoteId = payment.quote_id || quoteId
 
         // Update booking status based on payment modality
-        if (paymentModality_ === 'acompte' || (payment as any).payment_type === 'deposit') {
+        if (
+          paymentModality_ === 'acompte' ||
+          (payment as any).payment_type === 'deposit'
+        ) {
           // Deposit paid → update booking status to "acompte-paye"
           const { data: statusData } = await supabase
             .from('statuses')
@@ -621,25 +692,34 @@ export function useUpdatePayment() {
           }
 
           // Update quote status to deposit_paid
-          if (quoteId) {
+          if (resolvedQuoteId) {
             await supabase
               .from('quotes')
-              .update({ status: 'deposit_paid', deposit_paid_at: new Date().toISOString() })
-              .eq('id', quoteId)
+              .update({
+                status: 'deposit_paid',
+                deposit_paid_at: new Date().toISOString(),
+              })
+              .eq('id', resolvedQuoteId)
           }
-        } else if (paymentModality_ === 'solde' || (payment as any).payment_type === 'balance') {
+        } else if (
+          paymentModality_ === 'solde' ||
+          (payment as any).payment_type === 'balance'
+        ) {
           // Balance paid → update quote status only (booking status "Fonction envoyée" is manual)
-          if (quoteId) {
+          if (resolvedQuoteId) {
             await supabase
               .from('quotes')
-              .update({ status: 'balance_paid', balance_paid_at: new Date().toISOString() })
-              .eq('id', quoteId)
+              .update({
+                status: 'balance_paid',
+                balance_paid_at: new Date().toISOString(),
+              })
+              .eq('id', resolvedQuoteId)
 
             // Auto-complete quote
             await supabase
               .from('quotes')
               .update({ status: 'completed' })
-              .eq('id', quoteId)
+              .eq('id', resolvedQuoteId)
               .eq('status', 'balance_paid')
           }
         }
@@ -659,7 +739,13 @@ export function useDeletePayment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, bookingId }: { id: string; bookingId: string }) => {
+    mutationFn: async ({
+      id,
+      bookingId,
+    }: {
+      id: string
+      bookingId: string
+    }) => {
       const { error } = await supabase.from('payments').delete().eq('id', id)
       if (error) throw error
       return { bookingId }
@@ -688,4 +774,3 @@ export function useMarkBookingAsRead() {
     },
   })
 }
-

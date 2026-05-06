@@ -1,8 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
-import { toast } from 'sonner'
-import { Loader2, Paperclip, X, ExternalLink, Mail, CheckCircle2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import {
+  Loader2,
+  Paperclip,
+  X,
+  ExternalLink,
+  Mail,
+  CheckCircle2,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { apiClient } from '@/lib/api-client'
+import type { Payment } from '@/lib/supabase/types'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   Dialog,
   DialogContent,
@@ -11,8 +21,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DatePicker } from '@/components/ui/date-picker'
-import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
@@ -21,9 +29,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { Payment } from '@/lib/supabase/types'
-import { apiClient } from '@/lib/api-client'
-import { useCreatePayment, useUpdatePayment, useDeletePayment } from '../hooks/use-bookings'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  useCreatePayment,
+  useUpdatePayment,
+  useDeletePayment,
+} from '../hooks/use-bookings'
 
 const PAYMENT_TYPES = [
   { value: 'lien_paiement', label: 'Lien de Paiement' },
@@ -59,7 +70,15 @@ type Props = {
   defaultDepositAmount?: number | null
 }
 
-export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactEmail, primaryQuoteId, defaultDepositAmount }: Props) {
+export function PaymentDialog({
+  open,
+  onOpenChange,
+  bookingId,
+  payment,
+  contactEmail,
+  primaryQuoteId,
+  defaultDepositAmount,
+}: Props) {
   const queryClient = useQueryClient()
   const { mutate: createPayment, isPending: isCreating } = useCreatePayment()
   const { mutate: updatePayment, isPending: isUpdating } = useUpdatePayment()
@@ -78,7 +97,9 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
   // Stripe-specific state (only used when paymentType === 'stripe' and creating)
   const [stripeMode, setStripeMode] = useState<StripeMode>(null)
   const [linkEmail, setLinkEmail] = useState('')
-  const [linkModality, setLinkModality] = useState<'acompte' | 'solde' | 'autre'>('acompte')
+  const [linkModality, setLinkModality] = useState<
+    'acompte' | 'solde' | 'autre'
+  >('acompte')
   const [isCreatingLink, setIsCreatingLink] = useState(false)
 
   const isEditing = !!payment
@@ -118,14 +139,23 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
   // When user picks Stripe "link" mode: sync modality + pre-fill deposit amount
   useEffect(() => {
     if (isStripeCreate && stripeMode === 'link') {
-      const current = paymentModality === 'acompte' || paymentModality === 'solde' ? paymentModality : 'autre'
+      const current =
+        paymentModality === 'acompte' || paymentModality === 'solde'
+          ? paymentModality
+          : 'autre'
       setLinkModality(current)
       // Pre-fill amount from quote deposit when modality is acompte
       if (current === 'acompte' && defaultDepositAmount && !amount) {
         setAmount(String(defaultDepositAmount))
       }
     }
-  }, [stripeMode, paymentModality, isStripeCreate, defaultDepositAmount, amount])
+  }, [
+    stripeMode,
+    paymentModality,
+    isStripeCreate,
+    defaultDepositAmount,
+    amount,
+  ])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -137,31 +167,35 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
     }
 
     if (isEditing && payment) {
-      updatePayment({
-        id: payment.id,
-        bookingId,
-        amount: amountNum,
-        paymentType,
-        paymentModality,
-        status,
-        paidAt: paidAt || null,
-        notes: notes || null,
-        file: file || undefined,
-        removeAttachment,
-        currentAttachmentPath: (payment as any).attachment_path,
-      }, {
-        onSuccess: () => {
-          toast.success('Paiement mis à jour')
-          onOpenChange(false)
+      updatePayment(
+        {
+          id: payment.id,
+          bookingId,
+          amount: amountNum,
+          paymentType,
+          paymentModality,
+          status,
+          paidAt: paidAt || null,
+          notes: notes || null,
+          file: file || undefined,
+          removeAttachment,
+          currentAttachmentPath: (payment as any).attachment_path,
+          quoteId: (payment as any).quote_id ?? primaryQuoteId ?? undefined,
         },
-        onError: () => toast.error('Erreur lors de la mise à jour'),
-      })
+        {
+          onSuccess: () => {
+            toast.success('Paiement mis à jour')
+            onOpenChange(false)
+          },
+          onError: () => toast.error('Erreur lors de la mise à jour'),
+        }
+      )
       return
     }
 
     // Create mode: if Stripe is selected, require a sub-choice
     if (isStripeCreate && stripeMode === null) {
-      toast.error('Choisissez d\'abord une option Stripe')
+      toast.error("Choisissez d'abord une option Stripe")
       return
     }
 
@@ -171,33 +205,42 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
     }
 
     // Default: record the payment directly (collected cases and non-stripe types)
-    createPayment({
-      bookingId,
-      amount: amountNum,
-      paymentType,
-      paymentModality,
-      paymentMethod: isStripeCreate ? 'stripe' : undefined,
-      status,
-      paidAt: paidAt || undefined,
-      notes: notes || undefined,
-      file: file || undefined,
-    }, {
-      onSuccess: () => {
-        toast.success('Paiement ajouté')
-        onOpenChange(false)
+    createPayment(
+      {
+        bookingId,
+        quoteId: primaryQuoteId || undefined,
+        amount: amountNum,
+        paymentType,
+        paymentModality,
+        paymentMethod: isStripeCreate ? 'stripe' : undefined,
+        status,
+        paidAt: paidAt || undefined,
+        notes: notes || undefined,
+        file: file || undefined,
       },
-      onError: () => toast.error('Erreur lors de la création'),
-    })
+      {
+        onSuccess: () => {
+          toast.success('Paiement ajouté')
+          onOpenChange(false)
+        },
+        onError: () => toast.error('Erreur lors de la création'),
+      }
+    )
   }
 
   const handleCreateStripeLink = async (amountNum: number) => {
     const email = linkEmail.trim()
     if (!email) {
-      toast.error('Veuillez renseigner l\'adresse email du client')
+      toast.error("Veuillez renseigner l'adresse email du client")
       return
     }
 
-    const linkType = linkModality === 'acompte' ? 'deposit' : linkModality === 'solde' ? 'balance' : 'full'
+    const linkType =
+      linkModality === 'acompte'
+        ? 'deposit'
+        : linkModality === 'solde'
+          ? 'balance'
+          : 'full'
 
     setIsCreatingLink(true)
     try {
@@ -222,13 +265,21 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
       onOpenChange(false)
     } catch (err) {
       console.error('[PaymentDialog] create-link error:', err)
-      const msg = err instanceof Error ? err.message : 'Erreur lors de la création du lien'
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Erreur lors de la création du lien'
       if (msg === 'NOT_CONNECTED' || msg === 'CHARGES_DISABLED') {
-        toast.error('Stripe non configuré pour ce restaurant. Configurez-le dans Paramètres > Restaurants.', {
-          duration: 6000,
-        })
+        toast.error(
+          'Stripe non configuré pour ce restaurant. Configurez-le dans Paramètres > Restaurants.',
+          {
+            duration: 6000,
+          }
+        )
       } else if (msg === 'BANK_TRANSFER_ONLY') {
-        toast.info('Ce restaurant utilise le virement bancaire. Créez un paiement manuel à la place.')
+        toast.info(
+          'Ce restaurant utilise le virement bancaire. Créez un paiement manuel à la place.'
+        )
       } else {
         toast.error(msg)
       }
@@ -239,13 +290,16 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
 
   const handleDelete = () => {
     if (!payment) return
-    deletePayment({ id: payment.id, bookingId }, {
-      onSuccess: () => {
-        toast.success('Paiement supprimé')
-        onOpenChange(false)
-      },
-      onError: () => toast.error('Erreur lors de la suppression'),
-    })
+    deletePayment(
+      { id: payment.id, bookingId },
+      {
+        onSuccess: () => {
+          toast.success('Paiement supprimé')
+          onOpenChange(false)
+        },
+        onError: () => toast.error('Erreur lors de la suppression'),
+      }
+    )
   }
 
   // Stripe "link" mode: show a simpler form
@@ -265,16 +319,17 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
             {isStripePayment
               ? 'Détails du paiement Stripe'
               : isEditing
-              ? 'Modifier le paiement'
-              : showStripeLinkForm
-              ? 'Nouveau lien de paiement'
-              : 'Ajouter un paiement'}
+                ? 'Modifier le paiement'
+                : showStripeLinkForm
+                  ? 'Nouveau lien de paiement'
+                  : 'Ajouter un paiement'}
           </DialogTitle>
         </DialogHeader>
 
         {isStripePayment && (
-          <p className='text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2'>
-            Ce paiement a été créé automatiquement via Stripe et ne peut pas être modifié.
+          <p className='rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground'>
+            Ce paiement a été créé automatiquement via Stripe et ne peut pas
+            être modifié.
           </p>
         )}
 
@@ -289,7 +344,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                 step='0.01'
                 min='0'
                 value={amount}
-                onChange={e => setAmount(e.target.value)}
+                onChange={(e) => setAmount(e.target.value)}
                 placeholder='0.00'
                 required
                 disabled={isStripePayment}
@@ -314,8 +369,10 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PAYMENT_TYPES.map(t => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  {PAYMENT_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -325,7 +382,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
           {/* Stripe choice UI — appears right under the Stripe type, before the rest of the form */}
           {showStripeChoice && (
             <div className='space-y-2 rounded-md border border-dashed border-input bg-muted/30 px-3 py-3'>
-              <Label className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+              <Label className='text-xs font-medium tracking-wide text-muted-foreground uppercase'>
                 Paiement Stripe
               </Label>
               <RadioGroup
@@ -333,27 +390,38 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                 onValueChange={(v) => setStripeMode(v as StripeMode)}
                 className='gap-2'
               >
-                <label className='flex items-start gap-3 rounded-md border border-input bg-background px-3 py-2.5 cursor-pointer hover:bg-accent/50 transition-colors'>
-                  <RadioGroupItem value='link' id='stripe-mode-link' className='mt-0.5' />
+                <label className='flex cursor-pointer items-start gap-3 rounded-md border border-input bg-background px-3 py-2.5 transition-colors hover:bg-accent/50'>
+                  <RadioGroupItem
+                    value='link'
+                    id='stripe-mode-link'
+                    className='mt-0.5'
+                  />
                   <div className='flex-1 space-y-0.5'>
                     <div className='flex items-center gap-1.5 text-sm font-medium'>
                       <Mail className='h-3.5 w-3.5' />
                       Créer un lien et l'envoyer par email
                     </div>
                     <p className='text-xs text-muted-foreground'>
-                      Génère un lien Stripe Checkout et l'envoie au client. Le paiement sera marqué comme payé automatiquement une fois réglé.
+                      Génère un lien Stripe Checkout et l'envoie au client. Le
+                      paiement sera marqué comme payé automatiquement une fois
+                      réglé.
                     </p>
                   </div>
                 </label>
-                <label className='flex items-start gap-3 rounded-md border border-input bg-background px-3 py-2.5 cursor-pointer hover:bg-accent/50 transition-colors'>
-                  <RadioGroupItem value='collected' id='stripe-mode-collected' className='mt-0.5' />
+                <label className='flex cursor-pointer items-start gap-3 rounded-md border border-input bg-background px-3 py-2.5 transition-colors hover:bg-accent/50'>
+                  <RadioGroupItem
+                    value='collected'
+                    id='stripe-mode-collected'
+                    className='mt-0.5'
+                  />
                   <div className='flex-1 space-y-0.5'>
                     <div className='flex items-center gap-1.5 text-sm font-medium'>
                       <CheckCircle2 className='h-3.5 w-3.5' />
                       Paiement Stripe déjà encaissé
                     </div>
                     <p className='text-xs text-muted-foreground'>
-                      Enregistre manuellement un paiement déjà reçu via Stripe (hors lien généré depuis l'application).
+                      Enregistre manuellement un paiement déjà reçu via Stripe
+                      (hors lien généré depuis l'application).
                     </p>
                   </div>
                 </label>
@@ -366,7 +434,12 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
             <>
               <div className='space-y-2'>
                 <Label>Modalité *</Label>
-                <Select value={linkModality} onValueChange={(v) => setLinkModality(v as 'acompte' | 'solde' | 'autre')}>
+                <Select
+                  value={linkModality}
+                  onValueChange={(v) =>
+                    setLinkModality(v as 'acompte' | 'solde' | 'autre')
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -384,13 +457,14 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                   id='link-email'
                   type='email'
                   value={linkEmail}
-                  onChange={e => setLinkEmail(e.target.value)}
+                  onChange={(e) => setLinkEmail(e.target.value)}
                   placeholder='client@example.com'
                   required
                 />
                 {!contactEmail && (
                   <p className='text-xs text-muted-foreground'>
-                    Le contact n'a pas d'email enregistré. Renseignez une adresse pour l'envoi.
+                    Le contact n'a pas d'email enregistré. Renseignez une
+                    adresse pour l'envoi.
                   </p>
                 )}
               </div>
@@ -400,14 +474,16 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                 <Textarea
                   id='link-notes'
                   value={notes}
-                  onChange={e => setNotes(e.target.value)}
+                  onChange={(e) => setNotes(e.target.value)}
                   placeholder='Visible uniquement par votre équipe...'
                   className='min-h-[60px]'
                 />
               </div>
 
-              <p className='text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2'>
-                Un email avec le lien de paiement sécurisé sera envoyé au client. Un paiement en attente sera créé et passera automatiquement au statut « Payé » dès le règlement.
+              <p className='rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground'>
+                Un email avec le lien de paiement sécurisé sera envoyé au
+                client. Un paiement en attente sera créé et passera
+                automatiquement au statut « Payé » dès le règlement.
               </p>
             </>
           )}
@@ -418,13 +494,19 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
               {/* Payment Modality */}
               <div className='space-y-2'>
                 <Label>Modalité *</Label>
-                <Select value={paymentModality} onValueChange={setPaymentModality} disabled={isStripePayment}>
+                <Select
+                  value={paymentModality}
+                  onValueChange={setPaymentModality}
+                  disabled={isStripePayment}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_MODALITIES.map(m => (
-                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    {PAYMENT_MODALITIES.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -433,13 +515,19 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
               {/* Status */}
               <div className='space-y-2'>
                 <Label>Statut *</Label>
-                <Select value={status} onValueChange={setStatus} disabled={isStripePayment}>
+                <Select
+                  value={status}
+                  onValueChange={setStatus}
+                  disabled={isStripePayment}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_STATUSES.map(s => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    {PAYMENT_STATUSES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -462,7 +550,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                 <Textarea
                   id='notes'
                   value={notes}
-                  onChange={e => setNotes(e.target.value)}
+                  onChange={(e) => setNotes(e.target.value)}
                   placeholder='Notes optionnelles...'
                   className='min-h-[80px]'
                   disabled={isStripePayment}
@@ -477,7 +565,7 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                   type='file'
                   accept='image/*,.pdf'
                   className='hidden'
-                  onChange={e => {
+                  onChange={(e) => {
                     const selectedFile = e.target.files?.[0]
                     if (selectedFile) {
                       setFile(selectedFile)
@@ -487,16 +575,22 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                 />
 
                 {/* Show existing attachment or new file */}
-                {((payment as any)?.attachment_url && !removeAttachment && !file) ? (
-                  <div className='flex items-center gap-2 p-2 border rounded-md bg-muted/50'>
+                {(payment as any)?.attachment_url &&
+                !removeAttachment &&
+                !file ? (
+                  <div className='flex items-center gap-2 rounded-md border bg-muted/50 p-2'>
                     <Paperclip className='h-4 w-4 text-muted-foreground' />
-                    <span className='text-sm flex-1 truncate'>Fichier attaché</span>
+                    <span className='flex-1 truncate text-sm'>
+                      Fichier attaché
+                    </span>
                     <Button
                       type='button'
                       variant='ghost'
                       size='sm'
                       className='h-7 w-7 p-0'
-                      onClick={() => window.open((payment as any).attachment_url!, '_blank')}
+                      onClick={() =>
+                        window.open((payment as any).attachment_url!, '_blank')
+                      }
                     >
                       <ExternalLink className='h-3.5 w-3.5' />
                     </Button>
@@ -511,9 +605,9 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                     </Button>
                   </div>
                 ) : file ? (
-                  <div className='flex items-center gap-2 p-2 border rounded-md bg-muted/50'>
+                  <div className='flex items-center gap-2 rounded-md border bg-muted/50 p-2'>
                     <Paperclip className='h-4 w-4 text-muted-foreground' />
-                    <span className='text-sm flex-1 truncate'>{file.name}</span>
+                    <span className='flex-1 truncate text-sm'>{file.name}</span>
                     <Button
                       type='button'
                       variant='ghost'
@@ -521,7 +615,8 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                       className='h-7 w-7 p-0 text-destructive hover:text-destructive'
                       onClick={() => {
                         setFile(null)
-                        if (fileInputRef.current) fileInputRef.current.value = ''
+                        if (fileInputRef.current)
+                          fileInputRef.current.value = ''
                       }}
                     >
                       <X className='h-3.5 w-3.5' />
@@ -541,8 +636,9 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
               </div>
 
               {showStripeCollectedForm && (
-                <p className='text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2'>
-                  Ce paiement sera enregistré avec la méthode « Stripe ». Aucun lien ne sera envoyé.
+                <p className='rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground'>
+                  Ce paiement sera enregistré avec la méthode « Stripe ». Aucun
+                  lien ne sera envoyé.
                 </p>
               )}
             </>
@@ -553,7 +649,11 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
             {isStripePayment ? (
               <>
                 <div />
-                <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => onOpenChange(false)}
+                >
                   Fermer
                 </Button>
               </>
@@ -566,7 +666,11 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                     onClick={handleDelete}
                     disabled={isPending}
                   >
-                    {isDeleting ? <Loader2 className='h-4 w-4 animate-spin' /> : 'Supprimer'}
+                    {isDeleting ? (
+                      <Loader2 className='h-4 w-4 animate-spin' />
+                    ) : (
+                      'Supprimer'
+                    )}
                   </Button>
                 ) : showStripeLinkForm || showStripeCollectedForm ? (
                   <Button
@@ -581,10 +685,20 @@ export function PaymentDialog({ open, onOpenChange, bookingId, payment, contactE
                   <div />
                 )}
                 <div className='flex gap-2'>
-                  <Button type='button' variant='outline' onClick={() => onOpenChange(false)} disabled={isPending}>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    onClick={() => onOpenChange(false)}
+                    disabled={isPending}
+                  >
                     Annuler
                   </Button>
-                  <Button type='submit' disabled={isPending || (isStripeCreate && stripeMode === null)}>
+                  <Button
+                    type='submit'
+                    disabled={
+                      isPending || (isStripeCreate && stripeMode === null)
+                    }
+                  >
                     {isCreating || isUpdating || isCreatingLink ? (
                       <Loader2 className='h-4 w-4 animate-spin' />
                     ) : isEditing ? (

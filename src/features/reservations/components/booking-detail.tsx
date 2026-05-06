@@ -1,11 +1,16 @@
-import { formatEuroWhole, formatEuroDecimal } from '@/features/reservations/lib/quote-rounding'
-import { useEffect, useMemo, useState, forwardRef, useImperativeHandle, useRef } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+} from 'react'
 import { z } from 'zod'
+import { format, formatDistanceToNow, differenceInDays } from 'date-fns'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link, useBlocker } from '@tanstack/react-router'
-import { toast } from 'sonner'
-import { format, formatDistanceToNow, differenceInDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
   Copy,
@@ -28,6 +33,8 @@ import {
   Building,
   ClipboardList,
 } from 'lucide-react'
+import { toast } from 'sonner'
+import type { Payment, Quote } from '@/lib/supabase/types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,11 +48,15 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/components/ui/date-picker'
-import { TimePicker } from '@/components/ui/time-picker'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +71,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -67,21 +85,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { TimePicker } from '@/components/ui/time-picker'
+import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
+import {
+  formatEuroWhole,
+  formatEuroAdaptive,
+} from '@/features/reservations/lib/quote-rounding'
+import { useSpaces } from '@/features/settings/hooks/use-settings'
+import {
+  useActivityLogs,
+  useLogActivity,
+  createActivityLogger,
+  ACTION_ICONS,
+  type ActivityActionType,
+} from '../hooks/use-activity-logs'
 import {
   useUpdateBooking,
   useDeleteBooking,
@@ -92,6 +112,18 @@ import {
   useQuotesByBooking,
   usePaymentsByBooking,
 } from '../hooks/use-bookings'
+import {
+  useDocumentsByBooking,
+  useUploadDocument,
+  useDeleteDocument,
+} from '../hooks/use-documents'
+import {
+  useBookingMenuForms,
+  useLinkMenuFormToBooking,
+  useUnlinkMenuFormFromBooking,
+  useCreateMenuForm,
+  useMenuFormsByRestaurant,
+} from '../hooks/use-menu-forms'
 import {
   useSetPrimaryQuote,
   useCreateQuote,
@@ -105,26 +137,10 @@ import {
   useSendDeposit,
   useSendBalance,
 } from '../hooks/use-quotes'
-import {
-  useDocumentsByBooking,
-  useUploadDocument,
-  useDeleteDocument,
-} from '../hooks/use-documents'
-import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
-import { useSpaces } from '@/features/settings/hooks/use-settings'
-import {
-  useBookingMenuForms,
-  useLinkMenuFormToBooking,
-  useUnlinkMenuFormFromBooking,
-  useCreateMenuForm,
-  useMenuFormsByRestaurant,
-} from '../hooks/use-menu-forms'
-import { useActivityLogs, useLogActivity, createActivityLogger, ACTION_ICONS, type ActivityActionType } from '../hooks/use-activity-logs'
-import { QuoteEditor } from './quote-editor'
+import { FicheFonction } from './fiche-fonction'
 import { MenuFormBuilder } from './menu-form-builder'
 import { PaymentDialog } from './payment-dialog'
-import { FicheFonction } from './fiche-fonction'
-import type { Payment, Quote } from '@/lib/supabase/types'
+import { QuoteEditor } from './quote-editor'
 
 const bookingDetailSchema = z.object({
   contact_id: z.string().min(1, 'Le contact est requis'),
@@ -148,9 +164,16 @@ type BookingDetailProps = {
 
 // ─── Main component ───────────────────────────────────────────────
 export const BookingDetail = forwardRef<
-  { submitForm: () => void; deleteBooking: () => void; getIsDirty: () => boolean },
+  {
+    submitForm: () => void
+    deleteBooking: () => void
+    getIsDirty: () => boolean
+  },
   BookingDetailProps & { onDirtyChange?: (isDirty: boolean) => void }
->(function BookingDetail({ booking, activeTab = 'evenementiel', onTabChange, onDirtyChange }, ref) {
+>(function BookingDetail(
+  { booking, activeTab = 'evenementiel', onTabChange, onDirtyChange },
+  ref
+) {
   const navigate = useNavigate()
   const { mutate: updateBooking } = useUpdateBooking()
   const { mutate: deleteBookingMutation } = useDeleteBooking()
@@ -159,17 +182,23 @@ export const BookingDetail = forwardRef<
   const { data: users = [] } = useOrganizationUsers()
   const { data: spaces = [] } = useSpaces(booking.restaurant_id || undefined)
   const { data: quotes = [] } = useQuotesByBooking(booking.id)
-  const { mutate: setPrimaryQuote, isPending: isSettingPrimary } = useSetPrimaryQuote()
+  const { mutate: setPrimaryQuote, isPending: isSettingPrimary } =
+    useSetPrimaryQuote()
   const { data: payments = [] } = usePaymentsByBooking(booking.id)
   const { data: documents = [] } = useDocumentsByBooking(booking.id)
   const { mutate: uploadDocument } = useUploadDocument()
-  const { mutate: deleteDocument, isPending: isDeletingDocument } = useDeleteDocument()
+  const { mutate: deleteDocument, isPending: isDeletingDocument } =
+    useDeleteDocument()
   const { mutate: createQuote, isPending: isCreatingQuote } = useCreateQuote()
   const { mutate: deleteQuoteMutation } = useDeleteQuote()
-  const { mutate: duplicateQuote, isPending: isDuplicating } = useDuplicateQuote()
-  const { mutate: markQuoteSigned, isPending: isMarkingSigned } = useMarkQuoteSigned()
-  const { mutate: sendQuoteEmail, isPending: isSendingEmail } = useSendQuoteEmail()
-  const { mutate: sendSignature, isPending: isSendingSignature } = useSendSignature()
+  const { mutate: duplicateQuote, isPending: isDuplicating } =
+    useDuplicateQuote()
+  const { mutate: markQuoteSigned, isPending: isMarkingSigned } =
+    useMarkQuoteSigned()
+  const { mutate: sendQuoteEmail, isPending: isSendingEmail } =
+    useSendQuoteEmail()
+  const { mutate: sendSignature, isPending: isSendingSignature } =
+    useSendSignature()
   const { mutate: sendDeposit, isPending: isSendingDeposit } = useSendDeposit()
   const { mutate: sendBalance, isPending: isSendingBalance } = useSendBalance()
   const { data: fullRestaurant } = useRestaurantById(booking.restaurant_id)
@@ -178,7 +207,9 @@ export const BookingDetail = forwardRef<
 
   // Change restaurant dialog state
   const [changeRestaurantOpen, setChangeRestaurantOpen] = useState(false)
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null)
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<
+    string | null
+  >(null)
 
   // Quote editor state
   const [quoteEditorOpen, setQuoteEditorOpen] = useState(false)
@@ -186,8 +217,12 @@ export const BookingDetail = forwardRef<
   const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null)
   // Multi-quote email send dialog
   const [sendEmailDialogOpen, setSendEmailDialogOpen] = useState(false)
-  const [_sendEmailSourceQuoteId, setSendEmailSourceQuoteId] = useState<string | null>(null)
-  const [selectedQuoteIdsToSend, setSelectedQuoteIdsToSend] = useState<string[]>([])
+  const [_sendEmailSourceQuoteId, setSendEmailSourceQuoteId] = useState<
+    string | null
+  >(null)
+  const [selectedQuoteIdsToSend, setSelectedQuoteIdsToSend] = useState<
+    string[]
+  >([])
 
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -195,34 +230,50 @@ export const BookingDetail = forwardRef<
 
   // Menu forms state (using booking_menu_forms junction table)
   const { data: bookingMenuForms = [] } = useBookingMenuForms(booking.id)
-  const { data: availableForms = [] } = useMenuFormsByRestaurant(booking.restaurant_id)
-  const { mutate: linkMenuForm, isPending: isLinkingForm } = useLinkMenuFormToBooking()
+  const { data: availableForms = [] } = useMenuFormsByRestaurant(
+    booking.restaurant_id
+  )
+  const { mutate: linkMenuForm, isPending: isLinkingForm } =
+    useLinkMenuFormToBooking()
   const { mutate: unlinkMenuForm } = useUnlinkMenuFormFromBooking()
-  const { mutateAsync: createMenuForm, isPending: isCreatingForm } = useCreateMenuForm()
+  const { mutateAsync: createMenuForm, isPending: isCreatingForm } =
+    useCreateMenuForm()
   const [menuFormBuilderOpen, setMenuFormBuilderOpen] = useState(false)
-  const [editingMenuFormId, setEditingMenuFormId] = useState<string | null>(null)
+  const [editingMenuFormId, setEditingMenuFormId] = useState<string | null>(
+    null
+  )
   const [showLinkFormDialog, setShowLinkFormDialog] = useState(false)
-  const [linkFormMode, setLinkFormMode] = useState<'choose' | 'create' | 'existing'>('choose')
+  const [linkFormMode, setLinkFormMode] = useState<
+    'choose' | 'create' | 'existing'
+  >('choose')
   const [newFormTitle, setNewFormTitle] = useState('')
 
   // Activity logs
-  const { data: activityLogs = [], isLoading: isLoadingLogs } = useActivityLogs(booking.id)
+  const { data: activityLogs = [], isLoading: isLoadingLogs } = useActivityLogs(
+    booking.id
+  )
   const { mutate: logActivity } = useLogActivity()
   const activityLogger = createActivityLogger(logActivity)
 
-  const daysUntilEvent = differenceInDays(new Date(booking.event_date), new Date())
+  const daysUntilEvent = differenceInDays(
+    new Date(booking.event_date),
+    new Date()
+  )
 
-  const formValues = useMemo(() => ({
-    contact_id: booking.contact_id || '',
-    restaurant_id: booking.restaurant_id || '',
-    status_id: booking.status_id || '',
-    occasion: booking.occasion || '',
-    option: booking.option || '',
-    relance: booking.relance || '',
-    source: booking.source || '',
-    is_table_blocked: booking.is_table_blocked || false,
-    has_extra_provider: booking.has_extra_provider || false,
-  }), [booking])
+  const formValues = useMemo(
+    () => ({
+      contact_id: booking.contact_id || '',
+      restaurant_id: booking.restaurant_id || '',
+      status_id: booking.status_id || '',
+      occasion: booking.occasion || '',
+      option: booking.option || '',
+      relance: booking.relance || '',
+      source: booking.source || '',
+      is_table_blocked: booking.is_table_blocked || false,
+      has_extra_provider: booking.has_extra_provider || false,
+    }),
+    [booking]
+  )
 
   const form = useForm<BookingDetailFormData>({
     resolver: zodResolver(bookingDetailSchema),
@@ -261,8 +312,12 @@ export const BookingDetail = forwardRef<
     assigned_user_ids: b.assigned_user_ids || [],
   })
 
-  const initialEventFormRef = useRef<Record<string, unknown>>(buildEventFormValues(booking))
-  const [eventForm, setEventForm] = useState<Record<string, unknown>>(buildEventFormValues(booking))
+  const initialEventFormRef = useRef<Record<string, unknown>>(
+    buildEventFormValues(booking)
+  )
+  const [eventForm, setEventForm] = useState<Record<string, unknown>>(
+    buildEventFormValues(booking)
+  )
 
   useEffect(() => {
     const vals = buildEventFormValues(booking)
@@ -273,7 +328,7 @@ export const BookingDetail = forwardRef<
   // ── Dirty detection ──
   const isEventFormDirty = useMemo(() => {
     const initial = initialEventFormRef.current
-    return Object.keys(initial).some(key => {
+    return Object.keys(initial).some((key) => {
       const a = eventForm[key]
       const b = initial[key]
       if (Array.isArray(a) && Array.isArray(b)) {
@@ -320,19 +375,24 @@ export const BookingDetail = forwardRef<
   }, [isDirty])
 
   const updateEventField = (key: string, value: unknown) => {
-    setEventForm(prev => ({ ...prev, [key]: value }))
+    setEventForm((prev) => ({ ...prev, [key]: value }))
   }
 
   const onSubmit = (data: BookingDetailFormData) => {
     // Convert empty strings to null for numeric and date/time fields
     const cleanEventForm = {
       ...eventForm,
-      guests_count: eventForm.guests_count === '' ? null : eventForm.guests_count,
-      budget_client: eventForm.budget_client === '' ? null : eventForm.budget_client,
+      guests_count:
+        eventForm.guests_count === '' ? null : eventForm.guests_count,
+      budget_client:
+        eventForm.budget_client === '' ? null : eventForm.budget_client,
       event_date: eventForm.event_date === '' ? null : eventForm.event_date,
       start_time: eventForm.start_time === '' ? null : eventForm.start_time,
       end_time: eventForm.end_time === '' ? null : eventForm.end_time,
-      date_signature_devis: eventForm.date_signature_devis === '' ? null : eventForm.date_signature_devis,
+      date_signature_devis:
+        eventForm.date_signature_devis === ''
+          ? null
+          : eventForm.date_signature_devis,
       space_id: eventForm.space_id === '' ? null : eventForm.space_id,
     }
 
@@ -348,8 +408,11 @@ export const BookingDetail = forwardRef<
     const statusChanged = oldStatusId !== newStatusId
 
     // Detect assignment change (assigned_user_ids array)
-    const oldAssignedIds = (initialEventFormRef.current.assigned_user_ids as string[] | undefined) || []
-    const newAssignedIds = (eventForm.assigned_user_ids as string[] | undefined) || []
+    const oldAssignedIds =
+      (initialEventFormRef.current.assigned_user_ids as string[] | undefined) ||
+      []
+    const newAssignedIds =
+      (eventForm.assigned_user_ids as string[] | undefined) || []
     const assignmentChanged =
       oldAssignedIds.length !== newAssignedIds.length ||
       oldAssignedIds.some((id, i) => id !== newAssignedIds[i])
@@ -377,15 +440,21 @@ export const BookingDetail = forwardRef<
 
         // Log status change
         if (statusChanged) {
-          const oldStatusName = statuses.find(s => s.id === oldStatusId)?.name || 'Non défini'
-          const newStatusName = statuses.find(s => s.id === newStatusId)?.name || 'Non défini'
-          activityLogger.bookingStatusChanged(booking.id, oldStatusName, newStatusName)
+          const oldStatusName =
+            statuses.find((s) => s.id === oldStatusId)?.name || 'Non défini'
+          const newStatusName =
+            statuses.find((s) => s.id === newStatusId)?.name || 'Non défini'
+          activityLogger.bookingStatusChanged(
+            booking.id,
+            oldStatusName,
+            newStatusName
+          )
         }
         // Log assignment change
         else if (assignmentChanged) {
           const names = users
-            .filter(u => newAssignedIds.includes(u.id))
-            .map(u => u.first_name)
+            .filter((u) => newAssignedIds.includes(u.id))
+            .map((u) => u.first_name)
           activityLogger.bookingAssigned(booking.id, names)
         }
         // Log general update if no specific change detected
@@ -393,16 +462,25 @@ export const BookingDetail = forwardRef<
           // Build changes object for detailed logging (skip if both values are empty/null)
           const changes: Record<string, { old: unknown; new: unknown }> = {}
           if (booking.guests_count !== eventForm.guests_count) {
-            changes['Convives'] = { old: booking.guests_count, new: eventForm.guests_count }
+            changes['Convives'] = {
+              old: booking.guests_count,
+              new: eventForm.guests_count,
+            }
           }
           if (booking.event_date !== eventForm.event_date) {
-            changes['Date'] = { old: booking.event_date, new: eventForm.event_date }
+            changes['Date'] = {
+              old: booking.event_date,
+              new: eventForm.event_date,
+            }
           }
           // Only log occasion if there's an actual change (not empty to empty)
           const oldOccasion = booking.occasion || ''
           const newOccasion = data.occasion || ''
           if (oldOccasion !== newOccasion && (oldOccasion || newOccasion)) {
-            changes['Occasion'] = { old: oldOccasion || null, new: newOccasion || null }
+            changes['Occasion'] = {
+              old: oldOccasion || null,
+              new: newOccasion || null,
+            }
           }
           if (Object.keys(changes).length > 0) {
             activityLogger.bookingUpdated(booking.id, changes)
@@ -427,18 +505,25 @@ export const BookingDetail = forwardRef<
     duplicateBooking(booking, {
       onSuccess: (data) => {
         toast.success('Événement dupliqué')
-        navigate({ to: '/evenements/booking/$id', params: { id: (data as { id: string }).id } })
+        navigate({
+          to: '/evenements/booking/$id',
+          params: { id: (data as { id: string }).id },
+        })
       },
       onError: () => toast.error('Erreur lors de la duplication'),
     })
   }
 
   // Expose submitForm, deleteBooking, and getIsDirty methods via ref
-  useImperativeHandle(ref, () => ({
-    submitForm: () => form.handleSubmit(onSubmit)(),
-    deleteBooking: () => handleDelete(),
-    getIsDirty: () => form.formState.isDirty || isEventFormDirty,
-  }), [form, onSubmit])
+  useImperativeHandle(
+    ref,
+    () => ({
+      submitForm: () => form.handleSubmit(onSubmit)(),
+      deleteBooking: () => handleDelete(),
+      getIsDirty: () => form.formState.isDirty || isEventFormDirty,
+    }),
+    [form, onSubmit]
+  )
 
   const sourceOptions = [
     'Google Ads',
@@ -455,1797 +540,2959 @@ export const BookingDetail = forwardRef<
 
   return (
     <>
-    <Form {...form}>
-      <form id='booking-form' onSubmit={form.handleSubmit(onSubmit)}>
-        <div className='grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-6'>
-
-          {/* ═══════ LEFT SIDEBAR ═══════ */}
-          <div className='space-y-4'>
-            {/* Restaurant badge + dates */}
-            <Card className='bg-muted/50'>
-              <CardContent className='pt-1 space-y-3'>
-                {/* Restaurant name + Actions */}
-                <div className='flex items-center justify-between gap-2'>
-                  <div className='flex items-center gap-2'>
-                    {booking.restaurant?.color && (
-                      <div className='h-3 w-3 rounded-full shrink-0' style={{ backgroundColor: booking.restaurant.color }} />
-                    )}
-                    <span className='font-semibold text-lg'>{booking.restaurant?.name || '—'}</span>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size='sm' className='gap-1'>
-                        Actions
-                        <svg className='h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 14l-7 7m0 0l-7-7m7 7V3' />
-                        </svg>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align='end' className='w-56'>
-                      <DropdownMenuItem onClick={() => {
-                        if (!booking.contact?.email) {
-                          toast.error('Le contact n\'a pas d\'adresse email')
-                          return
-                        }
-                        window.location.href = `mailto:${booking.contact.email}`
-                      }}>
-                        <Mail className='mr-2 h-4 w-4' />
-                        Envoyer un email
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        if (!booking.contact_id) {
-                          toast.error('Aucun contact associé')
-                          return
-                        }
-                        navigate({ to: '/contacts/contact/$id', params: { id: booking.contact_id } })
-                      }}>
-                        <ExternalLink className='mr-2 h-4 w-4' />
-                        Ouvrir l'espace client
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => {
-                        setSelectedRestaurantId(booking.restaurant_id)
-                        setChangeRestaurantOpen(true)
-                      }}>
-                        <Building className='mr-2 h-4 w-4' />
-                        Changer de restaurant
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleDuplicate}>
-                        <svg className='mr-2 h-4 w-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                          <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z' />
-                        </svg>
-                        Dupliquer l'événement
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onTabChange?.('fiche-fonction')}>
-                        <ClipboardList className='mr-2 h-4 w-4' />
-                        Voir la fiche de fonction
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                {/* Created / Updated */}
-                <div className='text-xs text-muted-foreground space-y-0.5'>
-                  <div>Créé le {format(new Date(booking.created_at), "d MMM yyyy HH:mm", { locale: fr })}</div>
-                  <div>Dernière modif {format(new Date(booking.updated_at), "d MMM yyyy HH:mm", { locale: fr })}</div>
-                </div>
-
-                {/* Days until event */}
-                <Badge variant={daysUntilEvent < 0 ? 'destructive' : daysUntilEvent <= 7 ? 'default' : 'secondary'}>
-                  {daysUntilEvent < 0
-                    ? `Passé (${Math.abs(daysUntilEvent)} jours)`
-                    : daysUntilEvent === 0
-                      ? "Aujourd'hui"
-                      : `${daysUntilEvent} Jours`}
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* Contact info */}
-            <Card className='bg-muted/50'>
-              <CardContent className='pt-1 space-y-2'>
-                {booking.contact?.company?.name && (
-                  <div className='text-xs text-muted-foreground'>{booking.contact.company.name}</div>
-                )}
-                <div className='flex items-center gap-2'>
-                  <div className='font-semibold'>
-                    {booking.contact
-                      ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`
-                      : '—'}
-                  </div>
-                  {booking.contact && (
-                    booking.contact.company
-                      ? <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>B2B</Badge>
-                      : <Badge className='bg-gray-500 text-white text-[10px] px-1.5 py-0 h-5'>B2C</Badge>
-                  )}
-                </div>
-                {booking.contact?.phone && (
-                  <div className='flex items-center gap-2 text-sm text-muted-foreground'>
-                    <Phone className='h-3.5 w-3.5' />
-                    {booking.contact.phone}
-                  </div>
-                )}
-                {booking.contact?.email && (
-                  <div className='flex items-center gap-2 text-sm text-muted-foreground'>
-                    <Mail className='h-3.5 w-3.5' />
-                    {booking.contact.email}
-                  </div>
-                )}
-                {(booking.contact?.source || booking.contact?.created_at) && (
-                  <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1 border-t'>
-                    {booking.contact?.source && (
-                      <span>Source : <span className='font-medium text-foreground'>{booking.contact.source}</span></span>
-                    )}
-                    {booking.contact?.created_at && (
-                      <span>Créé le : <span className='font-medium text-foreground'>{format(new Date(booking.contact.created_at), 'dd/MM/yyyy', { locale: fr })}</span></span>
-                    )}
-                  </div>
-                )}
-                {booking.contact_id && (
-                  <Button variant='link' size='sm' asChild className='px-0 h-auto text-xs'>
-                    <Link to='/contacts/contact/$id' params={{ id: booking.contact_id }}>
-                      Voir la fiche contact <ExternalLink className='ml-1 h-3 w-3' />
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Sidebar form fields - only on evenementiel tab */}
-            {activeTab === 'evenementiel' && (
-            <Card>
-              <CardContent className='pt-1 space-y-3'>
-                {/* Commerciaux assignés */}
-                <div>
-                  <label className='text-xs font-medium'>Commerciaux assignés</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant='outline' className='w-full h-8 justify-start text-xs mt-2'>
-                        {((eventForm.assigned_user_ids as string[]) || []).length > 0
-                          ? users
-                              .filter(u => ((eventForm.assigned_user_ids as string[]) || []).includes(u.id))
-                              .map(u => `${u.first_name} ${u.last_name}`)
-                              .join(', ')
-                          : 'Sélectionnez des commerciaux'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className='w-56 p-3'>
-                      <div className='space-y-2'>
-                        {users.map((user: { id: string; first_name: string; last_name: string }) => (
-                          <div key={user.id} className='flex items-center gap-2'>
-                            <Checkbox
-                              id={`user-${user.id}`}
-                              checked={((eventForm.assigned_user_ids as string[]) || []).includes(user.id)}
-                              onCheckedChange={(checked) => {
-                                const currentIds = (eventForm.assigned_user_ids as string[]) || []
-                                const newIds = checked
-                                  ? [...currentIds, user.id]
-                                  : currentIds.filter((id: string) => id !== user.id)
-                                updateEventField('assigned_user_ids', newIds)
-                              }}
-                            />
-                            <label htmlFor={`user-${user.id}`} className='text-xs cursor-pointer'>
-                              {user.first_name} {user.last_name}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <Separator />
-
-                {/* Statut */}
-                <FormField
-                  control={form.control}
-                  name='status_id'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className='text-xs'>Statut</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className='h-8'>
-                            <SelectValue placeholder='Statut' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {statuses.map(s => (
-                            <SelectItem key={s.id} value={s.id}>
-                              <div className='flex items-center gap-2'>
-                                <div className='h-2 w-2 rounded-full' style={{ backgroundColor: s.color }} />
-                                {s.name}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {booking.status && (
-                        <div className='text-xs text-muted-foreground'>
-                          {booking.status.name} ({formatDistanceToNow(new Date(booking.updated_at), { locale: fr, addSuffix: true })})
-                        </div>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Separator />
-
-                {/* Relance */}
-                <FormField
-                  control={form.control}
-                  name='relance'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className='text-xs'>Relance</FormLabel>
-                      <FormControl>
-                        <DatePicker value={field.value || ''} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Separator />
-
-                {/* Occasion */}
-                <FormField
-                  control={form.control}
-                  name='occasion'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className='text-xs'>Occasion</FormLabel>
-                      <FormControl>
-                        <Input placeholder={"Dîner d'équipe - Société ORANGE"} className='h-8 text-sm' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Separator />
-
-                {/* Option */}
-                <FormField
-                  control={form.control}
-                  name='option'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className='text-xs'>Option</FormLabel>
-                      <FormControl>
-                        <Input placeholder='Option commerciale' className='h-8 text-sm' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Separator />
-
-                {/* Source */}
-                <FormField
-                  control={form.control}
-                  name='source'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className='text-xs'>Source</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className='h-8'>
-                            <SelectValue placeholder='Source' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {sourceOptions.map(s => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Separator />
-
-                {/* Budget client */}
-                <div>
-                  <label className='text-xs font-medium'>Budget client (€)</label>
-                  <Input
-                    type='number'
-                    min='0'
-                    step='0.01'
-                    placeholder='0.00'
-                    value={eventForm.budget_client as number || ''}
-                    onChange={e => updateEventField('budget_client', e.target.value ? Number(e.target.value) : null)}
-                    className='h-8 text-sm'
-                  />
-                </div>
-
-                <Separator />
-
-                {/* Format souhaité */}
-                <div>
-                  <label className='text-xs font-medium'>Format souhaité</label>
-                  <Input
-                    placeholder='Cocktail, Assis, Buffet...'
-                    value={eventForm.format_souhaite as string || ''}
-                    onChange={e => updateEventField('format_souhaite', e.target.value)}
-                    className='h-8 text-sm'
-                  />
-                </div>
-
-                <div>
-                  <label className='text-xs font-medium'>Type de réservation</label>
-                  <Select value={eventForm.reservation_type as string || ''} onValueChange={v => updateEventField('reservation_type', v)}>
-                    <SelectTrigger className='h-8 text-sm'>
-                      <SelectValue placeholder='Sélectionner...' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='grande-tablee'>Grande tablée</SelectItem>
-                      <SelectItem value='semi-privatisation'>Semi-privatisation</SelectItem>
-                      <SelectItem value='privatisation'>Privatisation totale</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Separator />
-
-                {/* Switches */}
-                <div className='space-y-2'>
-                  <FormField
-                    control={form.control}
-                    name='is_table_blocked'
-                    render={({ field }) => (
-                      <FormItem className='flex items-center justify-between space-y-0'>
-                        <FormLabel className='text-xs font-normal'>Table bloquée</FormLabel>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='has_extra_provider'
-                    render={({ field }) => (
-                      <FormItem className='flex items-center justify-between space-y-0'>
-                        <FormLabel className='text-xs font-normal'>Prestataire externe</FormLabel>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-            )}
-
-          </div>
-
-          {/* ═══════ RIGHT CONTENT — TAB CONTENT ═══════ */}
-          <div className='flex-1'>
-            {/* ── Tab: Événementiel ── */}
-            {activeTab === 'evenementiel' && (
-              <div className='space-y-4'>
-                <Card>
-                  <CardContent className='space-y-3 pt-1'>
-                    {/* Date / Espace */}
-                    <div className='grid gap-3 md:grid-cols-2'>
-                      <div>
-                        <label className='text-xs font-medium'>Date</label>
-                        <DatePicker value={eventForm.event_date as string || ''} onChange={(value) => updateEventField('event_date', value)} />
-                      </div>
-                      <div>
-                        <label className='text-xs font-medium'>Espace</label>
-                        <Select value={eventForm.space_id as string || ''} onValueChange={(value) => updateEventField('space_id', value)}>
-                          <SelectTrigger className='h-8'>
-                            <SelectValue placeholder='Sélectionnez un espace' />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {spaces.map(s => (
-                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    {/* Horaires / Personnes */}
-                    <div className='grid gap-3 md:grid-cols-3'>
-                      <div>
-                        <label className='text-xs font-medium'>Début</label>
-                        <TimePicker value={eventForm.start_time as string || ''} onChange={(value) => updateEventField('start_time', value)} />
-                      </div>
-                      <div>
-                        <label className='text-xs font-medium'>Fin</label>
-                        <TimePicker value={eventForm.end_time as string || ''} onChange={(value) => updateEventField('end_time', value)} />
-                      </div>
-                      <div>
-                        <label className='text-xs font-medium'>Personnes</label>
-                        <Input type='number' min='1' value={eventForm.guests_count as string || ''} onChange={e => updateEventField('guests_count', e.target.value ? Number(e.target.value) : null)} className='h-8 text-sm' />
-                      </div>
-                    </div>
-
-                    {/* Heure préférée */}
-                    <div>
-                      <label className='text-xs font-medium'>Heure préférée client</label>
-                      <Input value={eventForm.client_preferred_time as string || ''} onChange={e => updateEventField('client_preferred_time', e.target.value)} className='h-8 text-sm' />
-                    </div>
-
-                    {/* Flexibilité / Privatif */}
-                    <div className='flex gap-6'>
-                      <label className='flex items-center gap-2 text-xs'>
-                        <Switch checked={eventForm.is_date_flexible as boolean || false} onCheckedChange={v => updateEventField('is_date_flexible', v)} />
-                        Date flexible
-                      </label>
-                      <label className='flex items-center gap-2 text-xs'>
-                        <Switch checked={eventForm.is_restaurant_flexible as boolean || false} onCheckedChange={v => updateEventField('is_restaurant_flexible', v)} />
-                        Restaurant flexible
-                      </label>
-                      <label className='flex items-center gap-2 text-xs'>
-                        <Switch checked={eventForm.is_privatif as boolean || false} onCheckedChange={v => updateEventField('is_privatif', v)} />
-                        Privatif
-                      </label>
-                    </div>
-
-                    <Separator />
-
-                    {/* Menu */}
-                    <div className='space-y-2'>
-                      <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>Menu</p>
-                      <div className='grid gap-3 md:grid-cols-2'>
-                        <div>
-                          <label className='text-xs font-medium'>Apéritif</label>
-                          <Textarea value={eventForm.menu_aperitif as string || ''} onChange={e => updateEventField('menu_aperitif', e.target.value)} className='text-sm min-h-[60px]' />
-                        </div>
-                        <div>
-                          <label className='text-xs font-medium'>Entrée</label>
-                          <Textarea value={eventForm.menu_entree as string || ''} onChange={e => updateEventField('menu_entree', e.target.value)} className='text-sm min-h-[60px]' />
-                        </div>
-                        <div>
-                          <label className='text-xs font-medium'>Plat</label>
-                          <Textarea value={eventForm.menu_plat as string || ''} onChange={e => updateEventField('menu_plat', e.target.value)} className='text-sm min-h-[60px]' />
-                        </div>
-                        <div>
-                          <label className='text-xs font-medium'>Dessert</label>
-                          <Textarea value={eventForm.menu_dessert as string || ''} onChange={e => updateEventField('menu_dessert', e.target.value)} className='text-sm min-h-[60px]' />
-                        </div>
-                      </div>
-                      <div>
-                        <label className='text-xs font-medium'>Boissons</label>
-                        <Textarea value={eventForm.menu_boissons as string || ''} onChange={e => updateEventField('menu_boissons', e.target.value)} className='text-sm min-h-[60px]' />
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Mise en place / Déroulé */}
-                    <div className='grid gap-3 md:grid-cols-2'>
-                      <div>
-                        <label className='text-xs font-medium'>Mise en place</label>
-                        <Textarea value={eventForm.mise_en_place as string || ''} onChange={e => updateEventField('mise_en_place', e.target.value)} className='text-sm min-h-[60px]' />
-                      </div>
-                      <div>
-                        <label className='text-xs font-medium'>Déroulé</label>
-                        <Textarea value={eventForm.deroulement as string || ''} onChange={e => updateEventField('deroulement', e.target.value)} className='text-sm min-h-[60px]' />
-                      </div>
-                    </div>
-
-                    {/* Allergies / Prestations */}
-                    <div className='grid gap-3 md:grid-cols-2'>
-                      <div>
-                        <label className='text-xs font-medium'>Allergies / Régimes</label>
-                        <Textarea value={eventForm.allergies_regimes as string || ''} onChange={e => updateEventField('allergies_regimes', e.target.value)} className='text-sm min-h-[60px]' />
-                      </div>
-                      <div>
-                        <label className='text-xs font-medium'>Prestations souhaitées</label>
-                        <Textarea value={eventForm.prestations_souhaitees as string || ''} onChange={e => updateEventField('prestations_souhaitees', e.target.value)} className='text-sm min-h-[60px]' />
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Contact sur place */}
-                    <div className='space-y-2'>
-                      <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>Contact sur place</p>
-                      <div className='grid gap-3 md:grid-cols-3'>
-                        <div>
-                          <label className='text-xs font-medium'>Nom</label>
-                          <Input value={eventForm.contact_sur_place_nom as string || ''} onChange={e => updateEventField('contact_sur_place_nom', e.target.value)} className='h-8 text-sm' />
-                        </div>
-                        <div>
-                          <label className='text-xs font-medium'>Téléphone</label>
-                          <Input value={eventForm.contact_sur_place_tel as string || ''} onChange={e => updateEventField('contact_sur_place_tel', e.target.value)} className='h-8 text-sm' />
-                        </div>
-                        <div>
-                          <label className='text-xs font-medium'>Société</label>
-                          <Input value={eventForm.contact_sur_place_societe as string || ''} onChange={e => updateEventField('contact_sur_place_societe', e.target.value)} className='h-8 text-sm' />
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Instructions / Commentaires / Date signature */}
-                    <div>
-                      <label className='text-xs font-medium'>Instructions spéciales</label>
-                      <Textarea value={eventForm.instructions_speciales as string || ''} onChange={e => updateEventField('instructions_speciales', e.target.value)} className='text-sm min-h-[60px]' />
-                    </div>
-                    <div>
-                      <label className='text-xs font-medium'>Commentaires</label>
-                      <Textarea value={eventForm.commentaires as string || ''} onChange={e => updateEventField('commentaires', e.target.value)} className='text-sm min-h-[60px]' />
-                    </div>
-                    <div className='max-w-xs'>
-                      <label className='text-xs font-medium'>Date signature devis</label>
-                      <DatePicker value={eventForm.date_signature_devis as string || ''} onChange={(value) => updateEventField('date_signature_devis', value)} />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* ── Tab: Facturation ── */}
-            {activeTab === 'facturation' && (
-              <div className='space-y-4'>
-              {/* B2B Billing Info Warning */}
-              {fullContact?.company && (
-                (() => {
-                  const company = fullContact.company
-                  const missingFields: string[] = []
-                  if (!company.billing_address) missingFields.push('Adresse de facturation')
-                  if (!company.billing_postal_code) missingFields.push('Code postal')
-                  if (!company.billing_city) missingFields.push('Ville')
-                  if (!company.siret) missingFields.push('SIRET')
-                  if (!company.tva_number) missingFields.push('N° TVA')
-                  
-                  if (missingFields.length > 0) {
-                    return (
-                      <Card className='border-amber-300 bg-amber-50'>
-                        <CardHeader className='pb-2'>
-                          <div className='flex items-center gap-2'>
-                            <Badge className='bg-blue-500 text-white'>B2B</Badge>
-                            <CardTitle className='text-base text-amber-800'>Informations de facturation incomplètes</CardTitle>
-                          </div>
-                        </CardHeader>
-                        <CardContent className='space-y-3'>
-                          <p className='text-sm text-amber-700'>
-                            La société <strong>{company.name}</strong> a des informations de facturation manquantes :
-                          </p>
-                          <ul className='text-sm text-amber-700 list-disc list-inside'>
-                            {missingFields.map(field => (
-                              <li key={field}>{field}</li>
-                            ))}
-                          </ul>
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            className='gap-1.5 border-amber-400 text-amber-800 hover:bg-amber-100'
-                            onClick={() => {
-                              navigate({ to: '/companies' })
-                              toast.info(`Recherchez "${company.name}" pour compléter les informations`)
-                            }}
-                          >
-                            <Edit className='h-3.5 w-3.5' />
-                            Compléter les informations
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    )
-                  }
-                  return null
-                })()
-              )}
-
-              {/* B2C Info - No billing info required */}
-              {booking.contact && !booking.contact.company && (
-                <Card className='border-gray-200 bg-gray-50'>
-                  <CardContent className='py-3'>
+      <Form {...form}>
+        <form id='booking-form' onSubmit={form.handleSubmit(onSubmit)}>
+          <div className='grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]'>
+            {/* ═══════ LEFT SIDEBAR ═══════ */}
+            <div className='space-y-4'>
+              {/* Restaurant badge + dates */}
+              <Card className='bg-muted/50'>
+                <CardContent className='space-y-3 pt-1'>
+                  {/* Restaurant name + Actions */}
+                  <div className='flex items-center justify-between gap-2'>
                     <div className='flex items-center gap-2'>
-                      <Badge className='bg-gray-500 text-white'>B2C</Badge>
-                      <span className='text-sm text-muted-foreground'>
-                        Contact particulier — Aucune information de facturation société requise
+                      {booking.restaurant?.color && (
+                        <div
+                          className='h-3 w-3 shrink-0 rounded-full'
+                          style={{ backgroundColor: booking.restaurant.color }}
+                        />
+                      )}
+                      <span className='text-lg font-semibold'>
+                        {booking.restaurant?.name || '—'}
                       </span>
                     </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size='sm' className='gap-1'>
+                          Actions
+                          <svg
+                            className='h-4 w-4'
+                            fill='none'
+                            stroke='currentColor'
+                            viewBox='0 0 24 24'
+                          >
+                            <path
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                              strokeWidth={2}
+                              d='M19 14l-7 7m0 0l-7-7m7 7V3'
+                            />
+                          </svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align='end' className='w-56'>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (!booking.contact?.email) {
+                              toast.error("Le contact n'a pas d'adresse email")
+                              return
+                            }
+                            window.location.href = `mailto:${booking.contact.email}`
+                          }}
+                        >
+                          <Mail className='mr-2 h-4 w-4' />
+                          Envoyer un email
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (!booking.contact_id) {
+                              toast.error('Aucun contact associé')
+                              return
+                            }
+                            navigate({
+                              to: '/contacts/contact/$id',
+                              params: { id: booking.contact_id },
+                            })
+                          }}
+                        >
+                          <ExternalLink className='mr-2 h-4 w-4' />
+                          Ouvrir l'espace client
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedRestaurantId(booking.restaurant_id)
+                            setChangeRestaurantOpen(true)
+                          }}
+                        >
+                          <Building className='mr-2 h-4 w-4' />
+                          Changer de restaurant
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleDuplicate}>
+                          <svg
+                            className='mr-2 h-4 w-4'
+                            fill='none'
+                            stroke='currentColor'
+                            viewBox='0 0 24 24'
+                          >
+                            <path
+                              strokeLinecap='round'
+                              strokeLinejoin='round'
+                              strokeWidth={2}
+                              d='M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z'
+                            />
+                          </svg>
+                          Dupliquer l'événement
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onTabChange?.('fiche-fonction')}
+                        >
+                          <ClipboardList className='mr-2 h-4 w-4' />
+                          Voir la fiche de fonction
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Created / Updated */}
+                  <div className='space-y-0.5 text-xs text-muted-foreground'>
+                    <div>
+                      Créé le{' '}
+                      {format(
+                        new Date(booking.created_at),
+                        'd MMM yyyy HH:mm',
+                        { locale: fr }
+                      )}
+                    </div>
+                    <div>
+                      Dernière modif{' '}
+                      {format(
+                        new Date(booking.updated_at),
+                        'd MMM yyyy HH:mm',
+                        { locale: fr }
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Days until event */}
+                  <Badge
+                    variant={
+                      daysUntilEvent < 0
+                        ? 'destructive'
+                        : daysUntilEvent <= 7
+                          ? 'default'
+                          : 'secondary'
+                    }
+                  >
+                    {daysUntilEvent < 0
+                      ? `Passé (${Math.abs(daysUntilEvent)} jours)`
+                      : daysUntilEvent === 0
+                        ? "Aujourd'hui"
+                        : `${daysUntilEvent} Jours`}
+                  </Badge>
+                </CardContent>
+              </Card>
+
+              {/* Contact info */}
+              <Card className='bg-muted/50'>
+                <CardContent className='space-y-2 pt-1'>
+                  {booking.contact?.company?.name && (
+                    <div className='text-xs text-muted-foreground'>
+                      {booking.contact.company.name}
+                    </div>
+                  )}
+                  <div className='flex items-center gap-2'>
+                    <div className='font-semibold'>
+                      {booking.contact
+                        ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`
+                        : '—'}
+                    </div>
+                    {booking.contact &&
+                      (booking.contact.company ? (
+                        <Badge className='h-5 bg-blue-500 px-1.5 py-0 text-[10px] text-white'>
+                          B2B
+                        </Badge>
+                      ) : (
+                        <Badge className='h-5 bg-gray-500 px-1.5 py-0 text-[10px] text-white'>
+                          B2C
+                        </Badge>
+                      ))}
+                  </div>
+                  {booking.contact?.phone && (
+                    <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+                      <Phone className='h-3.5 w-3.5' />
+                      {booking.contact.phone}
+                    </div>
+                  )}
+                  {booking.contact?.email && (
+                    <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+                      <Mail className='h-3.5 w-3.5' />
+                      {booking.contact.email}
+                    </div>
+                  )}
+                  {(booking.contact?.source || booking.contact?.created_at) && (
+                    <div className='flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-1 text-xs text-muted-foreground'>
+                      {booking.contact?.source && (
+                        <span>
+                          Source :{' '}
+                          <span className='font-medium text-foreground'>
+                            {booking.contact.source}
+                          </span>
+                        </span>
+                      )}
+                      {booking.contact?.created_at && (
+                        <span>
+                          Créé le :{' '}
+                          <span className='font-medium text-foreground'>
+                            {format(
+                              new Date(booking.contact.created_at),
+                              'dd/MM/yyyy',
+                              { locale: fr }
+                            )}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {booking.contact_id && (
+                    <Button
+                      variant='link'
+                      size='sm'
+                      asChild
+                      className='h-auto px-0 text-xs'
+                    >
+                      <Link
+                        to='/contacts/contact/$id'
+                        params={{ id: booking.contact_id }}
+                      >
+                        Voir la fiche contact{' '}
+                        <ExternalLink className='ml-1 h-3 w-3' />
+                      </Link>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Sidebar form fields - only on evenementiel tab */}
+              {activeTab === 'evenementiel' && (
+                <Card>
+                  <CardContent className='space-y-3 pt-1'>
+                    {/* Commerciaux assignés */}
+                    <div>
+                      <label className='text-xs font-medium'>
+                        Commerciaux assignés
+                      </label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant='outline'
+                            className='mt-2 h-8 w-full justify-start text-xs'
+                          >
+                            {((eventForm.assigned_user_ids as string[]) || [])
+                              .length > 0
+                              ? users
+                                  .filter((u) =>
+                                    (
+                                      (eventForm.assigned_user_ids as string[]) ||
+                                      []
+                                    ).includes(u.id)
+                                  )
+                                  .map((u) => `${u.first_name} ${u.last_name}`)
+                                  .join(', ')
+                              : 'Sélectionnez des commerciaux'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className='w-56 p-3'>
+                          <div className='space-y-2'>
+                            {users.map(
+                              (user: {
+                                id: string
+                                first_name: string
+                                last_name: string
+                              }) => (
+                                <div
+                                  key={user.id}
+                                  className='flex items-center gap-2'
+                                >
+                                  <Checkbox
+                                    id={`user-${user.id}`}
+                                    checked={(
+                                      (eventForm.assigned_user_ids as string[]) ||
+                                      []
+                                    ).includes(user.id)}
+                                    onCheckedChange={(checked) => {
+                                      const currentIds =
+                                        (eventForm.assigned_user_ids as string[]) ||
+                                        []
+                                      const newIds = checked
+                                        ? [...currentIds, user.id]
+                                        : currentIds.filter(
+                                            (id: string) => id !== user.id
+                                          )
+                                      updateEventField(
+                                        'assigned_user_ids',
+                                        newIds
+                                      )
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`user-${user.id}`}
+                                    className='cursor-pointer text-xs'
+                                  >
+                                    {user.first_name} {user.last_name}
+                                  </label>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <Separator />
+
+                    {/* Statut */}
+                    <FormField
+                      control={form.control}
+                      name='status_id'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className='text-xs'>Statut</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className='h-8'>
+                                <SelectValue placeholder='Statut' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {statuses.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  <div className='flex items-center gap-2'>
+                                    <div
+                                      className='h-2 w-2 rounded-full'
+                                      style={{ backgroundColor: s.color }}
+                                    />
+                                    {s.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {booking.status && (
+                            <div className='text-xs text-muted-foreground'>
+                              {booking.status.name} (
+                              {formatDistanceToNow(
+                                new Date(booking.updated_at),
+                                { locale: fr, addSuffix: true }
+                              )}
+                              )
+                            </div>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Separator />
+
+                    {/* Relance */}
+                    <FormField
+                      control={form.control}
+                      name='relance'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className='text-xs'>Relance</FormLabel>
+                          <FormControl>
+                            <DatePicker
+                              value={field.value || ''}
+                              onChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Separator />
+
+                    {/* Occasion */}
+                    <FormField
+                      control={form.control}
+                      name='occasion'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className='text-xs'>Occasion</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={"Dîner d'équipe - Société ORANGE"}
+                              className='h-8 text-sm'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Separator />
+
+                    {/* Option */}
+                    <FormField
+                      control={form.control}
+                      name='option'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className='text-xs'>Option</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='Option commerciale'
+                              className='h-8 text-sm'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Separator />
+
+                    {/* Source */}
+                    <FormField
+                      control={form.control}
+                      name='source'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className='text-xs'>Source</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className='h-8'>
+                                <SelectValue placeholder='Source' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {sourceOptions.map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {s}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Separator />
+
+                    {/* Budget client */}
+                    <div>
+                      <label className='text-xs font-medium'>
+                        Budget client (€)
+                      </label>
+                      <Input
+                        type='number'
+                        min='0'
+                        step='0.01'
+                        placeholder='0.00'
+                        value={(eventForm.budget_client as number) || ''}
+                        onChange={(e) =>
+                          updateEventField(
+                            'budget_client',
+                            e.target.value ? Number(e.target.value) : null
+                          )
+                        }
+                        className='h-8 text-sm'
+                      />
+                    </div>
+
+                    <Separator />
+
+                    {/* Format souhaité */}
+                    <div>
+                      <label className='text-xs font-medium'>
+                        Format souhaité
+                      </label>
+                      <Input
+                        placeholder='Cocktail, Assis, Buffet...'
+                        value={(eventForm.format_souhaite as string) || ''}
+                        onChange={(e) =>
+                          updateEventField('format_souhaite', e.target.value)
+                        }
+                        className='h-8 text-sm'
+                      />
+                    </div>
+
+                    <div>
+                      <label className='text-xs font-medium'>
+                        Type de réservation
+                      </label>
+                      <Select
+                        value={(eventForm.reservation_type as string) || ''}
+                        onValueChange={(v) =>
+                          updateEventField('reservation_type', v)
+                        }
+                      >
+                        <SelectTrigger className='h-8 text-sm'>
+                          <SelectValue placeholder='Sélectionner...' />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='grande-tablee'>
+                            Grande tablée
+                          </SelectItem>
+                          <SelectItem value='semi-privatisation'>
+                            Semi-privatisation
+                          </SelectItem>
+                          <SelectItem value='privatisation'>
+                            Privatisation totale
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Separator />
+
+                    {/* Switches */}
+                    <div className='space-y-2'>
+                      <FormField
+                        control={form.control}
+                        name='is_table_blocked'
+                        render={({ field }) => (
+                          <FormItem className='flex items-center justify-between space-y-0'>
+                            <FormLabel className='text-xs font-normal'>
+                              Table bloquée
+                            </FormLabel>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name='has_extra_provider'
+                        render={({ field }) => (
+                          <FormItem className='flex items-center justify-between space-y-0'>
+                            <FormLabel className='text-xs font-normal'>
+                              Prestataire externe
+                            </FormLabel>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               )}
+            </div>
 
-              {/* Devis / Factures Section */}
-              <Card>
-                <CardHeader className='pb-3'>
-                  <div className='flex items-center justify-between'>
-                    <CardTitle className='text-base'>Devis / Offres / Factures</CardTitle>
-                    <Button
-                      size='sm'
-                      className='gap-1.5'
-                      disabled={isCreatingQuote}
-                      onClick={() => {
-                        createQuote({
-                          bookingId: booking.id,
-                          restaurantId: booking.restaurant_id || '',
-                          contactId: booking.contact_id || undefined,
-                          title: `Votre événement | ${booking.occasion || ''}`,
-                          dateStart: booking.event_date || undefined,
-                          dateEnd: booking.event_date || undefined,
-                        }, {
-                          onSuccess: (newQuote) => {
-                            setEditingQuoteId(newQuote.id)
-                            setQuoteEditorOpen(true)
-                            toast.success('Devis créé')
-                          },
-                          onError: () => toast.error('Erreur lors de la création du devis'),
-                        })
-                      }}
-                    >
-                      {isCreatingQuote ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : <Plus className='h-3.5 w-3.5' />}
-                      Nouvelle offre
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {quotes.length > 0 ? (
-                    <div className='space-y-3'>
-                      {quotes.map((quote: Quote) => {
-                        // Workflow state checks
-                        const isQuoteSent = !!(quote as any).quote_sent_at
-                        const isQuoteSigned = !!(quote as any).quote_signed_at
-                        const isDepositPaid = !!(quote as any).deposit_paid_at
-                        const isBalanceSent = !!(quote as any).balance_sent_at
-                        const isBalancePaid = !!(quote as any).balance_paid_at
-                        const isPrimary = !!(quote as any).primary_quote
-                        
-                        // Conditions for actions
-                        // Allow resending signature as long as quote is not yet signed
-                        const canSendSignature = !isQuoteSigned
-                        const canSendDepositLink = isQuoteSigned && !isDepositPaid
-                        const canSendBalanceInvoice = isQuoteSigned && isDepositPaid && !isBalancePaid
-                        const canMarkComplete = isBalanceSent && !isBalancePaid
-                        
+            {/* ═══════ RIGHT CONTENT — TAB CONTENT ═══════ */}
+            <div className='flex-1'>
+              {/* ── Tab: Événementiel ── */}
+              {activeTab === 'evenementiel' && (
+                <div className='space-y-4'>
+                  <Card>
+                    <CardContent className='space-y-3 pt-1'>
+                      {/* Date / Espace */}
+                      <div className='grid gap-3 md:grid-cols-2'>
+                        <div>
+                          <label className='text-xs font-medium'>Date</label>
+                          <DatePicker
+                            value={(eventForm.event_date as string) || ''}
+                            onChange={(value) =>
+                              updateEventField('event_date', value)
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>Espace</label>
+                          <Select
+                            value={(eventForm.space_id as string) || ''}
+                            onValueChange={(value) =>
+                              updateEventField('space_id', value)
+                            }
+                          >
+                            <SelectTrigger className='h-8'>
+                              <SelectValue placeholder='Sélectionnez un espace' />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {spaces.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {s.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Horaires / Personnes */}
+                      <div className='grid gap-3 md:grid-cols-3'>
+                        <div>
+                          <label className='text-xs font-medium'>Début</label>
+                          <TimePicker
+                            value={(eventForm.start_time as string) || ''}
+                            onChange={(value) =>
+                              updateEventField('start_time', value)
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>Fin</label>
+                          <TimePicker
+                            value={(eventForm.end_time as string) || ''}
+                            onChange={(value) =>
+                              updateEventField('end_time', value)
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>
+                            Personnes
+                          </label>
+                          <Input
+                            type='number'
+                            min='1'
+                            value={(eventForm.guests_count as string) || ''}
+                            onChange={(e) =>
+                              updateEventField(
+                                'guests_count',
+                                e.target.value ? Number(e.target.value) : null
+                              )
+                            }
+                            className='h-8 text-sm'
+                          />
+                        </div>
+                      </div>
+
+                      {/* Heure préférée */}
+                      <div>
+                        <label className='text-xs font-medium'>
+                          Heure préférée client
+                        </label>
+                        <Input
+                          value={
+                            (eventForm.client_preferred_time as string) || ''
+                          }
+                          onChange={(e) =>
+                            updateEventField(
+                              'client_preferred_time',
+                              e.target.value
+                            )
+                          }
+                          className='h-8 text-sm'
+                        />
+                      </div>
+
+                      {/* Flexibilité / Privatif */}
+                      <div className='flex gap-6'>
+                        <label className='flex items-center gap-2 text-xs'>
+                          <Switch
+                            checked={
+                              (eventForm.is_date_flexible as boolean) || false
+                            }
+                            onCheckedChange={(v) =>
+                              updateEventField('is_date_flexible', v)
+                            }
+                          />
+                          Date flexible
+                        </label>
+                        <label className='flex items-center gap-2 text-xs'>
+                          <Switch
+                            checked={
+                              (eventForm.is_restaurant_flexible as boolean) ||
+                              false
+                            }
+                            onCheckedChange={(v) =>
+                              updateEventField('is_restaurant_flexible', v)
+                            }
+                          />
+                          Restaurant flexible
+                        </label>
+                        <label className='flex items-center gap-2 text-xs'>
+                          <Switch
+                            checked={
+                              (eventForm.is_privatif as boolean) || false
+                            }
+                            onCheckedChange={(v) =>
+                              updateEventField('is_privatif', v)
+                            }
+                          />
+                          Privatif
+                        </label>
+                      </div>
+
+                      <Separator />
+
+                      {/* Menu */}
+                      <div className='space-y-2'>
+                        <p className='text-xs font-semibold tracking-wider text-muted-foreground uppercase'>
+                          Menu
+                        </p>
+                        <div className='grid gap-3 md:grid-cols-2'>
+                          <div>
+                            <label className='text-xs font-medium'>
+                              Apéritif
+                            </label>
+                            <Textarea
+                              value={(eventForm.menu_aperitif as string) || ''}
+                              onChange={(e) =>
+                                updateEventField(
+                                  'menu_aperitif',
+                                  e.target.value
+                                )
+                              }
+                              className='min-h-[60px] text-sm'
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>
+                              Entrée
+                            </label>
+                            <Textarea
+                              value={(eventForm.menu_entree as string) || ''}
+                              onChange={(e) =>
+                                updateEventField('menu_entree', e.target.value)
+                              }
+                              className='min-h-[60px] text-sm'
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>Plat</label>
+                            <Textarea
+                              value={(eventForm.menu_plat as string) || ''}
+                              onChange={(e) =>
+                                updateEventField('menu_plat', e.target.value)
+                              }
+                              className='min-h-[60px] text-sm'
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>
+                              Dessert
+                            </label>
+                            <Textarea
+                              value={(eventForm.menu_dessert as string) || ''}
+                              onChange={(e) =>
+                                updateEventField('menu_dessert', e.target.value)
+                              }
+                              className='min-h-[60px] text-sm'
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>
+                            Boissons
+                          </label>
+                          <Textarea
+                            value={(eventForm.menu_boissons as string) || ''}
+                            onChange={(e) =>
+                              updateEventField('menu_boissons', e.target.value)
+                            }
+                            className='min-h-[60px] text-sm'
+                          />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Mise en place / Déroulé */}
+                      <div className='grid gap-3 md:grid-cols-2'>
+                        <div>
+                          <label className='text-xs font-medium'>
+                            Mise en place
+                          </label>
+                          <Textarea
+                            value={(eventForm.mise_en_place as string) || ''}
+                            onChange={(e) =>
+                              updateEventField('mise_en_place', e.target.value)
+                            }
+                            className='min-h-[60px] text-sm'
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>Déroulé</label>
+                          <Textarea
+                            value={(eventForm.deroulement as string) || ''}
+                            onChange={(e) =>
+                              updateEventField('deroulement', e.target.value)
+                            }
+                            className='min-h-[60px] text-sm'
+                          />
+                        </div>
+                      </div>
+
+                      {/* Allergies / Prestations */}
+                      <div className='grid gap-3 md:grid-cols-2'>
+                        <div>
+                          <label className='text-xs font-medium'>
+                            Allergies / Régimes
+                          </label>
+                          <Textarea
+                            value={
+                              (eventForm.allergies_regimes as string) || ''
+                            }
+                            onChange={(e) =>
+                              updateEventField(
+                                'allergies_regimes',
+                                e.target.value
+                              )
+                            }
+                            className='min-h-[60px] text-sm'
+                          />
+                        </div>
+                        <div>
+                          <label className='text-xs font-medium'>
+                            Prestations souhaitées
+                          </label>
+                          <Textarea
+                            value={
+                              (eventForm.prestations_souhaitees as string) || ''
+                            }
+                            onChange={(e) =>
+                              updateEventField(
+                                'prestations_souhaitees',
+                                e.target.value
+                              )
+                            }
+                            className='min-h-[60px] text-sm'
+                          />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Contact sur place */}
+                      <div className='space-y-2'>
+                        <p className='text-xs font-semibold tracking-wider text-muted-foreground uppercase'>
+                          Contact sur place
+                        </p>
+                        <div className='grid gap-3 md:grid-cols-3'>
+                          <div>
+                            <label className='text-xs font-medium'>Nom</label>
+                            <Input
+                              value={
+                                (eventForm.contact_sur_place_nom as string) ||
+                                ''
+                              }
+                              onChange={(e) =>
+                                updateEventField(
+                                  'contact_sur_place_nom',
+                                  e.target.value
+                                )
+                              }
+                              className='h-8 text-sm'
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>
+                              Téléphone
+                            </label>
+                            <Input
+                              value={
+                                (eventForm.contact_sur_place_tel as string) ||
+                                ''
+                              }
+                              onChange={(e) =>
+                                updateEventField(
+                                  'contact_sur_place_tel',
+                                  e.target.value
+                                )
+                              }
+                              className='h-8 text-sm'
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium'>
+                              Société
+                            </label>
+                            <Input
+                              value={
+                                (eventForm.contact_sur_place_societe as string) ||
+                                ''
+                              }
+                              onChange={(e) =>
+                                updateEventField(
+                                  'contact_sur_place_societe',
+                                  e.target.value
+                                )
+                              }
+                              className='h-8 text-sm'
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Instructions / Commentaires / Date signature */}
+                      <div>
+                        <label className='text-xs font-medium'>
+                          Instructions spéciales
+                        </label>
+                        <Textarea
+                          value={
+                            (eventForm.instructions_speciales as string) || ''
+                          }
+                          onChange={(e) =>
+                            updateEventField(
+                              'instructions_speciales',
+                              e.target.value
+                            )
+                          }
+                          className='min-h-[60px] text-sm'
+                        />
+                      </div>
+                      <div>
+                        <label className='text-xs font-medium'>
+                          Commentaires
+                        </label>
+                        <Textarea
+                          value={(eventForm.commentaires as string) || ''}
+                          onChange={(e) =>
+                            updateEventField('commentaires', e.target.value)
+                          }
+                          className='min-h-[60px] text-sm'
+                        />
+                      </div>
+                      <div className='max-w-xs'>
+                        <label className='text-xs font-medium'>
+                          Date signature devis
+                        </label>
+                        <DatePicker
+                          value={
+                            (eventForm.date_signature_devis as string) || ''
+                          }
+                          onChange={(value) =>
+                            updateEventField('date_signature_devis', value)
+                          }
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* ── Tab: Facturation ── */}
+              {activeTab === 'facturation' && (
+                <div className='space-y-4'>
+                  {/* B2B Billing Info Warning */}
+                  {fullContact?.company &&
+                    (() => {
+                      const company = fullContact.company
+                      const missingFields: string[] = []
+                      if (!company.billing_address)
+                        missingFields.push('Adresse de facturation')
+                      if (!company.billing_postal_code)
+                        missingFields.push('Code postal')
+                      if (!company.billing_city) missingFields.push('Ville')
+                      if (!company.siret) missingFields.push('SIRET')
+                      if (!company.tva_number) missingFields.push('N° TVA')
+
+                      if (missingFields.length > 0) {
                         return (
-                          <div key={quote.id} className='border rounded-lg p-3 hover:bg-muted/30 transition-colors'>
-                            {/* Header row */}
-                            <div className='flex items-start justify-between mb-2'>
-                              <div className='space-y-1'>
-                                <div className='flex items-center gap-2'>
-                                  <p className='font-medium text-sm'>{quote.quote_number}</p>
-                                  <Badge variant='outline' className='text-[10px] text-muted-foreground'>
-                                    {quote.created_at ? format(new Date(quote.created_at), 'dd/MM/yyyy', { locale: fr }) : '-'}
-                                  </Badge>
-                                  {isPrimary && (
-                                    <Badge variant='default' className='text-[10px] bg-emerald-600 hover:bg-emerald-600'>Actif</Badge>
-                                  )}
-                                  <Badge variant='outline' className='text-[10px] px-1.5 py-0 h-5'>
-                                    {(quote as any).language === 'en' ? '🇬🇧 EN' : '🇫🇷 FR'}
-                                  </Badge>
-                                </div>
-                                <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-                                  <span className='font-medium'>TTC: {formatEuroWhole(quote.total_ttc || 0)}</span>
-                                  {quote.title && <><span>•</span><span className='truncate max-w-[150px]'>{quote.title}</span></>}
-                                </div>
+                          <Card className='border-amber-300 bg-amber-50'>
+                            <CardHeader className='pb-2'>
+                              <div className='flex items-center gap-2'>
+                                <Badge className='bg-blue-500 text-white'>
+                                  B2B
+                                </Badge>
+                                <CardTitle className='text-base text-amber-800'>
+                                  Informations de facturation incomplètes
+                                </CardTitle>
                               </div>
-                              <div className='flex items-center gap-1'>
-                                <Button
-                                  size='sm'
-                                  variant={isPrimary ? 'secondary' : 'outline'}
-                                  className='h-7 text-xs gap-1'
-                                  disabled={isPrimary || isSettingPrimary}
-                                  onClick={() => {
-                                    setPrimaryQuote({ quoteId: quote.id, bookingId: booking.id }, {
-                                      onSuccess: () => {
-                                        toast.success('Devis défini comme actif')
-                                        activityLogger.quoteSetPrimary(booking.id, quote.id, quote.title || undefined)
-                                      },
-                                      onError: () => toast.error('Impossible de définir le devis actif'),
-                                    })
-                                  }}
-                                >
-                                  <CheckCircle className='h-3 w-3' />
-                                  {isPrimary ? 'Actif' : isSettingPrimary ? '…' : 'Utiliser'}
-                                </Button>
-                                <Button
-                                  size='icon'
-                                  variant='ghost'
-                                  className='h-7 w-7'
-                                  title='Éditer'
-                                  onClick={() => {
-                                    setEditingQuoteId(quote.id)
-                                    setQuoteEditorOpen(true)
-                                  }}
-                                >
-                                  <Edit className='h-3.5 w-3.5' />
-                                </Button>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button size='icon' variant='ghost' className='h-7 w-7' title='Actions'>
-                                      <MoreVertical className='h-3.5 w-3.5' />
+                            </CardHeader>
+                            <CardContent className='space-y-3'>
+                              <p className='text-sm text-amber-700'>
+                                La société <strong>{company.name}</strong> a des
+                                informations de facturation manquantes :
+                              </p>
+                              <ul className='list-inside list-disc text-sm text-amber-700'>
+                                {missingFields.map((field) => (
+                                  <li key={field}>{field}</li>
+                                ))}
+                              </ul>
+                              <Button
+                                variant='outline'
+                                size='sm'
+                                className='gap-1.5 border-amber-400 text-amber-800 hover:bg-amber-100'
+                                onClick={() => {
+                                  navigate({ to: '/companies' })
+                                  toast.info(
+                                    `Recherchez "${company.name}" pour compléter les informations`
+                                  )
+                                }}
+                              >
+                                <Edit className='h-3.5 w-3.5' />
+                                Compléter les informations
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        )
+                      }
+                      return null
+                    })()}
+
+                  {/* B2C Info - No billing info required */}
+                  {booking.contact && !booking.contact.company && (
+                    <Card className='border-gray-200 bg-gray-50'>
+                      <CardContent className='py-3'>
+                        <div className='flex items-center gap-2'>
+                          <Badge className='bg-gray-500 text-white'>B2C</Badge>
+                          <span className='text-sm text-muted-foreground'>
+                            Contact particulier — Aucune information de
+                            facturation société requise
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Devis / Factures Section */}
+                  <Card>
+                    <CardHeader className='pb-3'>
+                      <div className='flex items-center justify-between'>
+                        <CardTitle className='text-base'>
+                          Devis / Offres / Factures
+                        </CardTitle>
+                        <Button
+                          size='sm'
+                          className='gap-1.5'
+                          disabled={isCreatingQuote}
+                          onClick={() => {
+                            createQuote(
+                              {
+                                bookingId: booking.id,
+                                restaurantId: booking.restaurant_id || '',
+                                contactId: booking.contact_id || undefined,
+                                title: `Votre événement | ${booking.occasion || ''}`,
+                                dateStart: booking.event_date || undefined,
+                                dateEnd: booking.event_date || undefined,
+                              },
+                              {
+                                onSuccess: (newQuote) => {
+                                  setEditingQuoteId(newQuote.id)
+                                  setQuoteEditorOpen(true)
+                                  toast.success('Devis créé')
+                                },
+                                onError: () =>
+                                  toast.error(
+                                    'Erreur lors de la création du devis'
+                                  ),
+                              }
+                            )
+                          }}
+                        >
+                          {isCreatingQuote ? (
+                            <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                          ) : (
+                            <Plus className='h-3.5 w-3.5' />
+                          )}
+                          Nouvelle offre
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {quotes.length > 0 ? (
+                        <div className='space-y-3'>
+                          {quotes.map((quote: Quote) => {
+                            // Workflow state checks
+                            const isQuoteSent = !!(quote as any).quote_sent_at
+                            const isQuoteSigned = !!(quote as any)
+                              .quote_signed_at
+                            const isDepositPaid = !!(quote as any)
+                              .deposit_paid_at
+                            const isBalanceSent = !!(quote as any)
+                              .balance_sent_at
+                            const isBalancePaid = !!(quote as any)
+                              .balance_paid_at
+                            const isPrimary = !!(quote as any).primary_quote
+
+                            // Conditions for actions
+                            // Allow resending signature as long as quote is not yet signed
+                            const canSendSignature = !isQuoteSigned
+                            const canSendDepositLink =
+                              isQuoteSigned && !isDepositPaid
+                            const canSendBalanceInvoice =
+                              isQuoteSigned && isDepositPaid && !isBalancePaid
+                            const canMarkComplete =
+                              isBalanceSent && !isBalancePaid
+
+                            return (
+                              <div
+                                key={quote.id}
+                                className='rounded-lg border p-3 transition-colors hover:bg-muted/30'
+                              >
+                                {/* Header row */}
+                                <div className='mb-2 flex items-start justify-between'>
+                                  <div className='space-y-1'>
+                                    <div className='flex items-center gap-2'>
+                                      <p className='text-sm font-medium'>
+                                        {quote.quote_number}
+                                      </p>
+                                      <Badge
+                                        variant='outline'
+                                        className='text-[10px] text-muted-foreground'
+                                      >
+                                        {quote.created_at
+                                          ? format(
+                                              new Date(quote.created_at),
+                                              'dd/MM/yyyy',
+                                              { locale: fr }
+                                            )
+                                          : '-'}
+                                      </Badge>
+                                      {isPrimary && (
+                                        <Badge
+                                          variant='default'
+                                          className='bg-emerald-600 text-[10px] hover:bg-emerald-600'
+                                        >
+                                          Actif
+                                        </Badge>
+                                      )}
+                                      <Badge
+                                        variant='outline'
+                                        className='h-5 px-1.5 py-0 text-[10px]'
+                                      >
+                                        {(quote as any).language === 'en'
+                                          ? '🇬🇧 EN'
+                                          : '🇫🇷 FR'}
+                                      </Badge>
+                                    </div>
+                                    <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+                                      <span className='font-medium'>
+                                        TTC:{' '}
+                                        {formatEuroWhole(quote.total_ttc || 0)}
+                                      </span>
+                                      {quote.title && (
+                                        <>
+                                          <span>•</span>
+                                          <span className='max-w-[150px] truncate'>
+                                            {quote.title}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className='flex items-center gap-1'>
+                                    <Button
+                                      size='sm'
+                                      variant={
+                                        isPrimary ? 'secondary' : 'outline'
+                                      }
+                                      className='h-7 gap-1 text-xs'
+                                      disabled={isPrimary || isSettingPrimary}
+                                      onClick={() => {
+                                        setPrimaryQuote(
+                                          {
+                                            quoteId: quote.id,
+                                            bookingId: booking.id,
+                                          },
+                                          {
+                                            onSuccess: () => {
+                                              toast.success(
+                                                'Devis défini comme actif'
+                                              )
+                                              activityLogger.quoteSetPrimary(
+                                                booking.id,
+                                                quote.id,
+                                                quote.title || undefined
+                                              )
+                                            },
+                                            onError: () =>
+                                              toast.error(
+                                                'Impossible de définir le devis actif'
+                                              ),
+                                          }
+                                        )
+                                      }}
+                                    >
+                                      <CheckCircle className='h-3 w-3' />
+                                      {isPrimary
+                                        ? 'Actif'
+                                        : isSettingPrimary
+                                          ? '…'
+                                          : 'Utiliser'}
                                     </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align='end' className='w-64'>
-                                    {/* PDF Downloads */}
-                                    <DropdownMenuItem
+                                    <Button
+                                      size='icon'
+                                      variant='ghost'
+                                      className='h-7 w-7'
+                                      title='Éditer'
                                       onClick={() => {
                                         setEditingQuoteId(quote.id)
                                         setQuoteEditorOpen(true)
                                       }}
                                     >
-                                      <Download className='h-3.5 w-3.5 mr-2' />
-                                      Télécharger Devis PDF
-                                    </DropdownMenuItem>
-
-                                    {/* Duplicate */}
-                                    <DropdownMenuItem
-                                      disabled={isDuplicating}
-                                      onClick={() => {
-                                        duplicateQuote(
-                                          { quoteId: quote.id, bookingId: booking.id },
-                                          {
-                                            onSuccess: (newQuote) => {
-                                              setEditingQuoteId((newQuote as any).id)
-                                              setQuoteEditorOpen(true)
-                                              toast.success('Devis dupliqué')
-                                            },
-                                            onError: () => toast.error('Erreur lors de la duplication'),
-                                          }
-                                        )
-                                      }}
-                                    >
-                                      <Copy className='h-3.5 w-3.5 mr-2' />
-                                      <span>{isDuplicating ? 'Duplication...' : 'Dupliquer ce devis'}</span>
-                                    </DropdownMenuItem>
-
-                                    {/* Workflow Actions with conditions */}
-                                    <DropdownMenuItem
-                                      disabled={isSendingEmail}
-                                      onClick={() => {
-                                        // B2B Validation: Check if company info is complete
-                                        const company = fullContact?.company
-                                        if (company) {
-                                          const missingFields: string[] = []
-                                          if (!company.name) missingFields.push('Raison sociale')
-                                          if (!company.billing_address) missingFields.push('Adresse')
-                                          if (!company.billing_postal_code) missingFields.push('Code postal')
-                                          if (!company.billing_city) missingFields.push('Ville')
-                                          if (!company.siret) missingFields.push('SIRET')
-                                          if (missingFields.length > 0) {
-                                            toast.error(`Informations société manquantes : ${missingFields.join(', ')}. Veuillez compléter les informations de la société avant d'envoyer le devis.`)
-                                            return
-                                          }
-                                        }
-                                        // If multiple quotes, show selection dialog
-                                        if (quotes.length > 1) {
-                                          setSendEmailSourceQuoteId(quote.id)
-                                          setSelectedQuoteIdsToSend([quote.id])
-                                          setSendEmailDialogOpen(true)
-                                        } else {
-                                          sendQuoteEmail(
-                                            { quoteId: quote.id, bookingId: booking.id },
-                                            {
-                                              onSuccess: () => {
-                                                toast.success('Devis envoyé par email')
-                                                activityLogger.quoteEmailSent(booking.id, quote.id, fullContact?.email || undefined)
-                                              },
-                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
-                                            }
-                                          )
-                                        }
-                                      }}
-                                    >
-                                      <Send className='h-3.5 w-3.5 mr-2' />
-                                      <span>{isSendingEmail ? 'Envoi en cours...' : 'Envoyer Devis par Email'}</span>
-                                    </DropdownMenuItem>
-
-                                    {/* Mark as signed manually */}
-                                    {!isQuoteSigned && (
-                                      <DropdownMenuItem
-                                        disabled={isMarkingSigned}
-                                        onClick={() => {
-                                          markQuoteSigned(
-                                            { quoteId: quote.id, bookingId: booking.id },
-                                            {
-                                              onSuccess: () => toast.success('Devis marqué comme signé'),
-                                              onError: () => toast.error('Erreur lors de la mise à jour'),
-                                            }
-                                          )
-                                        }}
+                                      <Edit className='h-3.5 w-3.5' />
+                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          size='icon'
+                                          variant='ghost'
+                                          className='h-7 w-7'
+                                          title='Actions'
+                                        >
+                                          <MoreVertical className='h-3.5 w-3.5' />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent
+                                        align='end'
+                                        className='w-64'
                                       >
-                                        <FileSignature className='h-3.5 w-3.5 mr-2' />
-                                        <span>{isMarkingSigned ? 'Mise à jour...' : 'Marquer comme signé'}</span>
-                                      </DropdownMenuItem>
-                                    )}
-                                  
-                                    <DropdownMenuItem
-                                      disabled={!canSendSignature || isSendingSignature}
-                                      onClick={() => {
-                                        if (canSendSignature) {
-                                          sendSignature(
-                                            { quoteId: quote.id, bookingId: booking.id },
-                                            {
-                                              onSuccess: () => {
-                                                toast.success('Lien de signature envoyé')
-                                                activityLogger.quoteSignatureSent(booking.id, quote.id)
+                                        {/* PDF Downloads */}
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setEditingQuoteId(quote.id)
+                                            setQuoteEditorOpen(true)
+                                          }}
+                                        >
+                                          <Download className='mr-2 h-3.5 w-3.5' />
+                                          Télécharger Devis PDF
+                                        </DropdownMenuItem>
+
+                                        {/* Duplicate */}
+                                        <DropdownMenuItem
+                                          disabled={isDuplicating}
+                                          onClick={() => {
+                                            duplicateQuote(
+                                              {
+                                                quoteId: quote.id,
+                                                bookingId: booking.id,
                                               },
-                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
-                                            }
-                                          )
-                                        }
-                                      }}
-                                      className={!canSendSignature ? 'opacity-50' : ''}
-                                    >
-                                      <FileSignature className='h-3.5 w-3.5 mr-2' />
-                                      <div className='flex flex-col'>
-                                        <span>{isSendingSignature ? 'Envoi en cours...' : 'Envoyer Lien de Signature'}</span>
-                                        {!canSendSignature && <span className='text-[10px] text-muted-foreground'>Déjà signé</span>}
-                                      </div>
-                                    </DropdownMenuItem>
-                                  
-                                    <DropdownMenuItem
-                                      disabled={!canSendDepositLink || isSendingDeposit}
-                                      onClick={() => {
-                                        if (canSendDepositLink) {
-                                          sendDeposit(
-                                            { quoteId: quote.id, bookingId: booking.id },
-                                            {
-                                              onSuccess: () => {
-                                                toast.success('Facture d\'acompte envoyée avec lien de paiement')
-                                                activityLogger.paymentDepositSent(booking.id, quote.id, (quote as any).deposit_amount || 0)
-                                              },
-                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
-                                            }
-                                          )
-                                        }
-                                      }}
-                                      className={!canSendDepositLink ? 'opacity-50' : ''}
-                                    >
-                                      <CreditCard className='h-3.5 w-3.5 mr-2' />
-                                      <div className='flex flex-col'>
-                                        <span>{isSendingDeposit ? 'Envoi en cours...' : (quote as any).deposit_sent_at ? 'Renvoyer Lien Paiement Acompte' : 'Envoyer Lien Paiement Acompte'}</span>
-                                        {!canSendDepositLink && !isQuoteSigned && <span className='text-[10px] text-muted-foreground'>Devis non signé</span>}
-                                        {!canSendDepositLink && isDepositPaid && <span className='text-[10px] text-muted-foreground'>Acompte déjà payé</span>}
-                                      </div>
-                                    </DropdownMenuItem>
-                                  
-                                    <DropdownMenuItem
-                                      disabled={!canSendBalanceInvoice || isSendingBalance}
-                                      onClick={() => {
-                                        if (canSendBalanceInvoice) {
-                                          sendBalance(
-                                            { quoteId: quote.id, bookingId: booking.id },
-                                            {
-                                              onSuccess: () => {
-                                                toast.success('Facture de solde envoyée')
-                                                activityLogger.paymentBalanceSent(booking.id, quote.id, (quote.total_ttc || 0) - ((quote as any).deposit_amount || 0))
-                                              },
-                                              onError: (err) => toast.error(`Erreur: ${err.message}`),
-                                            }
-                                          )
-                                        }
-                                      }}
-                                      className={!canSendBalanceInvoice ? 'opacity-50' : ''}
-                                    >
-                                      <Receipt className='h-3.5 w-3.5 mr-2' />
-                                      <div className='flex flex-col'>
-                                        <span>{isSendingBalance ? 'Envoi en cours...' : isBalanceSent ? 'Renvoyer Facture de Solde' : 'Envoyer Facture de Solde'}</span>
-                                        {!canSendBalanceInvoice && !isQuoteSigned && <span className='text-[10px] text-muted-foreground'>Devis non signé</span>}
-                                        {!canSendBalanceInvoice && isQuoteSigned && !isDepositPaid && <span className='text-[10px] text-muted-foreground'>Acompte non payé</span>}
-                                        {!canSendBalanceInvoice && isBalancePaid && <span className='text-[10px] text-muted-foreground'>Déjà payé</span>}
-                                      </div>
-                                    </DropdownMenuItem>
-                                  
-                                    <DropdownMenuItem
-                                      disabled={!canMarkComplete}
-                                      onClick={() => {
-                                        if (canMarkComplete) {
-                                          toast.info('Marqué comme terminé... (à implémenter)')
-                                        }
-                                      }}
-                                      className={!canMarkComplete ? 'opacity-50' : ''}
-                                    >
-                                      <CheckCircle className='h-3.5 w-3.5 mr-2' />
-                                      <div className='flex flex-col'>
-                                        <span>Marquer comme Terminé</span>
-                                        {!canMarkComplete && !isBalanceSent && <span className='text-[10px] text-muted-foreground'>Facture de solde non envoyée</span>}
-                                        {!canMarkComplete && isBalancePaid && <span className='text-[10px] text-muted-foreground'>Déjà terminé</span>}
-                                      </div>
-                                    </DropdownMenuItem>
-                                  
-                                  <DropdownMenuItem
-                                    className='text-destructive focus:text-destructive'
-                                    onClick={() => setDeleteQuoteId(quote.id)}
-                                  >
-                                    <TrashIcon className='h-3.5 w-3.5 mr-2' />
-                                    Supprimer
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </div>
-                          
-                          {/* Workflow Status Tags */}
-                          <div className='flex items-center gap-1.5 flex-wrap'>
-                            <Badge 
-                              variant='outline' 
-                              className={`text-[9px] px-1.5 py-0 h-5 ${isQuoteSent ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
-                            >
-                              {isQuoteSent ? '✓' : '○'} Devis envoyé
-                            </Badge>
-                            <Badge 
-                              variant='outline' 
-                              className={`text-[9px] px-1.5 py-0 h-5 ${isQuoteSigned ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
-                            >
-                              {isQuoteSigned ? '✓' : '○'} Signé
-                            </Badge>
-                            <Badge 
-                              variant='outline' 
-                              className={`text-[9px] px-1.5 py-0 h-5 ${isDepositPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
-                            >
-                              {isDepositPaid ? '✓' : '○'} Acompte payé
-                            </Badge>
-                            <Badge 
-                              variant='outline' 
-                              className={`text-[9px] px-1.5 py-0 h-5 ${isBalanceSent ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
-                            >
-                              {isBalanceSent ? '✓' : '○'} Solde envoyé
-                            </Badge>
-                            <Badge 
-                              variant='outline' 
-                              className={`text-[9px] px-1.5 py-0 h-5 ${isBalancePaid ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
-                            >
-                              {isBalancePaid ? '✓' : '○'} Soldé
-                            </Badge>
-                          </div>
-                        </div>
-                      )
-                      })}
-                    </div>
-                  ) : (
-                    <div className='py-8 text-center text-muted-foreground'>
-                      <FileText className='h-8 w-8 mx-auto mb-2 opacity-50' />
-                      <p className='text-sm'>Aucun devis pour le moment.</p>
-                      <p className='text-xs mt-1'>Cliquez sur &quot;Nouvelle offre&quot; pour créer un devis.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Paiements / Cautions Section */}
-              <Card>
-                <CardHeader className='pb-3'>
-                  <div className='flex items-center justify-between'>
-                    <CardTitle className='text-base'>Paiements / Cautions</CardTitle>
-                    <Button size='sm' variant='outline' className='gap-1.5' onClick={() => {
-                      setEditingPayment(null)
-                      setPaymentDialogOpen(true)
-                    }}>
-                      <Plus className='h-3.5 w-3.5' />
-                      Paiement
-                    </Button>
-                  </div>
-                  {/* Payment Balance Summary */}
-                  {(() => {
-                    // Get the most advanced quote (by status progression)
-                    const primaryQuote = quotes.find(q => ['deposit_paid', 'balance_sent', 'balance_paid'].includes(q.status || '')) || quotes.find(q => q.status === 'quote_signed') || quotes.find(q => q.status === 'deposit_sent') || quotes[0]
-                    const isDepositPaidStatus = ['deposit_paid', 'balance_sent', 'balance_paid'].includes(primaryQuote?.status || '')
-                    const extrasTtc = isDepositPaidStatus
-                      ? ((primaryQuote as any)?.quote_items || []).filter((i: any) => i.item_type === 'extra').reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
-                      : 0
-                    // Tous les TTC sont entiers (post-helper), somme reste entière
-                    const totalDevisTtc = (primaryQuote?.total_ttc || 0) + extrasTtc
-                    const discountPct = (primaryQuote as any)?.discount_percentage || 0
-                    // Only count payments with status 'paid' (from Stripe webhook) or 'completed' (manual)
-                    const paiementsRecus = payments
-                      .filter(p => p.status === 'paid' || p.status === 'completed')
-                      .reduce((sum, p) => sum + (p.amount || 0), 0)
-                    const soldeRestant = totalDevisTtc - paiementsRecus
-
-                    if (totalDevisTtc > 0 || paiementsRecus > 0) {
-                      // Calcul du total avant remise (inverse — peut avoir des décimales)
-                      const totalAvantRemise = discountPct > 0 ? totalDevisTtc / (1 - discountPct / 100) : 0
-                      const montantRemise = discountPct > 0 ? totalAvantRemise - totalDevisTtc : 0
-
-                      return (
-                        <div className='mt-3 p-2 sm:p-3 bg-muted/50 rounded-lg space-y-1 text-xs'>
-                          {discountPct > 0 && (
-                            <>
-                              <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
-                                <span className='text-muted-foreground'>Total avant remise</span>
-                                <span className='font-medium line-through text-muted-foreground'>{formatEuroDecimal(totalAvantRemise)}</span>
-                              </div>
-                              <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
-                                <span className='text-red-600'>Remise {discountPct}%</span>
-                                <span className='font-medium text-red-600'>- {formatEuroDecimal(montantRemise)}</span>
-                              </div>
-                            </>
-                          )}
-                          <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
-                            <span className='text-muted-foreground'>Total Devis TTC{discountPct > 0 ? ' après remise' : ''}</span>
-                            <span className='font-medium'>{formatEuroWhole(primaryQuote?.total_ttc || 0)}</span>
-                          </div>
-                          {extrasTtc > 0 && (
-                            <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
-                              <span className='text-muted-foreground'>Extras TTC</span>
-                              <span className='font-medium'>+ {formatEuroWhole(extrasTtc)}</span>
-                            </div>
-                          )}
-                          <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2'>
-                            <span className='text-muted-foreground'>Paiements reçus</span>
-                            <span className='font-medium text-green-600'>- {formatEuroDecimal(paiementsRecus)}</span>
-                          </div>
-                          <Separator className='my-1' />
-                          <div className='flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2 font-semibold'>
-                            <span>Solde restant</span>
-                            <span className={soldeRestant > 0 ? 'text-orange-600' : 'text-green-600'}>{formatEuroWhole(soldeRestant)}</span>
-                          </div>
-                        </div>
-                      )
-                    }
-                    return null
-                  })()}
-                </CardHeader>
-                <CardContent>
-                  {payments.length > 0 ? (
-                    <div className='overflow-x-auto'>
-                      <table className='w-full text-sm'>
-                        <thead>
-                          <tr className='border-b'>
-                            <th className='text-left py-2 px-2 font-medium text-xs'>Statut</th>
-                            <th className='text-left py-2 px-2 font-medium text-xs'>Type</th>
-                            <th className='text-left py-2 px-2 font-medium text-xs'>Montant</th>
-                            <th className='text-left py-2 px-2 font-medium text-xs'>Méthode</th>
-                            <th className='text-left py-2 px-2 font-medium text-xs'>Envoyé le</th>
-                            <th className='text-left py-2 px-2 font-medium text-xs'>Payé le</th>
-                            <th className='text-left py-2 px-2 font-medium text-xs'>Reçu</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {payments.map(payment => (
-                            <tr key={payment.id} className='border-b hover:bg-muted/50 cursor-pointer' onClick={() => {
-                              setEditingPayment(payment)
-                              setPaymentDialogOpen(true)
-                            }}>
-                              <td className='py-2 px-2'>
-                                <Badge variant={
-                                  (payment.status === 'paid' || payment.status === 'completed') ? 'default' :
-                                  payment.status === 'pending' ? 'secondary' :
-                                  'outline'
-                                } className={`text-[10px] ${(payment.status === 'paid' || payment.status === 'completed') ? 'bg-green-600' : ''}`}>
-                                  {(payment.status === 'paid' || payment.status === 'completed') ? 'Payé' :
-                                   payment.status === 'pending' ? 'En attente' :
-                                   payment.status === 'failed' ? 'Échoué' :
-                                   payment.status}
-                                </Badge>
-                              </td>
-                              <td className='py-2 px-2 text-xs capitalize'>{payment.payment_modality || payment.payment_type}</td>
-                              <td className='py-2 px-2 text-sm font-medium'>{(payment.amount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
-                              <td className='py-2 px-2 text-xs capitalize'>{payment.payment_method || payment.payment_type || '—'}</td>
-                              <td className='py-2 px-2 text-xs text-muted-foreground'>
-                                {payment.created_at ? format(new Date(payment.created_at), 'dd/MM/yyyy', { locale: fr }) : '—'}
-                              </td>
-                              <td className='py-2 px-2 text-xs text-muted-foreground'>
-                                {payment.paid_at ? format(new Date(payment.paid_at), 'dd/MM/yyyy', { locale: fr }) : '—'}
-                              </td>
-                              <td className='py-2 px-2 text-xs'>
-                                {(payment as any).receipt_url ? (
-                                  <a
-                                    href={(payment as any).receipt_url}
-                                    target='_blank'
-                                    rel='noopener noreferrer'
-                                    className='text-blue-600 hover:underline inline-flex items-center gap-1'
-                                    onClick={e => e.stopPropagation()}
-                                  >
-                                    <ExternalLink className='h-3 w-3' />
-                                    Voir
-                                  </a>
-                                ) : '—'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className='py-6 text-center text-muted-foreground'>
-                      <p className='text-sm'>Aucune donnée de paiement pour le moment.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Payment Dialog */}
-              <PaymentDialog
-                open={paymentDialogOpen}
-                onOpenChange={setPaymentDialogOpen}
-                bookingId={booking.id}
-                payment={editingPayment}
-                contactEmail={booking.contact?.email || null}
-                primaryQuoteId={(quotes.find((q: any) => q.primary_quote)?.id || quotes[0]?.id) || null}
-                defaultDepositAmount={(() => {
-                  const pq = quotes.find((q: any) => q.primary_quote) || quotes[0]
-                  if (!pq) return null
-                  return (pq as any).deposit_amount_override != null
-                    ? (pq as any).deposit_amount_override as number
-                    : Math.ceil((pq.total_ttc || 0) * ((pq.deposit_percentage || 80) / 100))
-                })()}
-              />
-
-              {/* Quote Editor Dialog */}
-              <QuoteEditor
-                open={quoteEditorOpen}
-                onOpenChange={setQuoteEditorOpen}
-                quoteId={editingQuoteId}
-                booking={booking}
-                restaurant={fullRestaurant}
-                contact={fullContact}
-              />
-              </div>
-            )}
-
-            {/* ── Tab: Fichiers ── */}
-            {activeTab === 'fichiers' && (
-              <div className='space-y-4'>
-              <Card>
-                <CardHeader className='pb-3'>
-                  <CardTitle className='text-base'>Fichiers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className='space-y-4'>
-                    {/* Upload area */}
-                    <div className='border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50 transition-colors cursor-pointer' onClick={() => document.getElementById('file-input')?.click()}>
-                      <FileText className='mx-auto h-8 w-8 mb-2 text-muted-foreground' />
-                      <p className='text-sm font-medium'>Cliquez pour uploader des fichiers</p>
-                      <p className='text-xs text-muted-foreground'>ou glissez-déposez vos fichiers ici</p>
-                      <input
-                        id='file-input'
-                        type='file'
-                        multiple
-                        className='hidden'
-                        onChange={(e) => {
-                          const files = e.currentTarget.files
-                          if (files) {
-                            Array.from(files).forEach(file => {
-                              uploadDocument(
-                                { file, bookingId: booking.id },
-                                {
-                                  onSuccess: () => {
-                                    toast.success(`${file.name} uploadé avec succès`)
-                                  },
-                                  onError: (error) => {
-                                    console.error('Error uploading file:', error)
-                                    toast.error(`Erreur lors de l'upload de ${file.name}`)
-                                  },
-                                }
-                              )
-                            })
-                          }
-                        }}
-                      />
-                    </div>
-
-                    {/* Documents list */}
-                    {documents.length > 0 ? (
-                      <div className='space-y-2'>
-                        {documents.map(doc => (
-                          <div key={doc.id} className='flex items-center justify-between border rounded-lg p-3 hover:bg-muted/50'>
-                            <div className='flex items-center gap-3 flex-1 min-w-0'>
-                              <FileText className='h-5 w-5 text-muted-foreground flex-shrink-0' />
-                              <div className='min-w-0 flex-1'>
-                                <a href={doc.file_url} target='_blank' rel='noopener noreferrer' className='text-sm font-medium hover:underline truncate block'>
-                                  {doc.name}
-                                </a>
-                                <p className='text-xs text-muted-foreground'>
-                                  {doc.file_size ? `${(doc.file_size / 1024).toFixed(2)} KB` : ''} • {doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : ''}
-                                </p>
-                              </div>
-                            </div>
-                            <Button
-                              size='sm'
-                              variant='ghost'
-                              onClick={() => {
-                                deleteDocument(doc.id, {
-                                  onSuccess: () => {
-                                    toast.success('Fichier supprimé')
-                                  },
-                                  onError: (error) => {
-                                    console.error('Error deleting file:', error)
-                                    toast.error('Erreur lors de la suppression')
-                                  },
-                                })
-                              }}
-                              disabled={isDeletingDocument}
-                            >
-                              ×
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className='py-6 text-center text-muted-foreground'>
-                        <p className='text-sm'>Aucun fichier uploadé pour le moment.</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-              </div>
-            )}
-
-            {/* ── Tab: Menu ── */}
-            {activeTab === 'menu' && (
-              <div className='space-y-4'>
-                <div className='flex items-center justify-between'>
-                  <h3 className='text-lg font-semibold'>Formulaires de menu</h3>
-                  <Button
-                    size='sm'
-                    className='gap-1.5'
-                    onClick={() => setShowLinkFormDialog(true)}
-                  >
-                    <Plus className='h-3.5 w-3.5' />
-                    Lier un formulaire
-                  </Button>
-                </div>
-
-                {bookingMenuForms.length === 0 ? (
-                  <Card>
-                    <CardContent className='py-8 text-center text-muted-foreground'>
-                      <FileText className='mx-auto h-8 w-8 mb-2 opacity-50' />
-                      <p className='text-sm'>Aucun formulaire de menu lié.</p>
-                      <p className='text-xs mt-1'>Liez un formulaire existant pour permettre au client de choisir ses menus.</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className='space-y-2'>
-                    {bookingMenuForms.map(bmf => {
-                      const form = bmf.menu_forms
-                      const fieldCount = form?.menu_form_fields?.length || 0
-                      const statusMap: Record<string, { label: string; color: string }> = {
-                        draft: { label: 'Brouillon', color: 'bg-gray-500' },
-                        shared: { label: 'Partagé', color: 'bg-blue-500' },
-                        submitted: { label: 'Soumis', color: 'bg-green-500' },
-                        locked: { label: 'Verrouillé', color: 'bg-gray-700' },
-                      }
-                      const st = statusMap[bmf.status] || statusMap.draft
-
-                      return (
-                        <Card key={bmf.id} className='hover:shadow-sm transition-shadow'>
-                          <CardContent className='p-4'>
-                            <div className='flex items-center justify-between'>
-                              <div className='flex-1 space-y-1'>
-                                <div className='flex items-center gap-2'>
-                                  <span className='font-medium text-sm'>{form?.title || 'Formulaire'}</span>
-                                  <Badge className={`${st.color} text-white text-[10px]`}>{st.label}</Badge>
-                                  <Badge variant='outline' className='text-[10px]'>{fieldCount} champ{fieldCount > 1 ? 's' : ''}</Badge>
-                                  <Badge variant='outline' className='text-[10px]'>{bmf.guests_count} convive{bmf.guests_count > 1 ? 's' : ''}</Badge>
-                                </div>
-                                <p className='text-[10px] text-muted-foreground'>
-                                  Modifié le {format(new Date(bmf.updated_at), 'dd/MM/yyyy à HH:mm', { locale: fr })}
-                                  {bmf.submitted_at && ` · Soumis le ${format(new Date(bmf.submitted_at), 'dd/MM/yyyy à HH:mm', { locale: fr })}`}
-                                </p>
-                              </div>
-                              <div className='flex items-center gap-1'>
-                                <Button
-                                  variant='outline'
-                                  size='sm'
-                                  className='h-7 text-xs gap-1'
-                                  onClick={() => {
-                                    setEditingMenuFormId(form?.id || null)
-                                    setMenuFormBuilderOpen(true)
-                                  }}
-                                >
-                                  <Edit className='h-3 w-3' />
-                                  {bmf.status === 'submitted' || bmf.status === 'locked' ? 'Voir' : 'Éditer'}
-                                </Button>
-                                {(bmf.status === 'shared' || bmf.status === 'submitted') && bmf.share_token && (
-                                  <Button
-                                    variant='outline'
-                                    size='sm'
-                                    className='h-7 text-xs gap-1'
-                                    onClick={() => {
-                                      const url = `${window.location.origin}/menu-form/${bmf.share_token}`
-                                      navigator.clipboard.writeText(url)
-                                      toast.success('Lien copié !')
-                                    }}
-                                  >
-                                    <ExternalLink className='h-3 w-3' />
-                                    Lien
-                                  </Button>
-                                )}
-                                {bmf.status === 'draft' && (
-                                  <Button
-                                    variant='ghost'
-                                    size='sm'
-                                    className='h-7 w-7 p-0 text-destructive hover:text-destructive'
-                                    onClick={() => {
-                                      unlinkMenuForm({ id: bmf.id, bookingId: booking.id }, {
-                                        onSuccess: () => toast.success('Formulaire délié'),
-                                        onError: () => toast.error('Erreur'),
-                                      })
-                                    }}
-                                  >
-                                    <TrashIcon className='h-3 w-3' />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )
-                    })}
-                  </div>
-                )}
-
-                <MenuFormBuilder
-                  formId={editingMenuFormId}
-                  open={menuFormBuilderOpen}
-                  onOpenChange={(open) => {
-                    setMenuFormBuilderOpen(open)
-                    if (!open) setEditingMenuFormId(null)
-                  }}
-                  restaurantId={booking.restaurant_id}
-                />
-
-                {/* Link Form Dialog - create or select existing */}
-                <Dialog open={showLinkFormDialog} onOpenChange={(open) => {
-                  setShowLinkFormDialog(open)
-                  if (!open) { setLinkFormMode('choose'); setNewFormTitle('') }
-                }}>
-                  <DialogContent className='max-w-md'>
-                    <DialogHeader>
-                      <DialogTitle>Lier un formulaire de menu</DialogTitle>
-                      <DialogDescription>
-                        {linkFormMode === 'choose' && 'Créez un nouveau formulaire ou sélectionnez un existant.'}
-                        {linkFormMode === 'create' && 'Créez un nouveau formulaire pour cet événement.'}
-                        {linkFormMode === 'existing' && 'Sélectionnez un formulaire existant.'}
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    {linkFormMode === 'choose' && (
-                      <div className='space-y-2 py-4'>
-                        <Card
-                          className='cursor-pointer hover:bg-muted/50 transition-colors'
-                          onClick={() => setLinkFormMode('create')}
-                        >
-                          <CardContent className='p-4 flex items-center gap-3'>
-                            <div className='h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center'>
-                              <Plus className='h-4 w-4 text-primary' />
-                            </div>
-                            <div>
-                              <p className='font-medium text-sm'>Créer un formulaire</p>
-                              <p className='text-xs text-muted-foreground'>Créer un nouveau formulaire de menu depuis zéro</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card
-                          className='cursor-pointer hover:bg-muted/50 transition-colors'
-                          onClick={() => setLinkFormMode('existing')}
-                        >
-                          <CardContent className='p-4 flex items-center gap-3'>
-                            <div className='h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center'>
-                              <FileText className='h-4 w-4 text-blue-500' />
-                            </div>
-                            <div>
-                              <p className='font-medium text-sm'>Récupérer un formulaire existant</p>
-                              <p className='text-xs text-muted-foreground'>Utiliser un formulaire déjà créé pour ce restaurant</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
-
-                    {linkFormMode === 'create' && (
-                      <div className='space-y-4 py-4'>
-                        <div className='space-y-2'>
-                          <Label>Nom du formulaire</Label>
-                          <Input
-                            placeholder='Ex: Menu Mariage, Menu Cocktail...'
-                            value={newFormTitle}
-                            onChange={(e) => setNewFormTitle(e.target.value)}
-                            autoFocus
-                          />
-                        </div>
-                        <div className='flex gap-2'>
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            onClick={() => { setLinkFormMode('choose'); setNewFormTitle('') }}
-                          >
-                            Retour
-                          </Button>
-                          <Button
-                            size='sm'
-                            disabled={!newFormTitle.trim() || isCreatingForm}
-                            onClick={async () => {
-                              try {
-                                const form = await createMenuForm({
-                                  title: newFormTitle.trim(),
-                                  restaurantId: booking.restaurant_id,
-                                })
-                                linkMenuForm({
-                                  bookingId: booking.id,
-                                  menuFormId: form.id,
-                                  guestsCount: booking.guests_count || 1,
-                                }, {
-                                  onSuccess: () => {
-                                    setShowLinkFormDialog(false)
-                                    setNewFormTitle('')
-                                    setLinkFormMode('choose')
-                                    toast.success('Formulaire créé et lié')
-                                    // Open builder to add fields
-                                    setEditingMenuFormId(form.id)
-                                    setMenuFormBuilderOpen(true)
-                                  },
-                                  onError: () => toast.error('Erreur lors de la liaison'),
-                                })
-                              } catch {
-                                toast.error('Erreur lors de la création')
-                              }
-                            }}
-                          >
-                            {isCreatingForm ? <Loader2 className='h-3.5 w-3.5 animate-spin mr-1' /> : null}
-                            Créer et lier
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {linkFormMode === 'existing' && (
-                      <div className='space-y-4 py-4'>
-                        <Button
-                          variant='ghost'
-                          size='sm'
-                          className='mb-2'
-                          onClick={() => setLinkFormMode('choose')}
-                        >
-                          ← Retour
-                        </Button>
-                        {availableForms.filter(f => !bookingMenuForms.some(bmf => bmf.menu_form_id === f.id)).length === 0 ? (
-                          <div className='text-center py-4'>
-                            <FileText className='mx-auto h-8 w-8 mb-2 opacity-50' />
-                            <p className='text-sm text-muted-foreground'>
-                              Aucun formulaire disponible pour ce restaurant.
-                            </p>
-                            <p className='text-xs text-muted-foreground mt-1'>
-                              Créez un formulaire en revenant en arrière.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className='space-y-2 max-h-[300px] overflow-y-auto'>
-                            {availableForms
-                              .filter(f => !bookingMenuForms.some(bmf => bmf.menu_form_id === f.id))
-                              .map(form => (
-                                <Card
-                                  key={form.id}
-                                  className='cursor-pointer hover:bg-muted/50 transition-colors'
-                                  onClick={() => {
-                                    linkMenuForm({
-                                      bookingId: booking.id,
-                                      menuFormId: form.id,
-                                      guestsCount: booking.guests_count || 1,
-                                    }, {
-                                      onSuccess: () => {
-                                        setShowLinkFormDialog(false)
-                                        setLinkFormMode('choose')
-                                        toast.success('Formulaire lié')
-                                      },
-                                      onError: () => toast.error('Erreur lors de la liaison'),
-                                    })
-                                  }}
-                                >
-                                  <CardContent className='p-3'>
-                                    <div className='flex items-center justify-between'>
-                                      <div>
-                                        <p className='font-medium text-sm'>{form.title}</p>
-                                        <p className='text-xs text-muted-foreground'>
-                                          {form.menu_form_fields?.length || 0} champ{(form.menu_form_fields?.length || 0) > 1 ? 's' : ''}
-                                          {form.restaurants?.name ? ` · ${form.restaurants.name}` : ' · Global'}
-                                        </p>
-                                      </div>
-                                      {isLinkingForm ? (
-                                        <Loader2 className='h-4 w-4 animate-spin' />
-                                      ) : (
-                                        <Plus className='h-4 w-4 text-muted-foreground' />
-                                      )}
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </DialogContent>
-                </Dialog>
-              </div>
-            )}
-
-            {/* ── Tab: Historique ── */}
-            {activeTab === 'historique' && (
-              <div className='space-y-4'>
-                <div className='flex items-center justify-between'>
-                  <h3 className='text-lg font-semibold'>Historique des actions</h3>
-                  <Badge variant='secondary'>{activityLogs.length} action{activityLogs.length > 1 ? 's' : ''}</Badge>
-                </div>
-
-                {isLoadingLogs ? (
-                  <Card>
-                    <CardContent className='py-8 flex items-center justify-center'>
-                      <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
-                    </CardContent>
-                  </Card>
-                ) : activityLogs.length === 0 ? (
-                  <Card>
-                    <CardContent className='py-8 text-center text-muted-foreground'>
-                      <History className='mx-auto h-8 w-8 mb-2 opacity-50' />
-                      <p className='text-sm'>Aucune action enregistrée.</p>
-                      <p className='text-xs mt-1'>Les actions sur cet événement apparaîtront ici.</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card>
-                    <CardContent className='py-4'>
-                      <div className='relative'>
-                        {/* Timeline line */}
-                        <div className='absolute left-4 top-0 bottom-0 w-px bg-border' />
-                        
-                        {/* Timeline items */}
-                        <div className='space-y-4'>
-                          {activityLogs.map((log, index) => {
-                            const iconName = ACTION_ICONS[log.action_type as ActivityActionType] || 'Circle'
-                            const isFirst = index === 0
-                            
-                            // Determine icon color based on action type
-                            let iconColorClass = 'bg-muted text-muted-foreground'
-                            if (log.action_type.includes('created')) iconColorClass = 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                            else if (log.action_type.includes('deleted')) iconColorClass = 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                            else if (log.action_type.includes('sent') || log.action_type.includes('email')) iconColorClass = 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                            else if (log.action_type.includes('signed') || log.action_type.includes('received')) iconColorClass = 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                            else if (log.action_type.includes('updated') || log.action_type.includes('changed')) iconColorClass = 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
-
-                            return (
-                              <div key={log.id} className='relative pl-10'>
-                                {/* Icon */}
-                                <div className={`absolute left-0 w-8 h-8 rounded-full flex items-center justify-center ${iconColorClass} ${isFirst ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
-                                  {iconName === 'Plus' && <Plus className='h-4 w-4' />}
-                                  {iconName === 'Edit' && <Edit className='h-4 w-4' />}
-                                  {iconName === 'Trash2' && <TrashIcon className='h-4 w-4' />}
-                                  {iconName === 'Mail' && <Mail className='h-4 w-4' />}
-                                  {iconName === 'Send' && <Send className='h-4 w-4' />}
-                                  {iconName === 'FileText' && <FileText className='h-4 w-4' />}
-                                  {iconName === 'FileSignature' && <FileSignature className='h-4 w-4' />}
-                                  {iconName === 'CheckCircle' && <CheckCircle className='h-4 w-4' />}
-                                  {iconName === 'CreditCard' && <CreditCard className='h-4 w-4' />}
-                                  {iconName === 'History' && <History className='h-4 w-4' />}
-                                  {!['Plus', 'Edit', 'Trash2', 'Mail', 'Send', 'FileText', 'FileSignature', 'CheckCircle', 'CreditCard', 'History'].includes(iconName) && <History className='h-4 w-4' />}
-                                </div>
-                                
-                                {/* Content */}
-                                <div className='min-h-[2rem] pb-2'>
-                                  <p className='text-sm font-medium leading-tight'>{log.action_label}</p>
-                                  <div className='flex items-center gap-2 mt-1 text-xs text-muted-foreground'>
-                                    <span>
-                                      {log.actor_type === 'user' && log.actor_name ? `par ${log.actor_name}` : 
-                                       log.actor_type === 'client' ? 'par le client' :
-                                       log.actor_type === 'webhook' ? `via ${log.actor_name || 'webhook'}` :
-                                       log.actor_type === 'system' ? 'automatique' : ''}
-                                    </span>
-                                    <span>·</span>
-                                    <span>{log.created_at ? formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: fr }) : ''}</span>
-                                  </div>
-                                  
-                                  {/* Show metadata details if available */}
-                                  {log.metadata && typeof log.metadata === 'object' && Object.keys(log.metadata as object).length > 0 && !!(log.metadata as Record<string, unknown>).changes && (
-                                    <div className='mt-2 text-xs bg-muted/50 rounded p-2'>
-                                      <div className='space-y-1'>
-                                        {Object.entries((log.metadata as Record<string, unknown>).changes as Record<string, { old: unknown; new: unknown }>)
-                                          .filter(([, change]) => {
-                                            // Skip if both old and new are empty/null
-                                            const oldVal = change.old === null || change.old === undefined || change.old === '' ? null : change.old
-                                            const newVal = change.new === null || change.new === undefined || change.new === '' ? null : change.new
-                                            return oldVal !== null || newVal !== null
-                                          })
-                                          .slice(0, 3)
-                                          .map(([field, change]) => {
-                                            const oldDisplay = change.old === null || change.old === undefined || change.old === '' ? '(vide)' : String(change.old)
-                                            const newDisplay = change.new === null || change.new === undefined || change.new === '' ? '(vide)' : String(change.new)
-                                            return (
-                                              <div key={field} className='flex items-center gap-1 flex-wrap'>
-                                                <span className='text-muted-foreground'>{field}:</span>
-                                                <span className='line-through text-muted-foreground'>{oldDisplay}</span>
-                                                <span>→</span>
-                                                <span className='font-medium'>{newDisplay}</span>
-                                              </div>
+                                              {
+                                                onSuccess: (newQuote) => {
+                                                  setEditingQuoteId(
+                                                    (newQuote as any).id
+                                                  )
+                                                  setQuoteEditorOpen(true)
+                                                  toast.success(
+                                                    'Devis dupliqué'
+                                                  )
+                                                },
+                                                onError: () =>
+                                                  toast.error(
+                                                    'Erreur lors de la duplication'
+                                                  ),
+                                              }
                                             )
-                                          })}
-                                        {Object.keys((log.metadata as Record<string, unknown>).changes as object).length > 3 && (
-                                          <span className='text-muted-foreground'>+{String(Object.keys((log.metadata as Record<string, unknown>).changes as object).length - 3)} autres modifications</span>
+                                          }}
+                                        >
+                                          <Copy className='mr-2 h-3.5 w-3.5' />
+                                          <span>
+                                            {isDuplicating
+                                              ? 'Duplication...'
+                                              : 'Dupliquer ce devis'}
+                                          </span>
+                                        </DropdownMenuItem>
+
+                                        {/* Workflow Actions with conditions */}
+                                        <DropdownMenuItem
+                                          disabled={isSendingEmail}
+                                          onClick={() => {
+                                            // B2B Validation: Check if company info is complete
+                                            const company = fullContact?.company
+                                            if (company) {
+                                              const missingFields: string[] = []
+                                              if (!company.name)
+                                                missingFields.push(
+                                                  'Raison sociale'
+                                                )
+                                              if (!company.billing_address)
+                                                missingFields.push('Adresse')
+                                              if (!company.billing_postal_code)
+                                                missingFields.push(
+                                                  'Code postal'
+                                                )
+                                              if (!company.billing_city)
+                                                missingFields.push('Ville')
+                                              if (!company.siret)
+                                                missingFields.push('SIRET')
+                                              if (missingFields.length > 0) {
+                                                toast.error(
+                                                  `Informations société manquantes : ${missingFields.join(', ')}. Veuillez compléter les informations de la société avant d'envoyer le devis.`
+                                                )
+                                                return
+                                              }
+                                            }
+                                            // If multiple quotes, show selection dialog
+                                            if (quotes.length > 1) {
+                                              setSendEmailSourceQuoteId(
+                                                quote.id
+                                              )
+                                              setSelectedQuoteIdsToSend([
+                                                quote.id,
+                                              ])
+                                              setSendEmailDialogOpen(true)
+                                            } else {
+                                              sendQuoteEmail(
+                                                {
+                                                  quoteId: quote.id,
+                                                  bookingId: booking.id,
+                                                },
+                                                {
+                                                  onSuccess: () => {
+                                                    toast.success(
+                                                      'Devis envoyé par email'
+                                                    )
+                                                    activityLogger.quoteEmailSent(
+                                                      booking.id,
+                                                      quote.id,
+                                                      fullContact?.email ||
+                                                        undefined
+                                                    )
+                                                  },
+                                                  onError: (err) =>
+                                                    toast.error(
+                                                      `Erreur: ${err.message}`
+                                                    ),
+                                                }
+                                              )
+                                            }
+                                          }}
+                                        >
+                                          <Send className='mr-2 h-3.5 w-3.5' />
+                                          <span>
+                                            {isSendingEmail
+                                              ? 'Envoi en cours...'
+                                              : 'Envoyer Devis par Email'}
+                                          </span>
+                                        </DropdownMenuItem>
+
+                                        {/* Mark as signed manually */}
+                                        {!isQuoteSigned && (
+                                          <DropdownMenuItem
+                                            disabled={isMarkingSigned}
+                                            onClick={() => {
+                                              markQuoteSigned(
+                                                {
+                                                  quoteId: quote.id,
+                                                  bookingId: booking.id,
+                                                },
+                                                {
+                                                  onSuccess: () =>
+                                                    toast.success(
+                                                      'Devis marqué comme signé'
+                                                    ),
+                                                  onError: () =>
+                                                    toast.error(
+                                                      'Erreur lors de la mise à jour'
+                                                    ),
+                                                }
+                                              )
+                                            }}
+                                          >
+                                            <FileSignature className='mr-2 h-3.5 w-3.5' />
+                                            <span>
+                                              {isMarkingSigned
+                                                ? 'Mise à jour...'
+                                                : 'Marquer comme signé'}
+                                            </span>
+                                          </DropdownMenuItem>
                                         )}
-                                      </div>
-                                    </div>
-                                  )}
+
+                                        <DropdownMenuItem
+                                          disabled={
+                                            !canSendSignature ||
+                                            isSendingSignature
+                                          }
+                                          onClick={() => {
+                                            if (canSendSignature) {
+                                              sendSignature(
+                                                {
+                                                  quoteId: quote.id,
+                                                  bookingId: booking.id,
+                                                },
+                                                {
+                                                  onSuccess: () => {
+                                                    toast.success(
+                                                      'Lien de signature envoyé'
+                                                    )
+                                                    activityLogger.quoteSignatureSent(
+                                                      booking.id,
+                                                      quote.id
+                                                    )
+                                                  },
+                                                  onError: (err) =>
+                                                    toast.error(
+                                                      `Erreur: ${err.message}`
+                                                    ),
+                                                }
+                                              )
+                                            }
+                                          }}
+                                          className={
+                                            !canSendSignature
+                                              ? 'opacity-50'
+                                              : ''
+                                          }
+                                        >
+                                          <FileSignature className='mr-2 h-3.5 w-3.5' />
+                                          <div className='flex flex-col'>
+                                            <span>
+                                              {isSendingSignature
+                                                ? 'Envoi en cours...'
+                                                : 'Envoyer Lien de Signature'}
+                                            </span>
+                                            {!canSendSignature && (
+                                              <span className='text-[10px] text-muted-foreground'>
+                                                Déjà signé
+                                              </span>
+                                            )}
+                                          </div>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem
+                                          disabled={
+                                            !canSendDepositLink ||
+                                            isSendingDeposit
+                                          }
+                                          onClick={() => {
+                                            if (canSendDepositLink) {
+                                              sendDeposit(
+                                                {
+                                                  quoteId: quote.id,
+                                                  bookingId: booking.id,
+                                                },
+                                                {
+                                                  onSuccess: () => {
+                                                    toast.success(
+                                                      "Facture d'acompte envoyée avec lien de paiement"
+                                                    )
+                                                    activityLogger.paymentDepositSent(
+                                                      booking.id,
+                                                      quote.id,
+                                                      (quote as any)
+                                                        .deposit_amount || 0
+                                                    )
+                                                  },
+                                                  onError: (err) =>
+                                                    toast.error(
+                                                      `Erreur: ${err.message}`
+                                                    ),
+                                                }
+                                              )
+                                            }
+                                          }}
+                                          className={
+                                            !canSendDepositLink
+                                              ? 'opacity-50'
+                                              : ''
+                                          }
+                                        >
+                                          <CreditCard className='mr-2 h-3.5 w-3.5' />
+                                          <div className='flex flex-col'>
+                                            <span>
+                                              {isSendingDeposit
+                                                ? 'Envoi en cours...'
+                                                : (quote as any).deposit_sent_at
+                                                  ? 'Renvoyer Lien Paiement Acompte'
+                                                  : 'Envoyer Lien Paiement Acompte'}
+                                            </span>
+                                            {!canSendDepositLink &&
+                                              !isQuoteSigned && (
+                                                <span className='text-[10px] text-muted-foreground'>
+                                                  Devis non signé
+                                                </span>
+                                              )}
+                                            {!canSendDepositLink &&
+                                              isDepositPaid && (
+                                                <span className='text-[10px] text-muted-foreground'>
+                                                  Acompte déjà payé
+                                                </span>
+                                              )}
+                                          </div>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem
+                                          disabled={
+                                            !canSendBalanceInvoice ||
+                                            isSendingBalance
+                                          }
+                                          onClick={() => {
+                                            if (canSendBalanceInvoice) {
+                                              sendBalance(
+                                                {
+                                                  quoteId: quote.id,
+                                                  bookingId: booking.id,
+                                                },
+                                                {
+                                                  onSuccess: () => {
+                                                    toast.success(
+                                                      'Facture de solde envoyée'
+                                                    )
+                                                    activityLogger.paymentBalanceSent(
+                                                      booking.id,
+                                                      quote.id,
+                                                      (quote.total_ttc || 0) -
+                                                        ((quote as any)
+                                                          .deposit_amount || 0)
+                                                    )
+                                                  },
+                                                  onError: (err) =>
+                                                    toast.error(
+                                                      `Erreur: ${err.message}`
+                                                    ),
+                                                }
+                                              )
+                                            }
+                                          }}
+                                          className={
+                                            !canSendBalanceInvoice
+                                              ? 'opacity-50'
+                                              : ''
+                                          }
+                                        >
+                                          <Receipt className='mr-2 h-3.5 w-3.5' />
+                                          <div className='flex flex-col'>
+                                            <span>
+                                              {isSendingBalance
+                                                ? 'Envoi en cours...'
+                                                : isBalanceSent
+                                                  ? 'Renvoyer Facture de Solde'
+                                                  : 'Envoyer Facture de Solde'}
+                                            </span>
+                                            {!canSendBalanceInvoice &&
+                                              !isQuoteSigned && (
+                                                <span className='text-[10px] text-muted-foreground'>
+                                                  Devis non signé
+                                                </span>
+                                              )}
+                                            {!canSendBalanceInvoice &&
+                                              isQuoteSigned &&
+                                              !isDepositPaid && (
+                                                <span className='text-[10px] text-muted-foreground'>
+                                                  Acompte non payé
+                                                </span>
+                                              )}
+                                            {!canSendBalanceInvoice &&
+                                              isBalancePaid && (
+                                                <span className='text-[10px] text-muted-foreground'>
+                                                  Déjà payé
+                                                </span>
+                                              )}
+                                          </div>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem
+                                          disabled={!canMarkComplete}
+                                          onClick={() => {
+                                            if (canMarkComplete) {
+                                              toast.info(
+                                                'Marqué comme terminé... (à implémenter)'
+                                              )
+                                            }
+                                          }}
+                                          className={
+                                            !canMarkComplete ? 'opacity-50' : ''
+                                          }
+                                        >
+                                          <CheckCircle className='mr-2 h-3.5 w-3.5' />
+                                          <div className='flex flex-col'>
+                                            <span>Marquer comme Terminé</span>
+                                            {!canMarkComplete &&
+                                              !isBalanceSent && (
+                                                <span className='text-[10px] text-muted-foreground'>
+                                                  Facture de solde non envoyée
+                                                </span>
+                                              )}
+                                            {!canMarkComplete &&
+                                              isBalancePaid && (
+                                                <span className='text-[10px] text-muted-foreground'>
+                                                  Déjà terminé
+                                                </span>
+                                              )}
+                                          </div>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem
+                                          className='text-destructive focus:text-destructive'
+                                          onClick={() =>
+                                            setDeleteQuoteId(quote.id)
+                                          }
+                                        >
+                                          <TrashIcon className='mr-2 h-3.5 w-3.5' />
+                                          Supprimer
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </div>
+
+                                {/* Workflow Status Tags */}
+                                <div className='flex flex-wrap items-center gap-1.5'>
+                                  <Badge
+                                    variant='outline'
+                                    className={`h-5 px-1.5 py-0 text-[9px] ${isQuoteSent ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-gray-50 text-gray-400'}`}
+                                  >
+                                    {isQuoteSent ? '✓' : '○'} Devis envoyé
+                                  </Badge>
+                                  <Badge
+                                    variant='outline'
+                                    className={`h-5 px-1.5 py-0 text-[9px] ${isQuoteSigned ? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-400'}`}
+                                  >
+                                    {isQuoteSigned ? '✓' : '○'} Signé
+                                  </Badge>
+                                  <Badge
+                                    variant='outline'
+                                    className={`h-5 px-1.5 py-0 text-[9px] ${isDepositPaid ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-gray-50 text-gray-400'}`}
+                                  >
+                                    {isDepositPaid ? '✓' : '○'} Acompte payé
+                                  </Badge>
+                                  <Badge
+                                    variant='outline'
+                                    className={`h-5 px-1.5 py-0 text-[9px] ${isBalanceSent ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-gray-200 bg-gray-50 text-gray-400'}`}
+                                  >
+                                    {isBalanceSent ? '✓' : '○'} Solde envoyé
+                                  </Badge>
+                                  <Badge
+                                    variant='outline'
+                                    className={`h-5 px-1.5 py-0 text-[9px] ${isBalancePaid ? 'border-purple-200 bg-purple-50 text-purple-700' : 'border-gray-200 bg-gray-50 text-gray-400'}`}
+                                  >
+                                    {isBalancePaid ? '✓' : '○'} Soldé
+                                  </Badge>
                                 </div>
                               </div>
                             )
                           })}
                         </div>
+                      ) : (
+                        <div className='py-8 text-center text-muted-foreground'>
+                          <FileText className='mx-auto mb-2 h-8 w-8 opacity-50' />
+                          <p className='text-sm'>Aucun devis pour le moment.</p>
+                          <p className='mt-1 text-xs'>
+                            Cliquez sur &quot;Nouvelle offre&quot; pour créer un
+                            devis.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Paiements / Cautions Section */}
+                  <Card>
+                    <CardHeader className='pb-3'>
+                      <div className='flex items-center justify-between'>
+                        <CardTitle className='text-base'>
+                          Paiements / Cautions
+                        </CardTitle>
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          className='gap-1.5'
+                          onClick={() => {
+                            setEditingPayment(null)
+                            setPaymentDialogOpen(true)
+                          }}
+                        >
+                          <Plus className='h-3.5 w-3.5' />
+                          Paiement
+                        </Button>
+                      </div>
+                      {/* Payment Balance Summary */}
+                      {(() => {
+                        // Get the most advanced quote (by status progression)
+                        const primaryQuote =
+                          quotes.find((q) =>
+                            [
+                              'deposit_paid',
+                              'balance_sent',
+                              'balance_paid',
+                            ].includes(q.status || '')
+                          ) ||
+                          quotes.find((q) => q.status === 'quote_signed') ||
+                          quotes.find((q) => q.status === 'deposit_sent') ||
+                          quotes[0]
+                        // Toujours inclure les extras s'ils existent (un paiement manuel peut
+                        // avoir bloqué la transition de statut, donc on ne se fie plus au statut).
+                        const baseTtc = primaryQuote?.total_ttc || 0
+                        const extrasTtc = (
+                          (primaryQuote as any)?.quote_items || []
+                        )
+                          .filter((i: any) => i.item_type === 'extra')
+                          .reduce(
+                            (sum: number, e: any) => sum + (e.total_ttc || 0),
+                            0
+                          )
+                        // Tous les TTC sont entiers (post-helper), somme reste entière
+                        const totalDevisTtc = baseTtc + extrasTtc
+                        const discountPct =
+                          (primaryQuote as any)?.discount_percentage || 0
+                        // Only count payments with status 'paid' (from Stripe webhook) or 'completed' (manual)
+                        const paiementsRecus = payments
+                          .filter(
+                            (p) =>
+                              p.status === 'paid' || p.status === 'completed'
+                          )
+                          .reduce((sum, p) => sum + (p.amount || 0), 0)
+                        const soldeRestant = totalDevisTtc - paiementsRecus
+
+                        if (totalDevisTtc > 0 || paiementsRecus > 0) {
+                          // La remise s'applique uniquement au devis principal (les extras
+                          // sont ajoutés après remise). On inverse seulement baseTtc.
+                          const baseAvantRemise =
+                            discountPct > 0
+                              ? baseTtc / (1 - discountPct / 100)
+                              : baseTtc
+                          const totalAvantRemise = baseAvantRemise + extrasTtc
+                          const montantRemise =
+                            discountPct > 0 ? baseAvantRemise - baseTtc : 0
+
+                          return (
+                            <div className='mt-3 space-y-1 rounded-lg bg-muted/50 p-2 text-xs sm:p-3'>
+                              {discountPct > 0 && (
+                                <>
+                                  <div className='flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-2'>
+                                    <span className='text-muted-foreground'>
+                                      Total avant remise
+                                    </span>
+                                    <span className='font-medium text-muted-foreground line-through'>
+                                      {formatEuroAdaptive(totalAvantRemise)}
+                                    </span>
+                                  </div>
+                                  <div className='flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-2'>
+                                    <span className='text-red-600'>
+                                      Remise {discountPct}%
+                                    </span>
+                                    <span className='font-medium text-red-600'>
+                                      - {formatEuroAdaptive(montantRemise)}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                              <div className='flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-2'>
+                                <span className='text-muted-foreground'>
+                                  Total Devis TTC
+                                  {discountPct > 0 ? ' après remise' : ''}
+                                </span>
+                                <span className='font-medium'>
+                                  {formatEuroWhole(baseTtc)}
+                                </span>
+                              </div>
+                              {extrasTtc > 0 && (
+                                <div className='flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-2'>
+                                  <span className='text-muted-foreground'>
+                                    Extras TTC
+                                  </span>
+                                  <span className='font-medium'>
+                                    + {formatEuroWhole(extrasTtc)}
+                                  </span>
+                                </div>
+                              )}
+                              <div className='flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-2'>
+                                <span className='text-muted-foreground'>
+                                  Paiements reçus
+                                </span>
+                                <span className='font-medium text-green-600'>
+                                  - {formatEuroAdaptive(paiementsRecus)}
+                                </span>
+                              </div>
+                              <Separator className='my-1' />
+                              <div className='flex flex-col gap-0.5 font-semibold sm:flex-row sm:justify-between sm:gap-2'>
+                                <span>Solde restant</span>
+                                <span
+                                  className={
+                                    soldeRestant > 0
+                                      ? 'text-orange-600'
+                                      : 'text-green-600'
+                                  }
+                                >
+                                  {formatEuroAdaptive(soldeRestant)}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
+                    </CardHeader>
+                    <CardContent>
+                      {payments.length > 0 ? (
+                        <div className='overflow-x-auto'>
+                          <table className='w-full text-sm'>
+                            <thead>
+                              <tr className='border-b'>
+                                <th className='px-2 py-2 text-left text-xs font-medium'>
+                                  Statut
+                                </th>
+                                <th className='px-2 py-2 text-left text-xs font-medium'>
+                                  Type
+                                </th>
+                                <th className='px-2 py-2 text-left text-xs font-medium'>
+                                  Montant
+                                </th>
+                                <th className='px-2 py-2 text-left text-xs font-medium'>
+                                  Méthode
+                                </th>
+                                <th className='px-2 py-2 text-left text-xs font-medium'>
+                                  Envoyé le
+                                </th>
+                                <th className='px-2 py-2 text-left text-xs font-medium'>
+                                  Payé le
+                                </th>
+                                <th className='px-2 py-2 text-left text-xs font-medium'>
+                                  Reçu
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {payments.map((payment) => (
+                                <tr
+                                  key={payment.id}
+                                  className='cursor-pointer border-b hover:bg-muted/50'
+                                  onClick={() => {
+                                    setEditingPayment(payment)
+                                    setPaymentDialogOpen(true)
+                                  }}
+                                >
+                                  <td className='px-2 py-2'>
+                                    <Badge
+                                      variant={
+                                        payment.status === 'paid' ||
+                                        payment.status === 'completed'
+                                          ? 'default'
+                                          : payment.status === 'pending'
+                                            ? 'secondary'
+                                            : 'outline'
+                                      }
+                                      className={`text-[10px] ${payment.status === 'paid' || payment.status === 'completed' ? 'bg-green-600' : ''}`}
+                                    >
+                                      {payment.status === 'paid' ||
+                                      payment.status === 'completed'
+                                        ? 'Payé'
+                                        : payment.status === 'pending'
+                                          ? 'En attente'
+                                          : payment.status === 'failed'
+                                            ? 'Échoué'
+                                            : payment.status}
+                                    </Badge>
+                                  </td>
+                                  <td className='px-2 py-2 text-xs capitalize'>
+                                    {payment.payment_modality ||
+                                      payment.payment_type}
+                                  </td>
+                                  <td className='px-2 py-2 text-sm font-medium'>
+                                    {formatEuroAdaptive(payment.amount || 0)}
+                                  </td>
+                                  <td className='px-2 py-2 text-xs capitalize'>
+                                    {payment.payment_method ||
+                                      payment.payment_type ||
+                                      '—'}
+                                  </td>
+                                  <td className='px-2 py-2 text-xs text-muted-foreground'>
+                                    {payment.created_at
+                                      ? format(
+                                          new Date(payment.created_at),
+                                          'dd/MM/yyyy',
+                                          { locale: fr }
+                                        )
+                                      : '—'}
+                                  </td>
+                                  <td className='px-2 py-2 text-xs text-muted-foreground'>
+                                    {payment.paid_at
+                                      ? format(
+                                          new Date(payment.paid_at),
+                                          'dd/MM/yyyy',
+                                          { locale: fr }
+                                        )
+                                      : '—'}
+                                  </td>
+                                  <td className='px-2 py-2 text-xs'>
+                                    {(payment as any).receipt_url ? (
+                                      <a
+                                        href={(payment as any).receipt_url}
+                                        target='_blank'
+                                        rel='noopener noreferrer'
+                                        className='inline-flex items-center gap-1 text-blue-600 hover:underline'
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <ExternalLink className='h-3 w-3' />
+                                        Voir
+                                      </a>
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className='py-6 text-center text-muted-foreground'>
+                          <p className='text-sm'>
+                            Aucune donnée de paiement pour le moment.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Payment Dialog */}
+                  <PaymentDialog
+                    open={paymentDialogOpen}
+                    onOpenChange={setPaymentDialogOpen}
+                    bookingId={booking.id}
+                    payment={editingPayment}
+                    contactEmail={booking.contact?.email || null}
+                    primaryQuoteId={
+                      quotes.find((q: any) => q.primary_quote)?.id ||
+                      quotes[0]?.id ||
+                      null
+                    }
+                    defaultDepositAmount={(() => {
+                      const pq =
+                        quotes.find((q: any) => q.primary_quote) || quotes[0]
+                      if (!pq) return null
+                      return (pq as any).deposit_amount_override != null
+                        ? ((pq as any).deposit_amount_override as number)
+                        : Math.ceil(
+                            (pq.total_ttc || 0) *
+                              ((pq.deposit_percentage || 80) / 100)
+                          )
+                    })()}
+                  />
+
+                  {/* Quote Editor Dialog */}
+                  <QuoteEditor
+                    open={quoteEditorOpen}
+                    onOpenChange={setQuoteEditorOpen}
+                    quoteId={editingQuoteId}
+                    booking={booking}
+                    restaurant={fullRestaurant}
+                    contact={fullContact}
+                  />
+                </div>
+              )}
+
+              {/* ── Tab: Fichiers ── */}
+              {activeTab === 'fichiers' && (
+                <div className='space-y-4'>
+                  <Card>
+                    <CardHeader className='pb-3'>
+                      <CardTitle className='text-base'>Fichiers</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className='space-y-4'>
+                        {/* Upload area */}
+                        <div
+                          className='cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors hover:bg-muted/50'
+                          onClick={() =>
+                            document.getElementById('file-input')?.click()
+                          }
+                        >
+                          <FileText className='mx-auto mb-2 h-8 w-8 text-muted-foreground' />
+                          <p className='text-sm font-medium'>
+                            Cliquez pour uploader des fichiers
+                          </p>
+                          <p className='text-xs text-muted-foreground'>
+                            ou glissez-déposez vos fichiers ici
+                          </p>
+                          <input
+                            id='file-input'
+                            type='file'
+                            multiple
+                            className='hidden'
+                            onChange={(e) => {
+                              const files = e.currentTarget.files
+                              if (files) {
+                                Array.from(files).forEach((file) => {
+                                  uploadDocument(
+                                    { file, bookingId: booking.id },
+                                    {
+                                      onSuccess: () => {
+                                        toast.success(
+                                          `${file.name} uploadé avec succès`
+                                        )
+                                      },
+                                      onError: (error) => {
+                                        console.error(
+                                          'Error uploading file:',
+                                          error
+                                        )
+                                        toast.error(
+                                          `Erreur lors de l'upload de ${file.name}`
+                                        )
+                                      },
+                                    }
+                                  )
+                                })
+                              }
+                            }}
+                          />
+                        </div>
+
+                        {/* Documents list */}
+                        {documents.length > 0 ? (
+                          <div className='space-y-2'>
+                            {documents.map((doc) => (
+                              <div
+                                key={doc.id}
+                                className='flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50'
+                              >
+                                <div className='flex min-w-0 flex-1 items-center gap-3'>
+                                  <FileText className='h-5 w-5 flex-shrink-0 text-muted-foreground' />
+                                  <div className='min-w-0 flex-1'>
+                                    <a
+                                      href={doc.file_url}
+                                      target='_blank'
+                                      rel='noopener noreferrer'
+                                      className='block truncate text-sm font-medium hover:underline'
+                                    >
+                                      {doc.name}
+                                    </a>
+                                    <p className='text-xs text-muted-foreground'>
+                                      {doc.file_size
+                                        ? `${(doc.file_size / 1024).toFixed(2)} KB`
+                                        : ''}{' '}
+                                      •{' '}
+                                      {doc.created_at
+                                        ? new Date(
+                                            doc.created_at
+                                          ).toLocaleDateString('fr-FR')
+                                        : ''}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button
+                                  size='sm'
+                                  variant='ghost'
+                                  onClick={() => {
+                                    deleteDocument(doc.id, {
+                                      onSuccess: () => {
+                                        toast.success('Fichier supprimé')
+                                      },
+                                      onError: (error) => {
+                                        console.error(
+                                          'Error deleting file:',
+                                          error
+                                        )
+                                        toast.error(
+                                          'Erreur lors de la suppression'
+                                        )
+                                      },
+                                    })
+                                  }}
+                                  disabled={isDeletingDocument}
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className='py-6 text-center text-muted-foreground'>
+                            <p className='text-sm'>
+                              Aucun fichier uploadé pour le moment.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* ── Tab: Fiche de fonction ── */}
-            {activeTab === 'fiche-fonction' && (
-              <FicheFonction
-                booking={booking}
-                quotes={quotes}
-                payments={payments}
-                spaceName={spaces.find((s) => s.id === booking.space_id)?.name}
-              />
-            )}
-          </div>
-
-        </div>
-      </form>
-    </Form>
-
-    {/* Change restaurant dialog */}
-    <Dialog open={changeRestaurantOpen} onOpenChange={setChangeRestaurantOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Changer de restaurant</DialogTitle>
-          <DialogDescription>
-            Sélectionnez le nouveau restaurant pour cet événement.
-          </DialogDescription>
-        </DialogHeader>
-        <div className='space-y-4 pt-2'>
-          <Select
-            value={selectedRestaurantId || ''}
-            onValueChange={setSelectedRestaurantId}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder='Sélectionner un restaurant' />
-            </SelectTrigger>
-            <SelectContent>
-              {allRestaurants.map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  <div className='flex items-center gap-2'>
-                    {r.color && (
-                      <div className='h-2.5 w-2.5 rounded-full shrink-0' style={{ backgroundColor: r.color }} />
-                    )}
-                    {r.name}
+              {/* ── Tab: Menu ── */}
+              {activeTab === 'menu' && (
+                <div className='space-y-4'>
+                  <div className='flex items-center justify-between'>
+                    <h3 className='text-lg font-semibold'>
+                      Formulaires de menu
+                    </h3>
+                    <Button
+                      size='sm'
+                      className='gap-1.5'
+                      onClick={() => setShowLinkFormDialog(true)}
+                    >
+                      <Plus className='h-3.5 w-3.5' />
+                      Lier un formulaire
+                    </Button>
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className='flex justify-end gap-2'>
-            <Button variant='outline' onClick={() => setChangeRestaurantOpen(false)}>
+
+                  {bookingMenuForms.length === 0 ? (
+                    <Card>
+                      <CardContent className='py-8 text-center text-muted-foreground'>
+                        <FileText className='mx-auto mb-2 h-8 w-8 opacity-50' />
+                        <p className='text-sm'>Aucun formulaire de menu lié.</p>
+                        <p className='mt-1 text-xs'>
+                          Liez un formulaire existant pour permettre au client
+                          de choisir ses menus.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className='space-y-2'>
+                      {bookingMenuForms.map((bmf) => {
+                        const form = bmf.menu_forms
+                        const fieldCount = form?.menu_form_fields?.length || 0
+                        const statusMap: Record<
+                          string,
+                          { label: string; color: string }
+                        > = {
+                          draft: { label: 'Brouillon', color: 'bg-gray-500' },
+                          shared: { label: 'Partagé', color: 'bg-blue-500' },
+                          submitted: { label: 'Soumis', color: 'bg-green-500' },
+                          locked: { label: 'Verrouillé', color: 'bg-gray-700' },
+                        }
+                        const st = statusMap[bmf.status] || statusMap.draft
+
+                        return (
+                          <Card
+                            key={bmf.id}
+                            className='transition-shadow hover:shadow-sm'
+                          >
+                            <CardContent className='p-4'>
+                              <div className='flex items-center justify-between'>
+                                <div className='flex-1 space-y-1'>
+                                  <div className='flex items-center gap-2'>
+                                    <span className='text-sm font-medium'>
+                                      {form?.title || 'Formulaire'}
+                                    </span>
+                                    <Badge
+                                      className={`${st.color} text-[10px] text-white`}
+                                    >
+                                      {st.label}
+                                    </Badge>
+                                    <Badge
+                                      variant='outline'
+                                      className='text-[10px]'
+                                    >
+                                      {fieldCount} champ
+                                      {fieldCount > 1 ? 's' : ''}
+                                    </Badge>
+                                    <Badge
+                                      variant='outline'
+                                      className='text-[10px]'
+                                    >
+                                      {bmf.guests_count} convive
+                                      {bmf.guests_count > 1 ? 's' : ''}
+                                    </Badge>
+                                  </div>
+                                  <p className='text-[10px] text-muted-foreground'>
+                                    Modifié le{' '}
+                                    {format(
+                                      new Date(bmf.updated_at),
+                                      'dd/MM/yyyy à HH:mm',
+                                      { locale: fr }
+                                    )}
+                                    {bmf.submitted_at &&
+                                      ` · Soumis le ${format(new Date(bmf.submitted_at), 'dd/MM/yyyy à HH:mm', { locale: fr })}`}
+                                  </p>
+                                </div>
+                                <div className='flex items-center gap-1'>
+                                  <Button
+                                    variant='outline'
+                                    size='sm'
+                                    className='h-7 gap-1 text-xs'
+                                    onClick={() => {
+                                      setEditingMenuFormId(form?.id || null)
+                                      setMenuFormBuilderOpen(true)
+                                    }}
+                                  >
+                                    <Edit className='h-3 w-3' />
+                                    {bmf.status === 'submitted' ||
+                                    bmf.status === 'locked'
+                                      ? 'Voir'
+                                      : 'Éditer'}
+                                  </Button>
+                                  {(bmf.status === 'shared' ||
+                                    bmf.status === 'submitted') &&
+                                    bmf.share_token && (
+                                      <Button
+                                        variant='outline'
+                                        size='sm'
+                                        className='h-7 gap-1 text-xs'
+                                        onClick={() => {
+                                          const url = `${window.location.origin}/menu-form/${bmf.share_token}`
+                                          navigator.clipboard.writeText(url)
+                                          toast.success('Lien copié !')
+                                        }}
+                                      >
+                                        <ExternalLink className='h-3 w-3' />
+                                        Lien
+                                      </Button>
+                                    )}
+                                  {bmf.status === 'draft' && (
+                                    <Button
+                                      variant='ghost'
+                                      size='sm'
+                                      className='h-7 w-7 p-0 text-destructive hover:text-destructive'
+                                      onClick={() => {
+                                        unlinkMenuForm(
+                                          { id: bmf.id, bookingId: booking.id },
+                                          {
+                                            onSuccess: () =>
+                                              toast.success('Formulaire délié'),
+                                            onError: () =>
+                                              toast.error('Erreur'),
+                                          }
+                                        )
+                                      }}
+                                    >
+                                      <TrashIcon className='h-3 w-3' />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  <MenuFormBuilder
+                    formId={editingMenuFormId}
+                    open={menuFormBuilderOpen}
+                    onOpenChange={(open) => {
+                      setMenuFormBuilderOpen(open)
+                      if (!open) setEditingMenuFormId(null)
+                    }}
+                    restaurantId={booking.restaurant_id}
+                  />
+
+                  {/* Link Form Dialog - create or select existing */}
+                  <Dialog
+                    open={showLinkFormDialog}
+                    onOpenChange={(open) => {
+                      setShowLinkFormDialog(open)
+                      if (!open) {
+                        setLinkFormMode('choose')
+                        setNewFormTitle('')
+                      }
+                    }}
+                  >
+                    <DialogContent className='max-w-md'>
+                      <DialogHeader>
+                        <DialogTitle>Lier un formulaire de menu</DialogTitle>
+                        <DialogDescription>
+                          {linkFormMode === 'choose' &&
+                            'Créez un nouveau formulaire ou sélectionnez un existant.'}
+                          {linkFormMode === 'create' &&
+                            'Créez un nouveau formulaire pour cet événement.'}
+                          {linkFormMode === 'existing' &&
+                            'Sélectionnez un formulaire existant.'}
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      {linkFormMode === 'choose' && (
+                        <div className='space-y-2 py-4'>
+                          <Card
+                            className='cursor-pointer transition-colors hover:bg-muted/50'
+                            onClick={() => setLinkFormMode('create')}
+                          >
+                            <CardContent className='flex items-center gap-3 p-4'>
+                              <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10'>
+                                <Plus className='h-4 w-4 text-primary' />
+                              </div>
+                              <div>
+                                <p className='text-sm font-medium'>
+                                  Créer un formulaire
+                                </p>
+                                <p className='text-xs text-muted-foreground'>
+                                  Créer un nouveau formulaire de menu depuis
+                                  zéro
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card
+                            className='cursor-pointer transition-colors hover:bg-muted/50'
+                            onClick={() => setLinkFormMode('existing')}
+                          >
+                            <CardContent className='flex items-center gap-3 p-4'>
+                              <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10'>
+                                <FileText className='h-4 w-4 text-blue-500' />
+                              </div>
+                              <div>
+                                <p className='text-sm font-medium'>
+                                  Récupérer un formulaire existant
+                                </p>
+                                <p className='text-xs text-muted-foreground'>
+                                  Utiliser un formulaire déjà créé pour ce
+                                  restaurant
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+
+                      {linkFormMode === 'create' && (
+                        <div className='space-y-4 py-4'>
+                          <div className='space-y-2'>
+                            <Label>Nom du formulaire</Label>
+                            <Input
+                              placeholder='Ex: Menu Mariage, Menu Cocktail...'
+                              value={newFormTitle}
+                              onChange={(e) => setNewFormTitle(e.target.value)}
+                              autoFocus
+                            />
+                          </div>
+                          <div className='flex gap-2'>
+                            <Button
+                              variant='outline'
+                              size='sm'
+                              onClick={() => {
+                                setLinkFormMode('choose')
+                                setNewFormTitle('')
+                              }}
+                            >
+                              Retour
+                            </Button>
+                            <Button
+                              size='sm'
+                              disabled={!newFormTitle.trim() || isCreatingForm}
+                              onClick={async () => {
+                                try {
+                                  const form = await createMenuForm({
+                                    title: newFormTitle.trim(),
+                                    restaurantId: booking.restaurant_id,
+                                  })
+                                  linkMenuForm(
+                                    {
+                                      bookingId: booking.id,
+                                      menuFormId: form.id,
+                                      guestsCount: booking.guests_count || 1,
+                                    },
+                                    {
+                                      onSuccess: () => {
+                                        setShowLinkFormDialog(false)
+                                        setNewFormTitle('')
+                                        setLinkFormMode('choose')
+                                        toast.success('Formulaire créé et lié')
+                                        // Open builder to add fields
+                                        setEditingMenuFormId(form.id)
+                                        setMenuFormBuilderOpen(true)
+                                      },
+                                      onError: () =>
+                                        toast.error(
+                                          'Erreur lors de la liaison'
+                                        ),
+                                    }
+                                  )
+                                } catch {
+                                  toast.error('Erreur lors de la création')
+                                }
+                              }}
+                            >
+                              {isCreatingForm ? (
+                                <Loader2 className='mr-1 h-3.5 w-3.5 animate-spin' />
+                              ) : null}
+                              Créer et lier
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {linkFormMode === 'existing' && (
+                        <div className='space-y-4 py-4'>
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            className='mb-2'
+                            onClick={() => setLinkFormMode('choose')}
+                          >
+                            ← Retour
+                          </Button>
+                          {availableForms.filter(
+                            (f) =>
+                              !bookingMenuForms.some(
+                                (bmf) => bmf.menu_form_id === f.id
+                              )
+                          ).length === 0 ? (
+                            <div className='py-4 text-center'>
+                              <FileText className='mx-auto mb-2 h-8 w-8 opacity-50' />
+                              <p className='text-sm text-muted-foreground'>
+                                Aucun formulaire disponible pour ce restaurant.
+                              </p>
+                              <p className='mt-1 text-xs text-muted-foreground'>
+                                Créez un formulaire en revenant en arrière.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className='max-h-[300px] space-y-2 overflow-y-auto'>
+                              {availableForms
+                                .filter(
+                                  (f) =>
+                                    !bookingMenuForms.some(
+                                      (bmf) => bmf.menu_form_id === f.id
+                                    )
+                                )
+                                .map((form) => (
+                                  <Card
+                                    key={form.id}
+                                    className='cursor-pointer transition-colors hover:bg-muted/50'
+                                    onClick={() => {
+                                      linkMenuForm(
+                                        {
+                                          bookingId: booking.id,
+                                          menuFormId: form.id,
+                                          guestsCount:
+                                            booking.guests_count || 1,
+                                        },
+                                        {
+                                          onSuccess: () => {
+                                            setShowLinkFormDialog(false)
+                                            setLinkFormMode('choose')
+                                            toast.success('Formulaire lié')
+                                          },
+                                          onError: () =>
+                                            toast.error(
+                                              'Erreur lors de la liaison'
+                                            ),
+                                        }
+                                      )
+                                    }}
+                                  >
+                                    <CardContent className='p-3'>
+                                      <div className='flex items-center justify-between'>
+                                        <div>
+                                          <p className='text-sm font-medium'>
+                                            {form.title}
+                                          </p>
+                                          <p className='text-xs text-muted-foreground'>
+                                            {form.menu_form_fields?.length || 0}{' '}
+                                            champ
+                                            {(form.menu_form_fields?.length ||
+                                              0) > 1
+                                              ? 's'
+                                              : ''}
+                                            {form.restaurants?.name
+                                              ? ` · ${form.restaurants.name}`
+                                              : ' · Global'}
+                                          </p>
+                                        </div>
+                                        {isLinkingForm ? (
+                                          <Loader2 className='h-4 w-4 animate-spin' />
+                                        ) : (
+                                          <Plus className='h-4 w-4 text-muted-foreground' />
+                                        )}
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
+
+              {/* ── Tab: Historique ── */}
+              {activeTab === 'historique' && (
+                <div className='space-y-4'>
+                  <div className='flex items-center justify-between'>
+                    <h3 className='text-lg font-semibold'>
+                      Historique des actions
+                    </h3>
+                    <Badge variant='secondary'>
+                      {activityLogs.length} action
+                      {activityLogs.length > 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+
+                  {isLoadingLogs ? (
+                    <Card>
+                      <CardContent className='flex items-center justify-center py-8'>
+                        <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
+                      </CardContent>
+                    </Card>
+                  ) : activityLogs.length === 0 ? (
+                    <Card>
+                      <CardContent className='py-8 text-center text-muted-foreground'>
+                        <History className='mx-auto mb-2 h-8 w-8 opacity-50' />
+                        <p className='text-sm'>Aucune action enregistrée.</p>
+                        <p className='mt-1 text-xs'>
+                          Les actions sur cet événement apparaîtront ici.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardContent className='py-4'>
+                        <div className='relative'>
+                          {/* Timeline line */}
+                          <div className='absolute top-0 bottom-0 left-4 w-px bg-border' />
+
+                          {/* Timeline items */}
+                          <div className='space-y-4'>
+                            {activityLogs.map((log, index) => {
+                              const iconName =
+                                ACTION_ICONS[
+                                  log.action_type as ActivityActionType
+                                ] || 'Circle'
+                              const isFirst = index === 0
+
+                              // Determine icon color based on action type
+                              let iconColorClass =
+                                'bg-muted text-muted-foreground'
+                              if (log.action_type.includes('created'))
+                                iconColorClass =
+                                  'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                              else if (log.action_type.includes('deleted'))
+                                iconColorClass =
+                                  'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                              else if (
+                                log.action_type.includes('sent') ||
+                                log.action_type.includes('email')
+                              )
+                                iconColorClass =
+                                  'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                              else if (
+                                log.action_type.includes('signed') ||
+                                log.action_type.includes('received')
+                              )
+                                iconColorClass =
+                                  'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              else if (
+                                log.action_type.includes('updated') ||
+                                log.action_type.includes('changed')
+                              )
+                                iconColorClass =
+                                  'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+
+                              return (
+                                <div key={log.id} className='relative pl-10'>
+                                  {/* Icon */}
+                                  <div
+                                    className={`absolute left-0 flex h-8 w-8 items-center justify-center rounded-full ${iconColorClass} ${isFirst ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                                  >
+                                    {iconName === 'Plus' && (
+                                      <Plus className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'Edit' && (
+                                      <Edit className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'Trash2' && (
+                                      <TrashIcon className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'Mail' && (
+                                      <Mail className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'Send' && (
+                                      <Send className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'FileText' && (
+                                      <FileText className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'FileSignature' && (
+                                      <FileSignature className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'CheckCircle' && (
+                                      <CheckCircle className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'CreditCard' && (
+                                      <CreditCard className='h-4 w-4' />
+                                    )}
+                                    {iconName === 'History' && (
+                                      <History className='h-4 w-4' />
+                                    )}
+                                    {![
+                                      'Plus',
+                                      'Edit',
+                                      'Trash2',
+                                      'Mail',
+                                      'Send',
+                                      'FileText',
+                                      'FileSignature',
+                                      'CheckCircle',
+                                      'CreditCard',
+                                      'History',
+                                    ].includes(iconName) && (
+                                      <History className='h-4 w-4' />
+                                    )}
+                                  </div>
+
+                                  {/* Content */}
+                                  <div className='min-h-[2rem] pb-2'>
+                                    <p className='text-sm leading-tight font-medium'>
+                                      {log.action_label}
+                                    </p>
+                                    <div className='mt-1 flex items-center gap-2 text-xs text-muted-foreground'>
+                                      <span>
+                                        {log.actor_type === 'user' &&
+                                        log.actor_name
+                                          ? `par ${log.actor_name}`
+                                          : log.actor_type === 'client'
+                                            ? 'par le client'
+                                            : log.actor_type === 'webhook'
+                                              ? `via ${log.actor_name || 'webhook'}`
+                                              : log.actor_type === 'system'
+                                                ? 'automatique'
+                                                : ''}
+                                      </span>
+                                      <span>·</span>
+                                      <span>
+                                        {log.created_at
+                                          ? formatDistanceToNow(
+                                              new Date(log.created_at),
+                                              { addSuffix: true, locale: fr }
+                                            )
+                                          : ''}
+                                      </span>
+                                    </div>
+
+                                    {/* Show metadata details if available */}
+                                    {log.metadata &&
+                                      typeof log.metadata === 'object' &&
+                                      Object.keys(log.metadata as object)
+                                        .length > 0 &&
+                                      !!(
+                                        log.metadata as Record<string, unknown>
+                                      ).changes && (
+                                        <div className='mt-2 rounded bg-muted/50 p-2 text-xs'>
+                                          <div className='space-y-1'>
+                                            {Object.entries(
+                                              (
+                                                log.metadata as Record<
+                                                  string,
+                                                  unknown
+                                                >
+                                              ).changes as Record<
+                                                string,
+                                                { old: unknown; new: unknown }
+                                              >
+                                            )
+                                              .filter(([, change]) => {
+                                                // Skip if both old and new are empty/null
+                                                const oldVal =
+                                                  change.old === null ||
+                                                  change.old === undefined ||
+                                                  change.old === ''
+                                                    ? null
+                                                    : change.old
+                                                const newVal =
+                                                  change.new === null ||
+                                                  change.new === undefined ||
+                                                  change.new === ''
+                                                    ? null
+                                                    : change.new
+                                                return (
+                                                  oldVal !== null ||
+                                                  newVal !== null
+                                                )
+                                              })
+                                              .slice(0, 3)
+                                              .map(([field, change]) => {
+                                                const oldDisplay =
+                                                  change.old === null ||
+                                                  change.old === undefined ||
+                                                  change.old === ''
+                                                    ? '(vide)'
+                                                    : String(change.old)
+                                                const newDisplay =
+                                                  change.new === null ||
+                                                  change.new === undefined ||
+                                                  change.new === ''
+                                                    ? '(vide)'
+                                                    : String(change.new)
+                                                return (
+                                                  <div
+                                                    key={field}
+                                                    className='flex flex-wrap items-center gap-1'
+                                                  >
+                                                    <span className='text-muted-foreground'>
+                                                      {field}:
+                                                    </span>
+                                                    <span className='text-muted-foreground line-through'>
+                                                      {oldDisplay}
+                                                    </span>
+                                                    <span>→</span>
+                                                    <span className='font-medium'>
+                                                      {newDisplay}
+                                                    </span>
+                                                  </div>
+                                                )
+                                              })}
+                                            {Object.keys(
+                                              (
+                                                log.metadata as Record<
+                                                  string,
+                                                  unknown
+                                                >
+                                              ).changes as object
+                                            ).length > 3 && (
+                                              <span className='text-muted-foreground'>
+                                                +
+                                                {String(
+                                                  Object.keys(
+                                                    (
+                                                      log.metadata as Record<
+                                                        string,
+                                                        unknown
+                                                      >
+                                                    ).changes as object
+                                                  ).length - 3
+                                                )}{' '}
+                                                autres modifications
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {/* ── Tab: Fiche de fonction ── */}
+              {activeTab === 'fiche-fonction' && (
+                <FicheFonction
+                  booking={booking}
+                  quotes={quotes}
+                  payments={payments}
+                  spaceName={
+                    spaces.find((s) => s.id === booking.space_id)?.name
+                  }
+                />
+              )}
+            </div>
+          </div>
+        </form>
+      </Form>
+
+      {/* Change restaurant dialog */}
+      <Dialog
+        open={changeRestaurantOpen}
+        onOpenChange={setChangeRestaurantOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Changer de restaurant</DialogTitle>
+            <DialogDescription>
+              Sélectionnez le nouveau restaurant pour cet événement.
+            </DialogDescription>
+          </DialogHeader>
+          <div className='space-y-4 pt-2'>
+            <Select
+              value={selectedRestaurantId || ''}
+              onValueChange={setSelectedRestaurantId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder='Sélectionner un restaurant' />
+              </SelectTrigger>
+              <SelectContent>
+                {allRestaurants.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    <div className='flex items-center gap-2'>
+                      {r.color && (
+                        <div
+                          className='h-2.5 w-2.5 shrink-0 rounded-full'
+                          style={{ backgroundColor: r.color }}
+                        />
+                      )}
+                      {r.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className='flex justify-end gap-2'>
+              <Button
+                variant='outline'
+                onClick={() => setChangeRestaurantOpen(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                disabled={
+                  !selectedRestaurantId ||
+                  selectedRestaurantId === booking.restaurant_id
+                }
+                onClick={() => {
+                  if (!selectedRestaurantId) return
+                  const newRestaurant = allRestaurants.find(
+                    (r) => r.id === selectedRestaurantId
+                  )
+                  updateBooking(
+                    {
+                      id: booking.id,
+                      restaurant_id: selectedRestaurantId,
+                    } as never,
+                    {
+                      onSuccess: () => {
+                        toast.success(
+                          `Restaurant changé pour ${newRestaurant?.name || 'nouveau restaurant'}`
+                        )
+                        activityLogger.bookingUpdated(booking.id, {
+                          restaurant: {
+                            old: booking.restaurant?.name || '—',
+                            new: newRestaurant?.name || '—',
+                          },
+                        })
+                        setChangeRestaurantOpen(false)
+                      },
+                      onError: () => {
+                        toast.error('Erreur lors du changement de restaurant')
+                      },
+                    }
+                  )
+                }}
+              >
+                Confirmer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Multi-quote email selection dialog */}
+      <Dialog
+        open={sendEmailDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) setSendEmailDialogOpen(false)
+        }}
+      >
+        <DialogContent className='sm:max-w-md'>
+          <DialogHeader>
+            <DialogTitle>Envoyer des devis par email</DialogTitle>
+            <DialogDescription>
+              Sélectionnez les devis à envoyer à {fullContact?.first_name}{' '}
+              {fullContact?.last_name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className='space-y-2 py-2'>
+            {quotes.map((q: Quote) => (
+              <div
+                key={q.id}
+                className='flex items-center gap-3 rounded border p-2 hover:bg-muted/30'
+              >
+                <Checkbox
+                  id={`send-${q.id}`}
+                  checked={selectedQuoteIdsToSend.includes(q.id)}
+                  onCheckedChange={(checked) => {
+                    setSelectedQuoteIdsToSend((prev) =>
+                      checked
+                        ? [...prev, q.id]
+                        : prev.filter((id) => id !== q.id)
+                    )
+                  }}
+                />
+                <label
+                  htmlFor={`send-${q.id}`}
+                  className='flex-1 cursor-pointer text-sm'
+                >
+                  <span className='font-medium'>{q.quote_number}</span>
+                  {q.title && (
+                    <span className='ml-2 truncate text-muted-foreground'>
+                      {q.title}
+                    </span>
+                  )}
+                  <span className='ml-2 text-xs text-muted-foreground'>
+                    {formatEuroWhole(q.total_ttc || 0)}
+                  </span>
+                  {(q as any).primary_quote && (
+                    <span className='ml-2 text-[10px] font-medium text-emerald-600'>
+                      Actif
+                    </span>
+                  )}
+                </label>
+              </div>
+            ))}
+          </div>
+          <div className='flex justify-end gap-2 pt-2'>
+            <Button
+              variant='outline'
+              onClick={() => setSendEmailDialogOpen(false)}
+            >
               Annuler
             </Button>
             <Button
-              disabled={!selectedRestaurantId || selectedRestaurantId === booking.restaurant_id}
+              disabled={selectedQuoteIdsToSend.length === 0 || isSendingEmail}
               onClick={() => {
-                if (!selectedRestaurantId) return
-                const newRestaurant = allRestaurants.find(r => r.id === selectedRestaurantId)
-                updateBooking(
-                  { id: booking.id, restaurant_id: selectedRestaurantId } as never,
-                  {
-                    onSuccess: () => {
-                      toast.success(`Restaurant changé pour ${newRestaurant?.name || 'nouveau restaurant'}`)
-                      activityLogger.bookingUpdated(booking.id, { restaurant: { old: booking.restaurant?.name || '—', new: newRestaurant?.name || '—' } })
-                      setChangeRestaurantOpen(false)
-                    },
-                    onError: () => {
-                      toast.error('Erreur lors du changement de restaurant')
-                    },
+                setSendEmailDialogOpen(false)
+                // Send sequentially
+                const toSend = [...selectedQuoteIdsToSend]
+                let index = 0
+                const sendNext = () => {
+                  if (index >= toSend.length) {
+                    toast.success(
+                      `${toSend.length} devis envoyé${toSend.length > 1 ? 's' : ''} par email`
+                    )
+                    return
                   }
-                )
+                  const qId = toSend[index++]
+                  sendQuoteEmail(
+                    { quoteId: qId, bookingId: booking.id },
+                    {
+                      onSuccess: () => {
+                        activityLogger.quoteEmailSent(
+                          booking.id,
+                          qId,
+                          fullContact?.email || undefined
+                        )
+                        sendNext()
+                      },
+                      onError: (err) =>
+                        toast.error(`Erreur envoi devis: ${err.message}`),
+                    }
+                  )
+                }
+                sendNext()
               }}
             >
-              Confirmer
+              <Send className='mr-2 h-3.5 w-3.5' />
+              Envoyer{' '}
+              {selectedQuoteIdsToSend.length > 0
+                ? `(${selectedQuoteIdsToSend.length})`
+                : ''}
             </Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
 
-    {/* Multi-quote email selection dialog */}
-    <Dialog open={sendEmailDialogOpen} onOpenChange={(open) => { if (!open) setSendEmailDialogOpen(false) }}>
-      <DialogContent className='sm:max-w-md'>
-        <DialogHeader>
-          <DialogTitle>Envoyer des devis par email</DialogTitle>
-          <DialogDescription>
-            Sélectionnez les devis à envoyer à {fullContact?.first_name} {fullContact?.last_name}.
-          </DialogDescription>
-        </DialogHeader>
-        <div className='space-y-2 py-2'>
-          {quotes.map((q: Quote) => (
-            <div key={q.id} className='flex items-center gap-3 p-2 rounded border hover:bg-muted/30'>
-              <Checkbox
-                id={`send-${q.id}`}
-                checked={selectedQuoteIdsToSend.includes(q.id)}
-                onCheckedChange={(checked) => {
-                  setSelectedQuoteIdsToSend(prev =>
-                    checked ? [...prev, q.id] : prev.filter(id => id !== q.id)
+      <AlertDialog
+        open={!!deleteQuoteId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteQuoteId(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce devis ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Le devis sera définitivement
+              supprimé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
+              onClick={() => {
+                if (deleteQuoteId) {
+                  deleteQuoteMutation(
+                    { id: deleteQuoteId, bookingId: booking.id },
+                    {
+                      onSuccess: () => toast.success('Devis supprimé'),
+                      onError: () =>
+                        toast.error('Erreur lors de la suppression'),
+                    }
                   )
-                }}
-              />
-              <label htmlFor={`send-${q.id}`} className='flex-1 cursor-pointer text-sm'>
-                <span className='font-medium'>{q.quote_number}</span>
-                {q.title && <span className='ml-2 text-muted-foreground truncate'>{q.title}</span>}
-                <span className='ml-2 text-xs text-muted-foreground'>
-                  {formatEuroWhole(q.total_ttc || 0)}
-                </span>
-                {(q as any).primary_quote && <span className='ml-2 text-[10px] text-emerald-600 font-medium'>Actif</span>}
-              </label>
-            </div>
-          ))}
-        </div>
-        <div className='flex justify-end gap-2 pt-2'>
-          <Button variant='outline' onClick={() => setSendEmailDialogOpen(false)}>Annuler</Button>
-          <Button
-            disabled={selectedQuoteIdsToSend.length === 0 || isSendingEmail}
-            onClick={() => {
-              setSendEmailDialogOpen(false)
-              // Send sequentially
-              const toSend = [...selectedQuoteIdsToSend]
-              let index = 0
-              const sendNext = () => {
-                if (index >= toSend.length) {
-                  toast.success(`${toSend.length} devis envoyé${toSend.length > 1 ? 's' : ''} par email`)
-                  return
                 }
-                const qId = toSend[index++]
-                sendQuoteEmail(
-                  { quoteId: qId, bookingId: booking.id },
-                  {
-                    onSuccess: () => {
-                      activityLogger.quoteEmailSent(booking.id, qId, fullContact?.email || undefined)
-                      sendNext()
-                    },
-                    onError: (err) => toast.error(`Erreur envoi devis: ${err.message}`),
-                  }
-                )
-              }
-              sendNext()
-            }}
-          >
-            <Send className='h-3.5 w-3.5 mr-2' />
-            Envoyer {selectedQuoteIdsToSend.length > 0 ? `(${selectedQuoteIdsToSend.length})` : ''}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    <AlertDialog open={!!deleteQuoteId} onOpenChange={(open) => { if (!open) setDeleteQuoteId(null) }}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Supprimer ce devis ?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Cette action est irréversible. Le devis sera définitivement supprimé.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Annuler</AlertDialogCancel>
-          <AlertDialogAction
-            className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-            onClick={() => {
-              if (deleteQuoteId) {
-                deleteQuoteMutation({ id: deleteQuoteId, bookingId: booking.id }, {
-                  onSuccess: () => toast.success('Devis supprimé'),
-                  onError: () => toast.error('Erreur lors de la suppression'),
-                })
-              }
-              setDeleteQuoteId(null)
-            }}
-          >
-            Supprimer
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
+                setDeleteQuoteId(null)
+              }}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 })

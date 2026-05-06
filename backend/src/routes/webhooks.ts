@@ -894,8 +894,10 @@ async function autoSendDepositAfterSignature(quoteId: string) {
     }
 
     // Mirror send-deposit logic: respect deposit_amount_override or ceil to next euro.
+    // Math.ceil sur l'override aussi, pour rester cohérent avec quotes.ts/send-deposit
+    // (sinon le solde subtrait Math.ceil(override) → le client sous-paie).
     const depositAmount = (quote as any).deposit_amount_override != null
-      ? (quote as any).deposit_amount_override as number
+      ? Math.ceil((quote as any).deposit_amount_override as number)
       : Math.ceil(quote.total_ttc * (quote.deposit_percentage / 100))
 
     // Get commercial info
