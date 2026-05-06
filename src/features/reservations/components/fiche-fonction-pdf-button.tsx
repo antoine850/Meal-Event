@@ -1,10 +1,10 @@
 import { useState, type RefObject } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Loader2, Printer } from 'lucide-react'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   bookingId: string
@@ -187,7 +187,10 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
           // (e.g. "750px 750px" for grid-cols-2 in a 1500px viewport). When
           // the PDF root is constrained to 794px, these pixel tracks overflow.
           // Convert uniform pixel tracks to "1fr 1fr…" so they adapt.
-          if (prop === 'grid-template-columns' || prop === 'grid-template-rows') {
+          if (
+            prop === 'grid-template-columns' ||
+            prop === 'grid-template-rows'
+          ) {
             const tracks = raw.trim().split(/\s+/).filter(Boolean)
             if (tracks.length > 0 && tracks.every((t) => t.endsWith('px'))) {
               styles[prop] = tracks.map(() => '1fr').join(' ')
@@ -276,7 +279,9 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
       const blob: Blob = await worker.output('blob')
 
       // Clean up temp attributes
-      origAll.forEach((el) => (el as HTMLElement).removeAttribute('data-pdf-idx'))
+      origAll.forEach((el) =>
+        (el as HTMLElement).removeAttribute('data-pdf-idx')
+      )
 
       // 3. Upload to Supabase Storage
       const orgId = await getCurrentOrganizationId()

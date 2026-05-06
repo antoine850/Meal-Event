@@ -63,7 +63,9 @@ export function DataTableBulkActions<TData>({
               title='Inviter les utilisateurs sélectionnés'
             >
               <Mail />
-              <span className='sr-only'>Inviter les utilisateurs sélectionnés</span>
+              <span className='sr-only'>
+                Inviter les utilisateurs sélectionnés
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -82,7 +84,9 @@ export function DataTableBulkActions<TData>({
               title='Activer les utilisateurs sélectionnés'
             >
               <UserCheck />
-              <span className='sr-only'>Activer les utilisateurs sélectionnés</span>
+              <span className='sr-only'>
+                Activer les utilisateurs sélectionnés
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -101,7 +105,9 @@ export function DataTableBulkActions<TData>({
               title='Désactiver les utilisateurs sélectionnés'
             >
               <UserX />
-              <span className='sr-only'>Désactiver les utilisateurs sélectionnés</span>
+              <span className='sr-only'>
+                Désactiver les utilisateurs sélectionnés
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -120,7 +126,9 @@ export function DataTableBulkActions<TData>({
               title='Supprimer les utilisateurs sélectionnés'
             >
               <Trash2 />
-              <span className='sr-only'>Supprimer les utilisateurs sélectionnés</span>
+              <span className='sr-only'>
+                Supprimer les utilisateurs sélectionnés
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>

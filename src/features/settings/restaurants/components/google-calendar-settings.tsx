@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react'
-import { CalendarDays, ExternalLink, Loader2, Unplug, CheckCircle2, AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  CalendarDays,
+  ExternalLink,
+  Loader2,
+  Unplug,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +18,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   useGoogleCalendarStatus,
   useGoogleCalendarAuthUrl,
@@ -37,14 +50,19 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>('')
 
-  const { data: status, isLoading: statusLoading } = useGoogleCalendarStatus(restaurantId)
-  const { mutateAsync: getAuthUrl, isPending: authUrlPending } = useGoogleCalendarAuthUrl(restaurantId)
-  const { data: calendarsData, isLoading: calendarsLoading } = useGoogleCalendars(
-    restaurantId,
-    !!status?.connected && !status?.calendar_id
-  )
-  const { mutateAsync: selectCalendar, isPending: selectPending } = useSelectGoogleCalendar()
-  const { mutateAsync: disconnect, isPending: disconnectPending } = useDisconnectGoogleCalendar()
+  const { data: status, isLoading: statusLoading } =
+    useGoogleCalendarStatus(restaurantId)
+  const { mutateAsync: getAuthUrl, isPending: authUrlPending } =
+    useGoogleCalendarAuthUrl(restaurantId)
+  const { data: calendarsData, isLoading: calendarsLoading } =
+    useGoogleCalendars(
+      restaurantId,
+      !!status?.connected && !status?.calendar_id
+    )
+  const { mutateAsync: selectCalendar, isPending: selectPending } =
+    useSelectGoogleCalendar()
+  const { mutateAsync: disconnect, isPending: disconnectPending } =
+    useDisconnectGoogleCalendar()
 
   // Handle OAuth callback query params
   useEffect(() => {
@@ -57,7 +75,9 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
       window.history.replaceState({}, '', url.toString())
     }
     if (params.get('gcal_error')) {
-      toast.error(`Erreur de connexion Google Calendar: ${params.get('gcal_error')}`)
+      toast.error(
+        `Erreur de connexion Google Calendar: ${params.get('gcal_error')}`
+      )
       const url = new URL(window.location.href)
       url.searchParams.delete('gcal_error')
       window.history.replaceState({}, '', url.toString())
@@ -76,8 +96,13 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
   const handleSelectCalendar = async () => {
     if (!selectedCalendarId) return
     try {
-      await selectCalendar({ restaurant_id: restaurantId, calendar_id: selectedCalendarId })
-      toast.success('Calendrier relié. La synchronisation sera activée prochainement.')
+      await selectCalendar({
+        restaurant_id: restaurantId,
+        calendar_id: selectedCalendarId,
+      })
+      toast.success(
+        'Calendrier relié. La synchronisation sera activée prochainement.'
+      )
     } catch {
       toast.error('Erreur lors de la sélection du calendrier.')
     }
@@ -112,8 +137,8 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
             <div>
               <CardTitle>Google Calendar</CardTitle>
               <CardDescription>
-                Reliez un calendrier Google à ce restaurant. La synchronisation automatique des
-                événements sera activée prochainement.
+                Reliez un calendrier Google à ce restaurant. La synchronisation
+                automatique des événements sera activée prochainement.
               </CardDescription>
             </div>
           </div>
@@ -127,13 +152,16 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
               </div>
               <div className='text-center'>
                 <p className='font-medium'>Aucun compte Google connecté</p>
-                <p className='text-sm text-muted-foreground mt-1'>
-                  Reliez un compte Google et un calendrier à ce restaurant dès maintenant.
-                  La synchronisation automatique des événements sera activée prochainement.
+                <p className='mt-1 text-sm text-muted-foreground'>
+                  Reliez un compte Google et un calendrier à ce restaurant dès
+                  maintenant. La synchronisation automatique des événements sera
+                  activée prochainement.
                 </p>
               </div>
               <Button onClick={handleConnect} disabled={authUrlPending}>
-                {authUrlPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                {authUrlPending && (
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                )}
                 <ExternalLink className='mr-2 h-4 w-4' />
                 Connecter Google Calendar
               </Button>
@@ -150,19 +178,26 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
                 </span>
               </div>
 
-              <div className='rounded-lg border p-4 space-y-3'>
+              <div className='space-y-3 rounded-lg border p-4'>
                 <div className='flex items-center gap-2'>
                   <AlertCircle className='h-4 w-4 text-amber-500' />
-                  <p className='text-sm font-medium'>Sélectionnez un calendrier</p>
+                  <p className='text-sm font-medium'>
+                    Sélectionnez un calendrier
+                  </p>
                 </div>
                 {calendarsLoading ? (
                   <div className='flex items-center gap-2'>
                     <Loader2 className='h-4 w-4 animate-spin' />
-                    <span className='text-sm text-muted-foreground'>Chargement des calendriers...</span>
+                    <span className='text-sm text-muted-foreground'>
+                      Chargement des calendriers...
+                    </span>
                   </div>
                 ) : (
                   <div className='flex gap-2'>
-                    <Select value={selectedCalendarId} onValueChange={setSelectedCalendarId}>
+                    <Select
+                      value={selectedCalendarId}
+                      onValueChange={setSelectedCalendarId}
+                    >
                       <SelectTrigger className='flex-1'>
                         <SelectValue placeholder='Choisir un calendrier' />
                       </SelectTrigger>
@@ -178,7 +213,9 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
                       onClick={handleSelectCalendar}
                       disabled={!selectedCalendarId || selectPending}
                     >
-                      {selectPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                      {selectPending && (
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      )}
                       Valider
                     </Button>
                   </div>
@@ -207,16 +244,20 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
                     Connecté en tant que <strong>{status.email}</strong>
                   </span>
                 </div>
-                <Badge variant='outline' className='text-amber-700 border-amber-300 bg-amber-50'>
+                <Badge
+                  variant='outline'
+                  className='border-amber-300 bg-amber-50 text-amber-700'
+                >
                   Synchronisation bientôt disponible
                 </Badge>
               </div>
 
-              <div className='rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground space-y-1'>
+              <div className='space-y-1 rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground'>
                 <p>
-                  Votre calendrier est bien relié à ce restaurant. La synchronisation automatique
-                  des événements sera activée prochainement — aucun événement n'est poussé sur
-                  Google Calendar pour le moment.
+                  Votre calendrier est bien relié à ce restaurant. La
+                  synchronisation automatique des événements sera activée
+                  prochainement — aucun événement n'est poussé sur Google
+                  Calendar pour le moment.
                 </p>
               </div>
 
@@ -234,23 +275,29 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
         </CardContent>
       </Card>
 
-      <AlertDialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+      <AlertDialog
+        open={showDisconnectDialog}
+        onOpenChange={setShowDisconnectDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Déconnecter Google Calendar</AlertDialogTitle>
             <AlertDialogDescription>
-              Le lien vers votre calendrier sera retiré de ce restaurant. Les événements déjà
-              créés dans Google Calendar ne seront pas supprimés.
+              Le lien vers votre calendrier sera retiré de ce restaurant. Les
+              événements déjà créés dans Google Calendar ne seront pas
+              supprimés.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDisconnect}
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
               disabled={disconnectPending}
             >
-              {disconnectPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+              {disconnectPending && (
+                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              )}
               Déconnecter
             </AlertDialogAction>
           </AlertDialogFooter>

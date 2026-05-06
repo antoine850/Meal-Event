@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   quoteNumber: string
@@ -23,9 +23,13 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
 
       // Pre-compute all RGB colors from the original DOM (browser resolves oklch→rgb)
       const colorProps = [
-        'color', 'background-color', 'border-color',
-        'border-left-color', 'border-right-color',
-        'border-top-color', 'border-bottom-color',
+        'color',
+        'background-color',
+        'border-color',
+        'border-left-color',
+        'border-right-color',
+        'border-top-color',
+        'border-bottom-color',
       ]
 
       // Tag every element with a unique index so we can map original→clone
@@ -33,10 +37,10 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
       const computedMap: Map<number, Record<string, string>> = new Map()
 
       origAll.forEach((el, idx) => {
-        (el as HTMLElement).setAttribute('data-pdf-idx', String(idx))
+        ;(el as HTMLElement).setAttribute('data-pdf-idx', String(idx))
         const computed = window.getComputedStyle(el)
         const styles: Record<string, string> = {}
-        colorProps.forEach(prop => {
+        colorProps.forEach((prop) => {
           styles[prop] = computed.getPropertyValue(prop)
         })
         computedMap.set(idx, styles)
@@ -55,11 +59,13 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
             backgroundColor: '#ffffff',
             onclone: (clonedDoc: Document) => {
               // Remove all stylesheets from clone so html2canvas won't parse oklch
-              clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => el.remove())
+              clonedDoc
+                .querySelectorAll('style, link[rel="stylesheet"]')
+                .forEach((el) => el.remove())
 
               // Apply pre-computed RGB styles to cloned elements
               const clonedAll = clonedDoc.querySelectorAll('[data-pdf-idx]')
-              clonedAll.forEach(el => {
+              clonedAll.forEach((el) => {
                 const htmlEl = el as HTMLElement
                 const idx = Number(htmlEl.getAttribute('data-pdf-idx'))
                 const styles = computedMap.get(idx)
@@ -82,12 +88,14 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
         .save()
 
       // Clean up data attributes
-      origAll.forEach(el => (el as HTMLElement).removeAttribute('data-pdf-idx'))
+      origAll.forEach((el) =>
+        (el as HTMLElement).removeAttribute('data-pdf-idx')
+      )
 
       toast.success('PDF téléchargé')
     } catch (err) {
       console.error('PDF export error:', err)
-      toast.error('Erreur lors de l\'export PDF')
+      toast.error("Erreur lors de l'export PDF")
     } finally {
       setIsExporting(false)
     }
@@ -97,7 +105,7 @@ export function QuotePdfExportButton({ quoteNumber }: Props) {
     <Button
       variant='outline'
       size='sm'
-      className='gap-1.5 text-xs h-7'
+      className='h-7 gap-1.5 text-xs'
       onClick={handleExport}
       disabled={isExporting}
     >

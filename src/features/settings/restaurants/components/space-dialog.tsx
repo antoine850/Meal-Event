@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
+import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -22,8 +22,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -31,7 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreateSpace, useUpdateSpace, useRestaurants, type Space } from '../../hooks/use-settings'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  useCreateSpace,
+  useUpdateSpace,
+  useRestaurants,
+  type Space,
+} from '../../hooks/use-settings'
 
 const spaceSchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
@@ -50,7 +55,12 @@ interface SpaceDialogProps {
   defaultRestaurantId?: string
 }
 
-export function SpaceDialog({ open, onOpenChange, space, defaultRestaurantId }: SpaceDialogProps) {
+export function SpaceDialog({
+  open,
+  onOpenChange,
+  space,
+  defaultRestaurantId,
+}: SpaceDialogProps) {
   const { mutate: createSpace, isPending: isCreating } = useCreateSpace()
   const { mutate: updateSpace, isPending: isUpdating } = useUpdateSpace()
   const { data: restaurants = [] as any[] } = useRestaurants()
@@ -182,7 +192,9 @@ export function SpaceDialog({ open, onOpenChange, space, defaultRestaurantId }: 
                       type='number'
                       min={1}
                       {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
+                      onChange={(e) =>
+                        field.onChange(parseInt(e.target.value) || undefined)
+                      }
                     />
                   </FormControl>
                   <FormMessage />
@@ -211,14 +223,21 @@ export function SpaceDialog({ open, onOpenChange, space, defaultRestaurantId }: 
                 <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
                   <FormLabel className='text-sm'>Actif</FormLabel>
                   <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
                   </FormControl>
                 </FormItem>
               )}
             />
 
             <DialogFooter>
-              <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => onOpenChange(false)}
+              >
                 Annuler
               </Button>
               <Button type='submit' disabled={isPending}>

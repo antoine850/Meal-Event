@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
 import type { Contact } from '@/lib/supabase/types'
 
 export type ContactWithRelations = Contact & {
@@ -17,11 +17,13 @@ export function useContacts() {
 
       const { data, error } = await supabase
         .from('contacts')
-        .select(`
+        .select(
+          `
           *,
           company:companies(id, name, billing_address, billing_city, billing_postal_code, siret, tva_number),
           assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
-        `)
+        `
+        )
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
 
@@ -30,7 +32,6 @@ export function useContacts() {
     },
   })
 }
-
 
 export function useRestaurantsList() {
   return useQuery({
@@ -97,7 +98,10 @@ export function useUpdateContact() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Contact> & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...updates
+    }: Partial<Contact> & { id: string }) => {
       const { data, error } = await supabase
         .from('contacts')
         .update(updates as never)
@@ -123,11 +127,13 @@ export function useContact(id: string) {
 
       const { data, error } = await supabase
         .from('contacts')
-        .select(`
+        .select(
+          `
           *,
           company:companies(id, name, billing_address, billing_city, billing_postal_code, siret, tva_number),
           assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
-        `)
+        `
+        )
         .eq('id', id)
         .eq('organization_id', orgId)
         .single()
@@ -144,10 +150,7 @@ export function useDeleteContact() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('contacts')
-        .delete()
-        .eq('id', id)
+      const { error } = await supabase.from('contacts').delete().eq('id', id)
 
       if (error) throw error
     },

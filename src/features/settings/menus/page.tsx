@@ -1,7 +1,5 @@
 import { useState, useMemo } from 'react'
-import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import {
   type ColumnDef,
   type SortingState,
@@ -11,6 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { fr } from 'date-fns/locale'
 import {
   Trash2,
   Loader2,
@@ -21,11 +20,7 @@ import {
   MoreHorizontal,
   Copy,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +31,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -45,13 +42,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -60,13 +58,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { DataTablePagination, DataTableColumnHeader } from '@/components/data-table'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  DataTablePagination,
+  DataTableColumnHeader,
+} from '@/components/data-table'
+import { MenuFormBuilder } from '@/features/reservations/components/menu-form-builder'
 import {
   useAllMenuForms,
   useCreateMenuForm,
@@ -75,7 +79,6 @@ import {
   type MenuFormWithFields,
 } from '@/features/reservations/hooks/use-menu-forms'
 import { useRestaurants } from '@/features/settings/hooks/use-settings'
-import { MenuFormBuilder } from '@/features/reservations/components/menu-form-builder'
 
 export function MenusPage() {
   const { data: menuForms = [], isLoading } = useAllMenuForms()
@@ -88,7 +91,9 @@ export function MenusPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [selectedForm, setSelectedForm] = useState<MenuFormWithFields | null>(null)
+  const [selectedForm, setSelectedForm] = useState<MenuFormWithFields | null>(
+    null
+  )
 
   // Form state
   const [formTitle, setFormTitle] = useState('')
@@ -135,36 +140,44 @@ export function MenusPage() {
       toast.error('Le titre est requis')
       return
     }
-    createMenuForm({
-      title: formTitle.trim(),
-      description: formDescription.trim() || undefined,
-      restaurantId: formRestaurantId === '__all__' ? null : (formRestaurantId || null),
-    }, {
-      onSuccess: () => {
-        toast.success('Formulaire créé')
-        setCreateDialogOpen(false)
-        resetFormState()
+    createMenuForm(
+      {
+        title: formTitle.trim(),
+        description: formDescription.trim() || undefined,
+        restaurantId:
+          formRestaurantId === '__all__' ? null : formRestaurantId || null,
       },
-      onError: () => toast.error('Erreur lors de la création'),
-    })
+      {
+        onSuccess: () => {
+          toast.success('Formulaire créé')
+          setCreateDialogOpen(false)
+          resetFormState()
+        },
+        onError: () => toast.error('Erreur lors de la création'),
+      }
+    )
   }
 
   const handleUpdate = () => {
     if (!selectedForm || !formTitle.trim()) return
-    updateMenuForm({
-      id: selectedForm.id,
-      title: formTitle.trim(),
-      description: formDescription.trim() || null,
-      restaurant_id: formRestaurantId === '__all__' ? null : (formRestaurantId || null),
-    }, {
-      onSuccess: () => {
-        toast.success('Formulaire mis à jour')
-        setEditDialogOpen(false)
-        setSelectedForm(null)
-        resetFormState()
+    updateMenuForm(
+      {
+        id: selectedForm.id,
+        title: formTitle.trim(),
+        description: formDescription.trim() || null,
+        restaurant_id:
+          formRestaurantId === '__all__' ? null : formRestaurantId || null,
       },
-      onError: () => toast.error('Erreur lors de la mise à jour'),
-    })
+      {
+        onSuccess: () => {
+          toast.success('Formulaire mis à jour')
+          setEditDialogOpen(false)
+          setSelectedForm(null)
+          resetFormState()
+        },
+        onError: () => toast.error('Erreur lors de la mise à jour'),
+      }
+    )
   }
 
   const handleDelete = () => {
@@ -180,129 +193,146 @@ export function MenusPage() {
   }
 
   const handleDuplicate = (form: MenuFormWithFields) => {
-    createMenuForm({
-      title: `${form.title} (copie)`,
-      description: form.description || undefined,
-      restaurantId: form.restaurant_id || null,
-    }, {
-      onSuccess: () => toast.success('Formulaire dupliqué'),
-      onError: () => toast.error('Erreur lors de la duplication'),
-    })
+    createMenuForm(
+      {
+        title: `${form.title} (copie)`,
+        description: form.description || undefined,
+        restaurantId: form.restaurant_id || null,
+      },
+      {
+        onSuccess: () => toast.success('Formulaire dupliqué'),
+        onError: () => toast.error('Erreur lors de la duplication'),
+      }
+    )
   }
 
   const filteredForms = useMemo(() => {
     let result = menuForms
     if (restaurantFilter !== 'all') {
-      result = result.filter(f => f.restaurant_id === restaurantFilter)
+      result = result.filter((f) => f.restaurant_id === restaurantFilter)
     }
     if (search) {
       const q = search.toLowerCase()
-      result = result.filter(f =>
-        f.title.toLowerCase().includes(q) ||
-        (f.description || '').toLowerCase().includes(q)
+      result = result.filter(
+        (f) =>
+          f.title.toLowerCase().includes(q) ||
+          (f.description || '').toLowerCase().includes(q)
       )
     }
     return result
   }, [menuForms, restaurantFilter, search])
 
-  const columns = useMemo<ColumnDef<MenuFormWithFields>[]>(() => [
-    {
-      accessorKey: 'title',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Formulaire' />,
-      cell: ({ row }) => (
-        <div className='space-y-0.5'>
-          <div className='font-medium'>{row.original.title}</div>
-          {row.original.description && (
-            <div className='text-xs text-muted-foreground line-clamp-1'>
-              {row.original.description}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      id: 'restaurant',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Restaurant' />,
-      accessorFn: (row) => (row as any).restaurants?.name || '',
-      cell: ({ row }) => {
-        const restaurant = (row.original as any).restaurants
-        return restaurant ? (
-          <Badge variant='outline' className='gap-1 font-normal'>
-            <Building2 className='h-3 w-3' />
-            {restaurant.name}
-          </Badge>
-        ) : (
-          <span className='text-muted-foreground text-sm'>Tous</span>
-        )
+  const columns = useMemo<ColumnDef<MenuFormWithFields>[]>(
+    () => [
+      {
+        accessorKey: 'title',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title='Formulaire' />
+        ),
+        cell: ({ row }) => (
+          <div className='space-y-0.5'>
+            <div className='font-medium'>{row.original.title}</div>
+            {row.original.description && (
+              <div className='line-clamp-1 text-xs text-muted-foreground'>
+                {row.original.description}
+              </div>
+            )}
+          </div>
+        ),
       },
-    },
-    {
-      id: 'fields_count',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Champs' />,
-      accessorFn: (row) => row.menu_form_fields?.length || 0,
-      cell: ({ row }) => {
-        const count = row.original.menu_form_fields?.length || 0
-        return (
-          <Badge variant='secondary'>
-            {count} champ{count > 1 ? 's' : ''}
-          </Badge>
-        )
+      {
+        id: 'restaurant',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title='Restaurant' />
+        ),
+        accessorFn: (row) => (row as any).restaurants?.name || '',
+        cell: ({ row }) => {
+          const restaurant = (row.original as any).restaurants
+          return restaurant ? (
+            <Badge variant='outline' className='gap-1 font-normal'>
+              <Building2 className='h-3 w-3' />
+              {restaurant.name}
+            </Badge>
+          ) : (
+            <span className='text-sm text-muted-foreground'>Tous</span>
+          )
+        },
       },
-    },
-    {
-      accessorKey: 'created_at',
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Créé le' />,
-      cell: ({ row }) => (
-        <div className='text-sm text-muted-foreground'>
-          {format(new Date(row.original.created_at), 'dd MMM yyyy', { locale: fr })}
-        </div>
-      ),
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const form = row.original
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
-                <MoreHorizontal className='h-4 w-4' />
-                <span className='sr-only'>Actions</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='end'>
-              <DropdownMenuItem
-                onClick={() => {
-                  setEditingFormId(form.id)
-                  setFormBuilderOpen(true)
-                }}
-              >
-                <ChefHat className='h-4 w-4 mr-2' />
-                Éditer les champs
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openEditDialog(form)}>
-                <Edit className='h-4 w-4 mr-2' />
-                Modifier les infos
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDuplicate(form)}>
-                <Copy className='h-4 w-4 mr-2' />
-                Dupliquer
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className='text-destructive focus:text-destructive'
-                onClick={() => openDeleteDialog(form)}
-              >
-                <Trash2 className='h-4 w-4 mr-2' />
-                Supprimer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
+      {
+        id: 'fields_count',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title='Champs' />
+        ),
+        accessorFn: (row) => row.menu_form_fields?.length || 0,
+        cell: ({ row }) => {
+          const count = row.original.menu_form_fields?.length || 0
+          return (
+            <Badge variant='secondary'>
+              {count} champ{count > 1 ? 's' : ''}
+            </Badge>
+          )
+        },
       },
-      meta: { className: 'w-[50px]' },
-    },
-  ], [])
+      {
+        accessorKey: 'created_at',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title='Créé le' />
+        ),
+        cell: ({ row }) => (
+          <div className='text-sm text-muted-foreground'>
+            {format(new Date(row.original.created_at), 'dd MMM yyyy', {
+              locale: fr,
+            })}
+          </div>
+        ),
+      },
+      {
+        id: 'actions',
+        cell: ({ row }) => {
+          const form = row.original
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
+                  <MoreHorizontal className='h-4 w-4' />
+                  <span className='sr-only'>Actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEditingFormId(form.id)
+                    setFormBuilderOpen(true)
+                  }}
+                >
+                  <ChefHat className='mr-2 h-4 w-4' />
+                  Éditer les champs
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openEditDialog(form)}>
+                  <Edit className='mr-2 h-4 w-4' />
+                  Modifier les infos
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDuplicate(form)}>
+                  <Copy className='mr-2 h-4 w-4' />
+                  Dupliquer
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className='text-destructive focus:text-destructive'
+                  onClick={() => openDeleteDialog(form)}
+                >
+                  <Trash2 className='mr-2 h-4 w-4' />
+                  Supprimer
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+        meta: { className: 'w-[50px]' },
+      },
+    ],
+    []
+  )
 
   const table = useReactTable({
     data: filteredForms,
@@ -327,13 +357,16 @@ export function MenusPage() {
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
-          <h2 className='text-2xl font-bold tracking-tight'>Formulaires de menu</h2>
+          <h2 className='text-2xl font-bold tracking-tight'>
+            Formulaires de menu
+          </h2>
           <p className='text-muted-foreground'>
-            Créez des formulaires réutilisables pour collecter les choix de menu de vos clients.
+            Créez des formulaires réutilisables pour collecter les choix de menu
+            de vos clients.
           </p>
         </div>
         <Button onClick={openCreateDialog}>
-          <Plus className='h-4 w-4 mr-2' />
+          <Plus className='mr-2 h-4 w-4' />
           Nouveau formulaire
         </Button>
       </div>
@@ -352,8 +385,10 @@ export function MenusPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>Tous les restaurants</SelectItem>
-            {restaurants.map(r => (
-              <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+            {restaurants.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {r.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -367,10 +402,19 @@ export function MenusPage() {
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} colSpan={header.colSpan} className={header.column.columnDef.meta?.className as string}>
+                    <TableHead
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      className={
+                        header.column.columnDef.meta?.className as string
+                      }
+                    >
                       {header.isPlaceholder
                         ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -381,18 +425,31 @@ export function MenusPage() {
                 table.getRowModel().rows.map((row) => (
                   <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className={cell.column.columnDef.meta?.className as string}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      <TableCell
+                        key={cell.id}
+                        className={
+                          cell.column.columnDef.meta?.className as string
+                        }
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className='h-24 text-center'>
+                  <TableCell
+                    colSpan={columns.length}
+                    className='h-24 text-center'
+                  >
                     <div className='flex flex-col items-center gap-2'>
                       <ChefHat className='h-8 w-8 text-muted-foreground/40' />
-                      <span className='text-muted-foreground'>Aucun formulaire trouvé</span>
+                      <span className='text-muted-foreground'>
+                        Aucun formulaire trouvé
+                      </span>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -434,28 +491,40 @@ export function MenusPage() {
             </div>
             <div className='space-y-2'>
               <Label htmlFor='restaurant'>Restaurant</Label>
-              <Select value={formRestaurantId} onValueChange={setFormRestaurantId}>
+              <Select
+                value={formRestaurantId}
+                onValueChange={setFormRestaurantId}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder='Tous les restaurants' />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='__all__'>Tous les restaurants</SelectItem>
-                  {restaurants.map(r => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  {restaurants.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className='text-xs text-muted-foreground'>
-                Limitez ce formulaire à un restaurant spécifique ou laissez vide pour tous.
+                Limitez ce formulaire à un restaurant spécifique ou laissez vide
+                pour tous.
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant='outline' onClick={() => setCreateDialogOpen(false)}>
+            <Button
+              variant='outline'
+              onClick={() => setCreateDialogOpen(false)}
+            >
               Annuler
             </Button>
-            <Button onClick={handleCreate} disabled={isCreating || !formTitle.trim()}>
-              {isCreating && <Loader2 className='h-4 w-4 mr-2 animate-spin' />}
+            <Button
+              onClick={handleCreate}
+              disabled={isCreating || !formTitle.trim()}
+            >
+              {isCreating && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
               Créer
             </Button>
           </DialogFooter>
@@ -493,14 +562,19 @@ export function MenusPage() {
             </div>
             <div className='space-y-2'>
               <Label htmlFor='edit-restaurant'>Restaurant</Label>
-              <Select value={formRestaurantId} onValueChange={setFormRestaurantId}>
+              <Select
+                value={formRestaurantId}
+                onValueChange={setFormRestaurantId}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder='Tous les restaurants' />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='__all__'>Tous les restaurants</SelectItem>
-                  {restaurants.map(r => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  {restaurants.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -510,8 +584,11 @@ export function MenusPage() {
             <Button variant='outline' onClick={() => setEditDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleUpdate} disabled={isUpdating || !formTitle.trim()}>
-              {isUpdating && <Loader2 className='h-4 w-4 mr-2 animate-spin' />}
+            <Button
+              onClick={handleUpdate}
+              disabled={isUpdating || !formTitle.trim()}
+            >
+              {isUpdating && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
               Enregistrer
             </Button>
           </DialogFooter>
@@ -524,18 +601,19 @@ export function MenusPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce formulaire ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le formulaire "{selectedForm?.title}" sera supprimé. Les événements utilisant ce formulaire perdront leur lien.
-              Cette action est irréversible.
+              Le formulaire "{selectedForm?.title}" sera supprimé. Les
+              événements utilisant ce formulaire perdront leur lien. Cette
+              action est irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
               onClick={handleDelete}
               disabled={isDeleting}
             >
-              {isDeleting && <Loader2 className='h-4 w-4 mr-2 animate-spin' />}
+              {isDeleting && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
               Supprimer
             </AlertDialogAction>
           </AlertDialogFooter>

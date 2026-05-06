@@ -1,9 +1,14 @@
-import { Separator } from '@/components/ui/separator'
 import type { QuoteItem, Payment } from '@/lib/supabase/types'
-import type { BookingWithRelations } from '../hooks/use-bookings'
+import { Separator } from '@/components/ui/separator'
+import {
+  roundLineTtc,
+  deriveLineHt,
+  formatEuroWhole,
+  formatEuroDecimal,
+} from '@/features/reservations/lib/quote-rounding'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
+import type { BookingWithRelations } from '../hooks/use-bookings'
 import type { QuoteWithItems } from '../hooks/use-quotes'
-import { roundLineTtc, deriveLineHt, formatEuroWhole, formatEuroDecimal } from '@/features/reservations/lib/quote-rounding'
 
 export type DocumentType = 'devis' | 'acompte' | 'solde' | 'facture_finale'
 
@@ -68,7 +73,11 @@ function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—'
   try {
     const d = new Date(dateStr)
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
   } catch {
     return dateStr
   }
@@ -79,7 +88,11 @@ function addDays(dateStr: string | null | undefined, days: number): string {
   try {
     const d = new Date(dateStr)
     d.setDate(d.getDate() + days)
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
   } catch {
     return '—'
   }
@@ -217,65 +230,134 @@ const labels = {
 
 // ── Shared sub-components ──
 
-function DocumentHeader({ restaurant, docTitle, docNumber, date, dueDate, color, l }: {
+function DocumentHeader({
+  restaurant,
+  docTitle,
+  docNumber,
+  date,
+  dueDate,
+  color,
+  l,
+}: {
   restaurant: any
   docTitle: string
   docNumber: string
   date: string
   dueDate: string
   color: string
-  l: typeof labels['fr']
+  l: (typeof labels)['fr']
 }) {
   return (
-    <div className='flex items-center justify-between rounded-lg px-5 py-4' style={{ backgroundColor: color, color: 'white' }}>
+    <div
+      className='flex items-center justify-between rounded-lg px-5 py-4'
+      style={{ backgroundColor: color, color: 'white' }}
+    >
       <div className='flex items-center gap-3'>
         {restaurant?.logo_url && (
-          <img src={restaurant.logo_url} alt='' className='h-12 w-12 rounded-lg object-contain bg-white/20 p-1 shrink-0' />
+          <img
+            src={restaurant.logo_url}
+            alt=''
+            className='h-12 w-12 shrink-0 rounded-lg bg-white/20 object-contain p-1'
+          />
         )}
         <h1 className='text-base font-bold text-white'>
           {restaurant?.name || 'Restaurant'}
         </h1>
       </div>
-      <div className='text-right text-[10px] space-y-0.5 shrink-0'>
-        <p className='text-xs font-bold'>{docTitle} n°{docNumber}</p>
-        <p>{l.dateOf} {(docTitle || '').toLowerCase()} – {date}</p>
-        <p>{l.dueDateLabel} – {dueDate}</p>
+      <div className='shrink-0 space-y-0.5 text-right text-[10px]'>
+        <p className='text-xs font-bold'>
+          {docTitle} n°{docNumber}
+        </p>
+        <p>
+          {l.dateOf} {(docTitle || '').toLowerCase()} – {date}
+        </p>
+        <p>
+          {l.dueDateLabel} – {dueDate}
+        </p>
       </div>
     </div>
   )
 }
 
-function IssuerClientBlock({ restaurant, contact, l }: { restaurant: any; contact: QuotePreviewData['contact']; l: typeof labels['fr'] }) {
+function IssuerClientBlock({
+  restaurant,
+  contact,
+  l,
+}: {
+  restaurant: any
+  contact: QuotePreviewData['contact']
+  l: (typeof labels)['fr']
+}) {
   return (
     <div className='grid grid-cols-2 gap-6'>
       <div className='space-y-1'>
-        <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.issuer}</h3>
-        {restaurant?.company_name && <p className='text-[10px] text-gray-500'>{l.companyName} – {restaurant.company_name}</p>}
-        <p className='font-semibold'>{l.name} – {restaurant?.name || ''}</p>
-        {restaurant?.address && <p className='text-gray-600'>{l.address} – {restaurant.address}</p>}
-        {(restaurant?.postal_code || restaurant?.city) && (
-          <p className='text-gray-600'>{restaurant?.postal_code} {restaurant?.city}</p>
+        <h3 className='text-[10px] font-bold text-gray-400 uppercase'>
+          {l.issuer}
+        </h3>
+        {restaurant?.company_name && (
+          <p className='text-[10px] text-gray-500'>
+            {l.companyName} – {restaurant.company_name}
+          </p>
         )}
-        {restaurant?.siret && <p className='text-gray-500 text-[10px]'>{l.siretSiren} – {restaurant.siret}</p>}
-        {restaurant?.tva_number && <p className='text-gray-500 text-[10px]'>{l.vatNumber} – {restaurant.tva_number}</p>}
-        {restaurant?.email && <p className='text-gray-500 text-[10px]'>{l.email} – {restaurant.email}</p>}
+        <p className='font-semibold'>
+          {l.name} – {restaurant?.name || ''}
+        </p>
+        {restaurant?.address && (
+          <p className='text-gray-600'>
+            {l.address} – {restaurant.address}
+          </p>
+        )}
+        {(restaurant?.postal_code || restaurant?.city) && (
+          <p className='text-gray-600'>
+            {restaurant?.postal_code} {restaurant?.city}
+          </p>
+        )}
+        {restaurant?.siret && (
+          <p className='text-[10px] text-gray-500'>
+            {l.siretSiren} – {restaurant.siret}
+          </p>
+        )}
+        {restaurant?.tva_number && (
+          <p className='text-[10px] text-gray-500'>
+            {l.vatNumber} – {restaurant.tva_number}
+          </p>
+        )}
+        {restaurant?.email && (
+          <p className='text-[10px] text-gray-500'>
+            {l.email} – {restaurant.email}
+          </p>
+        )}
       </div>
       <div className='space-y-1'>
-        <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.client}</h3>
+        <h3 className='text-[10px] font-bold text-gray-400 uppercase'>
+          {l.client}
+        </h3>
         {contact?.company && (
           <p className='font-semibold'>{contact.company.name}</p>
         )}
         <p className={contact?.company ? '' : 'font-semibold'}>
           {l.firstName} – {contact?.first_name} {contact?.last_name || ''}
         </p>
-        {contact?.email && <p className='text-gray-600'>{l.email} – {contact.email}</p>}
-        {contact?.phone && <p className='text-gray-600'>{l.phone} – {contact.phone}</p>}
-        {contact?.company?.billing_address && (
-          <p className='text-gray-600'>{l.billingAddress} – {contact.company.billing_address}</p>
-        )}
-        {(contact?.company?.billing_postal_code || contact?.company?.billing_city) && (
+        {contact?.email && (
           <p className='text-gray-600'>
-            {contact?.company?.billing_postal_code} {contact?.company?.billing_city}
+            {l.email} – {contact.email}
+          </p>
+        )}
+        {contact?.phone && (
+          <p className='text-gray-600'>
+            {l.phone} – {contact.phone}
+          </p>
+        )}
+        {contact?.company?.billing_address && (
+          <p className='text-gray-600'>
+            {l.billingAddress} – {contact.company.billing_address}
+          </p>
+        )}
+        {(contact?.company?.billing_postal_code ||
+          contact?.company?.billing_city) && (
+          <p className='text-gray-600'>
+            {contact?.company?.billing_postal_code}{' '}
+            {contact?.company?.billing_city}
           </p>
         )}
       </div>
@@ -283,33 +365,61 @@ function IssuerClientBlock({ restaurant, contact, l }: { restaurant: any; contac
   )
 }
 
-function BankDetails({ restaurant, l }: { restaurant: any; l: typeof labels['fr'] }) {
+function BankDetails({
+  restaurant,
+  l,
+}: {
+  restaurant: any
+  l: (typeof labels)['fr']
+}) {
   if (!restaurant?.iban && !restaurant?.bic) return null
   return (
     <div className='space-y-1'>
-      <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.bankDetails}</h3>
-      <div className='bg-gray-50 rounded px-3 py-2 text-[10px] space-y-0.5 border'>
-        {restaurant?.bank_name && <p className='font-semibold'>{l.bankName} : {restaurant.bank_name}</p>}
-        {restaurant?.iban && <p>{l.iban} : {restaurant.iban}</p>}
-        {restaurant?.bic && <p>{l.bic} : {restaurant.bic}</p>}
+      <h3 className='text-[10px] font-bold text-gray-400 uppercase'>
+        {l.bankDetails}
+      </h3>
+      <div className='space-y-0.5 rounded border bg-gray-50 px-3 py-2 text-[10px]'>
+        {restaurant?.bank_name && (
+          <p className='font-semibold'>
+            {l.bankName} : {restaurant.bank_name}
+          </p>
+        )}
+        {restaurant?.iban && (
+          <p>
+            {l.iban} : {restaurant.iban}
+          </p>
+        )}
+        {restaurant?.bic && (
+          <p>
+            {l.bic} : {restaurant.bic}
+          </p>
+        )}
       </div>
     </div>
   )
 }
 
-function DocumentFooter({ restaurant, l }: { restaurant: any; l: typeof labels['fr'] }) {
+function DocumentFooter({
+  restaurant,
+  l,
+}: {
+  restaurant: any
+  l: (typeof labels)['fr']
+}) {
   return (
-    <div className='border-t pt-2 text-[9px] text-gray-400 text-center space-y-0.5'>
+    <div className='space-y-0.5 border-t pt-2 text-center text-[9px] text-gray-400'>
       <p>
         {restaurant?.company_name || restaurant?.name}
         {restaurant?.legal_form && ` — ${restaurant.legal_form}`}
-        {restaurant?.share_capital && ` ${l.shareCapital} ${restaurant.share_capital}`}
+        {restaurant?.share_capital &&
+          ` ${l.shareCapital} ${restaurant.share_capital}`}
       </p>
       <p>
         {restaurant?.siren && `SIREN: ${restaurant.siren}`}
         {restaurant?.rcs && ` — RCS: ${restaurant.rcs}`}
         {restaurant?.siret && ` — SIRET: ${restaurant.siret}`}
-        {restaurant?.tva_number && ` — ${l.vatNumber}: ${restaurant.tva_number}`}
+        {restaurant?.tva_number &&
+          ` — ${l.vatNumber}: ${restaurant.tva_number}`}
       </p>
       {(restaurant?.email || restaurant?.phone) && (
         <p>
@@ -322,14 +432,22 @@ function DocumentFooter({ restaurant, l }: { restaurant: any; l: typeof labels['
   )
 }
 
-function ConditionsPage({ title, conditions, color }: { title: string; conditions: string; color: string }) {
+function ConditionsPage({
+  title,
+  conditions,
+  color,
+}: {
+  title: string
+  conditions: string
+  color: string
+}) {
   if (!conditions) return null
   return (
-    <div className='border-t-2 border-dashed border-gray-200 p-6 space-y-3'>
+    <div className='space-y-3 border-t-2 border-dashed border-gray-200 p-6'>
       <h2 className='text-xs font-bold' style={{ color }}>
         {title}
       </h2>
-      <div className='text-[9px] text-gray-600 whitespace-pre-line leading-relaxed'>
+      <div className='text-[9px] leading-relaxed whitespace-pre-line text-gray-600'>
         {conditions}
       </div>
     </div>
@@ -344,7 +462,12 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   const color = restaurant?.color || '#0d7377'
 
   // TTC ligne arrondi au supérieur via l'helper unifié, HT dérivé.
-  function computeItemTtc(item: { quantity?: number | null; unit_price?: number | null; discount_amount?: number | null; tva_rate?: number | null }) {
+  function computeItemTtc(item: {
+    quantity?: number | null
+    unit_price?: number | null
+    discount_amount?: number | null
+    tva_rate?: number | null
+  }) {
     return roundLineTtc({
       quantity: item.quantity,
       unit_price: item.unit_price,
@@ -352,12 +475,18 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
       tva_rate: item.tva_rate ?? 20,
     })
   }
-  function computeItemHt(item: { quantity?: number | null; unit_price?: number | null; discount_amount?: number | null; tva_rate?: number | null }) {
+  function computeItemHt(item: {
+    quantity?: number | null
+    unit_price?: number | null
+    discount_amount?: number | null
+    tva_rate?: number | null
+  }) {
     return deriveLineHt(computeItemTtc(item), item.tva_rate ?? 20)
   }
 
   // Regroupement TVA par taux après remise globale (HT/TVA décimaux dérivés).
-  const discountMult = data.discountPercentage > 0 ? (1 - data.discountPercentage / 100) : 1
+  const discountMult =
+    data.discountPercentage > 0 ? 1 - data.discountPercentage / 100 : 1
   const tvaByRate: Record<number, { ht: number; tva: number }> = {}
   for (const item of data.items) {
     const rate = item.tva_rate || 20
@@ -374,97 +503,152 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   // ── DEVIS ──
   if (documentType === 'devis') {
     return (
-      <div id='quote-preview-content' className='bg-white text-black rounded-lg shadow-sm border text-[11px] leading-relaxed'>
-        <div className='p-6 space-y-5'>
+      <div
+        id='quote-preview-content'
+        className='rounded-lg border bg-white text-[11px] leading-relaxed text-black shadow-sm'
+      >
+        <div className='space-y-5 p-6'>
           <DocumentHeader
             restaurant={restaurant}
             docTitle={l.quote}
             docNumber={quoteNumber}
             date={formatDate(data.quoteDate)}
             dueDate={addDays(data.quoteDate, data.quoteDueDays)}
-
             color={color}
             l={l}
           />
 
-          <IssuerClientBlock restaurant={restaurant} contact={data.contact} l={l} />
+          <IssuerClientBlock
+            restaurant={restaurant}
+            contact={data.contact}
+            l={l}
+          />
 
           {/* Event title */}
           {(data.title || data.dateStart) && (
-            <div className='px-3 py-2 rounded border-l-4' style={{ borderColor: color, backgroundColor: '#faf5f0' }}>
-              {data.title && <p className='font-semibold text-xs'>{data.title}</p>}
+            <div
+              className='rounded border-l-4 px-3 py-2'
+              style={{ borderColor: color, backgroundColor: '#faf5f0' }}
+            >
+              {data.title && (
+                <p className='text-xs font-semibold'>{data.title}</p>
+              )}
               {data.dateStart && (
                 <p className='text-[10px] text-gray-600'>
                   {l.serviceDate}: {formatDate(data.dateStart)}
                   {data.startTime && ` à ${data.startTime}`}
                   {data.endTime && ` — ${data.endTime}`}
-                  {data.dateEnd && data.dateEnd !== data.dateStart && ` | ${formatDate(data.dateEnd)}`}
+                  {data.dateEnd &&
+                    data.dateEnd !== data.dateStart &&
+                    ` | ${formatDate(data.dateEnd)}`}
                 </p>
               )}
               {data.orderNumber && (
-                <p className='text-[10px] text-gray-600'>{l.orderNumber}: {data.orderNumber}</p>
+                <p className='text-[10px] text-gray-600'>
+                  {l.orderNumber}: {data.orderNumber}
+                </p>
               )}
             </div>
           )}
 
           {/* Déroulé */}
           {data.booking?.deroulement && (
-            <div className='border rounded px-3 py-2'>
-              <h3 className='text-[10px] font-bold uppercase text-gray-400 mb-1'>{data.language === 'en' ? 'Schedule' : 'Déroulé'}</h3>
-              <p className='text-[10px] text-gray-700 whitespace-pre-line'>{data.booking.deroulement}</p>
+            <div className='rounded border px-3 py-2'>
+              <h3 className='mb-1 text-[10px] font-bold text-gray-400 uppercase'>
+                {data.language === 'en' ? 'Schedule' : 'Déroulé'}
+              </h3>
+              <p className='text-[10px] whitespace-pre-line text-gray-700'>
+                {data.booking.deroulement}
+              </p>
             </div>
           )}
 
           {/* Comments */}
           {comments && (
-            <div className='bg-amber-50 border border-amber-200 rounded px-3 py-2'>
-              <h3 className='text-[10px] font-bold text-amber-800'>{l.comments}</h3>
-              <p className='text-[10px] text-gray-700 whitespace-pre-line'>{comments}</p>
+            <div className='rounded border border-amber-200 bg-amber-50 px-3 py-2'>
+              <h3 className='text-[10px] font-bold text-amber-800'>
+                {l.comments}
+              </h3>
+              <p className='text-[10px] whitespace-pre-line text-gray-700'>
+                {comments}
+              </p>
             </div>
           )}
 
           {/* Products table */}
           {data.items.length > 0 && (
-            <div className='border rounded overflow-hidden'>
+            <div className='overflow-hidden rounded border'>
               <table className='w-full text-[10px]'>
                 <thead>
                   <tr style={{ backgroundColor: color, color: 'white' }}>
-                    <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
-                    <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
-                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
-                    <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
-                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
-                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalTtc}</th>
+                    <th className='px-2 py-1.5 text-left font-medium'>
+                      {l.designation}
+                    </th>
+                    <th className='w-12 px-2 py-1.5 text-center font-medium'>
+                      {l.quantity}
+                    </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.unitPriceHt}
+                    </th>
+                    <th className='w-14 px-2 py-1.5 text-center font-medium'>
+                      {l.tvaRate}
+                    </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.totalHt}
+                    </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.totalTtc}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.items.map((item, i) => {
                     const base = (item.quantity || 1) * (item.unit_price || 0)
-                    const discountPct = (item.discount_amount || 0) > 0 && base > 0
-                      ? Math.round((item.discount_amount! / base) * 1000) / 10
-                      : 0
+                    const discountPct =
+                      (item.discount_amount || 0) > 0 && base > 0
+                        ? Math.round((item.discount_amount! / base) * 1000) / 10
+                        : 0
                     return (
-                      <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr
+                        key={item.id}
+                        className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                      >
                         <td className='px-2 py-1.5'>
                           <span className='font-medium'>{item.name}</span>
                           {discountPct > 0 && (
-                            <span className='ml-1.5 inline-block bg-red-100 text-red-600 text-[8px] font-semibold px-1 py-0.5 rounded'>
+                            <span className='ml-1.5 inline-block rounded bg-red-100 px-1 py-0.5 text-[8px] font-semibold text-red-600'>
                               -{discountPct}%
                             </span>
                           )}
-                          {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
-                        </td>
-                        <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                        <td className='text-right px-2 py-1.5'>
-                          {discountPct > 0 ? (
-                            <span className='line-through text-gray-400'>{formatEuroDecimal(item.unit_price || 0)}</span>
-                          ) : (
-                            <span>{formatEuroDecimal(item.unit_price || 0)}</span>
+                          {item.description && (
+                            <span className='block text-[9px] text-gray-500'>
+                              {item.description}
+                            </span>
                           )}
                         </td>
-                        <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(item))}</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(item))}</td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {item.quantity}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {discountPct > 0 ? (
+                            <span className='text-gray-400 line-through'>
+                              {formatEuroDecimal(item.unit_price || 0)}
+                            </span>
+                          ) : (
+                            <span>
+                              {formatEuroDecimal(item.unit_price || 0)}
+                            </span>
+                          )}
+                        </td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {item.tva_rate}%
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroDecimal(computeItemHt(item))}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroWhole(computeItemTtc(item))}
+                        </td>
                       </tr>
                     )
                   })}
@@ -480,21 +664,33 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 <>
                   <div className='flex justify-between text-[10px]'>
                     <span className='text-gray-600'>{l.subtotalHt}</span>
-                    <span className='font-medium line-through text-gray-400'>{formatEuroDecimal(data.rawTotalHt)}</span>
+                    <span className='font-medium text-gray-400 line-through'>
+                      {formatEuroDecimal(data.rawTotalHt)}
+                    </span>
                   </div>
                   <div className='flex justify-between text-[10px]'>
-                    <span className='text-red-600'>{l.discount} {data.discountPercentage}%</span>
-                    <span className='font-medium text-red-600'>- {formatEuroDecimal(data.rawTotalHt - data.totalHt)}</span>
+                    <span className='text-red-600'>
+                      {l.discount} {data.discountPercentage}%
+                    </span>
+                    <span className='font-medium text-red-600'>
+                      - {formatEuroDecimal(data.rawTotalHt - data.totalHt)}
+                    </span>
                   </div>
                   <div className='flex justify-between text-[10px]'>
-                    <span className='text-gray-600'>{l.subtotalHt} après remise</span>
-                    <span className='font-medium'>{formatEuroDecimal(data.totalHt)}</span>
+                    <span className='text-gray-600'>
+                      {l.subtotalHt} après remise
+                    </span>
+                    <span className='font-medium'>
+                      {formatEuroDecimal(data.totalHt)}
+                    </span>
                   </div>
                 </>
               ) : (
                 <div className='flex justify-between text-[10px]'>
                   <span className='text-gray-600'>{l.subtotalHt}</span>
-                  <span className='font-medium'>{formatEuroDecimal(data.totalHt)}</span>
+                  <span className='font-medium'>
+                    {formatEuroDecimal(data.totalHt)}
+                  </span>
                 </div>
               )}
               {Object.entries(tvaByRate).map(([rate, val]) => (
@@ -505,10 +701,15 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
               ))}
               <div className='flex justify-between text-[10px]'>
                 <span className='text-gray-600'>{l.totalTvaLabel}</span>
-                <span className='font-medium'>{formatEuroDecimal(data.totalTva)}</span>
+                <span className='font-medium'>
+                  {formatEuroDecimal(data.totalTva)}
+                </span>
               </div>
               <Separator className='bg-gray-300' />
-              <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
+              <div
+                className='flex justify-between rounded px-2 py-1 text-xs font-bold'
+                style={{ backgroundColor: color, color: 'white' }}
+              >
                 <span>{l.totalTtc}</span>
                 <span>{formatEuroWhole(data.totalTtc)}</span>
               </div>
@@ -517,21 +718,39 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
 
           {/* Payment schedule */}
           <div className='space-y-1.5'>
-            <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.paymentSchedule}</h3>
-            <div className='border rounded overflow-hidden'>
+            <h3 className='text-[10px] font-bold text-gray-400 uppercase'>
+              {l.paymentSchedule}
+            </h3>
+            <div className='overflow-hidden rounded border'>
               <table className='w-full text-[10px]'>
                 <tbody>
                   <tr className='bg-gray-50'>
-                    <td className='px-2 py-1.5 font-medium'>{data.depositLabel}</td>
-                    <td className='px-2 py-1.5 text-center'>{data.depositPercentage}%</td>
-                    <td className='px-2 py-1.5 text-center'>J-{data.depositDays}</td>
-                    <td className='px-2 py-1.5 text-right font-semibold'>{formatEuroWhole(data.depositAmount)}</td>
+                    <td className='px-2 py-1.5 font-medium'>
+                      {data.depositLabel}
+                    </td>
+                    <td className='px-2 py-1.5 text-center'>
+                      {data.depositPercentage}%
+                    </td>
+                    <td className='px-2 py-1.5 text-center'>
+                      J-{data.depositDays}
+                    </td>
+                    <td className='px-2 py-1.5 text-right font-semibold'>
+                      {formatEuroWhole(data.depositAmount)}
+                    </td>
                   </tr>
                   <tr>
-                    <td className='px-2 py-1.5 font-medium'>{data.balanceLabel}</td>
-                    <td className='px-2 py-1.5 text-center'>{(100 - data.depositPercentage).toFixed(0)}%</td>
-                    <td className='px-2 py-1.5 text-center'>J-{data.balanceDays}</td>
-                    <td className='px-2 py-1.5 text-right font-semibold'>{formatEuroWhole(data.balanceAmount)}</td>
+                    <td className='px-2 py-1.5 font-medium'>
+                      {data.balanceLabel}
+                    </td>
+                    <td className='px-2 py-1.5 text-center'>
+                      {(100 - data.depositPercentage).toFixed(0)}%
+                    </td>
+                    <td className='px-2 py-1.5 text-center'>
+                      J-{data.balanceDays}
+                    </td>
+                    <td className='px-2 py-1.5 text-right font-semibold'>
+                      {formatEuroWhole(data.balanceAmount)}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -542,8 +761,16 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           <DocumentFooter restaurant={restaurant} l={l} />
         </div>
 
-        <ConditionsPage title={l.generalConditions} conditions={data.conditionsDevis} color={color} />
-        <ConditionsPage title={l.additionalConditions} conditions={data.additionalConditions} color={color} />
+        <ConditionsPage
+          title={l.generalConditions}
+          conditions={data.conditionsDevis}
+          color={color}
+        />
+        <ConditionsPage
+          title={l.additionalConditions}
+          conditions={data.additionalConditions}
+          color={color}
+        />
       </div>
     )
   }
@@ -551,39 +778,58 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   // ── ACOMPTE ──
   if (documentType === 'acompte') {
     const depositHt = data.totalHt * (data.depositPercentage / 100)
-    const avgTvaRate = data.totalHt > 0 ? ((data.totalTtc - data.totalHt) / data.totalHt) * 100 : 20
+    const avgTvaRate =
+      data.totalHt > 0
+        ? ((data.totalTtc - data.totalHt) / data.totalHt) * 100
+        : 20
     const depositTva = depositHt * (avgTvaRate / 100)
     const depositTtc = Math.ceil(depositHt + depositTva)
 
     return (
-      <div id='quote-preview-content' className='bg-white text-black rounded-lg shadow-sm border text-[11px] leading-relaxed'>
-        <div className='p-6 space-y-5'>
+      <div
+        id='quote-preview-content'
+        className='rounded-lg border bg-white text-[11px] leading-relaxed text-black shadow-sm'
+      >
+        <div className='space-y-5 p-6'>
           <DocumentHeader
             restaurant={restaurant}
             docTitle={l.depositInvoice}
             docNumber={quoteNumber}
             date={formatDate(data.quoteDate)}
             dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
-
             color={color}
             l={l}
           />
 
           {/* Quote reference */}
-          <div className='text-[10px] text-gray-600 bg-gray-50 px-3 py-2 rounded border'>
-            <span className='font-medium'>{l.relatedQuote}:</span> {quoteNumber} — {l.depositPercent} {data.depositPercentage}%
+          <div className='rounded border bg-gray-50 px-3 py-2 text-[10px] text-gray-600'>
+            <span className='font-medium'>{l.relatedQuote}:</span> {quoteNumber}{' '}
+            — {l.depositPercent} {data.depositPercentage}%
           </div>
 
-          <IssuerClientBlock restaurant={restaurant} contact={data.contact} l={l} />
+          <IssuerClientBlock
+            restaurant={restaurant}
+            contact={data.contact}
+            l={l}
+          />
 
           {/* Event title */}
           {(data.title || data.dateStart) && (
-            <div className='px-3 py-3 rounded border' style={{ borderColor: color + '40' }}>
-              {data.title && <p className='font-semibold text-xs'>{data.title}</p>}
+            <div
+              className='rounded border px-3 py-3'
+              style={{ borderColor: color + '40' }}
+            >
+              {data.title && (
+                <p className='text-xs font-semibold'>{data.title}</p>
+              )}
               {data.dateStart && (
                 <div className='mt-1'>
                   <p className='text-[10px] font-semibold'>{l.serviceStart}</p>
-                  <p className='text-[10px] text-gray-600'>{formatDate(data.dateStart)}{data.startTime && ` à ${data.startTime}`}{data.endTime && ` — ${data.endTime}`}</p>
+                  <p className='text-[10px] text-gray-600'>
+                    {formatDate(data.dateStart)}
+                    {data.startTime && ` à ${data.startTime}`}
+                    {data.endTime && ` — ${data.endTime}`}
+                  </p>
                 </div>
               )}
             </div>
@@ -591,36 +837,65 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
 
           {/* Comments */}
           {comments && (
-            <div className='bg-amber-50 border border-amber-200 rounded px-3 py-2'>
-              <h3 className='text-[10px] font-bold text-amber-800'>{l.comments}</h3>
-              <p className='text-[10px] text-gray-700 whitespace-pre-line'>{comments}</p>
+            <div className='rounded border border-amber-200 bg-amber-50 px-3 py-2'>
+              <h3 className='text-[10px] font-bold text-amber-800'>
+                {l.comments}
+              </h3>
+              <p className='text-[10px] whitespace-pre-line text-gray-700'>
+                {comments}
+              </p>
             </div>
           )}
 
           {/* Products table with details */}
           {data.items.length > 0 && (
-            <div className='border rounded overflow-hidden'>
+            <div className='overflow-hidden rounded border'>
               <table className='w-full text-[10px]'>
                 <thead>
                   <tr style={{ backgroundColor: color, color: 'white' }}>
-                    <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
-                    <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
-                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
-                    <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
-                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
+                    <th className='px-2 py-1.5 text-left font-medium'>
+                      {l.designation}
+                    </th>
+                    <th className='w-12 px-2 py-1.5 text-center font-medium'>
+                      {l.quantity}
+                    </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.unitPriceHt}
+                    </th>
+                    <th className='w-14 px-2 py-1.5 text-center font-medium'>
+                      {l.tvaRate}
+                    </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.totalHt}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.items.map((item, i) => (
-                    <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr
+                      key={item.id}
+                      className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                    >
                       <td className='px-2 py-1.5'>
                         <span className='font-medium'>{item.name}</span>
-                        {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
+                        {item.description && (
+                          <span className='block text-[9px] text-gray-500'>
+                            {item.description}
+                          </span>
+                        )}
                       </td>
-                      <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                      <td className='text-right px-2 py-1.5'>{formatEuroDecimal(item.unit_price || 0)}</td>
-                      <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                      <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(item))}</td>
+                      <td className='px-2 py-1.5 text-center'>
+                        {item.quantity}
+                      </td>
+                      <td className='px-2 py-1.5 text-right'>
+                        {formatEuroDecimal(item.unit_price || 0)}
+                      </td>
+                      <td className='px-2 py-1.5 text-center'>
+                        {item.tva_rate}%
+                      </td>
+                      <td className='px-2 py-1.5 text-right'>
+                        {formatEuroDecimal(computeItemHt(item))}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -633,14 +908,21 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
             <BankDetails restaurant={restaurant} l={l} />
             <div className='w-56 space-y-1'>
               <div className='flex justify-between text-[10px]'>
-                <span className='text-gray-600'>{l.subtotalHt} (before deposit)</span>
-                <span className='text-[9px] text-gray-500'>{l.totalHt}: {formatEuroDecimal(data.totalHt)}</span>
+                <span className='text-gray-600'>
+                  {l.subtotalHt} (before deposit)
+                </span>
+                <span className='text-[9px] text-gray-500'>
+                  {l.totalHt}: {formatEuroDecimal(data.totalHt)}
+                </span>
               </div>
-              <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
+              <div
+                className='flex justify-between rounded px-2 py-1 text-xs font-bold'
+                style={{ backgroundColor: color, color: 'white' }}
+              >
                 <span>{l.totalTtc}</span>
                 <span>{formatEuroWhole(depositTtc)}</span>
               </div>
-              <div className='text-[9px] text-gray-500 text-right'>
+              <div className='text-right text-[9px] text-gray-500'>
                 {l.totalHt}: {formatEuroDecimal(depositHt)}
               </div>
             </div>
@@ -649,7 +931,11 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           <DocumentFooter restaurant={restaurant} l={l} />
         </div>
 
-        <ConditionsPage title={l.generalConditions} conditions={data.conditionsAcompte} color={color} />
+        <ConditionsPage
+          title={l.generalConditions}
+          conditions={data.conditionsAcompte}
+          color={color}
+        />
       </div>
     )
   }
@@ -657,8 +943,11 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   // ── SOLDE ──
 
   return (
-    <div id='quote-preview-content' className='bg-white text-black rounded-lg shadow-sm border text-[11px] leading-relaxed'>
-      <div className='p-6 space-y-5'>
+    <div
+      id='quote-preview-content'
+      className='rounded-lg border bg-white text-[11px] leading-relaxed text-black shadow-sm'
+    >
+      <div className='space-y-5 p-6'>
         <DocumentHeader
           restaurant={restaurant}
           docTitle={l.balanceInvoice}
@@ -670,20 +959,34 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
         />
 
         {/* Quote reference */}
-        <div className='text-[10px] text-gray-600 bg-gray-50 px-3 py-2 rounded border'>
-          <span className='font-medium'>{l.relatedQuote}:</span> {quoteNumber} — {l.balancePercent} {(100 - data.depositPercentage)}%
+        <div className='rounded border bg-gray-50 px-3 py-2 text-[10px] text-gray-600'>
+          <span className='font-medium'>{l.relatedQuote}:</span> {quoteNumber} —{' '}
+          {l.balancePercent} {100 - data.depositPercentage}%
         </div>
 
-        <IssuerClientBlock restaurant={restaurant} contact={data.contact} l={l} />
+        <IssuerClientBlock
+          restaurant={restaurant}
+          contact={data.contact}
+          l={l}
+        />
 
         {/* Event title */}
         {(data.title || data.dateStart) && (
-          <div className='px-3 py-3 rounded border' style={{ borderColor: color + '40' }}>
-            {data.title && <p className='font-semibold text-xs'>{data.title}</p>}
+          <div
+            className='rounded border px-3 py-3'
+            style={{ borderColor: color + '40' }}
+          >
+            {data.title && (
+              <p className='text-xs font-semibold'>{data.title}</p>
+            )}
             {data.dateStart && (
               <div className='mt-1'>
                 <p className='text-[10px] font-semibold'>{l.serviceStart}</p>
-                <p className='text-[10px] text-gray-600'>{formatDate(data.dateStart)}{data.startTime && ` à ${data.startTime}`}{data.endTime && ` — ${data.endTime}`}</p>
+                <p className='text-[10px] text-gray-600'>
+                  {formatDate(data.dateStart)}
+                  {data.startTime && ` à ${data.startTime}`}
+                  {data.endTime && ` — ${data.endTime}`}
+                </p>
               </div>
             )}
           </div>
@@ -691,24 +994,40 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
 
         {/* Comments */}
         {comments && (
-          <div className='bg-amber-50 border border-amber-200 rounded px-3 py-2'>
-            <h3 className='text-[10px] font-bold text-amber-800'>{l.comments}</h3>
-            <p className='text-[10px] text-gray-700 whitespace-pre-line'>{comments}</p>
+          <div className='rounded border border-amber-200 bg-amber-50 px-3 py-2'>
+            <h3 className='text-[10px] font-bold text-amber-800'>
+              {l.comments}
+            </h3>
+            <p className='text-[10px] whitespace-pre-line text-gray-700'>
+              {comments}
+            </p>
           </div>
         )}
 
         {/* Combined products + extras table for Solde */}
         {(data.items.length > 0 || (data.extras || []).length > 0) && (
-          <div className='border rounded overflow-hidden'>
+          <div className='overflow-hidden rounded border'>
             <table className='w-full text-[10px]'>
               <thead>
                 <tr style={{ backgroundColor: color, color: 'white' }}>
-                  <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
-                  <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
-                  <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
-                  <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
-                  <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
-                  <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalTtc}</th>
+                  <th className='px-2 py-1.5 text-left font-medium'>
+                    {l.designation}
+                  </th>
+                  <th className='w-12 px-2 py-1.5 text-center font-medium'>
+                    {l.quantity}
+                  </th>
+                  <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                    {l.unitPriceHt}
+                  </th>
+                  <th className='w-14 px-2 py-1.5 text-center font-medium'>
+                    {l.tvaRate}
+                  </th>
+                  <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                    {l.totalHt}
+                  </th>
+                  <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                    {l.totalTtc}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -716,29 +1035,60 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 {data.items.length > 0 && (
                   <>
                     <tr>
-                      <td colSpan={6} className='px-2 py-1.5 font-bold text-[10px] border-b bg-gray-100' style={{ color }}>
+                      <td
+                        colSpan={6}
+                        className='border-b bg-gray-100 px-2 py-1.5 text-[10px] font-bold'
+                        style={{ color }}
+                      >
                         {l.serviceItems || 'Prestation'}
-                        {data.dateStart && ` — ${formatDate(data.dateStart)}${data.startTime ? ` à ${data.startTime}` : ''}`}
+                        {data.dateStart &&
+                          ` — ${formatDate(data.dateStart)}${data.startTime ? ` à ${data.startTime}` : ''}`}
                       </td>
                     </tr>
                     {data.items.map((item, i) => (
-                      <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr
+                        key={item.id}
+                        className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                      >
                         <td className='px-2 py-1.5'>
                           <span className='font-medium'>{item.name}</span>
-                          {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
+                          {item.description && (
+                            <span className='block text-[9px] text-gray-500'>
+                              {item.description}
+                            </span>
+                          )}
                         </td>
-                        <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(item.unit_price || 0)}</td>
-                        <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(item))}</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(item))}</td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {item.quantity}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroDecimal(item.unit_price || 0)}
+                        </td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {item.tva_rate}%
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroDecimal(computeItemHt(item))}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroWhole(computeItemTtc(item))}
+                        </td>
                       </tr>
                     ))}
                     {/* Subtotal for prestation */}
                     <tr className='border-t'>
-                      <td colSpan={4} className='px-2 py-1 text-right text-[9px] text-gray-600'>{l.subtotalPrestation || 'Sous-total prestation'}</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{formatEuroDecimal(data.totalHt)}</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{formatEuroWhole(data.totalTtc)}</td>
+                      <td
+                        colSpan={4}
+                        className='px-2 py-1 text-right text-[9px] text-gray-600'
+                      >
+                        {l.subtotalPrestation || 'Sous-total prestation'}
+                      </td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>
+                        {formatEuroDecimal(data.totalHt)}
+                      </td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>
+                        {formatEuroWhole(data.totalTtc)}
+                      </td>
                     </tr>
                   </>
                 )}
@@ -747,28 +1097,68 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 {(data.extras || []).length > 0 && (
                   <>
                     <tr>
-                      <td colSpan={6} className='px-2 py-1.5 font-bold text-[10px] border-b bg-amber-50' style={{ color }}>
+                      <td
+                        colSpan={6}
+                        className='border-b bg-amber-50 px-2 py-1.5 text-[10px] font-bold'
+                        style={{ color }}
+                      >
                         {l.extras}
                       </td>
                     </tr>
                     {(data.extras || []).map((extra, i) => (
-                      <tr key={extra.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr
+                        key={extra.id}
+                        className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                      >
                         <td className='px-2 py-1.5'>
                           <span className='font-medium'>{extra.name}</span>
-                          {extra.description && <span className='block text-gray-500 text-[9px]'>{extra.description}</span>}
+                          {extra.description && (
+                            <span className='block text-[9px] text-gray-500'>
+                              {extra.description}
+                            </span>
+                          )}
                         </td>
-                        <td className='text-center px-2 py-1.5'>{extra.quantity}</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(extra.unit_price || 0)}</td>
-                        <td className='text-center px-2 py-1.5'>{extra.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(extra))}</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(extra))}</td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {extra.quantity}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroDecimal(extra.unit_price || 0)}
+                        </td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {extra.tva_rate}%
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroDecimal(computeItemHt(extra))}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroWhole(computeItemTtc(extra))}
+                        </td>
                       </tr>
                     ))}
                     {/* Subtotal for extras */}
                     <tr className='border-t'>
-                      <td colSpan={4} className='px-2 py-1 text-right text-[9px] text-gray-600'>{l.subtotalExtras || 'Sous-total extras'}</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{formatEuroDecimal((data.extras || []).reduce((sum, e) => sum + computeItemHt(e), 0))}</td>
-                      <td className='px-2 py-1 text-right text-[9px] font-medium'>{formatEuroWhole((data.extras || []).reduce((sum, e) => sum + computeItemTtc(e), 0))}</td>
+                      <td
+                        colSpan={4}
+                        className='px-2 py-1 text-right text-[9px] text-gray-600'
+                      >
+                        {l.subtotalExtras || 'Sous-total extras'}
+                      </td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>
+                        {formatEuroDecimal(
+                          (data.extras || []).reduce(
+                            (sum, e) => sum + computeItemHt(e),
+                            0
+                          )
+                        )}
+                      </td>
+                      <td className='px-2 py-1 text-right text-[9px] font-medium'>
+                        {formatEuroWhole(
+                          (data.extras || []).reduce(
+                            (sum, e) => sum + computeItemTtc(e),
+                            0
+                          )
+                        )}
+                      </td>
                     </tr>
                   </>
                 )}
@@ -779,12 +1169,23 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
 
         {/* Totals: Total HT, Total TTC, payments deducted, remaining balance */}
         {(() => {
-          const extrasHt = (data.extras || []).reduce((sum, e) => sum + computeItemHt(e), 0)
-          const extrasTtc = (data.extras || []).reduce((sum, e) => sum + computeItemTtc(e), 0)
+          const extrasHt = (data.extras || []).reduce(
+            (sum, e) => sum + computeItemHt(e),
+            0
+          )
+          const extrasTtc = (data.extras || []).reduce(
+            (sum, e) => sum + computeItemTtc(e),
+            0
+          )
           const grandTotalHt = data.totalHt + extrasHt
           const grandTotalTtc = data.totalTtc + extrasTtc
-          const paidPayments = (data.payments || []).filter(p => p.status === 'paid' || p.status === 'completed')
-          const totalPaid = paidPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+          const paidPayments = (data.payments || []).filter(
+            (p) => p.status === 'paid' || p.status === 'completed'
+          )
+          const totalPaid = paidPayments.reduce(
+            (sum, p) => sum + (p.amount || 0),
+            0
+          )
           const remainingTtc = grandTotalTtc - totalPaid
 
           return (
@@ -804,13 +1205,32 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                     <Separator className='bg-gray-300' />
                     {paidPayments.map((p, i) => {
                       const isEn = data.language === 'en'
-                      const label = p.payment_modality === 'acompte' ? (isEn ? 'Deposit paid' : 'Acompte versé')
-                        : p.payment_modality === 'solde' ? (isEn ? 'Balance paid' : 'Solde versé')
-                        : (isEn ? 'Payment received' : 'Paiement reçu')
-                      const dateStr = p.paid_at ? new Date(p.paid_at).toLocaleDateString(isEn ? 'en-US' : 'fr-FR') : ''
+                      const label =
+                        p.payment_modality === 'acompte'
+                          ? isEn
+                            ? 'Deposit paid'
+                            : 'Acompte versé'
+                          : p.payment_modality === 'solde'
+                            ? isEn
+                              ? 'Balance paid'
+                              : 'Solde versé'
+                            : isEn
+                              ? 'Payment received'
+                              : 'Paiement reçu'
+                      const dateStr = p.paid_at
+                        ? new Date(p.paid_at).toLocaleDateString(
+                            isEn ? 'en-US' : 'fr-FR'
+                          )
+                        : ''
                       return (
-                        <div key={i} className='flex justify-between text-[10px] text-green-600'>
-                          <span>{label}{dateStr ? ` (${dateStr})` : ''}</span>
+                        <div
+                          key={i}
+                          className='flex justify-between text-[10px] text-green-600'
+                        >
+                          <span>
+                            {label}
+                            {dateStr ? ` (${dateStr})` : ''}
+                          </span>
                           <span>- {formatEuroDecimal(p.amount || 0)}</span>
                         </div>
                       )
@@ -818,7 +1238,10 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                   </>
                 )}
                 <Separator className='bg-gray-300' />
-                <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
+                <div
+                  className='flex justify-between rounded px-2 py-1 text-xs font-bold'
+                  style={{ backgroundColor: color, color: 'white' }}
+                >
                   <span>{l.remainingBalance} TTC</span>
                   <span>{formatEuroWhole(remainingTtc)}</span>
                 </div>
@@ -830,7 +1253,11 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
         <DocumentFooter restaurant={restaurant} l={l} />
       </div>
 
-      <ConditionsPage title={l.generalConditions} conditions={data.conditionsSolde} color={color} />
+      <ConditionsPage
+        title={l.generalConditions}
+        conditions={data.conditionsSolde}
+        color={color}
+      />
     </div>
   )
 
@@ -838,50 +1265,65 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   if (documentType === 'facture_finale') {
     const extras = data.extras || []
     const payments = data.payments || []
-    
+
     // Calculate extras totals
     const extrasTotalHt = extras.reduce((sum, e) => sum + computeItemHt(e), 0)
     const extrasTotalTtc = extras.reduce((sum, e) => sum + computeItemTtc(e), 0)
-    
+
     // Calculate payments received (completed only)
     const paymentsReceived = payments
-      .filter(p => p.status === 'completed')
+      .filter((p) => p.status === 'completed')
       .reduce((sum, p) => sum + (p.amount || 0), 0)
-    
+
     // Grand totals — TTC entier (somme d'entiers), HT décimal dérivé
     const grandTotalHt = data.totalHt + extrasTotalHt
     const grandTotalTtc = data.totalTtc + extrasTotalTtc
     const remainingBalance = grandTotalTtc - paymentsReceived
 
     return (
-      <div id='quote-preview-content' className='bg-white text-black rounded-lg shadow-sm border text-[11px] leading-relaxed'>
-        <div className='p-6 space-y-5'>
+      <div
+        id='quote-preview-content'
+        className='rounded-lg border bg-white text-[11px] leading-relaxed text-black shadow-sm'
+      >
+        <div className='space-y-5 p-6'>
           <DocumentHeader
             restaurant={restaurant}
             docTitle={l.finalInvoice}
             docNumber={quoteNumber}
             date={formatDate(data.quoteDate)}
             dueDate={addDays(data.quoteDate, data.invoiceDueDays)}
-
             color={color}
             l={l}
           />
 
           {/* Quote reference */}
-          <div className='text-[10px] text-gray-600 bg-gray-50 px-3 py-2 rounded border'>
+          <div className='rounded border bg-gray-50 px-3 py-2 text-[10px] text-gray-600'>
             <span className='font-medium'>{l.relatedQuote}:</span> {quoteNumber}
           </div>
 
-          <IssuerClientBlock restaurant={restaurant} contact={data.contact} l={l} />
+          <IssuerClientBlock
+            restaurant={restaurant}
+            contact={data.contact}
+            l={l}
+          />
 
           {/* Event title */}
           {(data.title || data.dateStart) && (
-            <div className='px-3 py-3 rounded border' style={{ borderColor: color + '40' }}>
-              {data.title && <p className='font-semibold text-xs'>{data.title}</p>}
+            <div
+              className='rounded border px-3 py-3'
+              style={{ borderColor: color + '40' }}
+            >
+              {data.title && (
+                <p className='text-xs font-semibold'>{data.title}</p>
+              )}
               {data.dateStart && (
                 <div className='mt-1'>
                   <p className='text-[10px] font-semibold'>{l.serviceStart}</p>
-                  <p className='text-[10px] text-gray-600'>{formatDate(data.dateStart)}{data.startTime && ` à ${data.startTime}`}{data.endTime && ` — ${data.endTime}`}</p>
+                  <p className='text-[10px] text-gray-600'>
+                    {formatDate(data.dateStart)}
+                    {data.startTime && ` à ${data.startTime}`}
+                    {data.endTime && ` — ${data.endTime}`}
+                  </p>
                 </div>
               )}
             </div>
@@ -889,38 +1331,71 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
 
           {/* Comments */}
           {comments && (
-            <div className='bg-amber-50 border border-amber-200 rounded px-3 py-2'>
-              <h3 className='text-[10px] font-bold text-amber-800'>{l.comments}</h3>
-              <p className='text-[10px] text-gray-700 whitespace-pre-line'>{comments}</p>
+            <div className='rounded border border-amber-200 bg-amber-50 px-3 py-2'>
+              <h3 className='text-[10px] font-bold text-amber-800'>
+                {l.comments}
+              </h3>
+              <p className='text-[10px] whitespace-pre-line text-gray-700'>
+                {comments}
+              </p>
             </div>
           )}
 
           {/* Original Quote Items */}
           {data.items.length > 0 && (
-            <div className='border rounded overflow-hidden'>
+            <div className='overflow-hidden rounded border'>
               <table className='w-full text-[10px]'>
                 <thead>
                   <tr style={{ backgroundColor: color, color: 'white' }}>
-                    <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
-                    <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
-                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
-                    <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
-                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
-                    <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalTtc}</th>
+                    <th className='px-2 py-1.5 text-left font-medium'>
+                      {l.designation}
+                    </th>
+                    <th className='w-12 px-2 py-1.5 text-center font-medium'>
+                      {l.quantity}
+                    </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.unitPriceHt}
+                    </th>
+                    <th className='w-14 px-2 py-1.5 text-center font-medium'>
+                      {l.tvaRate}
+                    </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.totalHt}
+                    </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.totalTtc}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.items.map((item, i) => (
-                    <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr
+                      key={item.id}
+                      className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                    >
                       <td className='px-2 py-1.5'>
                         <span className='font-medium'>{item.name}</span>
-                        {item.description && <span className='block text-gray-500 text-[9px]'>{item.description}</span>}
+                        {item.description && (
+                          <span className='block text-[9px] text-gray-500'>
+                            {item.description}
+                          </span>
+                        )}
                       </td>
-                      <td className='text-center px-2 py-1.5'>{item.quantity}</td>
-                      <td className='text-right px-2 py-1.5'>{formatEuroDecimal(item.unit_price || 0)}</td>
-                      <td className='text-center px-2 py-1.5'>{item.tva_rate}%</td>
-                      <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(item))}</td>
-                      <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(item))}</td>
+                      <td className='px-2 py-1.5 text-center'>
+                        {item.quantity}
+                      </td>
+                      <td className='px-2 py-1.5 text-right'>
+                        {formatEuroDecimal(item.unit_price || 0)}
+                      </td>
+                      <td className='px-2 py-1.5 text-center'>
+                        {item.tva_rate}%
+                      </td>
+                      <td className='px-2 py-1.5 text-right'>
+                        {formatEuroDecimal(computeItemHt(item))}
+                      </td>
+                      <td className='px-2 py-1.5 text-right'>
+                        {formatEuroWhole(computeItemTtc(item))}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -931,31 +1406,62 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           {/* Extras Section */}
           {extras.length > 0 && (
             <div className='space-y-2'>
-              <h3 className='text-[10px] font-bold uppercase text-gray-400'>{l.extras}</h3>
-              <div className='border rounded overflow-hidden'>
+              <h3 className='text-[10px] font-bold text-gray-400 uppercase'>
+                {l.extras}
+              </h3>
+              <div className='overflow-hidden rounded border'>
                 <table className='w-full text-[10px]'>
                   <thead>
                     <tr style={{ backgroundColor: color + '20' }}>
-                      <th className='text-left px-2 py-1.5 font-medium'>{l.designation}</th>
-                      <th className='text-center px-2 py-1.5 font-medium w-12'>{l.quantity}</th>
-                      <th className='text-right px-2 py-1.5 font-medium w-20'>{l.unitPriceHt}</th>
-                      <th className='text-center px-2 py-1.5 font-medium w-14'>{l.tvaRate}</th>
-                      <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalHt}</th>
-                      <th className='text-right px-2 py-1.5 font-medium w-20'>{l.totalTtc}</th>
+                      <th className='px-2 py-1.5 text-left font-medium'>
+                        {l.designation}
+                      </th>
+                      <th className='w-12 px-2 py-1.5 text-center font-medium'>
+                        {l.quantity}
+                      </th>
+                      <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                        {l.unitPriceHt}
+                      </th>
+                      <th className='w-14 px-2 py-1.5 text-center font-medium'>
+                        {l.tvaRate}
+                      </th>
+                      <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                        {l.totalHt}
+                      </th>
+                      <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                        {l.totalTtc}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {extras.map((extra, i) => (
-                      <tr key={extra.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr
+                        key={extra.id}
+                        className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                      >
                         <td className='px-2 py-1.5'>
                           <span className='font-medium'>{extra.name}</span>
-                          {extra.description && <span className='block text-gray-500 text-[9px]'>{extra.description}</span>}
+                          {extra.description && (
+                            <span className='block text-[9px] text-gray-500'>
+                              {extra.description}
+                            </span>
+                          )}
                         </td>
-                        <td className='text-center px-2 py-1.5'>{extra.quantity}</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(extra.unit_price || 0)}</td>
-                        <td className='text-center px-2 py-1.5'>{extra.tva_rate}%</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroDecimal(computeItemHt(extra))}</td>
-                        <td className='text-right px-2 py-1.5'>{formatEuroWhole(computeItemTtc(extra))}</td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {extra.quantity}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroDecimal(extra.unit_price || 0)}
+                        </td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {extra.tva_rate}%
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroDecimal(computeItemHt(extra))}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroWhole(computeItemTtc(extra))}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -974,7 +1480,9 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
               {extras.length > 0 && (
                 <>
                   <div className='flex justify-between text-[10px]'>
-                    <span className='text-gray-600'>{l.subtotalHt} ({l.extras})</span>
+                    <span className='text-gray-600'>
+                      {l.subtotalHt} ({l.extras})
+                    </span>
                     <span>+ {formatEuroDecimal(extrasTotalHt)}</span>
                   </div>
                   <Separator className='bg-gray-300' />
@@ -988,7 +1496,10 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 <span className='text-gray-600'>{l.totalTvaLabel}</span>
                 <span>{formatEuroDecimal(grandTotalTtc - grandTotalHt)}</span>
               </div>
-              <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: color, color: 'white' }}>
+              <div
+                className='flex justify-between rounded px-2 py-1 text-xs font-bold'
+                style={{ backgroundColor: color, color: 'white' }}
+              >
                 <span>{l.totalTtc}</span>
                 <span>{formatEuroWhole(grandTotalTtc)}</span>
               </div>
@@ -996,18 +1507,36 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
               {/* Payments received */}
               {paymentsReceived > 0 && (
                 <>
-                  <Separator className='bg-gray-300 my-2' />
-                  <div className='border rounded px-2 py-1.5 space-y-0.5'>
-                    <p className='text-[10px] font-semibold'>{l.paymentsReceived}</p>
-                    {payments.filter(p => p.status === 'completed').map(p => (
-                      <div key={p.id} className='flex justify-between text-[10px]'>
-                        <span className='text-gray-600'>{p.payment_modality || 'Paiement'}</span>
-                        <span className='text-green-600'>- {formatEuroDecimal(p.amount || 0)}</span>
-                      </div>
-                    ))}
+                  <Separator className='my-2 bg-gray-300' />
+                  <div className='space-y-0.5 rounded border px-2 py-1.5'>
+                    <p className='text-[10px] font-semibold'>
+                      {l.paymentsReceived}
+                    </p>
+                    {payments
+                      .filter((p) => p.status === 'completed')
+                      .map((p) => (
+                        <div
+                          key={p.id}
+                          className='flex justify-between text-[10px]'
+                        >
+                          <span className='text-gray-600'>
+                            {p.payment_modality || 'Paiement'}
+                          </span>
+                          <span className='text-green-600'>
+                            - {formatEuroDecimal(p.amount || 0)}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                   <Separator className='bg-gray-300' />
-                  <div className='flex justify-between text-xs font-bold px-2 py-1 rounded' style={{ backgroundColor: remainingBalance > 0 ? '#f97316' : '#22c55e', color: 'white' }}>
+                  <div
+                    className='flex justify-between rounded px-2 py-1 text-xs font-bold'
+                    style={{
+                      backgroundColor:
+                        remainingBalance > 0 ? '#f97316' : '#22c55e',
+                      color: 'white',
+                    }}
+                  >
                     <span>{l.remainingBalance}</span>
                     <span>{formatEuroWhole(remainingBalance)}</span>
                   </div>
@@ -1020,8 +1549,16 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           <DocumentFooter restaurant={restaurant} l={l} />
         </div>
 
-        <ConditionsPage title={l.generalConditions} conditions={data.conditionsFacture} color={color} />
-        <ConditionsPage title={l.additionalConditions} conditions={data.additionalConditions} color={color} />
+        <ConditionsPage
+          title={l.generalConditions}
+          conditions={data.conditionsFacture}
+          color={color}
+        />
+        <ConditionsPage
+          title={l.additionalConditions}
+          conditions={data.additionalConditions}
+          color={color}
+        />
       </div>
     )
   }

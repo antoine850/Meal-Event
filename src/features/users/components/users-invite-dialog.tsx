@@ -71,8 +71,9 @@ export function UsersInviteDialog({
             <MailPlus /> Inviter un utilisateur
           </DialogTitle>
           <DialogDescription>
-            Invitez un nouvel utilisateur à rejoindre votre équipe en lui envoyant
-            une invitation par email. Assignez un rôle pour définir son niveau d'accès.
+            Invitez un nouvel utilisateur à rejoindre votre équipe en lui
+            envoyant une invitation par email. Assignez un rôle pour définir son
+            niveau d'accès.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

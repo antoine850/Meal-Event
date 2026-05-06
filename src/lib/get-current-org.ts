@@ -1,7 +1,9 @@
 import { supabase } from '@/lib/supabase'
 
 export async function getCurrentOrganizationId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return null
 
   const { data } = await supabase

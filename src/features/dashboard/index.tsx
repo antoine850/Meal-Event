@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -8,23 +9,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConfigDrawer } from '@/components/config-drawer'
+import { DateFilter } from '@/components/data-table/date-filter'
+import { FacetedFilter } from '@/components/data-table/standalone-faceted-filter'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { DateFilter } from '@/components/data-table/date-filter'
-import { FacetedFilter } from '@/components/data-table/standalone-faceted-filter'
-import { GeneralTab } from './components/general-tab'
 import { CommercialTab } from './components/commercial-tab'
+import { GeneralTab } from './components/general-tab'
 import { MarketingTab } from './components/marketing-tab'
 import { ReservationsTab } from './components/reservations-tab'
-import { useDashboardData, type DashboardFilters, type DashboardDateField } from './hooks/use-dashboard-data'
-import { RotateCcw } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import {
+  useDashboardData,
+  type DashboardFilters,
+  type DashboardDateField,
+} from './hooks/use-dashboard-data'
 
 const tabs = [
-  { value: 'general', label: 'Vue d\'ensemble' },
+  { value: 'general', label: "Vue d'ensemble" },
   { value: 'commercial', label: 'Commercial' },
   { value: 'marketing', label: 'Marketing' },
   { value: 'reservations', label: 'Événements' },
@@ -35,10 +39,18 @@ export function Dashboard() {
 
   // Filters state
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
-  const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(new Set())
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set())
-  const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
-  const [selectedClientType, setSelectedClientType] = useState<Set<string>>(new Set())
+  const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(
+    new Set()
+  )
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
+    new Set()
+  )
+  const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(
+    new Set()
+  )
+  const [selectedClientType, setSelectedClientType] = useState<Set<string>>(
+    new Set()
+  )
 
   // Date de référence par onglet :
   // - commercial → date de signature du devis
@@ -51,18 +63,45 @@ export function Dashboard() {
     return 'event_date'
   }, [activeTab])
 
-  const filters: DashboardFilters = useMemo(() => ({
-    dateRange: dateRange?.from && dateRange?.to ? { from: dateRange.from, to: dateRange.to } : undefined,
-    restaurants: selectedRestaurants,
-    statuses: selectedStatuses,
-    commercials: selectedCommercials,
-    clientType: selectedClientType,
-    dateField,
-  }), [dateRange, selectedRestaurants, selectedStatuses, selectedCommercials, selectedClientType, dateField])
+  const filters: DashboardFilters = useMemo(
+    () => ({
+      dateRange:
+        dateRange?.from && dateRange?.to
+          ? { from: dateRange.from, to: dateRange.to }
+          : undefined,
+      restaurants: selectedRestaurants,
+      statuses: selectedStatuses,
+      commercials: selectedCommercials,
+      clientType: selectedClientType,
+      dateField,
+    }),
+    [
+      dateRange,
+      selectedRestaurants,
+      selectedStatuses,
+      selectedCommercials,
+      selectedClientType,
+      dateField,
+    ]
+  )
 
-  const { bookings, contacts, restaurants, users, statuses, isAdmin, userName, isLoading } = useDashboardData(filters)
+  const {
+    bookings,
+    contacts,
+    restaurants,
+    users,
+    statuses,
+    isAdmin,
+    userName,
+    isLoading,
+  } = useDashboardData(filters)
 
-  const hasFilters = !!dateRange || selectedRestaurants.size > 0 || selectedStatuses.size > 0 || selectedCommercials.size > 0 || selectedClientType.size > 0
+  const hasFilters =
+    !!dateRange ||
+    selectedRestaurants.size > 0 ||
+    selectedStatuses.size > 0 ||
+    selectedCommercials.size > 0 ||
+    selectedClientType.size > 0
 
   const resetFilters = () => {
     setDateRange(undefined)
@@ -72,9 +111,15 @@ export function Dashboard() {
     setSelectedClientType(new Set())
   }
 
-  const restaurantOptions = restaurants.map(r => ({ label: r.name, value: r.id }))
-  const statusOptions = statuses.map(s => ({ label: s.name, value: s.id }))
-  const commercialOptions = users.map(u => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))
+  const restaurantOptions = restaurants.map((r) => ({
+    label: r.name,
+    value: r.id,
+  }))
+  const statusOptions = statuses.map((s) => ({ label: s.name, value: s.id }))
+  const commercialOptions = users.map((u) => ({
+    label: `${u.first_name} ${u.last_name}`,
+    value: u.id,
+  }))
   const clientTypeOptions = [
     { label: 'B2B (Entreprise)', value: 'b2b' },
     { label: 'B2C (Particulier)', value: 'b2c' },
@@ -83,14 +128,18 @@ export function Dashboard() {
   const tabProps = { bookings, contacts, restaurants, users, isLoading }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className='flex flex-col h-full'>
+    <Tabs
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className='flex h-full flex-col'
+    >
       {/* ===== Top Heading ===== */}
       <Header fixed>
         <h1 className='text-lg font-semibold'>Tableau de bord</h1>
 
         {/* Desktop: Tabs */}
-        <TabsList className='ml-4 bg-transparent hidden lg:flex'>
-          {tabs.map(tab => (
+        <TabsList className='ml-4 hidden bg-transparent lg:flex'>
+          {tabs.map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
@@ -110,13 +159,13 @@ export function Dashboard() {
 
       {/* ===== Main ===== */}
       <Main>
-        <div className='mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4'>
+        <div className='mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center'>
           <h2 className='text-2xl font-bold tracking-tight whitespace-nowrap'>
             👋 Bonjour{userName ? `, ${userName}` : ''} !
           </h2>
 
           {/* Filters */}
-          <div className='flex flex-wrap items-center gap-2 justify-end'>
+          <div className='flex flex-wrap items-center justify-end gap-2'>
             <DateFilter
               value={dateRange}
               onChange={setDateRange}
@@ -149,7 +198,12 @@ export function Dashboard() {
               onSelectionChange={setSelectedClientType}
             />
             {hasFilters && (
-              <Button variant='ghost' size='sm' className='h-8 px-2' onClick={resetFilters}>
+              <Button
+                variant='ghost'
+                size='sm'
+                className='h-8 px-2'
+                onClick={resetFilters}
+              >
                 <RotateCcw className='mr-1 h-3 w-3' />
                 Réinitialiser
               </Button>
@@ -164,7 +218,7 @@ export function Dashboard() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {tabs.map(tab => (
+              {tabs.map((tab) => (
                 <SelectItem key={tab.value} value={tab.value}>
                   {tab.label}
                 </SelectItem>
@@ -172,16 +226,16 @@ export function Dashboard() {
             </SelectContent>
           </Select>
         </div>
-        <TabsContent value='general' className='space-y-4 mt-0'>
+        <TabsContent value='general' className='mt-0 space-y-4'>
           <GeneralTab {...tabProps} statuses={statuses} />
         </TabsContent>
-        <TabsContent value='commercial' className='space-y-4 mt-0'>
+        <TabsContent value='commercial' className='mt-0 space-y-4'>
           <CommercialTab {...tabProps} />
         </TabsContent>
-        <TabsContent value='marketing' className='space-y-4 mt-0'>
+        <TabsContent value='marketing' className='mt-0 space-y-4'>
           <MarketingTab {...tabProps} />
         </TabsContent>
-        <TabsContent value='reservations' className='space-y-4 mt-0'>
+        <TabsContent value='reservations' className='mt-0 space-y-4'>
           <ReservationsTab {...tabProps} />
         </TabsContent>
       </Main>

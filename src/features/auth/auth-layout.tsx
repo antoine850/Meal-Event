@@ -16,7 +16,10 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
       {/* Left side - Form */}
       <div className='lg:p-8'>
         <div className='mx-auto flex w-full flex-col justify-center space-y-2 py-8 sm:w-[480px] sm:p-8'>
-          <Link to='/sign-in' className='mb-4 flex items-center justify-center gap-2 hover:opacity-80 transition-opacity'>
+          <Link
+            to='/sign-in'
+            className='mb-4 flex items-center justify-center gap-2 transition-opacity hover:opacity-80'
+          >
             <Logo className='me-2' />
             <h1 className='text-xl font-medium'>MealEvent</h1>
           </Link>
@@ -24,8 +27,14 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         <div className='mx-auto flex w-full max-w-sm flex-col justify-center space-y-4'>
           {(title || subtitle) && (
             <div className='flex flex-col space-y-2 text-start'>
-              {title && <h2 className='text-lg font-semibold tracking-tight'>{title}</h2>}
-              {subtitle && <p className='text-sm text-muted-foreground'>{subtitle}</p>}
+              {title && (
+                <h2 className='text-lg font-semibold tracking-tight'>
+                  {title}
+                </h2>
+              )}
+              {subtitle && (
+                <p className='text-sm text-muted-foreground'>{subtitle}</p>
+              )}
             </div>
           )}
           {children}

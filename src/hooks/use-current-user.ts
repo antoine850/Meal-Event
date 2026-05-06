@@ -20,12 +20,15 @@ export function useCurrentUser() {
   return useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) return null
 
       const { data, error } = await supabase
         .from('users')
-        .select(`
+        .select(
+          `
           id,
           email,
           first_name,
@@ -33,12 +36,13 @@ export function useCurrentUser() {
           phone,
           avatar_url,
           organization:organizations(id, name, slug, logo_url)
-        `)
+        `
+        )
         .eq('id', user.id)
         .single()
 
       if (error) throw error
-      
+
       return data as CurrentUser
     },
     staleTime: 5 * 60 * 1000, // 5 minutes

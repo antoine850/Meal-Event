@@ -20,10 +20,12 @@ export type Reservation = {
   amountHT: number
 }
 
-export function bookingToReservation(booking: BookingWithRelations): Reservation {
+export function bookingToReservation(
+  booking: BookingWithRelations
+): Reservation {
   return {
     id: booking.id,
-    clientName: booking.contact 
+    clientName: booking.contact
       ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`.trim()
       : 'Client inconnu',
     clientEmail: booking.contact?.email || null,

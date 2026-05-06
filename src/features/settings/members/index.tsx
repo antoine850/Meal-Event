@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Cross2Icon as RadixCross2Icon } from '@radix-ui/react-icons'
 import {
   type ColumnDef,
   type SortingState,
@@ -21,8 +22,18 @@ import {
   Trash2,
   UserCog,
 } from 'lucide-react'
-import { Cross2Icon as RadixCross2Icon } from '@radix-ui/react-icons'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -49,6 +60,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import {
   Table,
   TableBody,
@@ -57,18 +69,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { DataTablePagination, FacetedFilter } from '@/components/data-table'
 import {
   useMembers,
@@ -125,17 +125,26 @@ export function MembersSettings() {
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [editMember, setEditMember] = useState<Member | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null)
   const [searchValue, setSearchValue] = useState('')
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set())
-  const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(new Set())
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set())
+  const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(
+    new Set()
+  )
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
+    new Set()
+  )
   const [sorting, setSorting] = useState<SortingState>([])
 
   // Combine members + invitations into unified rows
   const allRows = useMemo<MemberRow[]>(() => {
-    const memberRows: MemberRow[] = (data?.members?.filter(m => m.is_active) || []).map(m => ({
+    const memberRows: MemberRow[] = (
+      data?.members?.filter((m) => m.is_active) || []
+    ).map((m) => ({
       id: m.id,
       email: m.email,
       name: `${m.first_name} ${m.last_name || ''}`.trim(),
@@ -144,31 +153,33 @@ export function MembersSettings() {
       roleId: m.role?.id || null,
       roleName: m.role?.name || null,
       roleSlug: m.role?.slug || null,
-      restaurantIds: m.user_restaurants?.map(ur => ur.restaurant_id) || [],
+      restaurantIds: m.user_restaurants?.map((ur) => ur.restaurant_id) || [],
       status: 'active' as const,
       createdAt: m.created_at,
       raw: m,
     }))
 
-    const invitationRows: MemberRow[] = (data?.invitations || []).map(inv => ({
-      id: `inv-${inv.id}`,
-      email: inv.email,
-      name: inv.email,
-      firstName: inv.email,
-      lastName: null,
-      roleId: inv.role?.id || null,
-      roleName: inv.role?.name || null,
-      roleSlug: inv.role?.slug || null,
-      restaurantIds: inv.restaurant_ids || [],
-      status: 'pending' as const,
-      createdAt: inv.created_at,
-      expiresAt: inv.expires_at,
-      invitedByName: inv.invited_by_user
-        ? `${inv.invited_by_user.first_name} ${inv.invited_by_user.last_name || ''}`.trim()
-        : undefined,
-      raw: null,
-      rawInvitationId: inv.id,
-    }))
+    const invitationRows: MemberRow[] = (data?.invitations || []).map(
+      (inv) => ({
+        id: `inv-${inv.id}`,
+        email: inv.email,
+        name: inv.email,
+        firstName: inv.email,
+        lastName: null,
+        roleId: inv.role?.id || null,
+        roleName: inv.role?.name || null,
+        roleSlug: inv.role?.slug || null,
+        restaurantIds: inv.restaurant_ids || [],
+        status: 'pending' as const,
+        createdAt: inv.created_at,
+        expiresAt: inv.expires_at,
+        invitedByName: inv.invited_by_user
+          ? `${inv.invited_by_user.first_name} ${inv.invited_by_user.last_name || ''}`.trim()
+          : undefined,
+        raw: null,
+        rawInvitationId: inv.id,
+      })
+    )
 
     return [...memberRows, ...invitationRows]
   }, [data])
@@ -179,28 +190,41 @@ export function MembersSettings() {
 
     if (searchValue) {
       const q = searchValue.toLowerCase()
-      result = result.filter(r =>
-        r.name.toLowerCase().includes(q) ||
-        r.email.toLowerCase().includes(q)
+      result = result.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
       )
     }
 
     if (selectedRoles.size > 0) {
-      result = result.filter(r => r.roleSlug && selectedRoles.has(r.roleSlug))
+      result = result.filter((r) => r.roleSlug && selectedRoles.has(r.roleSlug))
     }
 
     if (selectedRestaurants.size > 0) {
-      result = result.filter(r => r.restaurantIds.some(id => selectedRestaurants.has(id)))
+      result = result.filter((r) =>
+        r.restaurantIds.some((id) => selectedRestaurants.has(id))
+      )
     }
 
     if (selectedStatuses.size > 0) {
-      result = result.filter(r => selectedStatuses.has(r.status))
+      result = result.filter((r) => selectedStatuses.has(r.status))
     }
 
     return result
-  }, [allRows, searchValue, selectedRoles, selectedRestaurants, selectedStatuses])
+  }, [
+    allRows,
+    searchValue,
+    selectedRoles,
+    selectedRestaurants,
+    selectedStatuses,
+  ])
 
-  const hasActiveFilters = !!(searchValue || selectedRoles.size || selectedRestaurants.size || selectedStatuses.size)
+  const hasActiveFilters = !!(
+    searchValue ||
+    selectedRoles.size ||
+    selectedRestaurants.size ||
+    selectedStatuses.size
+  )
 
   const handleResetFilters = () => {
     setSearchValue('')
@@ -209,7 +233,11 @@ export function MembersSettings() {
     setSelectedStatuses(new Set())
   }
 
-  const handleUpdateRole = (memberId: string, roleId: string, restaurantIds?: string[]) => {
+  const handleUpdateRole = (
+    memberId: string,
+    roleId: string,
+    restaurantIds?: string[]
+  ) => {
     updateRole(
       { id: memberId, role_id: roleId, restaurant_ids: restaurantIds },
       {
@@ -232,14 +260,16 @@ export function MembersSettings() {
           return (
             <div className='flex items-center gap-3'>
               <Avatar className='h-9 w-9'>
-                <AvatarFallback className='text-xs bg-muted'>
+                <AvatarFallback className='bg-muted text-xs'>
                   <MailPlus className='h-4 w-4 text-muted-foreground' />
                 </AvatarFallback>
               </Avatar>
               <div>
-                <span className='font-medium text-sm'>{r.email}</span>
+                <span className='text-sm font-medium'>{r.email}</span>
                 {r.invitedByName && (
-                  <p className='text-xs text-muted-foreground'>Invité par {r.invitedByName}</p>
+                  <p className='text-xs text-muted-foreground'>
+                    Invité par {r.invitedByName}
+                  </p>
                 )}
               </div>
             </div>
@@ -249,11 +279,12 @@ export function MembersSettings() {
           <div className='flex items-center gap-3'>
             <Avatar className='h-9 w-9'>
               <AvatarFallback className='text-xs'>
-                {r.firstName?.[0]}{r.lastName?.[0]}
+                {r.firstName?.[0]}
+                {r.lastName?.[0]}
               </AvatarFallback>
             </Avatar>
             <div>
-              <span className='font-medium text-sm'>{r.name}</span>
+              <span className='text-sm font-medium'>{r.name}</span>
               <p className='text-xs text-muted-foreground'>{r.email}</p>
             </div>
           </div>
@@ -265,11 +296,15 @@ export function MembersSettings() {
       header: 'Rôle',
       cell: ({ row }) => {
         const r = row.original
-        if (!r.roleName) return <span className='text-muted-foreground text-sm'>—</span>
+        if (!r.roleName)
+          return <span className='text-sm text-muted-foreground'>—</span>
         const slug = r.roleSlug || ''
         const RoleIcon = roleIcons[slug] || UserCog
         return (
-          <Badge variant='outline' className={`text-xs ${roleColors[slug] || ''}`}>
+          <Badge
+            variant='outline'
+            className={`text-xs ${roleColors[slug] || ''}`}
+          >
             <RoleIcon className='mr-1 h-3 w-3' />
             {r.roleName}
           </Badge>
@@ -282,14 +317,18 @@ export function MembersSettings() {
       cell: ({ row }) => {
         const r = row.original
         if (r.restaurantIds.length === 0) {
-          return <span className='text-muted-foreground text-sm'>Tous</span>
+          return <span className='text-sm text-muted-foreground'>Tous</span>
         }
         return (
           <div className='flex flex-wrap gap-1'>
-            {r.restaurantIds.map(rid => {
-              const rest = restaurants.find(rt => rt.id === rid)
+            {r.restaurantIds.map((rid) => {
+              const rest = restaurants.find((rt) => rt.id === rid)
               return rest ? (
-                <Badge key={rid} variant='secondary' className='text-[10px] px-1.5 py-0'>
+                <Badge
+                  key={rid}
+                  variant='secondary'
+                  className='px-1.5 py-0 text-[10px]'
+                >
                   {rest.name}
                 </Badge>
               ) : null
@@ -305,13 +344,19 @@ export function MembersSettings() {
         const r = row.original
         if (r.status === 'pending') {
           return (
-            <Badge variant='outline' className='text-xs bg-orange-50 text-orange-700 border-orange-200'>
+            <Badge
+              variant='outline'
+              className='border-orange-200 bg-orange-50 text-xs text-orange-700'
+            >
               En attente
             </Badge>
           )
         }
         return (
-          <Badge variant='outline' className='text-xs bg-emerald-50 text-emerald-700 border-emerald-200'>
+          <Badge
+            variant='outline'
+            className='border-emerald-200 bg-emerald-50 text-xs text-emerald-700'
+          >
             Actif
           </Badge>
         )
@@ -331,10 +376,12 @@ export function MembersSettings() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align='end'>
                 <DropdownMenuItem
-                  onClick={() => resendInvitation(r.rawInvitationId!, {
-                    onSuccess: () => toast.success('Invitation renvoyée'),
-                    onError: (err: any) => toast.error(err.message),
-                  })}
+                  onClick={() =>
+                    resendInvitation(r.rawInvitationId!, {
+                      onSuccess: () => toast.success('Invitation renvoyée'),
+                      onError: (err: any) => toast.error(err.message),
+                    })
+                  }
                 >
                   <RefreshCw className='mr-2 h-4 w-4' />
                   Renvoyer
@@ -389,13 +436,13 @@ export function MembersSettings() {
     getFilteredRowModel: getFilteredRowModel(),
   })
 
-  const roleOptions = useMemo(() =>
-    roles.map(r => ({ label: r.name, value: r.slug })),
+  const roleOptions = useMemo(
+    () => roles.map((r) => ({ label: r.name, value: r.slug })),
     [roles]
   )
 
-  const restaurantOptions = useMemo(() =>
-    restaurants.map(r => ({ label: r.name, value: r.id })),
+  const restaurantOptions = useMemo(
+    () => restaurants.map((r) => ({ label: r.name, value: r.id })),
     [restaurants]
   )
 
@@ -413,15 +460,17 @@ export function MembersSettings() {
   }
 
   return (
-    <div className='flex flex-1 flex-col w-full'>
+    <div className='flex w-full flex-1 flex-col'>
       <div className='flex-none'>
         <h3 className='text-lg font-medium'>Membres</h3>
-        <p className='text-sm text-muted-foreground'>Gérez les membres de votre organisation et leurs rôles.</p>
+        <p className='text-sm text-muted-foreground'>
+          Gérez les membres de votre organisation et leurs rôles.
+        </p>
       </div>
       <Separator className='my-4 flex-none' />
 
       {/* Toolbar */}
-      <div className='flex flex-wrap items-center gap-2 mb-4'>
+      <div className='mb-4 flex flex-wrap items-center gap-2'>
         <Input
           placeholder='Rechercher par nom ou email...'
           value={searchValue}
@@ -449,7 +498,11 @@ export function MembersSettings() {
           />
         </div>
         {hasActiveFilters && (
-          <Button variant='ghost' onClick={handleResetFilters} className='h-8 px-2 lg:px-3'>
+          <Button
+            variant='ghost'
+            onClick={handleResetFilters}
+            className='h-8 px-2 lg:px-3'
+          >
             Reset
             <RadixCross2Icon className='ms-2 h-4 w-4' />
           </Button>
@@ -467,11 +520,16 @@ export function MembersSettings() {
         <div className='overflow-hidden rounded-md border'>
           <Table>
             <TableHeader>
-              {table.getHeaderGroups().map(headerGroup => (
+              {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map(header => (
+                  {headerGroup.headers.map((header) => (
                     <TableHead key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -479,18 +537,24 @@ export function MembersSettings() {
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map(row => (
+                table.getRowModel().rows.map((row) => (
                   <TableRow key={row.id}>
-                    {row.getVisibleCells().map(cell => (
+                    {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className='h-24 text-center text-muted-foreground'>
+                  <TableCell
+                    colSpan={columns.length}
+                    className='h-24 text-center text-muted-foreground'
+                  >
                     Aucun résultat.
                   </TableCell>
                 </TableRow>
@@ -521,12 +585,16 @@ export function MembersSettings() {
       )}
 
       {/* Delete confirmation */}
-      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+      <AlertDialog
+        open={!!deleteConfirm}
+        onOpenChange={() => setDeleteConfirm(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Retirer un membre</AlertDialogTitle>
             <AlertDialogDescription>
-              Voulez-vous vraiment retirer {deleteConfirm?.name} de l'organisation ? Cette action est irréversible.
+              Voulez-vous vraiment retirer {deleteConfirm?.name} de
+              l'organisation ? Cette action est irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -535,12 +603,15 @@ export function MembersSettings() {
               onClick={() => {
                 if (deleteConfirm) {
                   removeMember(deleteConfirm.id, {
-                    onSuccess: () => { toast.success('Membre retiré'); setDeleteConfirm(null) },
+                    onSuccess: () => {
+                      toast.success('Membre retiré')
+                      setDeleteConfirm(null)
+                    },
                     onError: (err) => toast.error(err.message),
                   })
                 }
               }}
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
             >
               Retirer
             </AlertDialogAction>
@@ -549,7 +620,10 @@ export function MembersSettings() {
       </AlertDialog>
 
       {/* Revoke confirmation */}
-      <AlertDialog open={!!revokeConfirm} onOpenChange={() => setRevokeConfirm(null)}>
+      <AlertDialog
+        open={!!revokeConfirm}
+        onOpenChange={() => setRevokeConfirm(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Révoquer l'invitation</AlertDialogTitle>
@@ -563,12 +637,15 @@ export function MembersSettings() {
               onClick={() => {
                 if (revokeConfirm) {
                   revokeInvitation(revokeConfirm, {
-                    onSuccess: () => { toast.success('Invitation révoquée'); setRevokeConfirm(null) },
+                    onSuccess: () => {
+                      toast.success('Invitation révoquée')
+                      setRevokeConfirm(null)
+                    },
                     onError: (err) => toast.error(err.message),
                   })
                 }
               }}
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
             >
               Révoquer
             </AlertDialogAction>
@@ -600,7 +677,7 @@ function InviteDialog({
   const [restaurantIds, setRestaurantIds] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const selectedRoleSlug = roles.find(r => r.id === roleId)?.slug
+  const selectedRoleSlug = roles.find((r) => r.id === roleId)?.slug
 
   const handleClose = (isOpen: boolean) => {
     if (!isOpen) {
@@ -659,22 +736,30 @@ function InviteDialog({
               type='email'
               placeholder='nom@exemple.com'
               value={email}
-              onChange={(e) => { setEmail(e.target.value); setErrors(prev => ({ ...prev, email: '' })) }}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setErrors((prev) => ({ ...prev, email: '' }))
+              }}
             />
-            {errors.email && <p className='text-sm text-destructive'>{errors.email}</p>}
+            {errors.email && (
+              <p className='text-sm text-destructive'>{errors.email}</p>
+            )}
           </div>
 
           <div className='space-y-2'>
             <label className='text-sm font-medium'>Rôle</label>
             <Select
               value={roleId || undefined}
-              onValueChange={(v) => { setRoleId(v); setErrors(prev => ({ ...prev, role_id: '' })) }}
+              onValueChange={(v) => {
+                setRoleId(v)
+                setErrors((prev) => ({ ...prev, role_id: '' }))
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder='Sélectionner un rôle' />
               </SelectTrigger>
               <SelectContent>
-                {roles.map(role => {
+                {roles.map((role) => {
                   const Icon = roleIcons[role.slug] || UserCog
                   return (
                     <SelectItem key={role.id} value={role.id}>
@@ -688,44 +773,62 @@ function InviteDialog({
               </SelectContent>
             </Select>
             <p className='text-sm text-muted-foreground'>
-              {selectedRoleSlug === 'admin' && "Accès complet à toute l'organisation"}
-              {selectedRoleSlug === 'commercial' && 'Contacts, réservations et devis de ses restaurants'}
-              {selectedRoleSlug === 'gerant' && 'Événements de son/ses restaurant(s) uniquement'}
+              {selectedRoleSlug === 'admin' &&
+                "Accès complet à toute l'organisation"}
+              {selectedRoleSlug === 'commercial' &&
+                'Contacts, réservations et devis de ses restaurants'}
+              {selectedRoleSlug === 'gerant' &&
+                'Événements de son/ses restaurant(s) uniquement'}
             </p>
-            {errors.role_id && <p className='text-sm text-destructive'>{errors.role_id}</p>}
+            {errors.role_id && (
+              <p className='text-sm text-destructive'>{errors.role_id}</p>
+            )}
           </div>
 
-          {(selectedRoleSlug === 'commercial' || selectedRoleSlug === 'gerant') && restaurants.length > 0 && (
-            <div className='space-y-2'>
-              <label className='text-sm font-medium'>Restaurants assignés</label>
+          {(selectedRoleSlug === 'commercial' ||
+            selectedRoleSlug === 'gerant') &&
+            restaurants.length > 0 && (
               <div className='space-y-2'>
-                {restaurants.map(rest => (
-                  <label key={rest.id} className='flex items-center gap-2 cursor-pointer'>
-                    <input
-                      type='checkbox'
-                      checked={restaurantIds.includes(rest.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setRestaurantIds(prev => [...prev, rest.id])
-                        } else {
-                          setRestaurantIds(prev => prev.filter(id => id !== rest.id))
-                        }
-                      }}
-                      className='rounded border-gray-300'
-                    />
-                    <span className='text-sm'>{rest.name}</span>
-                  </label>
-                ))}
+                <label className='text-sm font-medium'>
+                  Restaurants assignés
+                </label>
+                <div className='space-y-2'>
+                  {restaurants.map((rest) => (
+                    <label
+                      key={rest.id}
+                      className='flex cursor-pointer items-center gap-2'
+                    >
+                      <input
+                        type='checkbox'
+                        checked={restaurantIds.includes(rest.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setRestaurantIds((prev) => [...prev, rest.id])
+                          } else {
+                            setRestaurantIds((prev) =>
+                              prev.filter((id) => id !== rest.id)
+                            )
+                          }
+                        }}
+                        className='rounded border-gray-300'
+                      />
+                      <span className='text-sm'>{rest.name}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </form>
         <DialogFooter className='gap-y-2'>
           <DialogClose asChild>
             <Button variant='outline'>Annuler</Button>
           </DialogClose>
           <Button type='submit' form='invite-form' disabled={isInviting}>
-            {isInviting ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : <Send className='mr-2 h-4 w-4' />}
+            {isInviting ? (
+              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+            ) : (
+              <Send className='mr-2 h-4 w-4' />
+            )}
             Inviter
           </Button>
         </DialogFooter>
@@ -752,10 +855,10 @@ function EditRoleDialog({
 }) {
   const [roleId, setRoleId] = useState(member.role?.id || '')
   const [restaurantIds, setRestaurantIds] = useState<string[]>(
-    member.user_restaurants?.map(ur => ur.restaurant_id) || []
+    member.user_restaurants?.map((ur) => ur.restaurant_id) || []
   )
 
-  const selectedRoleSlug = roles.find(r => r.id === roleId)?.slug
+  const selectedRoleSlug = roles.find((r) => r.id === roleId)?.slug
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -774,7 +877,7 @@ function EditRoleDialog({
                 <SelectValue placeholder='Sélectionner un rôle' />
               </SelectTrigger>
               <SelectContent>
-                {roles.map(role => {
+                {roles.map((role) => {
                   const Icon = roleIcons[role.slug] || UserCog
                   return (
                     <SelectItem key={role.id} value={role.id}>
@@ -789,33 +892,44 @@ function EditRoleDialog({
             </Select>
           </div>
 
-          {(selectedRoleSlug === 'commercial' || selectedRoleSlug === 'gerant') && restaurants.length > 0 && (
-            <div>
-              <label className='text-sm font-medium'>Restaurants assignés</label>
-              <div className='space-y-2 mt-1'>
-                {restaurants.map(rest => (
-                  <label key={rest.id} className='flex items-center gap-2 cursor-pointer'>
-                    <input
-                      type='checkbox'
-                      checked={restaurantIds.includes(rest.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setRestaurantIds(prev => [...prev, rest.id])
-                        } else {
-                          setRestaurantIds(prev => prev.filter(id => id !== rest.id))
-                        }
-                      }}
-                      className='rounded border-gray-300'
-                    />
-                    <span className='text-sm'>{rest.name}</span>
-                  </label>
-                ))}
+          {(selectedRoleSlug === 'commercial' ||
+            selectedRoleSlug === 'gerant') &&
+            restaurants.length > 0 && (
+              <div>
+                <label className='text-sm font-medium'>
+                  Restaurants assignés
+                </label>
+                <div className='mt-1 space-y-2'>
+                  {restaurants.map((rest) => (
+                    <label
+                      key={rest.id}
+                      className='flex cursor-pointer items-center gap-2'
+                    >
+                      <input
+                        type='checkbox'
+                        checked={restaurantIds.includes(rest.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setRestaurantIds((prev) => [...prev, rest.id])
+                          } else {
+                            setRestaurantIds((prev) =>
+                              prev.filter((id) => id !== rest.id)
+                            )
+                          }
+                        }}
+                        className='rounded border-gray-300'
+                      />
+                      <span className='text-sm'>{rest.name}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
         <DialogFooter>
-          <Button variant='outline' onClick={onClose}>Annuler</Button>
+          <Button variant='outline' onClick={onClose}>
+            Annuler
+          </Button>
           <Button onClick={() => onSave(member.id, roleId, restaurantIds)}>
             Enregistrer
           </Button>

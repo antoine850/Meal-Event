@@ -21,7 +21,8 @@ import { PasswordInput } from '@/components/password-input'
 
 const formSchema = z.object({
   email: z.email({
-    error: (iss) => (iss.input === '' ? 'Veuillez entrer votre email' : undefined),
+    error: (iss) =>
+      iss.input === '' ? 'Veuillez entrer votre email' : undefined,
   }),
   password: z
     .string()
@@ -59,9 +60,11 @@ export function UserAuthForm({
       })
 
       if (error) {
-        toast.error(error.message === 'Invalid login credentials' 
-          ? 'Email ou mot de passe incorrect' 
-          : error.message)
+        toast.error(
+          error.message === 'Invalid login credentials'
+            ? 'Email ou mot de passe incorrect'
+            : error.message
+        )
         setIsLoading(false)
         return
       }

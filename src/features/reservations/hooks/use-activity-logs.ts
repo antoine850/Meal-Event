@@ -39,7 +39,12 @@ export type ActivityActionType =
 
 export type ActorType = 'user' | 'system' | 'client' | 'webhook'
 
-export type EntityType = 'booking' | 'quote' | 'payment' | 'document' | 'menu_form'
+export type EntityType =
+  | 'booking'
+  | 'quote'
+  | 'payment'
+  | 'document'
+  | 'menu_form'
 
 export interface LogActivityParams {
   bookingId: string
@@ -121,7 +126,9 @@ export const ACTION_ICONS: Record<ActivityActionType, string> = {
 // ── Helpers ──
 
 async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return null
 
   const { data } = await supabase
@@ -130,7 +137,12 @@ async function getCurrentUser() {
     .eq('id', user.id)
     .single()
 
-  return data as { id: string; first_name: string; last_name: string; organization_id: string } | null
+  return data as {
+    id: string
+    first_name: string
+    last_name: string
+    organization_id: string
+  } | null
 }
 
 // ── Queries ──
@@ -140,8 +152,7 @@ export function useActivityLogs(bookingId: string | null) {
     queryKey: ['activity_logs', bookingId],
     enabled: !!bookingId,
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('activity_logs') as any)
+      const { data, error } = await (supabase.from('activity_logs') as any)
         .select('*')
         .eq('booking_id', bookingId!)
         .order('created_at', { ascending: false })
@@ -162,8 +173,7 @@ export function useLogActivity() {
       const user = await getCurrentUser()
       if (!user) throw new Error('User not authenticated')
 
-      const { data, error } = await (supabase
-        .from('activity_logs') as any)
+      const { data, error } = await (supabase.from('activity_logs') as any)
         .insert({
           organization_id: user.organization_id,
           booking_id: params.bookingId,
@@ -171,7 +181,8 @@ export function useLogActivity() {
           action_label: params.actionLabel,
           actor_type: params.actorType || 'user',
           actor_id: params.actorId ?? user.id,
-          actor_name: params.actorName ?? `${user.first_name} ${user.last_name}`.trim(),
+          actor_name:
+            params.actorName ?? `${user.first_name} ${user.last_name}`.trim(),
           entity_type: params.entityType || null,
           entity_id: params.entityId || null,
           metadata: params.metadata || {},
@@ -183,14 +194,18 @@ export function useLogActivity() {
       return data as ActivityLog
     },
     onSuccess: (_, params) => {
-      queryClient.invalidateQueries({ queryKey: ['activity_logs', params.bookingId] })
+      queryClient.invalidateQueries({
+        queryKey: ['activity_logs', params.bookingId],
+      })
     },
   })
 }
 
 // ── Utility function for easy logging ──
 
-export function createActivityLogger(logActivity: ReturnType<typeof useLogActivity>['mutate']) {
+export function createActivityLogger(
+  logActivity: ReturnType<typeof useLogActivity>['mutate']
+) {
   return {
     // Booking actions
     bookingCreated: (bookingId: string, metadata?: Record<string, unknown>) => {
@@ -204,7 +219,10 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    bookingUpdated: (bookingId: string, changes: Record<string, { old: unknown; new: unknown }>) => {
+    bookingUpdated: (
+      bookingId: string,
+      changes: Record<string, { old: unknown; new: unknown }>
+    ) => {
       const changedFields = Object.keys(changes)
       logActivity({
         bookingId,
@@ -216,7 +234,11 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    bookingStatusChanged: (bookingId: string, oldStatus: string, newStatus: string) => {
+    bookingStatusChanged: (
+      bookingId: string,
+      oldStatus: string,
+      newStatus: string
+    ) => {
       logActivity({
         bookingId,
         actionType: 'booking.status_changed',
@@ -258,7 +280,9 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       logActivity({
         bookingId,
         actionType: 'quote.created',
-        actionLabel: quoteTitle ? `Devis "${quoteTitle}" créé` : ACTION_LABELS['quote.created'],
+        actionLabel: quoteTitle
+          ? `Devis "${quoteTitle}" créé`
+          : ACTION_LABELS['quote.created'],
         entityType: 'quote',
         entityId: quoteId,
         metadata: { quote_title: quoteTitle },
@@ -269,29 +293,43 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       logActivity({
         bookingId,
         actionType: 'quote.deleted',
-        actionLabel: quoteTitle ? `Devis "${quoteTitle}" supprimé` : ACTION_LABELS['quote.deleted'],
+        actionLabel: quoteTitle
+          ? `Devis "${quoteTitle}" supprimé`
+          : ACTION_LABELS['quote.deleted'],
         entityType: 'quote',
         entityId: quoteId,
         metadata: { quote_title: quoteTitle },
       })
     },
 
-    quoteSetPrimary: (bookingId: string, quoteId: string, quoteTitle?: string) => {
+    quoteSetPrimary: (
+      bookingId: string,
+      quoteId: string,
+      quoteTitle?: string
+    ) => {
       logActivity({
         bookingId,
         actionType: 'quote.set_primary',
-        actionLabel: quoteTitle ? `Devis "${quoteTitle}" défini comme principal` : ACTION_LABELS['quote.set_primary'],
+        actionLabel: quoteTitle
+          ? `Devis "${quoteTitle}" défini comme principal`
+          : ACTION_LABELS['quote.set_primary'],
         entityType: 'quote',
         entityId: quoteId,
         metadata: { quote_title: quoteTitle },
       })
     },
 
-    quoteEmailSent: (bookingId: string, quoteId: string, recipientEmail?: string) => {
+    quoteEmailSent: (
+      bookingId: string,
+      quoteId: string,
+      recipientEmail?: string
+    ) => {
       logActivity({
         bookingId,
         actionType: 'quote.email_sent',
-        actionLabel: recipientEmail ? `Devis envoyé à ${recipientEmail}` : ACTION_LABELS['quote.email_sent'],
+        actionLabel: recipientEmail
+          ? `Devis envoyé à ${recipientEmail}`
+          : ACTION_LABELS['quote.email_sent'],
         entityType: 'quote',
         entityId: quoteId,
         metadata: { recipient_email: recipientEmail },
@@ -308,7 +346,11 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    quoteSigned: (bookingId: string, quoteId: string, actorType: ActorType = 'webhook') => {
+    quoteSigned: (
+      bookingId: string,
+      quoteId: string,
+      actorType: ActorType = 'webhook'
+    ) => {
       logActivity({
         bookingId,
         actionType: 'quote.signed',
@@ -321,7 +363,12 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
     },
 
     // Payment actions
-    paymentCreated: (bookingId: string, paymentId: string, amount: number, type?: string) => {
+    paymentCreated: (
+      bookingId: string,
+      paymentId: string,
+      amount: number,
+      type?: string
+    ) => {
       logActivity({
         bookingId,
         actionType: 'payment.created',
@@ -332,7 +379,11 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    paymentUpdated: (bookingId: string, paymentId: string, changes: Record<string, unknown>) => {
+    paymentUpdated: (
+      bookingId: string,
+      paymentId: string,
+      changes: Record<string, unknown>
+    ) => {
       logActivity({
         bookingId,
         actionType: 'payment.updated',
@@ -347,14 +398,20 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       logActivity({
         bookingId,
         actionType: 'payment.deleted',
-        actionLabel: amount ? `Paiement de ${amount.toLocaleString('fr-FR')} € supprimé` : ACTION_LABELS['payment.deleted'],
+        actionLabel: amount
+          ? `Paiement de ${amount.toLocaleString('fr-FR')} € supprimé`
+          : ACTION_LABELS['payment.deleted'],
         entityType: 'payment',
         entityId: paymentId,
         metadata: { amount },
       })
     },
 
-    paymentDepositSent: (bookingId: string, quoteId: string, amount: number) => {
+    paymentDepositSent: (
+      bookingId: string,
+      quoteId: string,
+      amount: number
+    ) => {
       logActivity({
         bookingId,
         actionType: 'payment.deposit_sent',
@@ -365,7 +422,11 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    paymentBalanceSent: (bookingId: string, quoteId: string, amount: number) => {
+    paymentBalanceSent: (
+      bookingId: string,
+      quoteId: string,
+      amount: number
+    ) => {
       logActivity({
         bookingId,
         actionType: 'payment.balance_sent',
@@ -376,7 +437,13 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    paymentReceived: (bookingId: string, paymentId: string, amount: number, method: string, actorType: ActorType = 'webhook') => {
+    paymentReceived: (
+      bookingId: string,
+      paymentId: string,
+      amount: number,
+      method: string,
+      actorType: ActorType = 'webhook'
+    ) => {
       logActivity({
         bookingId,
         actionType: 'payment.received',
@@ -390,7 +457,11 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
     },
 
     // Document actions
-    documentUploaded: (bookingId: string, documentId: string, documentName: string) => {
+    documentUploaded: (
+      bookingId: string,
+      documentId: string,
+      documentName: string
+    ) => {
       logActivity({
         bookingId,
         actionType: 'document.uploaded',
@@ -401,11 +472,17 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    documentDeleted: (bookingId: string, documentId: string, documentName?: string) => {
+    documentDeleted: (
+      bookingId: string,
+      documentId: string,
+      documentName?: string
+    ) => {
       logActivity({
         bookingId,
         actionType: 'document.deleted',
-        actionLabel: documentName ? `Document "${documentName}" supprimé` : ACTION_LABELS['document.deleted'],
+        actionLabel: documentName
+          ? `Document "${documentName}" supprimé`
+          : ACTION_LABELS['document.deleted'],
         entityType: 'document',
         entityId: documentId,
         metadata: { document_name: documentName },
@@ -413,11 +490,17 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
     },
 
     // Menu form actions
-    menuFormCreated: (bookingId: string, formId: string, formTitle?: string) => {
+    menuFormCreated: (
+      bookingId: string,
+      formId: string,
+      formTitle?: string
+    ) => {
       logActivity({
         bookingId,
         actionType: 'menu_form.created',
-        actionLabel: formTitle ? `Formulaire "${formTitle}" créé` : ACTION_LABELS['menu_form.created'],
+        actionLabel: formTitle
+          ? `Formulaire "${formTitle}" créé`
+          : ACTION_LABELS['menu_form.created'],
         entityType: 'menu_form',
         entityId: formId,
         metadata: { form_title: formTitle },
@@ -434,7 +517,11 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    menuFormSubmitted: (bookingId: string, formId: string, actorType: ActorType = 'client') => {
+    menuFormSubmitted: (
+      bookingId: string,
+      formId: string,
+      actorType: ActorType = 'client'
+    ) => {
       logActivity({
         bookingId,
         actionType: 'menu_form.submitted',
@@ -456,11 +543,17 @@ export function createActivityLogger(logActivity: ReturnType<typeof useLogActivi
       })
     },
 
-    menuFormDeleted: (bookingId: string, formId: string, formTitle?: string) => {
+    menuFormDeleted: (
+      bookingId: string,
+      formId: string,
+      formTitle?: string
+    ) => {
       logActivity({
         bookingId,
         actionType: 'menu_form.deleted',
-        actionLabel: formTitle ? `Formulaire "${formTitle}" supprimé` : ACTION_LABELS['menu_form.deleted'],
+        actionLabel: formTitle
+          ? `Formulaire "${formTitle}" supprimé`
+          : ACTION_LABELS['menu_form.deleted'],
         entityType: 'menu_form',
         entityId: formId,
         metadata: { form_title: formTitle },

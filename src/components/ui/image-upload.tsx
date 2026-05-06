@@ -2,8 +2,8 @@ import { useState, useRef } from 'react'
 import imageCompression from 'browser-image-compression'
 import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 interface ImageUploadProps {
   value?: string
@@ -51,7 +51,7 @@ export function ImageUpload({
       }
 
       const compressedFile = await imageCompression(file, options)
-      
+
       const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.webp`
 
       const { error: uploadError } = await supabase.storage
@@ -63,14 +63,14 @@ export function ImageUpload({
 
       if (uploadError) throw uploadError
 
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(fileName)
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(bucket).getPublicUrl(fileName)
 
       onChange(publicUrl)
     } catch (err) {
       console.error('Upload error:', err)
-      setError('Erreur lors de l\'upload')
+      setError("Erreur lors de l'upload")
     } finally {
       setIsUploading(false)
     }
@@ -117,7 +117,7 @@ export function ImageUpload({
   return (
     <div className={cn('space-y-2', className)}>
       {value ? (
-        <div className='relative group'>
+        <div className='group relative'>
           <img
             src={value}
             alt='Uploaded'
@@ -132,7 +132,7 @@ export function ImageUpload({
             type='button'
             variant='destructive'
             size='icon'
-            className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity'
+            className='absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100'
             onClick={handleRemove}
           >
             <X className='h-4 w-4' />
@@ -145,10 +145,13 @@ export function ImageUpload({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           className={cn(
-            'border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors',
-            isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50',
+            'cursor-pointer rounded-lg border-2 border-dashed p-4 text-center transition-colors',
+            isDragging
+              ? 'border-primary bg-primary/5'
+              : 'border-muted-foreground/25 hover:border-primary/50',
             isUploading && 'pointer-events-none opacity-50',
-            aspectRatio === 'square' && 'w-full aspect-square flex items-center justify-center'
+            aspectRatio === 'square' &&
+              'flex aspect-square w-full items-center justify-center'
           )}
         >
           <input
@@ -160,20 +163,41 @@ export function ImageUpload({
           />
           {isUploading ? (
             <div className='flex flex-col items-center gap-2'>
-              <Loader2 className={cn('animate-spin text-muted-foreground', aspectRatio === 'square' ? 'h-6 w-6' : 'h-8 w-8')} />
-              {aspectRatio !== 'square' && <p className='text-sm text-muted-foreground'>Compression et upload...</p>}
+              <Loader2
+                className={cn(
+                  'animate-spin text-muted-foreground',
+                  aspectRatio === 'square' ? 'h-6 w-6' : 'h-8 w-8'
+                )}
+              />
+              {aspectRatio !== 'square' && (
+                <p className='text-sm text-muted-foreground'>
+                  Compression et upload...
+                </p>
+              )}
             </div>
           ) : (
             <div className='flex flex-col items-center gap-1'>
               {isDragging ? (
-                <Upload className={cn('text-primary', aspectRatio === 'square' ? 'h-6 w-6' : 'h-8 w-8')} />
+                <Upload
+                  className={cn(
+                    'text-primary',
+                    aspectRatio === 'square' ? 'h-6 w-6' : 'h-8 w-8'
+                  )}
+                />
               ) : (
-                <ImageIcon className={cn('text-muted-foreground', aspectRatio === 'square' ? 'h-6 w-6' : 'h-8 w-8')} />
+                <ImageIcon
+                  className={cn(
+                    'text-muted-foreground',
+                    aspectRatio === 'square' ? 'h-6 w-6' : 'h-8 w-8'
+                  )}
+                />
               )}
               {aspectRatio !== 'square' && (
                 <>
                   <p className='text-sm text-muted-foreground'>{placeholder}</p>
-                  <p className='text-xs text-muted-foreground'>PNG, JPG, WebP (max {maxSizeMB}MB)</p>
+                  <p className='text-xs text-muted-foreground'>
+                    PNG, JPG, WebP (max {maxSizeMB}MB)
+                  </p>
                 </>
               )}
             </div>

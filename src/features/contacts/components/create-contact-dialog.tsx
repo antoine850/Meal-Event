@@ -52,7 +52,9 @@ type CreateContactDialogProps = {
   iconOnly?: boolean
 }
 
-export function CreateContactDialog({ iconOnly = false }: CreateContactDialogProps) {
+export function CreateContactDialog({
+  iconOnly = false,
+}: CreateContactDialogProps) {
   const [open, setOpen] = useState(false)
   const { mutate: createContact, isPending } = useCreateContact()
 
@@ -151,7 +153,11 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type='email' placeholder='jean@exemple.com' {...field} />
+                    <Input
+                      type='email'
+                      placeholder='jean@exemple.com'
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -252,11 +258,11 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder='Notes sur le contact...' 
-                      className='resize-none' 
+                    <Textarea
+                      placeholder='Notes sur le contact...'
+                      className='resize-none'
                       rows={3}
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -265,7 +271,11 @@ export function CreateContactDialog({ iconOnly = false }: CreateContactDialogPro
             />
 
             <DialogFooter>
-              <Button type='button' variant='outline' onClick={() => setOpen(false)}>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setOpen(false)}
+              >
                 Annuler
               </Button>
               <Button type='submit' disabled={isPending}>

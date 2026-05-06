@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/table'
 import { DataTablePagination } from '@/components/data-table'
 import type { BookingWithRelations } from '../hooks/use-bookings'
-import { buildBookingsColumns } from './bookings-columns'
 import { BookingsBulkActions } from './bookings-bulk-actions'
+import { buildBookingsColumns } from './bookings-columns'
 
 type OrgUser = { id: string; first_name: string; last_name: string }
 
@@ -31,11 +31,17 @@ type BookingsTableProps = {
   sorting?: SortingState
 }
 
-export function BookingsTable({ data, users, sorting: externalSorting }: BookingsTableProps) {
+export function BookingsTable({
+  data,
+  users,
+  sorting: externalSorting,
+}: BookingsTableProps) {
   const columns = useMemo(() => buildBookingsColumns(users), [users])
   const navigate = useNavigate()
   const [rowSelection, setRowSelection] = useState({})
-  const [sorting, setSorting] = useState<SortingState>(externalSorting || [{ id: 'event_date', desc: false }])
+  const [sorting, setSorting] = useState<SortingState>(
+    externalSorting || [{ id: 'event_date', desc: false }]
+  )
 
   useEffect(() => {
     if (externalSorting) setSorting(externalSorting)
@@ -93,7 +99,12 @@ export function BookingsTable({ data, users, sorting: externalSorting }: Booking
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
                   className='cursor-pointer'
-                  onClick={() => navigate({ to: '/evenements/booking/$id', params: { id: row.original.id } })}
+                  onClick={() =>
+                    navigate({
+                      to: '/evenements/booking/$id',
+                      params: { id: row.original.id },
+                    })
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

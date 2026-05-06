@@ -1,7 +1,14 @@
 import { useState } from 'react'
-import { Loader2, MoreHorizontal, Pencil, Plus, Trash2, Eye } from 'lucide-react'
-import { toast } from 'sonner'
 import { useNavigate } from '@tanstack/react-router'
+import {
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  Eye,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,14 +25,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useRestaurants, useDeleteRestaurant, type Restaurant } from '../hooks/use-settings'
+import {
+  useRestaurants,
+  useDeleteRestaurant,
+  type Restaurant,
+} from '../hooks/use-settings'
 import { RestaurantDialog } from './restaurant-dialog'
 
 export function RestaurantsSettings() {
   const navigate = useNavigate()
   const { data: restaurants = [], isLoading } = useRestaurants()
   const { mutate: deleteRestaurant } = useDeleteRestaurant()
-  const [editingRestaurant, setEditingRestaurant] = useState<Restaurant | null>(null)
+  const [editingRestaurant, setEditingRestaurant] = useState<Restaurant | null>(
+    null
+  )
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   const handleDelete = (id: string) => {
@@ -56,8 +69,8 @@ export function RestaurantsSettings() {
   }
 
   return (
-    <div className='flex flex-1 flex-col w-full'>
-      <div className='flex justify-end mb-4'>
+    <div className='flex w-full flex-1 flex-col'>
+      <div className='mb-4 flex justify-end'>
         <Button onClick={handleCreate}>
           <Plus className='mr-2 h-4 w-4' />
           Ajouter un restaurant
@@ -79,28 +92,44 @@ export function RestaurantsSettings() {
           <TableBody>
             {restaurants.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className='text-center text-muted-foreground py-8'>
+                <TableCell
+                  colSpan={6}
+                  className='py-8 text-center text-muted-foreground'
+                >
                   Aucun restaurant configuré
                 </TableCell>
               </TableRow>
             ) : (
               restaurants.map((restaurant) => (
-                <TableRow 
-                  key={restaurant.id} 
+                <TableRow
+                  key={restaurant.id}
                   className='cursor-pointer hover:bg-muted/50'
-                  onClick={() => navigate({ to: '/settings/restaurant/$id', params: { id: restaurant.id } })}
+                  onClick={() =>
+                    navigate({
+                      to: '/settings/restaurant/$id',
+                      params: { id: restaurant.id },
+                    })
+                  }
                 >
                   <TableCell>
                     <div
-                      className='w-6 h-6 rounded-full border'
+                      className='h-6 w-6 rounded-full border'
                       style={{ backgroundColor: restaurant.color || '#3b82f6' }}
                     />
                   </TableCell>
-                  <TableCell className='font-medium'>{restaurant.name}</TableCell>
-                  <TableCell className='hidden md:table-cell'>{restaurant.email || '-'}</TableCell>
-                  <TableCell className='hidden sm:table-cell'>{restaurant.phone || '-'}</TableCell>
+                  <TableCell className='font-medium'>
+                    {restaurant.name}
+                  </TableCell>
+                  <TableCell className='hidden md:table-cell'>
+                    {restaurant.email || '-'}
+                  </TableCell>
+                  <TableCell className='hidden sm:table-cell'>
+                    {restaurant.phone || '-'}
+                  </TableCell>
                   <TableCell>
-                    <Badge variant={restaurant.is_active ? 'success' : 'secondary'}>
+                    <Badge
+                      variant={restaurant.is_active ? 'success' : 'secondary'}
+                    >
                       {restaurant.is_active ? 'Actif' : 'Inactif'}
                     </Badge>
                   </TableCell>
@@ -112,11 +141,20 @@ export function RestaurantsSettings() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align='end'>
-                        <DropdownMenuItem onClick={() => navigate({ to: '/settings/restaurant/$id', params: { id: restaurant.id } })}>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            navigate({
+                              to: '/settings/restaurant/$id',
+                              params: { id: restaurant.id },
+                            })
+                          }
+                        >
                           <Eye className='mr-2 h-4 w-4' />
                           Voir les détails
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEdit(restaurant)}>
+                        <DropdownMenuItem
+                          onClick={() => handleEdit(restaurant)}
+                        >
                           <Pencil className='mr-2 h-4 w-4' />
                           Modifier
                         </DropdownMenuItem>

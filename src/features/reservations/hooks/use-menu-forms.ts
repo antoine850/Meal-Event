@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
-import type { MenuForm, MenuFormField, MenuFormResponse, BookingMenuForm } from '@/lib/supabase/types'
+import { supabase } from '@/lib/supabase'
+import type {
+  MenuForm,
+  MenuFormField,
+  MenuFormResponse,
+  BookingMenuForm,
+} from '@/lib/supabase/types'
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -34,13 +39,14 @@ export function useAllMenuForms() {
       const organizationId = await getCurrentOrganizationId()
       if (!organizationId) return []
 
-      const { data, error } = await (supabase
-        .from('menu_forms') as any)
-        .select(`
+      const { data, error } = await (supabase.from('menu_forms') as any)
+        .select(
+          `
           *,
           menu_form_fields(*),
           restaurants(id, name)
-        `)
+        `
+        )
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: false })
 
@@ -51,7 +57,9 @@ export function useAllMenuForms() {
 }
 
 // Get menu forms for a specific restaurant (includes forms with matching restaurant_id OR null restaurant_id)
-export function useMenuFormsByRestaurant(restaurantId: string | null | undefined) {
+export function useMenuFormsByRestaurant(
+  restaurantId: string | null | undefined
+) {
   return useQuery({
     queryKey: ['menu_forms', 'restaurant', restaurantId],
     enabled: !!restaurantId,
@@ -60,19 +68,19 @@ export function useMenuFormsByRestaurant(restaurantId: string | null | undefined
       if (!organizationId || !restaurantId) return []
 
       // Get forms for this specific restaurant OR global forms (restaurant_id is null)
-      const { data, error } = await (supabase
-        .from('menu_forms') as any)
+      const { data, error } = await (supabase.from('menu_forms') as any)
         .select('*, menu_form_fields(*), restaurants(id, name)')
         .eq('organization_id', organizationId)
         .order('title')
 
       if (error) throw error
-      
+
       // Filter client-side: forms for this restaurant OR global forms
-      const filtered = (data || []).filter((form: any) => 
-        form.restaurant_id === restaurantId || form.restaurant_id === null
+      const filtered = (data || []).filter(
+        (form: any) =>
+          form.restaurant_id === restaurantId || form.restaurant_id === null
       )
-      
+
       return filtered as MenuFormWithFields[]
     },
   })
@@ -84,8 +92,7 @@ export function useMenuFormFull(formId: string | null) {
     queryKey: ['menu_forms', formId],
     enabled: !!formId,
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('menu_forms') as any)
+      const { data, error } = await (supabase.from('menu_forms') as any)
         .select('*, menu_form_fields(*)')
         .eq('id', formId!)
         .single()
@@ -101,15 +108,18 @@ export function useCreateMenuForm() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ title, description, restaurantId }: { 
+    mutationFn: async ({
+      title,
+      description,
+      restaurantId,
+    }: {
       title: string
       description?: string
       restaurantId?: string | null
     }) => {
       const organizationId = await getCurrentOrganizationId()
 
-      const { data, error } = await (supabase
-        .from('menu_forms') as any)
+      const { data, error } = await (supabase.from('menu_forms') as any)
         .insert({
           organization_id: organizationId,
           restaurant_id: restaurantId || null,
@@ -135,8 +145,7 @@ export function useUpdateMenuForm() {
   return useMutation({
     mutationFn: async (updates: { id: string } & Partial<MenuForm>) => {
       const { id, ...rest } = updates
-      const { data, error } = await (supabase
-        .from('menu_forms') as any)
+      const { data, error } = await (supabase.from('menu_forms') as any)
         .update({ ...rest, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -157,8 +166,7 @@ export function useDeleteMenuForm() {
 
   return useMutation({
     mutationFn: async (formId: string) => {
-      const { error } = await (supabase
-        .from('menu_forms') as any)
+      const { error } = await (supabase.from('menu_forms') as any)
         .delete()
         .eq('id', formId)
 
@@ -180,12 +188,13 @@ export function useBookingMenuForms(bookingId: string | null) {
     queryKey: ['booking_menu_forms', 'booking', bookingId],
     enabled: !!bookingId,
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('booking_menu_forms') as any)
-        .select(`
+      const { data, error } = await (supabase.from('booking_menu_forms') as any)
+        .select(
+          `
           *,
           menu_forms(*, menu_form_fields(*))
-        `)
+        `
+        )
         .eq('booking_id', bookingId!)
         .order('created_at', { ascending: false })
 
@@ -200,13 +209,16 @@ export function useLinkMenuFormToBooking() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ bookingId, menuFormId, guestsCount }: { 
+    mutationFn: async ({
+      bookingId,
+      menuFormId,
+      guestsCount,
+    }: {
       bookingId: string
       menuFormId: string
       guestsCount: number
     }) => {
-      const { data, error } = await (supabase
-        .from('booking_menu_forms') as any)
+      const { data, error } = await (supabase.from('booking_menu_forms') as any)
         .insert({
           booking_id: bookingId,
           menu_form_id: menuFormId,
@@ -220,7 +232,9 @@ export function useLinkMenuFormToBooking() {
       return data as BookingMenuFormWithDetails
     },
     onSuccess: (_, { bookingId }) => {
-      queryClient.invalidateQueries({ queryKey: ['booking_menu_forms', 'booking', bookingId] })
+      queryClient.invalidateQueries({
+        queryKey: ['booking_menu_forms', 'booking', bookingId],
+      })
     },
   })
 }
@@ -230,10 +244,11 @@ export function useUpdateBookingMenuForm() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (updates: { id: string; bookingId: string } & Partial<BookingMenuForm>) => {
+    mutationFn: async (
+      updates: { id: string; bookingId: string } & Partial<BookingMenuForm>
+    ) => {
       const { id, bookingId, ...rest } = updates
-      const { data, error } = await (supabase
-        .from('booking_menu_forms') as any)
+      const { data, error } = await (supabase.from('booking_menu_forms') as any)
         .update({ ...rest, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
@@ -243,8 +258,12 @@ export function useUpdateBookingMenuForm() {
       return { ...data, bookingId } as BookingMenuForm & { bookingId: string }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['booking_menu_forms', 'booking', data.bookingId] })
-      queryClient.invalidateQueries({ queryKey: ['booking_menu_forms', 'token'] })
+      queryClient.invalidateQueries({
+        queryKey: ['booking_menu_forms', 'booking', data.bookingId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['booking_menu_forms', 'token'],
+      })
     },
   })
 }
@@ -254,9 +273,14 @@ export function useUnlinkMenuFormFromBooking() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, bookingId }: { id: string; bookingId: string }) => {
-      const { error } = await (supabase
-        .from('booking_menu_forms') as any)
+    mutationFn: async ({
+      id,
+      bookingId,
+    }: {
+      id: string
+      bookingId: string
+    }) => {
+      const { error } = await (supabase.from('booking_menu_forms') as any)
         .delete()
         .eq('id', id)
 
@@ -264,7 +288,9 @@ export function useUnlinkMenuFormFromBooking() {
       return { bookingId }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['booking_menu_forms', 'booking', data.bookingId] })
+      queryClient.invalidateQueries({
+        queryKey: ['booking_menu_forms', 'booking', data.bookingId],
+      })
     },
   })
 }
@@ -276,27 +302,31 @@ export function useBookingMenuFormByToken(token: string | null) {
     enabled: !!token,
     queryFn: async () => {
       // Fetch the booking_menu_form with form and fields
-      const { data: bmfData, error: bmfError } = await (supabase
-        .from('booking_menu_forms') as any)
-        .select(`
+      const { data: bmfData, error: bmfError } = await (
+        supabase.from('booking_menu_forms') as any
+      )
+        .select(
+          `
           *,
           menu_forms(*, menu_form_fields(*))
-        `)
+        `
+        )
         .eq('share_token', token!)
         .single()
 
       if (bmfError) throw bmfError
 
       // Fetch responses for this booking_menu_form
-      const { data: responses } = await (supabase
-        .from('menu_form_responses') as any)
+      const { data: responses } = await (
+        supabase.from('menu_form_responses') as any
+      )
         .select('*')
         .eq('booking_menu_form_id', bmfData.id)
 
       // Fetch the booking with contact information
-      const { data: bookingData } = await (supabase
-        .from('bookings') as any)
-        .select(`
+      const { data: bookingData } = await (supabase.from('bookings') as any)
+        .select(
+          `
           restaurant_id,
           event_date,
           start_time,
@@ -304,26 +334,30 @@ export function useBookingMenuFormByToken(token: string | null) {
           occasion,
           event_type,
           contact:contacts(first_name, last_name, email, phone)
-        `)
+        `
+        )
         .eq('id', bmfData.booking_id)
         .single()
 
       // Fetch the restaurant
       let restaurant = null
       if (bookingData?.restaurant_id) {
-        const { data: restaurantData } = await (supabase
-          .from('restaurants') as any)
-          .select('id, name, color, logo_url, address, city, postal_code, phone, email')
+        const { data: restaurantData } = await (
+          supabase.from('restaurants') as any
+        )
+          .select(
+            'id, name, color, logo_url, address, city, postal_code, phone, email'
+          )
           .eq('id', bookingData.restaurant_id)
           .single()
         restaurant = restaurantData
       }
 
-      return { 
-        ...bmfData, 
+      return {
+        ...bmfData,
         menu_form_responses: responses || [],
-        restaurant, 
-        booking: bookingData 
+        restaurant,
+        booking: bookingData,
       } as BookingMenuFormWithDetails & { restaurant: any; booking: any }
     },
   })
@@ -334,34 +368,42 @@ export function useSubmitBookingMenuForm() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ bookingMenuFormId, clientComment, responses }: {
+    mutationFn: async ({
+      bookingMenuFormId,
+      clientComment,
+      responses,
+    }: {
       bookingMenuFormId: string
       clientComment?: string
-      responses: { field_id: string; guest_index: number; value: string | null }[]
+      responses: {
+        field_id: string
+        guest_index: number
+        value: string | null
+      }[]
     }) => {
       // Delete existing responses for this booking_menu_form
-      await (supabase
-        .from('menu_form_responses') as any)
+      await (supabase.from('menu_form_responses') as any)
         .delete()
         .eq('booking_menu_form_id', bookingMenuFormId)
 
       // Insert new responses
       if (responses.length > 0) {
-        const { error: respError } = await (supabase
-          .from('menu_form_responses') as any)
-          .insert(responses.map(r => ({
+        const { error: respError } = await (
+          supabase.from('menu_form_responses') as any
+        ).insert(
+          responses.map((r) => ({
             booking_menu_form_id: bookingMenuFormId,
             field_id: r.field_id,
             guest_index: r.guest_index,
             value: r.value,
-          })))
+          }))
+        )
 
         if (respError) throw respError
       }
 
       // Update booking_menu_form status to submitted
-      const { data, error } = await (supabase
-        .from('booking_menu_forms') as any)
+      const { data, error } = await (supabase.from('booking_menu_forms') as any)
         .update({
           status: 'submitted',
           client_comment: clientComment || null,
@@ -389,7 +431,16 @@ export function useAddMenuFormField() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ menuFormId, label, description, fieldType, options, isPerPerson, isRequired, sortOrder }: {
+    mutationFn: async ({
+      menuFormId,
+      label,
+      description,
+      fieldType,
+      options,
+      isPerPerson,
+      isRequired,
+      sortOrder,
+    }: {
       menuFormId: string
       label: string
       description?: string | null
@@ -399,8 +450,7 @@ export function useAddMenuFormField() {
       isRequired?: boolean
       sortOrder?: number
     }) => {
-      const { data, error } = await (supabase
-        .from('menu_form_fields') as any)
+      const { data, error } = await (supabase.from('menu_form_fields') as any)
         .insert({
           menu_form_id: menuFormId,
           label,
@@ -429,8 +479,7 @@ export function useUpdateMenuFormField() {
   return useMutation({
     mutationFn: async (updates: { id: string } & Partial<MenuFormField>) => {
       const { id, ...rest } = updates
-      const { data, error } = await (supabase
-        .from('menu_form_fields') as any)
+      const { data, error } = await (supabase.from('menu_form_fields') as any)
         .update(rest)
         .eq('id', id)
         .select()
@@ -450,8 +499,7 @@ export function useDeleteMenuFormField() {
 
   return useMutation({
     mutationFn: async (fieldId: string) => {
-      const { error } = await (supabase
-        .from('menu_form_fields') as any)
+      const { error } = await (supabase.from('menu_form_fields') as any)
         .delete()
         .eq('id', fieldId)
 

@@ -1,8 +1,6 @@
 import { useCallback, useState } from 'react'
-import { toast } from 'sonner'
 import { Loader2, Package, Plus, ShoppingCart } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   type ProductWithRestaurants,
   type PackageWithRelations,
@@ -22,10 +22,10 @@ import {
   useDeletePackage,
 } from '../hooks/use-products'
 import { useRestaurants } from '../hooks/use-settings'
-import { ProductDialog } from './product-dialog'
 import { PackageDialog } from './package-dialog'
-import { ProductsTable } from './products-table'
 import { PackagesTable } from './packages-table'
+import { ProductDialog } from './product-dialog'
+import { ProductsTable } from './products-table'
 
 export function ProductsPage() {
   const { data: products = [], isLoading: isLoadingProducts } = useProducts()
@@ -36,15 +36,22 @@ export function ProductsPage() {
 
   // Product dialog state
   const [productDialogOpen, setProductDialogOpen] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<ProductWithRestaurants | null>(null)
-  const [duplicatingProduct, setDuplicatingProduct] = useState<ProductWithRestaurants | null>(null)
+  const [editingProduct, setEditingProduct] =
+    useState<ProductWithRestaurants | null>(null)
+  const [duplicatingProduct, setDuplicatingProduct] =
+    useState<ProductWithRestaurants | null>(null)
 
   // Package dialog state
   const [packageDialogOpen, setPackageDialogOpen] = useState(false)
-  const [editingPackage, setEditingPackage] = useState<PackageWithRelations | null>(null)
+  const [editingPackage, setEditingPackage] =
+    useState<PackageWithRelations | null>(null)
 
   // Delete dialog state
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'product' | 'package'; id: string; name: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'product' | 'package'
+    id: string
+    name: string
+  } | null>(null)
 
   const handleNewProduct = () => {
     setEditingProduct(null)
@@ -58,11 +65,14 @@ export function ProductsPage() {
     setProductDialogOpen(true)
   }, [])
 
-  const handleDuplicateProduct = useCallback((product: ProductWithRestaurants) => {
-    setEditingProduct(null)
-    setDuplicatingProduct(product)
-    setProductDialogOpen(true)
-  }, [])
+  const handleDuplicateProduct = useCallback(
+    (product: ProductWithRestaurants) => {
+      setEditingProduct(null)
+      setDuplicatingProduct(product)
+      setProductDialogOpen(true)
+    },
+    []
+  )
 
   const handleDeleteProduct = useCallback((product: ProductWithRestaurants) => {
     setDeleteTarget({ type: 'product', id: product.id, name: product.name })
@@ -111,7 +121,7 @@ export function ProductsPage() {
   return (
     <>
       <Tabs defaultValue='products'>
-        <div className='flex items-center justify-between mb-4'>
+        <div className='mb-4 flex items-center justify-between'>
           <TabsList>
             <TabsTrigger value='products' className='gap-1.5'>
               <ShoppingCart className='h-4 w-4' />
@@ -175,17 +185,27 @@ export function ProductsPage() {
       />
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer {deleteTarget?.type === 'product' ? 'le produit' : 'le package'} ?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Supprimer{' '}
+              {deleteTarget?.type === 'product' ? 'le produit' : 'le package'} ?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Supprimer &quot;{deleteTarget?.name}&quot; ? Cette action est irréversible.
+              Supprimer &quot;{deleteTarget?.name}&quot; ? Cette action est
+              irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
+            >
               Supprimer
             </AlertDialogAction>
           </AlertDialogFooter>

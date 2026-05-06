@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { Check, Loader2, LogIn, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
-import { apiClient } from '@/lib/api-client'
 import { Logo } from '@/assets/logo'
+import { apiClient } from '@/lib/api-client'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Form,
   FormControl,
@@ -23,7 +29,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const signUpSchema = z.object({
   email: z.string().email('Email invalide'),
-  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
+  password: z
+    .string()
+    .min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
   first_name: z.string().min(1, 'Le prénom est requis'),
   last_name: z.string().optional(),
   phone: z.string().optional(),
@@ -49,7 +57,9 @@ export function AcceptInvite() {
   const search = useSearch({ strict: false }) as { token?: string }
   const token = search.token || ''
 
-  const [status, setStatus] = useState<'loading' | 'auth' | 'profile' | 'accepting' | 'success' | 'error'>('loading')
+  const [status, setStatus] = useState<
+    'loading' | 'auth' | 'profile' | 'accepting' | 'success' | 'error'
+  >('loading')
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [invitationEmail, setInvitationEmail] = useState('')
@@ -57,7 +67,13 @@ export function AcceptInvite() {
 
   const signUpForm = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { email: '', password: '', first_name: '', last_name: '', phone: '' },
+    defaultValues: {
+      email: '',
+      password: '',
+      first_name: '',
+      last_name: '',
+      phone: '',
+    },
   })
 
   const signInForm = useForm<SignInFormData>({
@@ -80,7 +96,13 @@ export function AcceptInvite() {
 
     const init = async () => {
       // Fetch invitation details via public API (no auth required)
-      let inv: { email: string; status: string; expires_at: string; organization_name: string | null; is_expired: boolean }
+      let inv: {
+        email: string
+        status: string
+        expires_at: string
+        organization_name: string | null
+        is_expired: boolean
+      }
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
         const response = await fetch(`${API_URL}/api/invitations/${token}`)
@@ -114,7 +136,9 @@ export function AcceptInvite() {
       signInForm.setValue('email', inv.email)
 
       // Check if user is already authenticated
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
       if (session) {
         // User is logged in — check if email matches
@@ -144,10 +168,13 @@ export function AcceptInvite() {
     }
 
     init()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  const acceptInvitation = async (invToken: string, profileData?: { first_name: string; last_name?: string; phone?: string }) => {
+  const acceptInvitation = async (
+    invToken: string,
+    profileData?: { first_name: string; last_name?: string; phone?: string }
+  ) => {
     setStatus('accepting')
     try {
       await apiClient('/api/members/accept-invite', {
@@ -186,7 +213,9 @@ export function AcceptInvite() {
       }
 
       // After sign up, try to accept immediately (Supabase might auto-confirm)
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       if (session) {
         await acceptInvitation(token, {
           first_name: values.first_name,
@@ -195,9 +224,13 @@ export function AcceptInvite() {
         })
       } else {
         // Email confirmation required — tell user to check email
-        toast.success('Vérifiez votre email pour confirmer votre compte, puis revenez sur ce lien.')
+        toast.success(
+          'Vérifiez votre email pour confirmer votre compte, puis revenez sur ce lien.'
+        )
         setStatus('error')
-        setErrorMessage('Vérifiez votre email pour confirmer votre compte, puis cliquez à nouveau sur le lien d\'invitation.')
+        setErrorMessage(
+          "Vérifiez votre email pour confirmer votre compte, puis cliquez à nouveau sur le lien d'invitation."
+        )
       }
     } catch (err: any) {
       toast.error(err.message || 'Erreur lors de la création du compte')
@@ -224,7 +257,9 @@ export function AcceptInvite() {
       }
 
       // Check if user already has a profile
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
       if (!session) throw new Error('Session non trouvée')
 
       const { data: existingUser } = await supabase
@@ -255,15 +290,18 @@ export function AcceptInvite() {
   }
 
   return (
-    <div className='min-h-svh bg-muted/30 flex flex-col'>
+    <div className='flex min-h-svh flex-col bg-muted/30'>
       <header className='border-b bg-background px-6 py-4'>
-        <Link to='/sign-in' className='flex items-center gap-2 hover:opacity-80 transition-opacity'>
+        <Link
+          to='/sign-in'
+          className='flex items-center gap-2 transition-opacity hover:opacity-80'
+        >
           <Logo className='h-8 w-8' />
           <span className='text-xl font-bold'>MealEvent</span>
         </Link>
       </header>
 
-      <main className='flex-1 flex items-center justify-center p-6'>
+      <main className='flex flex-1 items-center justify-center p-6'>
         <Card className='w-full max-w-lg'>
           {status === 'loading' && (
             <CardContent className='flex items-center justify-center py-16'>
@@ -272,9 +310,11 @@ export function AcceptInvite() {
           )}
 
           {status === 'accepting' && (
-            <CardContent className='flex flex-col items-center justify-center py-16 gap-3'>
+            <CardContent className='flex flex-col items-center justify-center gap-3 py-16'>
               <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
-              <p className='text-sm text-muted-foreground'>Traitement en cours...</p>
+              <p className='text-sm text-muted-foreground'>
+                Traitement en cours...
+              </p>
             </CardContent>
           )}
 
@@ -284,11 +324,14 @@ export function AcceptInvite() {
                 <div className='mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10'>
                   <UserPlus className='h-6 w-6 text-primary' />
                 </div>
-                <CardTitle className='text-center'>Rejoindre {orgName}</CardTitle>
+                <CardTitle className='text-center'>
+                  Rejoindre {orgName}
+                </CardTitle>
                 <CardDescription className='text-center'>
-                  Vous avez été invité(e) à rejoindre <strong>{orgName}</strong> sur MealEvent.
+                  Vous avez été invité(e) à rejoindre <strong>{orgName}</strong>{' '}
+                  sur MealEvent.
                   {invitationEmail && (
-                    <span className='block mt-1 text-xs'>
+                    <span className='mt-1 block text-xs'>
                       Invitation pour : <strong>{invitationEmail}</strong>
                     </span>
                   )}
@@ -298,18 +341,21 @@ export function AcceptInvite() {
                 <Tabs defaultValue='signin' className='w-full'>
                   <TabsList className='grid w-full grid-cols-2'>
                     <TabsTrigger value='signin'>
-                      <LogIn className='h-3.5 w-3.5 mr-1.5' />
+                      <LogIn className='mr-1.5 h-3.5 w-3.5' />
                       Se connecter
                     </TabsTrigger>
                     <TabsTrigger value='signup'>
-                      <UserPlus className='h-3.5 w-3.5 mr-1.5' />
+                      <UserPlus className='mr-1.5 h-3.5 w-3.5' />
                       Créer un compte
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value='signin' className='mt-4'>
                     <Form {...signInForm}>
-                      <form onSubmit={signInForm.handleSubmit(handleSignIn)} className='space-y-4'>
+                      <form
+                        onSubmit={signInForm.handleSubmit(handleSignIn)}
+                        className='space-y-4'
+                      >
                         <FormField
                           control={signInForm.control}
                           name='email'
@@ -336,8 +382,14 @@ export function AcceptInvite() {
                             </FormItem>
                           )}
                         />
-                        <Button type='submit' className='w-full' disabled={isSubmitting}>
-                          {isSubmitting ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
+                        <Button
+                          type='submit'
+                          className='w-full'
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                          ) : null}
                           Se connecter et rejoindre
                         </Button>
                       </form>
@@ -346,7 +398,10 @@ export function AcceptInvite() {
 
                   <TabsContent value='signup' className='mt-4'>
                     <Form {...signUpForm}>
-                      <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className='space-y-4'>
+                      <form
+                        onSubmit={signUpForm.handleSubmit(handleSignUp)}
+                        className='space-y-4'
+                      >
                         <FormField
                           control={signUpForm.control}
                           name='email'
@@ -367,7 +422,11 @@ export function AcceptInvite() {
                             <FormItem>
                               <FormLabel>Mot de passe</FormLabel>
                               <FormControl>
-                                <Input type='password' placeholder='8 caractères minimum' {...field} />
+                                <Input
+                                  type='password'
+                                  placeholder='8 caractères minimum'
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -408,14 +467,23 @@ export function AcceptInvite() {
                             <FormItem>
                               <FormLabel>Téléphone (optionnel)</FormLabel>
                               <FormControl>
-                                <Input placeholder='+33 6 12 34 56 78' {...field} />
+                                <Input
+                                  placeholder='+33 6 12 34 56 78'
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        <Button type='submit' className='w-full' disabled={isSubmitting}>
-                          {isSubmitting ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
+                        <Button
+                          type='submit'
+                          className='w-full'
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                          ) : null}
                           Créer mon compte et rejoindre
                         </Button>
                       </form>
@@ -432,14 +500,20 @@ export function AcceptInvite() {
                 <div className='mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10'>
                   <UserPlus className='h-6 w-6 text-primary' />
                 </div>
-                <CardTitle className='text-center'>Complétez votre profil</CardTitle>
+                <CardTitle className='text-center'>
+                  Complétez votre profil
+                </CardTitle>
                 <CardDescription className='text-center'>
-                  Quelques informations pour finaliser votre inscription à <strong>{orgName}</strong>
+                  Quelques informations pour finaliser votre inscription à{' '}
+                  <strong>{orgName}</strong>
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Form {...profileForm}>
-                  <form onSubmit={profileForm.handleSubmit(handleProfileSubmit)} className='space-y-4'>
+                  <form
+                    onSubmit={profileForm.handleSubmit(handleProfileSubmit)}
+                    className='space-y-4'
+                  >
                     <div className='grid grid-cols-2 gap-4'>
                       <FormField
                         control={profileForm.control}
@@ -481,8 +555,14 @@ export function AcceptInvite() {
                         </FormItem>
                       )}
                     />
-                    <Button type='submit' className='w-full' disabled={isSubmitting}>
-                      {isSubmitting ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
+                    <Button
+                      type='submit'
+                      className='w-full'
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      ) : null}
                       Rejoindre l'organisation
                     </Button>
                   </form>

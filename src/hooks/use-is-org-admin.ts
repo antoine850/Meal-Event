@@ -5,7 +5,9 @@ export function useIsOrgAdmin() {
   return useQuery({
     queryKey: ['is-org-admin'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) return false
       const { data } = await supabase
         .from('users')

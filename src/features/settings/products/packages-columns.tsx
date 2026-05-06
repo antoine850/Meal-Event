@@ -49,19 +49,21 @@ export function getPackagesColumns({
       cell: ({ row }) => (
         <div className='flex flex-col'>
           <div className='flex items-center gap-2'>
-            <span className='font-medium text-sm'>{row.original.name}</span>
+            <span className='text-sm font-medium'>{row.original.name}</span>
             {!row.original.is_active && (
-              <Badge variant='secondary' className='text-[10px]'>Inactif</Badge>
+              <Badge variant='secondary' className='text-[10px]'>
+                Inactif
+              </Badge>
             )}
             {row.original.price_per_person && (
-              <Badge variant='outline' className='text-[10px] gap-0.5'>
+              <Badge variant='outline' className='gap-0.5 text-[10px]'>
                 <Users className='h-2.5 w-2.5' />
                 Par pers.
               </Badge>
             )}
           </div>
           {row.original.description && (
-            <span className='text-xs text-muted-foreground truncate max-w-[300px]'>
+            <span className='max-w-[300px] truncate text-xs text-muted-foreground'>
               {row.original.description}
             </span>
           )}
@@ -97,9 +99,10 @@ export function getPackagesColumns({
         <DataTableColumnHeader column={column} title='Total produits' />
       ),
       cell: ({ row }) => {
-        const totalHt = row.original.package_products?.reduce((sum, pp) => {
-          return sum + ((pp.product as any)?.unit_price_ht || 0) * pp.quantity
-        }, 0) || 0
+        const totalHt =
+          row.original.package_products?.reduce((sum, pp) => {
+            return sum + ((pp.product as any)?.unit_price_ht || 0) * pp.quantity
+          }, 0) || 0
         return (
           <span className='text-sm text-muted-foreground tabular-nums'>
             {totalHt.toFixed(2)} €
@@ -123,16 +126,18 @@ export function getPackagesColumns({
     },
     {
       id: 'restaurants',
-      accessorFn: (row) => row.package_restaurants?.map(pr => pr.restaurant_id) || [],
+      accessorFn: (row) =>
+        row.package_restaurants?.map((pr) => pr.restaurant_id) || [],
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title='Restaurants' />
       ),
       cell: ({ row }) => {
         const prs = row.original.package_restaurants
-        if (!prs || prs.length === 0) return <span className='text-muted-foreground'>—</span>
+        if (!prs || prs.length === 0)
+          return <span className='text-muted-foreground'>—</span>
         return (
           <div className='flex items-center gap-1.5'>
-            {prs.map(pr => (
+            {prs.map((pr) => (
               <div
                 key={pr.restaurant_id}
                 className='h-2.5 w-2.5 rounded-full'
@@ -144,7 +149,8 @@ export function getPackagesColumns({
         )
       },
       filterFn: (row, _id, value) => {
-        const restaurantIds = row.original.package_restaurants?.map(pr => pr.restaurant_id) || []
+        const restaurantIds =
+          row.original.package_restaurants?.map((pr) => pr.restaurant_id) || []
         return value.some((v: string) => restaurantIds.includes(v))
       },
       meta: { className: 'min-w-[100px]' },
@@ -167,7 +173,10 @@ export function getPackagesColumns({
             size='icon'
             variant='ghost'
             className='h-7 w-7'
-            onClick={(e) => { e.stopPropagation(); onEdit(row.original) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(row.original)
+            }}
             title='Modifier'
           >
             <Edit className='h-3.5 w-3.5' />
@@ -176,7 +185,10 @@ export function getPackagesColumns({
             size='icon'
             variant='ghost'
             className='h-7 w-7 text-destructive hover:text-destructive'
-            onClick={(e) => { e.stopPropagation(); onDelete(row.original) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(row.original)
+            }}
             title='Supprimer'
           >
             <Trash2 className='h-3.5 w-3.5' />

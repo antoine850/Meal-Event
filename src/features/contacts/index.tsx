@@ -1,31 +1,33 @@
 import { useMemo, useCallback, useState } from 'react'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { type DateRange } from 'react-day-picker'
-import { type SortingState } from '@tanstack/react-table'
-import { useSearch, useNavigate } from '@tanstack/react-router'
 import { Cross2Icon } from '@radix-ui/react-icons'
+import { useSearch, useNavigate } from '@tanstack/react-router'
+import { type SortingState } from '@tanstack/react-table'
 import { Loader2 } from 'lucide-react'
+import { type DateRange } from 'react-day-picker'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { DateFilter, FacetedFilter } from '@/components/data-table'
-import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ConfigDrawer } from '@/components/config-drawer'
+import { DateFilter, FacetedFilter } from '@/components/data-table'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
+import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { useCompanies } from '../companies/hooks/use-companies'
 import { ContactsTable } from './components/contacts-table'
 import { CreateContactDialog } from './components/create-contact-dialog'
 import { useContacts, useOrganizationUsers } from './hooks/use-contacts'
-import { useCompanies } from '../companies/hooks/use-companies'
-
 
 export function Contacts() {
   const search = useSearch({ from: '/_authenticated/contacts/' })
   const navigate = useNavigate({ from: '/contacts' })
 
   const dateRange: DateRange | undefined = search.from
-    ? { from: new Date(search.from), to: search.to ? new Date(search.to) : undefined }
+    ? {
+        from: new Date(search.from),
+        to: search.to ? new Date(search.to) : undefined,
+      }
     : undefined
 
   const setSearch = useCallback(
@@ -33,7 +35,7 @@ export function Contacts() {
       navigate({
         search: (prev: Record<string, unknown>) => {
           const next = { ...prev, ...updates } as Record<string, unknown>
-          Object.keys(next).forEach(k => {
+          Object.keys(next).forEach((k) => {
             if (next[k] === undefined || next[k] === '') delete next[k]
           })
           return next
@@ -43,8 +45,6 @@ export function Contacts() {
     },
     [navigate]
   )
-
-
 
   const setDateRange = useCallback(
     (range: DateRange | undefined) => {
@@ -61,29 +61,33 @@ export function Contacts() {
     [setSearch]
   )
 
-  const onResetFilters = useCallback(
-    () => {
-      setSearchValue('')
-      setSelectedCommercials(new Set())
-      setSelectedCompanies(new Set())
-      setSelectedSources(new Set())
-      navigate({
-        search: () => ({} as Record<string, unknown>),
-        replace: true,
-      })
-    },
-    [navigate]
-  )
+  const onResetFilters = useCallback(() => {
+    setSearchValue('')
+    setSelectedCommercials(new Set())
+    setSelectedCompanies(new Set())
+    setSelectedSources(new Set())
+    navigate({
+      search: () => ({}) as Record<string, unknown>,
+      replace: true,
+    })
+  }, [navigate])
 
   const [searchValue, setSearchValue] = useState(search.q || '')
   // Valeur débouncée utilisée pour le filtrage effectif (évite un re-render par frappe sur gros volume)
   const debouncedSearchValue = useDebouncedValue(searchValue, 150)
 
-  const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(new Set())
-  const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
+  const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(
+    new Set()
+  )
+  const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(
+    new Set()
+  )
   const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set())
   const [sortValue, setSortValue] = useState('created_at:desc')
-  const tableSorting: SortingState = useMemo(() => [parseSortValue(sortValue)], [sortValue])
+  const tableSorting: SortingState = useMemo(
+    () => [parseSortValue(sortValue)],
+    [sortValue]
+  )
 
   const contactSortOptions = [
     { label: 'Date de création (récent)', value: 'created_at:desc' },
@@ -98,54 +102,79 @@ export function Contacts() {
   const { data: companies = [] } = useCompanies()
 
   const sourceOptions = useMemo(() => {
-    const sources = new Set(contacts.map(c => c.source).filter(Boolean) as string[])
-    return Array.from(sources).sort().map(s => ({ label: s, value: s }))
+    const sources = new Set(
+      contacts.map((c) => c.source).filter(Boolean) as string[]
+    )
+    return Array.from(sources)
+      .sort()
+      .map((s) => ({ label: s, value: s }))
   }, [contacts])
 
-  const hasActiveFilters = !!(search.q || search.from || search.to || selectedCommercials.size || selectedSources.size)
-
+  const hasActiveFilters = !!(
+    search.q ||
+    search.from ||
+    search.to ||
+    selectedCommercials.size ||
+    selectedSources.size
+  )
 
   const filteredContacts = useMemo(() => {
     let result = contacts
-    
-    
+
     if (dateRange?.from) {
       const fromDate = new Date(dateRange.from)
       fromDate.setHours(0, 0, 0, 0)
-      result = result.filter(c => c.created_at && new Date(c.created_at) >= fromDate)
+      result = result.filter(
+        (c) => c.created_at && new Date(c.created_at) >= fromDate
+      )
     }
 
     if (dateRange?.to) {
       const toDate = new Date(dateRange.to)
       toDate.setHours(23, 59, 59, 999)
-      result = result.filter(c => c.created_at && new Date(c.created_at) <= toDate)
+      result = result.filter(
+        (c) => c.created_at && new Date(c.created_at) <= toDate
+      )
     }
 
     if (debouncedSearchValue) {
       const q = debouncedSearchValue.toLowerCase()
-      result = result.filter((c: any) =>
-        (c.first_name || '').toLowerCase().includes(q) ||
-        (c.last_name || '').toLowerCase().includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.company?.name || '').toLowerCase().includes(q)
+      result = result.filter(
+        (c: any) =>
+          (c.first_name || '').toLowerCase().includes(q) ||
+          (c.last_name || '').toLowerCase().includes(q) ||
+          (c.email || '').toLowerCase().includes(q) ||
+          (c.company?.name || '').toLowerCase().includes(q)
       )
     }
 
     if (selectedCommercials.size > 0) {
-      result = result.filter((c: any) => c.assigned_to && selectedCommercials.has(c.assigned_to))
+      result = result.filter(
+        (c: any) => c.assigned_to && selectedCommercials.has(c.assigned_to)
+      )
     }
 
     if (selectedCompanies.size > 0) {
-      result = result.filter((c: any) => c.company_id && selectedCompanies.has(c.company_id))
+      result = result.filter(
+        (c: any) => c.company_id && selectedCompanies.has(c.company_id)
+      )
     }
-
 
     if (selectedSources.size > 0) {
-      result = result.filter((c: any) => c.source && selectedSources.has(c.source))
+      result = result.filter(
+        (c: any) => c.source && selectedSources.has(c.source)
+      )
     }
-    
+
     return result
-  }, [contacts, dateRange, debouncedSearchValue, selectedCommercials, selectedCompanies, selectedSources])
+  }, [
+    contacts,
+    dateRange,
+    debouncedSearchValue,
+    selectedCommercials,
+    selectedCompanies,
+    selectedSources,
+  ])
 
   const isLoading = isLoadingContacts
 
@@ -169,7 +198,6 @@ export function Contacts() {
       </Header>
 
       <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
-
         <div className='flex flex-wrap items-center gap-2'>
           <Input
             placeholder='Rechercher par nom, contact ou email...'
@@ -181,20 +209,26 @@ export function Contacts() {
             className='h-8 w-full sm:w-[200px] lg:w-[250px]'
           />
           <div className='flex flex-wrap gap-2'>
-            <DateFilter 
-              value={dateRange} 
-              onChange={setDateRange} 
+            <DateFilter
+              value={dateRange}
+              onChange={setDateRange}
               placeholder='Date de création'
             />
             <FacetedFilter
               title='Commercial'
-              options={users.map(u => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
+              options={users.map((u) => ({
+                label: `${u.first_name} ${u.last_name}`,
+                value: u.id,
+              }))}
               selected={selectedCommercials}
               onSelectionChange={setSelectedCommercials}
             />
             <FacetedFilter
               title='Société'
-              options={companies.map((c: any) => ({ label: c.name, value: c.id }))}
+              options={companies.map((c: any) => ({
+                label: c.name,
+                value: c.id,
+              }))}
               selected={selectedCompanies}
               onSelectionChange={setSelectedCompanies}
             />
@@ -216,11 +250,15 @@ export function Contacts() {
             </Button>
           )}
           <div className='ml-auto flex items-center gap-2'>
-            <SortSelect options={contactSortOptions} value={sortValue} onChange={setSortValue} />
+            <SortSelect
+              options={contactSortOptions}
+              value={sortValue}
+              onChange={setSortValue}
+            />
             <CreateContactDialog iconOnly />
           </div>
         </div>
-        
+
         <ContactsTable data={filteredContacts} sorting={tableSorting} />
       </Main>
     </>

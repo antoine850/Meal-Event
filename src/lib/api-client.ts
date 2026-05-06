@@ -3,8 +3,8 @@ import { supabase } from '@/lib/supabase'
 // In development, use Vite proxy (same-origin, no CORS issues)
 // In production, use the configured API URL
 const API_BASE_URL = import.meta.env.DEV
-  ? ''  // Empty = same origin, goes through Vite proxy
-  : (import.meta.env.VITE_API_URL || 'http://localhost:3001')
+  ? '' // Empty = same origin, goes through Vite proxy
+  : import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 export async function apiClient<T = any>(
   path: string,
@@ -16,7 +16,9 @@ export async function apiClient<T = any>(
   const { method = 'GET', body } = options
 
   // Get the current session token for authenticated API calls
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
@@ -31,7 +33,9 @@ export async function apiClient<T = any>(
   })
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+    const errorData = await response
+      .json()
+      .catch(() => ({ error: 'Unknown error' }))
     throw new Error(errorData.error || `API error: ${response.status}`)
   }
 

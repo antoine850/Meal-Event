@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
+import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -22,11 +22,21 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { useCreateStatus, useUpdateStatus, type Status } from '../hooks/use-settings'
+import {
+  useCreateStatus,
+  useUpdateStatus,
+  type Status,
+} from '../hooks/use-settings'
 
 const statusSchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
-  slug: z.string().min(1, 'Le slug est requis').regex(/^[a-z0-9_]+$/, 'Uniquement lettres minuscules, chiffres et underscores'),
+  slug: z
+    .string()
+    .min(1, 'Le slug est requis')
+    .regex(
+      /^[a-z0-9_]+$/,
+      'Uniquement lettres minuscules, chiffres et underscores'
+    ),
   color: z.string().min(1, 'La couleur est requise'),
   position: z.number().min(1, 'La position est requise'),
 })
@@ -40,7 +50,12 @@ interface StatusDialogProps {
   type: 'contact' | 'booking'
 }
 
-export function StatusDialog({ open, onOpenChange, status, type }: StatusDialogProps) {
+export function StatusDialog({
+  open,
+  onOpenChange,
+  status,
+  type,
+}: StatusDialogProps) {
   const { mutate: createStatus, isPending: isCreating } = useCreateStatus()
   const { mutate: updateStatus, isPending: isUpdating } = useUpdateStatus()
   const isPending = isCreating || isUpdating
@@ -169,7 +184,11 @@ export function StatusDialog({ open, onOpenChange, status, type }: StatusDialogP
                     <FormLabel>Couleur *</FormLabel>
                     <FormControl>
                       <div className='flex gap-2'>
-                        <Input type='color' className='w-12 h-10 p-1' {...field} />
+                        <Input
+                          type='color'
+                          className='h-10 w-12 p-1'
+                          {...field}
+                        />
                         <Input {...field} className='flex-1' />
                       </div>
                     </FormControl>
@@ -188,7 +207,9 @@ export function StatusDialog({ open, onOpenChange, status, type }: StatusDialogP
                         type='number'
                         min={1}
                         {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value) || 1)
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -198,7 +219,11 @@ export function StatusDialog({ open, onOpenChange, status, type }: StatusDialogP
             </div>
 
             <DialogFooter>
-              <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => onOpenChange(false)}
+              >
                 Annuler
               </Button>
               <Button type='submit' disabled={isPending}>

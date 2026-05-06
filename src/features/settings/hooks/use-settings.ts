@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
 
 // ============================================
 // Organization
@@ -221,7 +221,10 @@ export function useCreateRestaurant() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
-      const slug = generateSlug(restaurant.name || 'restaurant') + '-' + Date.now().toString(36)
+      const slug =
+        generateSlug(restaurant.name || 'restaurant') +
+        '-' +
+        Date.now().toString(36)
 
       const { data, error } = await supabase
         .from('restaurants')
@@ -243,7 +246,10 @@ export function useUpdateRestaurant() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Restaurant> & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...updates
+    }: Partial<Restaurant> & { id: string }) => {
       const { data, error } = await supabase
         .from('restaurants')
         .update(updates as never)
@@ -266,16 +272,19 @@ export function useDeleteRestaurant() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('restaurants')
-        .delete()
-        .eq('id', id)
+      const { error } = await supabase.from('restaurants').delete().eq('id', id)
 
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings-restaurants'], refetchType: 'all' })
-      queryClient.invalidateQueries({ queryKey: ['restaurants'], refetchType: 'all' })
+      queryClient.invalidateQueries({
+        queryKey: ['settings-restaurants'],
+        refetchType: 'all',
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['restaurants'],
+        refetchType: 'all',
+      })
     },
   })
 }
@@ -315,7 +324,9 @@ export function useSpaces(restaurantId?: string) {
       const { data, error } = await query.order('name', { ascending: true })
 
       if (error) throw error
-      return data as (Space & { restaurant: { id: string; name: string } | null })[]
+      return data as (Space & {
+        restaurant: { id: string; name: string } | null
+      })[]
     },
   })
 }
@@ -369,10 +380,7 @@ export function useDeleteSpace() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('spaces')
-        .delete()
-        .eq('id', id)
+      const { error } = await supabase.from('spaces').delete().eq('id', id)
 
       if (error) throw error
     },
@@ -452,7 +460,10 @@ export function useUpdateStatus() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Status> & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...updates
+    }: Partial<Status> & { id: string }) => {
       const { data, error } = await supabase
         .from('statuses')
         .update(updates as never)
@@ -476,10 +487,7 @@ export function useDeleteStatus() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('statuses')
-        .delete()
-        .eq('id', id)
+      const { error } = await supabase.from('statuses').delete().eq('id', id)
 
       if (error) throw error
     },

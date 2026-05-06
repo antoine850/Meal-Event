@@ -1,9 +1,6 @@
 import { useState, useRef } from 'react'
 import { useParams, Link } from '@tanstack/react-router'
 import { ArrowLeft, Loader2, User, Calendar, Save, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,14 +11,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { ContactDetail } from './contact-detail'
-import { useContact } from '../hooks/use-contacts'
 import { useBookingsByContact } from '@/features/reservations/hooks/use-bookings'
+import { useContact } from '../hooks/use-contacts'
+import { ContactDetail } from './contact-detail'
 
 export function ContactDetailPage() {
   const { id } = useParams({ from: '/_authenticated/contacts/contact/$id' })
@@ -30,7 +30,10 @@ export function ContactDetailPage() {
   const [activeTab, setActiveTab] = useState('general')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
-  const contactDetailRef = useRef<{ submitForm: () => void; deleteContact: () => void } | null>(null)
+  const contactDetailRef = useRef<{
+    submitForm: () => void
+    deleteContact: () => void
+  } | null>(null)
 
   if (isLoading) {
     return (
@@ -47,7 +50,9 @@ export function ContactDetailPage() {
           <h1 className='text-lg font-semibold'>Contact non trouvé</h1>
         </Header>
         <Main className='flex flex-1 flex-col items-center justify-center'>
-          <p className='text-muted-foreground'>Ce contact n'existe pas ou a été supprimé.</p>
+          <p className='text-muted-foreground'>
+            Ce contact n'existe pas ou a été supprimé.
+          </p>
         </Main>
       </>
     )
@@ -56,7 +61,7 @@ export function ContactDetailPage() {
   return (
     <>
       <Header fixed>
-        <div className='flex items-center gap-4 flex-1'>
+        <div className='flex flex-1 items-center gap-4'>
           <Button variant='ghost' size='sm' asChild className='gap-2'>
             <Link to='/contacts'>
               <ArrowLeft className='h-4 w-4' />
@@ -72,17 +77,34 @@ export function ContactDetailPage() {
               <TabsTrigger value='reservations' className='gap-1.5'>
                 <Calendar className='h-4 w-4' />
                 Réservations
-                {bookings.length > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{bookings.length}</Badge>}
+                {bookings.length > 0 && (
+                  <Badge
+                    variant='secondary'
+                    className='ml-1 h-5 px-1.5 text-[10px]'
+                  >
+                    {bookings.length}
+                  </Badge>
+                )}
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
         <div className='ms-auto flex items-center space-x-2'>
-          <Button size='sm' onClick={() => contactDetailRef.current?.submitForm()} disabled={!isDirty} className='gap-2'>
+          <Button
+            size='sm'
+            onClick={() => contactDetailRef.current?.submitForm()}
+            disabled={!isDirty}
+            className='gap-2'
+          >
             <Save className='h-4 w-4' />
             Enregistrer
           </Button>
-          <Button size='icon' variant='ghost' onClick={() => setShowDeleteDialog(true)} className='h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10'>
+          <Button
+            size='icon'
+            variant='ghost'
+            onClick={() => setShowDeleteDialog(true)}
+            className='h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive'
+          >
             <Trash2 className='h-4 w-4' />
           </Button>
           <div className='ml-4 flex items-center space-x-4 border-l pl-4'>
@@ -103,7 +125,10 @@ export function ContactDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={() => contactDetailRef.current?.deleteContact()} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+            <AlertDialogAction
+              onClick={() => contactDetailRef.current?.deleteContact()}
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
+            >
               Supprimer
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -111,7 +136,12 @@ export function ContactDetailPage() {
       </AlertDialog>
 
       <Main className='flex flex-1 flex-col'>
-        <ContactDetail contact={contact} activeTab={activeTab} ref={contactDetailRef} onDirtyChange={setIsDirty} />
+        <ContactDetail
+          contact={contact}
+          activeTab={activeTab}
+          ref={contactDetailRef}
+          onDirtyChange={setIsDirty}
+        />
       </Main>
     </>
   )

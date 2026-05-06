@@ -64,7 +64,8 @@ export function ForgotPasswordForm({
         <div className='space-y-1'>
           <p className='font-medium'>Email envoyé</p>
           <p className='text-sm text-muted-foreground'>
-            Si un compte existe avec cette adresse, vous recevrez un lien de réinitialisation.
+            Si un compte existe avec cette adresse, vous recevrez un lien de
+            réinitialisation.
           </p>
         </div>
         <Button

@@ -15,21 +15,27 @@ type StatusCardProps = {
   onClick?: () => void
 }
 
-function StatusCard({ label, count, color, isActive, onClick }: StatusCardProps) {
+function StatusCard({
+  label,
+  count,
+  color,
+  isActive,
+  onClick,
+}: StatusCardProps) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        'flex flex-col items-start rounded-lg border p-3 text-left transition-all hover:shadow-md flex-1 hover:opacity-90',
+        'flex flex-1 flex-col items-start rounded-lg border p-3 text-left transition-all hover:opacity-90 hover:shadow-md',
         isActive && 'ring-2 ring-primary ring-offset-2'
       )}
-      style={{ 
+      style={{
         backgroundColor: color || '#6b7280',
-        color: '#fff'
+        color: '#fff',
       }}
     >
       <span className='text-2xl font-bold drop-shadow-sm'>{count}</span>
-      <span className='text-xs opacity-90 truncate w-full'>{label}</span>
+      <span className='w-full truncate text-xs opacity-90'>{label}</span>
     </button>
   )
 }
@@ -45,27 +51,37 @@ type StatusCardsProps = {
   onStatusClick?: (status: string | null) => void
 }
 
-export function StatusCards({ statuses, activeStatus, onStatusClick }: StatusCardsProps) {
+export function StatusCards({
+  statuses,
+  activeStatus,
+  onStatusClick,
+}: StatusCardsProps) {
   const totalCount = statuses.reduce((acc, s) => acc + s.count, 0)
-  const activeStatusData = statuses.find(s => s.value === activeStatus)
+  const activeStatusData = statuses.find((s) => s.value === activeStatus)
 
   return (
     <>
       {/* Mobile: Dropdown */}
       <div className='sm:hidden'>
-        <Select 
-          value={activeStatus || 'all'} 
-          onValueChange={(value) => onStatusClick?.(value === 'all' ? null : value)}
+        <Select
+          value={activeStatus || 'all'}
+          onValueChange={(value) =>
+            onStatusClick?.(value === 'all' ? null : value)
+          }
         >
           <SelectTrigger className='w-full'>
             <SelectValue>
               {activeStatus ? (
                 <div className='flex items-center gap-2'>
-                  <div 
-                    className='w-3 h-3 rounded-full' 
-                    style={{ backgroundColor: activeStatusData?.color || '#6b7280' }}
+                  <div
+                    className='h-3 w-3 rounded-full'
+                    style={{
+                      backgroundColor: activeStatusData?.color || '#6b7280',
+                    }}
                   />
-                  <span>{activeStatusData?.label} ({activeStatusData?.count})</span>
+                  <span>
+                    {activeStatusData?.label} ({activeStatusData?.count})
+                  </span>
                 </div>
               ) : (
                 <span>Tous les statuts ({totalCount})</span>
@@ -79,11 +95,13 @@ export function StatusCards({ statuses, activeStatus, onStatusClick }: StatusCar
             {statuses.map((status) => (
               <SelectItem key={status.value} value={status.value}>
                 <div className='flex items-center gap-2'>
-                  <div 
-                    className='w-3 h-3 rounded-full' 
+                  <div
+                    className='h-3 w-3 rounded-full'
                     style={{ backgroundColor: status.color || '#6b7280' }}
                   />
-                  <span>{status.label} ({status.count})</span>
+                  <span>
+                    {status.label} ({status.count})
+                  </span>
                 </div>
               </SelectItem>
             ))}
@@ -92,7 +110,7 @@ export function StatusCards({ statuses, activeStatus, onStatusClick }: StatusCar
       </div>
 
       {/* Desktop: Cards Grid */}
-      <div className='hidden sm:grid sm:grid-cols-5 lg:grid-cols-9 gap-2 w-full'>
+      <div className='hidden w-full gap-2 sm:grid sm:grid-cols-5 lg:grid-cols-9'>
         {statuses.map((status) => (
           <StatusCard
             key={status.value}
@@ -100,7 +118,11 @@ export function StatusCards({ statuses, activeStatus, onStatusClick }: StatusCar
             count={status.count}
             color={status.color}
             isActive={activeStatus === status.value}
-            onClick={() => onStatusClick?.(activeStatus === status.value ? null : status.value)}
+            onClick={() =>
+              onStatusClick?.(
+                activeStatus === status.value ? null : status.value
+              )
+            }
           />
         ))}
       </div>

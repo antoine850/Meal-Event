@@ -88,7 +88,7 @@ export function PackagesTable({
     },
   })
 
-  const restaurantFilterOptions = restaurants.map(r => ({
+  const restaurantFilterOptions = restaurants.map((r) => ({
     label: r.name,
     value: r.id,
   }))
@@ -100,7 +100,13 @@ export function PackagesTable({
 
   const filters = [
     ...(restaurantFilterOptions.length > 0
-      ? [{ columnId: 'restaurants', title: 'Restaurant', options: restaurantFilterOptions }]
+      ? [
+          {
+            columnId: 'restaurants',
+            title: 'Restaurant',
+            options: restaurantFilterOptions,
+          },
+        ]
       : []),
     { columnId: 'is_active', title: 'Statut', options: activeFilterOptions },
   ]

@@ -16,7 +16,10 @@ export function useDisconnectStripe() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (restaurantId: string) =>
-      apiClient('/api/stripe-connect/disconnect', { method: 'POST', body: { restaurant_id: restaurantId } }),
+      apiClient('/api/stripe-connect/disconnect', {
+        method: 'POST',
+        body: { restaurant_id: restaurantId },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings-restaurants'] })
     },

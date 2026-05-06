@@ -14,17 +14,21 @@ export function usePermissions(): UserPermissions & { isLoading: boolean } {
   const { data, isLoading } = useQuery({
     queryKey: ['user-permissions'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) return null
 
       // Get user with role
       const { data: dbUser } = await supabase
         .from('users')
-        .select(`
+        .select(
+          `
           role_id,
           role:roles(id, name, slug),
           user_restaurants(restaurant_id)
-        `)
+        `
+        )
         .eq('id', user.id)
         .single()
 
@@ -47,7 +51,9 @@ export function usePermissions(): UserPermissions & { isLoading: boolean } {
       }
 
       const roleSlug = userData.role?.slug || ''
-      const restaurantIds = (userData.user_restaurants || []).map((ur: any) => ur.restaurant_id).filter(Boolean)
+      const restaurantIds = (userData.user_restaurants || [])
+        .map((ur: any) => ur.restaurant_id)
+        .filter(Boolean)
 
       return {
         role: userData.role || null,

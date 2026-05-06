@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
+import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,11 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { useCreateCompany, useUpdateCompany, type Company } from './hooks/use-companies'
+import {
+  useCreateCompany,
+  useUpdateCompany,
+  type Company,
+} from './hooks/use-companies'
 
 const companySchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
@@ -31,7 +35,11 @@ const companySchema = z.object({
   billing_postal_code: z.string().optional().or(z.literal('')),
   billing_city: z.string().optional().or(z.literal('')),
   billing_country: z.string().optional().or(z.literal('')),
-  billing_email: z.string().email('Email invalide').optional().or(z.literal('')),
+  billing_email: z
+    .string()
+    .email('Email invalide')
+    .optional()
+    .or(z.literal('')),
   siret: z.string().optional().or(z.literal('')),
   tva_number: z.string().optional().or(z.literal('')),
 })
@@ -44,7 +52,11 @@ interface CompanyDialogProps {
   company: Company | null
 }
 
-export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProps) {
+export function CompanyDialog({
+  open,
+  onOpenChange,
+  company,
+}: CompanyDialogProps) {
   const { mutate: createCompany, isPending: isCreating } = useCreateCompany()
   const { mutate: updateCompany, isPending: isUpdating } = useUpdateCompany()
   const isPending = isCreating || isUpdating
@@ -133,17 +145,17 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
       <DialogContent className='sm:max-w-[600px]'>
         <DialogHeader>
           <DialogTitle>
-            {company ? "Modifier la société" : 'Nouvelle société'}
+            {company ? 'Modifier la société' : 'Nouvelle société'}
           </DialogTitle>
           <DialogDescription>
             {company
-              ? "Modifiez les informations de la société."
+              ? 'Modifiez les informations de la société.'
               : 'Ajoutez une nouvelle société à votre base de données.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+            <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
               <FormField
                 control={form.control}
                 name='name'
@@ -172,7 +184,7 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
               />
             </div>
 
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+            <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
               <FormField
                 control={form.control}
                 name='billing_email'
@@ -180,7 +192,11 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
                   <FormItem>
                     <FormLabel>Email de facturation</FormLabel>
                     <FormControl>
-                      <Input type='email' placeholder='compta@societe.com' {...field} />
+                      <Input
+                        type='email'
+                        placeholder='compta@societe.com'
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -201,7 +217,7 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
               />
             </div>
 
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+            <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
               <FormField
                 control={form.control}
                 name='siret'
@@ -231,7 +247,7 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
               )}
             />
 
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+            <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
               <FormField
                 control={form.control}
                 name='billing_postal_code'
@@ -274,7 +290,11 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
             </div>
 
             <DialogFooter>
-              <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => onOpenChange(false)}
+              >
                 Annuler
               </Button>
               <Button type='submit' disabled={isPending}>

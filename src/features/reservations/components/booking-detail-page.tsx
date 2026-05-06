@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from '@tanstack/react-router'
-import { ArrowLeft, CalendarIcon, Receipt, FileText, History, Save, Trash2, UtensilsCrossed, ClipboardList } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { ThemeSwitch } from '@/components/theme-switch'
+import {
+  ArrowLeft,
+  CalendarIcon,
+  Receipt,
+  FileText,
+  History,
+  Save,
+  Trash2,
+  UtensilsCrossed,
+  ClipboardList,
+} from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +21,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useBooking, useQuotesByBooking, usePaymentsByBooking, useMarkBookingAsRead } from '../hooks/use-bookings'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Header } from '@/components/layout/header'
+import { Main } from '@/components/layout/main'
+import { ProfileDropdown } from '@/components/profile-dropdown'
+import { ThemeSwitch } from '@/components/theme-switch'
+import {
+  useBooking,
+  useQuotesByBooking,
+  usePaymentsByBooking,
+  useMarkBookingAsRead,
+} from '../hooks/use-bookings'
 import { useDocumentsByBooking } from '../hooks/use-documents'
 import { useBookingMenuForms } from '../hooks/use-menu-forms'
 import { BookingDetail } from './booking-detail'
@@ -40,7 +55,11 @@ export function BookingDetailPage() {
   const [activeTab, setActiveTab] = useState(initialTab)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
-  const bookingDetailRef = useRef<{ submitForm: () => void; deleteBooking: () => void; getIsDirty: () => boolean } | null>(null)
+  const bookingDetailRef = useRef<{
+    submitForm: () => void
+    deleteBooking: () => void
+    getIsDirty: () => boolean
+  } | null>(null)
 
   const changeTab = (tab: string) => {
     setActiveTab(tab)
@@ -62,7 +81,7 @@ export function BookingDetailPage() {
     return (
       <div className='flex h-full flex-col'>
         <Header fixed>
-          <div className='flex items-center gap-4 flex-1'>
+          <div className='flex flex-1 items-center gap-4'>
             <Skeleton className='h-9 w-28' />
             <Skeleton className='h-9 w-[320px]' />
           </div>
@@ -77,8 +96,8 @@ export function BookingDetailPage() {
         </Header>
         <Main className='flex flex-1 flex-col gap-4 p-6'>
           <div className='grid gap-4 md:grid-cols-3'>
-            <Skeleton className='h-36 rounded-lg col-span-1' />
-            <Skeleton className='h-36 rounded-lg col-span-2' />
+            <Skeleton className='col-span-1 h-36 rounded-lg' />
+            <Skeleton className='col-span-2 h-36 rounded-lg' />
           </div>
           <div className='grid gap-4 md:grid-cols-2'>
             <Skeleton className='h-64 rounded-lg' />
@@ -104,8 +123,13 @@ export function BookingDetailPage() {
   return (
     <>
       <Header fixed>
-        <div className='flex items-center gap-4 flex-1'>
-          <Button variant='ghost' size='sm' className='gap-2' onClick={() => window.history.back()}>
+        <div className='flex flex-1 items-center gap-4'>
+          <Button
+            variant='ghost'
+            size='sm'
+            className='gap-2'
+            onClick={() => window.history.back()}
+          >
             <ArrowLeft className='h-4 w-4' />
             Événements
           </Button>
@@ -118,17 +142,38 @@ export function BookingDetailPage() {
               <TabsTrigger value='facturation' className='gap-1.5'>
                 <Receipt className='h-4 w-4' />
                 Facturation
-                {(quotes.length + payments.length) > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{quotes.length + payments.length}</Badge>}
+                {quotes.length + payments.length > 0 && (
+                  <Badge
+                    variant='secondary'
+                    className='ml-1 h-5 px-1.5 text-[10px]'
+                  >
+                    {quotes.length + payments.length}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value='fichiers' className='gap-1.5'>
                 <FileText className='h-4 w-4' />
                 Fichiers
-                {documents.length > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{documents.length}</Badge>}
+                {documents.length > 0 && (
+                  <Badge
+                    variant='secondary'
+                    className='ml-1 h-5 px-1.5 text-[10px]'
+                  >
+                    {documents.length}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value='menu' className='gap-1.5'>
                 <UtensilsCrossed className='h-4 w-4' />
                 Menu
-                {menuForms.length > 0 && <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>{menuForms.length}</Badge>}
+                {menuForms.length > 0 && (
+                  <Badge
+                    variant='secondary'
+                    className='ml-1 h-5 px-1.5 text-[10px]'
+                  >
+                    {menuForms.length}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value='fiche-fonction' className='gap-1.5'>
                 <ClipboardList className='h-4 w-4' />
@@ -137,17 +182,32 @@ export function BookingDetailPage() {
               <TabsTrigger value='historique' className='gap-1.5'>
                 <History className='h-4 w-4' />
                 Historique
-                <Badge variant='secondary' className='ml-1 h-5 px-1.5 text-[10px]'>0</Badge>
+                <Badge
+                  variant='secondary'
+                  className='ml-1 h-5 px-1.5 text-[10px]'
+                >
+                  0
+                </Badge>
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
         <div className='ms-auto flex items-center space-x-2'>
-          <Button size='sm' onClick={() => bookingDetailRef.current?.submitForm()} disabled={!isDirty} className='gap-2'>
+          <Button
+            size='sm'
+            onClick={() => bookingDetailRef.current?.submitForm()}
+            disabled={!isDirty}
+            className='gap-2'
+          >
             <Save className='h-4 w-4' />
             Enregistrer
           </Button>
-          <Button size='icon' variant='ghost' onClick={() => setShowDeleteDialog(true)} className='h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10'>
+          <Button
+            size='icon'
+            variant='ghost'
+            onClick={() => setShowDeleteDialog(true)}
+            className='h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive'
+          >
             <Trash2 className='h-4 w-4' />
           </Button>
           <div className='ml-4 flex items-center space-x-4 border-l pl-4'>
@@ -167,7 +227,10 @@ export function BookingDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={() => bookingDetailRef.current?.deleteBooking()} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+            <AlertDialogAction
+              onClick={() => bookingDetailRef.current?.deleteBooking()}
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
+            >
               Supprimer
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -175,7 +238,13 @@ export function BookingDetailPage() {
       </AlertDialog>
 
       <Main className='flex flex-1 flex-col'>
-        <BookingDetail booking={booking} activeTab={activeTab} onTabChange={changeTab} ref={bookingDetailRef} onDirtyChange={setIsDirty} />
+        <BookingDetail
+          booking={booking}
+          activeTab={activeTab}
+          onTabChange={changeTab}
+          ref={bookingDetailRef}
+          onDirtyChange={setIsDirty}
+        />
       </Main>
     </>
   )

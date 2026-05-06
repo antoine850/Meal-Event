@@ -145,9 +145,13 @@ export function UsersActionDialog({
     >
       <DialogContent className='sm:max-w-lg'>
         <DialogHeader className='text-start'>
-          <DialogTitle>{isEdit ? 'Modifier l\'utilisateur' : 'Ajouter un utilisateur'}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Modifier l'utilisateur" : 'Ajouter un utilisateur'}
+          </DialogTitle>
           <DialogDescription>
-            {isEdit ? 'Modifiez les informations de l\'utilisateur. ' : 'Créez un nouvel utilisateur. '}
+            {isEdit
+              ? "Modifiez les informations de l'utilisateur. "
+              : 'Créez un nouvel utilisateur. '}
             Cliquez sur enregistrer quand vous avez terminé.
           </DialogDescription>
         </DialogHeader>
@@ -183,9 +187,7 @@ export function UsersActionDialog({
                 name='lastName'
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>
-                      Nom
-                    </FormLabel>
+                    <FormLabel className='col-span-2 text-end'>Nom</FormLabel>
                     <FormControl>
                       <Input
                         placeholder='Doe'

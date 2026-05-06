@@ -1,12 +1,12 @@
 import * as React from 'react'
 import { Clock } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface TimePickerProps {
@@ -16,7 +16,9 @@ interface TimePickerProps {
   className?: string
 }
 
-const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))
+const HOURS = Array.from({ length: 24 }, (_, i) =>
+  i.toString().padStart(2, '0')
+)
 const MINUTES = ['00', '15', '30', '45']
 
 export function TimePicker({
@@ -32,7 +34,8 @@ export function TimePicker({
   // Snap minute to nearest quarter
   const snappedMinute = selectedMinute
     ? MINUTES.reduce((prev, curr) =>
-        Math.abs(parseInt(curr) - parseInt(selectedMinute)) < Math.abs(parseInt(prev) - parseInt(selectedMinute))
+        Math.abs(parseInt(curr) - parseInt(selectedMinute)) <
+        Math.abs(parseInt(prev) - parseInt(selectedMinute))
           ? curr
           : prev
       )
@@ -49,7 +52,7 @@ export function TimePicker({
         <Button
           variant='outline'
           className={cn(
-            'w-full justify-start text-left font-normal h-8',
+            'h-8 w-full justify-start text-left font-normal',
             !value && 'text-muted-foreground',
             className
           )}
@@ -61,7 +64,9 @@ export function TimePicker({
       <PopoverContent className='w-auto p-3' align='start'>
         <div className='flex gap-3'>
           <div className='flex flex-col gap-1'>
-            <label className='text-xs font-medium text-muted-foreground'>Heures</label>
+            <label className='text-xs font-medium text-muted-foreground'>
+              Heures
+            </label>
             <ScrollArea className='h-48'>
               <div className='flex flex-col gap-0.5 pr-2'>
                 {HOURS.map((h) => (
@@ -69,7 +74,7 @@ export function TimePicker({
                     key={h}
                     variant={selectedHour === h ? 'default' : 'ghost'}
                     size='sm'
-                    className='w-12 h-7 text-sm'
+                    className='h-7 w-12 text-sm'
                     onClick={() => handleSelect(h, snappedMinute || '00')}
                   >
                     {h}
@@ -79,14 +84,16 @@ export function TimePicker({
             </ScrollArea>
           </div>
           <div className='flex flex-col gap-1'>
-            <label className='text-xs font-medium text-muted-foreground'>Minutes</label>
+            <label className='text-xs font-medium text-muted-foreground'>
+              Minutes
+            </label>
             <div className='flex flex-col gap-0.5'>
               {MINUTES.map((m) => (
                 <Button
                   key={m}
                   variant={snappedMinute === m ? 'default' : 'ghost'}
                   size='sm'
-                  className='w-12 h-7 text-sm'
+                  className='h-7 w-12 text-sm'
                   onClick={() => handleSelect(selectedHour || '12', m)}
                 >
                   {m}

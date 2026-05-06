@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Copy, Check, ChevronDown, ChevronRight } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ContentSection } from '../components/content-section'
 import { useOrganization } from '../hooks/use-settings'
 
@@ -11,7 +11,12 @@ type Endpoint = {
   method: 'GET' | 'POST' | 'PATCH'
   path: string
   description: string
-  params?: { name: string; type: string; required: boolean; description: string }[]
+  params?: {
+    name: string
+    type: string
+    required: boolean
+    description: string
+  }[]
   queryParams?: { name: string; type: string; description: string }[]
   body?: string
   response?: string
@@ -43,7 +48,14 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
         method: 'GET',
         path: '/restaurants/:id',
         description: "Obtenir les détails d'un restaurant.",
-        params: [{ name: 'id', type: 'UUID', required: true, description: 'ID du restaurant' }],
+        params: [
+          {
+            name: 'id',
+            type: 'UUID',
+            required: true,
+            description: 'ID du restaurant',
+          },
+        ],
       },
     ],
   },
@@ -56,10 +68,26 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
         description: 'Lister les contacts avec pagination et filtres.',
         queryParams: [
           { name: 'page', type: 'number', description: 'Page (défaut: 1)' },
-          { name: 'per_page', type: 'number', description: 'Résultats par page (défaut: 20, max: 100)' },
-          { name: 'email', type: 'string', description: 'Filtrer par email exact' },
-          { name: 'phone', type: 'string', description: 'Filtrer par téléphone exact' },
-          { name: 'search', type: 'string', description: 'Recherche par nom ou email' },
+          {
+            name: 'per_page',
+            type: 'number',
+            description: 'Résultats par page (défaut: 20, max: 100)',
+          },
+          {
+            name: 'email',
+            type: 'string',
+            description: 'Filtrer par email exact',
+          },
+          {
+            name: 'phone',
+            type: 'string',
+            description: 'Filtrer par téléphone exact',
+          },
+          {
+            name: 'search',
+            type: 'string',
+            description: 'Recherche par nom ou email',
+          },
         ],
         response: `{
   "data": [...],
@@ -75,7 +103,14 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
         method: 'GET',
         path: '/contacts/:id',
         description: "Obtenir les détails d'un contact.",
-        params: [{ name: 'id', type: 'UUID', required: true, description: 'ID du contact' }],
+        params: [
+          {
+            name: 'id',
+            type: 'UUID',
+            required: true,
+            description: 'ID du contact',
+          },
+        ],
       },
       {
         method: 'POST',
@@ -94,7 +129,14 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
         method: 'PATCH',
         path: '/contacts/:id',
         description: 'Modifier un contact existant.',
-        params: [{ name: 'id', type: 'UUID', required: true, description: 'ID du contact' }],
+        params: [
+          {
+            name: 'id',
+            type: 'UUID',
+            required: true,
+            description: 'ID du contact',
+          },
+        ],
         body: `{
   "first_name": "Jean-Pierre",
   "phone": "+33698765432"
@@ -111,24 +153,56 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
         description: 'Lister les événements avec pagination et filtres.',
         queryParams: [
           { name: 'page', type: 'number', description: 'Page (défaut: 1)' },
-          { name: 'per_page', type: 'number', description: 'Résultats par page (défaut: 20, max: 100)' },
-          { name: 'restaurant_id', type: 'UUID', description: 'Filtrer par restaurant' },
-          { name: 'status_id', type: 'UUID', description: 'Filtrer par statut' },
-          { name: 'contact_id', type: 'UUID', description: 'Filtrer par contact' },
-          { name: 'date_from', type: 'date', description: "Date de début (format: YYYY-MM-DD)" },
-          { name: 'date_to', type: 'date', description: 'Date de fin (format: YYYY-MM-DD)' },
+          {
+            name: 'per_page',
+            type: 'number',
+            description: 'Résultats par page (défaut: 20, max: 100)',
+          },
+          {
+            name: 'restaurant_id',
+            type: 'UUID',
+            description: 'Filtrer par restaurant',
+          },
+          {
+            name: 'status_id',
+            type: 'UUID',
+            description: 'Filtrer par statut',
+          },
+          {
+            name: 'contact_id',
+            type: 'UUID',
+            description: 'Filtrer par contact',
+          },
+          {
+            name: 'date_from',
+            type: 'date',
+            description: 'Date de début (format: YYYY-MM-DD)',
+          },
+          {
+            name: 'date_to',
+            type: 'date',
+            description: 'Date de fin (format: YYYY-MM-DD)',
+          },
         ],
       },
       {
         method: 'GET',
         path: '/bookings/:id',
         description: "Obtenir les détails complets d'un événement.",
-        params: [{ name: 'id', type: 'UUID', required: true, description: "ID de l'événement" }],
+        params: [
+          {
+            name: 'id',
+            type: 'UUID',
+            required: true,
+            description: "ID de l'événement",
+          },
+        ],
       },
       {
         method: 'POST',
         path: '/bookings',
-        description: "Créer un événement. Le contact est automatiquement trouvé par email ou créé s'il n'existe pas.",
+        description:
+          "Créer un événement. Le contact est automatiquement trouvé par email ou créé s'il n'existe pas.",
         body: `{
   "restaurant_id": "uuid",
   "event_type": "repas-assis",
@@ -163,7 +237,14 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
         method: 'PATCH',
         path: '/bookings/:id',
         description: 'Modifier un événement existant.',
-        params: [{ name: 'id', type: 'UUID', required: true, description: "ID de l'événement" }],
+        params: [
+          {
+            name: 'id',
+            type: 'UUID',
+            required: true,
+            description: "ID de l'événement",
+          },
+        ],
         body: `{
   "guests_count": 40,
   "event_date": "2026-04-20",
@@ -181,16 +262,35 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
         description: 'Lister les devis avec pagination.',
         queryParams: [
           { name: 'page', type: 'number', description: 'Page (défaut: 1)' },
-          { name: 'per_page', type: 'number', description: 'Résultats par page' },
-          { name: 'booking_id', type: 'UUID', description: 'Filtrer par événement' },
-          { name: 'status', type: 'string', description: 'Filtrer par statut (draft, sent, signed...)' },
+          {
+            name: 'per_page',
+            type: 'number',
+            description: 'Résultats par page',
+          },
+          {
+            name: 'booking_id',
+            type: 'UUID',
+            description: 'Filtrer par événement',
+          },
+          {
+            name: 'status',
+            type: 'string',
+            description: 'Filtrer par statut (draft, sent, signed...)',
+          },
         ],
       },
       {
         method: 'GET',
         path: '/quotes/:id',
         description: "Obtenir les détails complets d'un devis.",
-        params: [{ name: 'id', type: 'UUID', required: true, description: 'ID du devis' }],
+        params: [
+          {
+            name: 'id',
+            type: 'UUID',
+            required: true,
+            description: 'ID du devis',
+          },
+        ],
       },
     ],
   },
@@ -203,10 +303,26 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
         description: 'Lister les paiements avec pagination.',
         queryParams: [
           { name: 'page', type: 'number', description: 'Page (défaut: 1)' },
-          { name: 'per_page', type: 'number', description: 'Résultats par page' },
-          { name: 'booking_id', type: 'UUID', description: 'Filtrer par événement' },
-          { name: 'status', type: 'string', description: 'Filtrer par statut (pending, paid, failed)' },
-          { name: 'type', type: 'string', description: 'Filtrer par type (deposit, balance)' },
+          {
+            name: 'per_page',
+            type: 'number',
+            description: 'Résultats par page',
+          },
+          {
+            name: 'booking_id',
+            type: 'UUID',
+            description: 'Filtrer par événement',
+          },
+          {
+            name: 'status',
+            type: 'string',
+            description: 'Filtrer par statut (pending, paid, failed)',
+          },
+          {
+            name: 'type',
+            type: 'string',
+            description: 'Filtrer par type (deposit, balance)',
+          },
         ],
       },
     ],
@@ -216,7 +332,8 @@ const endpoints: { category: string; routes: Endpoint[] }[] = [
 const methodColors: Record<string, string> = {
   GET: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   POST: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  PATCH: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  PATCH:
+    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -227,8 +344,15 @@ function CopyButton({ text }: { text: string }) {
     setTimeout(() => setCopied(false), 2000)
   }
   return (
-    <button onClick={handleCopy} className='absolute top-2 right-2 p-1 rounded hover:bg-muted'>
-      {copied ? <Check className='h-3.5 w-3.5 text-green-600' /> : <Copy className='h-3.5 w-3.5 text-muted-foreground' />}
+    <button
+      onClick={handleCopy}
+      className='absolute top-2 right-2 rounded p-1 hover:bg-muted'
+    >
+      {copied ? (
+        <Check className='h-3.5 w-3.5 text-green-600' />
+      ) : (
+        <Copy className='h-3.5 w-3.5 text-muted-foreground' />
+      )}
     </button>
   )
 }
@@ -237,33 +361,53 @@ function EndpointCard({ endpoint }: { endpoint: Endpoint }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className='border rounded-lg overflow-hidden'>
+    <div className='overflow-hidden rounded-lg border'>
       <button
         onClick={() => setExpanded(!expanded)}
-        className='w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 text-left'
+        className='flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50'
       >
-        {expanded ? <ChevronDown className='h-4 w-4 shrink-0 text-muted-foreground' /> : <ChevronRight className='h-4 w-4 shrink-0 text-muted-foreground' />}
-        <span className={`text-xs font-bold px-2 py-0.5 rounded ${methodColors[endpoint.method]}`}>
+        {expanded ? (
+          <ChevronDown className='h-4 w-4 shrink-0 text-muted-foreground' />
+        ) : (
+          <ChevronRight className='h-4 w-4 shrink-0 text-muted-foreground' />
+        )}
+        <span
+          className={`rounded px-2 py-0.5 text-xs font-bold ${methodColors[endpoint.method]}`}
+        >
           {endpoint.method}
         </span>
-        <code className='text-sm font-mono'>{endpoint.path}</code>
-        <span className='text-sm text-muted-foreground ml-auto hidden sm:block'>{endpoint.description}</span>
+        <code className='font-mono text-sm'>{endpoint.path}</code>
+        <span className='ml-auto hidden text-sm text-muted-foreground sm:block'>
+          {endpoint.description}
+        </span>
       </button>
 
       {expanded && (
-        <div className='border-t px-4 py-3 space-y-3 bg-muted/20'>
-          <p className='text-sm text-muted-foreground sm:hidden'>{endpoint.description}</p>
+        <div className='space-y-3 border-t bg-muted/20 px-4 py-3'>
+          <p className='text-sm text-muted-foreground sm:hidden'>
+            {endpoint.description}
+          </p>
 
           {endpoint.params && (
             <div>
-              <p className='text-xs font-medium mb-1'>Paramètres URL</p>
+              <p className='mb-1 text-xs font-medium'>Paramètres URL</p>
               <div className='space-y-1'>
                 {endpoint.params.map((p) => (
                   <div key={p.name} className='flex items-center gap-2 text-xs'>
-                    <code className='bg-muted px-1.5 py-0.5 rounded font-mono'>{p.name}</code>
-                    <Badge variant='outline' className='text-[10px]'>{p.type}</Badge>
-                    {p.required && <Badge variant='destructive' className='text-[10px]'>requis</Badge>}
-                    <span className='text-muted-foreground'>{p.description}</span>
+                    <code className='rounded bg-muted px-1.5 py-0.5 font-mono'>
+                      {p.name}
+                    </code>
+                    <Badge variant='outline' className='text-[10px]'>
+                      {p.type}
+                    </Badge>
+                    {p.required && (
+                      <Badge variant='destructive' className='text-[10px]'>
+                        requis
+                      </Badge>
+                    )}
+                    <span className='text-muted-foreground'>
+                      {p.description}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -272,13 +416,19 @@ function EndpointCard({ endpoint }: { endpoint: Endpoint }) {
 
           {endpoint.queryParams && (
             <div>
-              <p className='text-xs font-medium mb-1'>Query Parameters</p>
+              <p className='mb-1 text-xs font-medium'>Query Parameters</p>
               <div className='space-y-1'>
                 {endpoint.queryParams.map((p) => (
                   <div key={p.name} className='flex items-center gap-2 text-xs'>
-                    <code className='bg-muted px-1.5 py-0.5 rounded font-mono'>{p.name}</code>
-                    <Badge variant='outline' className='text-[10px]'>{p.type}</Badge>
-                    <span className='text-muted-foreground'>{p.description}</span>
+                    <code className='rounded bg-muted px-1.5 py-0.5 font-mono'>
+                      {p.name}
+                    </code>
+                    <Badge variant='outline' className='text-[10px]'>
+                      {p.type}
+                    </Badge>
+                    <span className='text-muted-foreground'>
+                      {p.description}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -287,9 +437,11 @@ function EndpointCard({ endpoint }: { endpoint: Endpoint }) {
 
           {endpoint.body && (
             <div>
-              <p className='text-xs font-medium mb-1'>Body (JSON)</p>
+              <p className='mb-1 text-xs font-medium'>Body (JSON)</p>
               <div className='relative'>
-                <pre className='bg-muted rounded p-3 text-xs font-mono overflow-x-auto'>{endpoint.body}</pre>
+                <pre className='overflow-x-auto rounded bg-muted p-3 font-mono text-xs'>
+                  {endpoint.body}
+                </pre>
                 <CopyButton text={endpoint.body} />
               </div>
             </div>
@@ -297,9 +449,11 @@ function EndpointCard({ endpoint }: { endpoint: Endpoint }) {
 
           {endpoint.response && (
             <div>
-              <p className='text-xs font-medium mb-1'>Réponse</p>
+              <p className='mb-1 text-xs font-medium'>Réponse</p>
               <div className='relative'>
-                <pre className='bg-muted rounded p-3 text-xs font-mono overflow-x-auto'>{endpoint.response}</pre>
+                <pre className='overflow-x-auto rounded bg-muted p-3 font-mono text-xs'>
+                  {endpoint.response}
+                </pre>
                 <CopyButton text={endpoint.response} />
               </div>
             </div>
@@ -307,7 +461,7 @@ function EndpointCard({ endpoint }: { endpoint: Endpoint }) {
 
           {/* cURL example */}
           <div>
-            <p className='text-xs font-medium mb-1'>Exemple cURL</p>
+            <p className='mb-1 text-xs font-medium'>Exemple cURL</p>
             <CurlExample endpoint={endpoint} />
           </div>
         </div>
@@ -329,7 +483,9 @@ function CurlExample({ endpoint }: { endpoint: Endpoint }) {
 
   return (
     <div className='relative'>
-      <pre className='bg-zinc-900 text-zinc-100 rounded p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap'>{curl}</pre>
+      <pre className='overflow-x-auto rounded bg-zinc-900 p-3 font-mono text-xs whitespace-pre-wrap text-zinc-100'>
+        {curl}
+      </pre>
       <CopyButton text={curl.replace(/\\\n\s*/g, ' ')} />
     </div>
   )
@@ -350,21 +506,42 @@ export function ApiDocsSettings() {
         </CardHeader>
         <CardContent className='space-y-3'>
           <p className='text-sm text-muted-foreground'>
-            Toutes les requêtes doivent inclure votre clé API dans le header <code className='bg-muted px-1.5 py-0.5 rounded text-xs'>Authorization</code>.
+            Toutes les requêtes doivent inclure votre clé API dans le header{' '}
+            <code className='rounded bg-muted px-1.5 py-0.5 text-xs'>
+              Authorization
+            </code>
+            .
           </p>
           <div className='relative'>
-            <pre className='bg-muted rounded p-3 text-xs font-mono'>Authorization: Bearer sk_live_VOTRE_CLE</pre>
+            <pre className='rounded bg-muted p-3 font-mono text-xs'>
+              Authorization: Bearer sk_live_VOTRE_CLE
+            </pre>
             <CopyButton text='Authorization: Bearer sk_live_VOTRE_CLE' />
           </div>
-          <div className='text-xs text-muted-foreground space-y-1'>
-            <p>Base URL : <code className='bg-muted px-1.5 py-0.5 rounded'>{API_BASE_URL}</code></p>
-            <p>Rate limit : <strong>100 requêtes / minute</strong></p>
+          <div className='space-y-1 text-xs text-muted-foreground'>
+            <p>
+              Base URL :{' '}
+              <code className='rounded bg-muted px-1.5 py-0.5'>
+                {API_BASE_URL}
+              </code>
+            </p>
+            <p>
+              Rate limit : <strong>100 requêtes / minute</strong>
+            </p>
             <p>Format : JSON (Content-Type: application/json)</p>
             {organization?.api_key_prefix && (
-              <p>Votre clé active : <code className='bg-muted px-1.5 py-0.5 rounded'>{organization.api_key_prefix}</code></p>
+              <p>
+                Votre clé active :{' '}
+                <code className='rounded bg-muted px-1.5 py-0.5'>
+                  {organization.api_key_prefix}
+                </code>
+              </p>
             )}
             {!organization?.api_key_prefix && (
-              <p className='text-yellow-600'>Aucune clé API active. Générez-en une dans Paramètres &gt; Organisation.</p>
+              <p className='text-yellow-600'>
+                Aucune clé API active. Générez-en une dans Paramètres &gt;
+                Organisation.
+              </p>
             )}
           </div>
         </CardContent>
@@ -376,18 +553,28 @@ export function ApiDocsSettings() {
           <CardTitle className='text-base'>Format des erreurs</CardTitle>
         </CardHeader>
         <CardContent>
-          <pre className='bg-muted rounded p-3 text-xs font-mono'>{`{
+          <pre className='rounded bg-muted p-3 font-mono text-xs'>{`{
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "restaurant_id is required"
   }
 }`}</pre>
-          <div className='mt-3 text-xs text-muted-foreground space-y-1'>
-            <p><strong>401</strong> — Clé API invalide ou manquante</p>
-            <p><strong>404</strong> — Ressource non trouvée</p>
-            <p><strong>429</strong> — Rate limit dépassé</p>
-            <p><strong>400</strong> — Erreur de validation</p>
-            <p><strong>500</strong> — Erreur interne</p>
+          <div className='mt-3 space-y-1 text-xs text-muted-foreground'>
+            <p>
+              <strong>401</strong> — Clé API invalide ou manquante
+            </p>
+            <p>
+              <strong>404</strong> — Ressource non trouvée
+            </p>
+            <p>
+              <strong>429</strong> — Rate limit dépassé
+            </p>
+            <p>
+              <strong>400</strong> — Erreur de validation
+            </p>
+            <p>
+              <strong>500</strong> — Erreur interne
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -395,10 +582,13 @@ export function ApiDocsSettings() {
       {/* Endpoints */}
       {endpoints.map((group) => (
         <div key={group.category} className='mb-6'>
-          <h3 className='text-sm font-semibold mb-3'>{group.category}</h3>
+          <h3 className='mb-3 text-sm font-semibold'>{group.category}</h3>
           <div className='space-y-2'>
             {group.routes.map((endpoint) => (
-              <EndpointCard key={`${endpoint.method}-${endpoint.path}`} endpoint={endpoint} />
+              <EndpointCard
+                key={`${endpoint.method}-${endpoint.path}`}
+                endpoint={endpoint}
+              />
             ))}
           </div>
         </div>

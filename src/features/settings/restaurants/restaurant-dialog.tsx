@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
+import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,7 +24,11 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { useCreateRestaurant, useUpdateRestaurant, type Restaurant } from '../hooks/use-settings'
+import {
+  useCreateRestaurant,
+  useUpdateRestaurant,
+  type Restaurant,
+} from '../hooks/use-settings'
 
 const restaurantSchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
@@ -43,10 +47,16 @@ interface RestaurantDialogProps {
   restaurant: Restaurant | null
 }
 
-export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantDialogProps) {
+export function RestaurantDialog({
+  open,
+  onOpenChange,
+  restaurant,
+}: RestaurantDialogProps) {
   const navigate = useNavigate()
-  const { mutate: createRestaurant, isPending: isCreating } = useCreateRestaurant()
-  const { mutate: updateRestaurant, isPending: isUpdating } = useUpdateRestaurant()
+  const { mutate: createRestaurant, isPending: isCreating } =
+    useCreateRestaurant()
+  const { mutate: updateRestaurant, isPending: isUpdating } =
+    useUpdateRestaurant()
   const isPending = isCreating || isUpdating
 
   const form = useForm<RestaurantFormData>({
@@ -102,7 +112,10 @@ export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantD
           toast.success('Restaurant créé')
           onOpenChange(false)
           setTimeout(() => {
-            navigate({ to: '/settings/restaurant/$id', params: { id: restaurantId } })
+            navigate({
+              to: '/settings/restaurant/$id',
+              params: { id: restaurantId },
+            })
           }, 100)
         },
         onError: () => toast.error('Erreur lors de la création'),
@@ -147,7 +160,11 @@ export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantD
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type='email' placeholder='contact@restaurant.com' {...field} />
+                      <Input
+                        type='email'
+                        placeholder='contact@restaurant.com'
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -175,7 +192,10 @@ export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantD
                 <FormItem>
                   <FormLabel>Adresse</FormLabel>
                   <FormControl>
-                    <Input placeholder='123 Rue de la Paix, 75001 Paris' {...field} />
+                    <Input
+                      placeholder='123 Rue de la Paix, 75001 Paris'
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -195,12 +215,12 @@ export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantD
                           type='color'
                           value={field.value || '#3b82f6'}
                           onChange={field.onChange}
-                          className='h-10 w-14 cursor-pointer rounded-md border border-input p-1 bg-transparent'
+                          className='h-10 w-14 cursor-pointer rounded-md border border-input bg-transparent p-1'
                         />
                       </FormControl>
                       <Input
                         value={field.value || '#3b82f6'}
-                        onChange={e => field.onChange(e.target.value)}
+                        onChange={(e) => field.onChange(e.target.value)}
                         placeholder='#3b82f6'
                         className='flex-1 font-mono text-sm uppercase'
                         maxLength={7}
@@ -214,10 +234,13 @@ export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantD
                 control={form.control}
                 name='is_active'
                 render={({ field }) => (
-                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3 mt-8'>
+                  <FormItem className='mt-8 flex flex-row items-center justify-between rounded-lg border p-3'>
                     <FormLabel className='text-sm'>Actif</FormLabel>
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                   </FormItem>
                 )}
@@ -225,7 +248,11 @@ export function RestaurantDialog({ open, onOpenChange, restaurant }: RestaurantD
             </div>
 
             <DialogFooter className='mt-6'>
-              <Button type='button' variant='outline' onClick={() => onOpenChange(false)}>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => onOpenChange(false)}
+              >
                 Annuler
               </Button>
               <Button type='submit' disabled={isPending}>

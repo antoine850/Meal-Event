@@ -92,12 +92,12 @@ export function ProductsTable({
     },
   })
 
-  const typeFilterOptions = PRODUCT_TYPES.map(t => ({
+  const typeFilterOptions = PRODUCT_TYPES.map((t) => ({
     label: t.label,
     value: t.value,
   }))
 
-  const restaurantFilterOptions = restaurants.map(r => ({
+  const restaurantFilterOptions = restaurants.map((r) => ({
     label: r.name,
     value: r.id,
   }))
@@ -110,7 +110,13 @@ export function ProductsTable({
   const filters = [
     { columnId: 'type', title: 'Type', options: typeFilterOptions },
     ...(restaurantFilterOptions.length > 0
-      ? [{ columnId: 'restaurants', title: 'Restaurant', options: restaurantFilterOptions }]
+      ? [
+          {
+            columnId: 'restaurants',
+            title: 'Restaurant',
+            options: restaurantFilterOptions,
+          },
+        ]
       : []),
     { columnId: 'is_active', title: 'Statut', options: activeFilterOptions },
   ]

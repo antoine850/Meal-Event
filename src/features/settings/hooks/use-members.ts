@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
-import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { apiClient } from '@/lib/api-client'
+import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
 
 export type MemberRole = {
   id: string
@@ -46,11 +46,13 @@ export function useMembers() {
       // Fetch members with role and restaurants
       const { data: members, error: membersError } = await supabase
         .from('users')
-        .select(`
+        .select(
+          `
           id, email, first_name, last_name, phone, avatar_url, is_active, created_at,
           role:roles(id, name, slug),
           user_restaurants(restaurant_id)
-        `)
+        `
+        )
         .eq('organization_id', orgId)
         .order('created_at', { ascending: true })
 
@@ -59,11 +61,13 @@ export function useMembers() {
       // Fetch pending invitations (cast to any because 'invitations' table may not be in generated types)
       const { data: invitations, error: invError } = await (supabase as any)
         .from('invitations')
-        .select(`
+        .select(
+          `
           id, email, status, restaurant_ids, created_at, expires_at,
           role:roles(id, name, slug),
           invited_by_user:users!invitations_invited_by_fkey(first_name, last_name)
-        `)
+        `
+        )
         .eq('organization_id', orgId)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
@@ -103,8 +107,11 @@ export function useInviteMember() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { email: string; role_id: string; restaurant_ids?: string[] }) =>
-      apiClient('/api/members/invite', { method: 'POST', body: data }),
+    mutationFn: (data: {
+      email: string
+      role_id: string
+      restaurant_ids?: string[]
+    }) => apiClient('/api/members/invite', { method: 'POST', body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] })
     },
@@ -115,8 +122,14 @@ export function useUpdateMemberRole() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; role_id?: string; restaurant_ids?: string[] }) =>
-      apiClient(`/api/members/${id}/role`, { method: 'PATCH', body: data }),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string
+      role_id?: string
+      restaurant_ids?: string[]
+    }) => apiClient(`/api/members/${id}/role`, { method: 'PATCH', body: data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] })
       // Changer l'assignation restaurant/rôle d'un commercial modifie la visibilité

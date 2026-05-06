@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   type SortingState,
   type ColumnDef,
@@ -9,9 +10,20 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { Loader2, Plus, Trash2, Building } from 'lucide-react'
-import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -25,28 +37,19 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Checkbox } from '@/components/ui/checkbox'
+import { ConfigDrawer } from '@/components/config-drawer'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+  DataTableBulkActions as BulkActionsToolbar,
+  DataTablePagination,
+} from '@/components/data-table'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
-import { Search as SearchIcon } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
-import { ConfigDrawer } from '@/components/config-drawer'
 import { ProfileDropdown } from '@/components/profile-dropdown'
-import { DataTableBulkActions as BulkActionsToolbar, DataTablePagination } from '@/components/data-table'
-import { useCompanies, type Company } from './hooks/use-companies'
+import { Search as SearchIcon } from '@/components/search'
+import { SortSelect, parseSortValue } from '@/components/sort-select'
+import { ThemeSwitch } from '@/components/theme-switch'
 import { CompanyDialog } from './company-dialog'
-import { supabase } from '@/lib/supabase'
-import { useQueryClient } from '@tanstack/react-query'
+import { useCompanies, type Company } from './hooks/use-companies'
 
 const companiesColumns: ColumnDef<Company>[] = [
   {
@@ -106,7 +109,11 @@ const companiesColumns: ColumnDef<Company>[] = [
   },
 ]
 
-function CompaniesBulkActions({ table }: { table: ReturnType<typeof useReactTable<Company>> }) {
+function CompaniesBulkActions({
+  table,
+}: {
+  table: ReturnType<typeof useReactTable<Company>>
+}) {
   const queryClient = useQueryClient()
   const selectedRows = table.getFilteredSelectedRowModel().rows
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -125,7 +132,9 @@ function CompaniesBulkActions({ table }: { table: ReturnType<typeof useReactTabl
 
       table.resetRowSelection()
       queryClient.invalidateQueries({ queryKey: ['companies'] })
-      toast.success(`${count} société${count > 1 ? 's' : ''} supprimée${count > 1 ? 's' : ''}.`)
+      toast.success(
+        `${count} société${count > 1 ? 's' : ''} supprimée${count > 1 ? 's' : ''}.`
+      )
     } catch {
       toast.error('Erreur lors de la suppression.')
     }
@@ -159,13 +168,14 @@ function CompaniesBulkActions({ table }: { table: ReturnType<typeof useReactTabl
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
-              Supprimer {count} société{count > 1 ? 's' : ''} ? Cette action est irréversible.
+              Supprimer {count} société{count > 1 ? 's' : ''} ? Cette action est
+              irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
               onClick={handleBulkDelete}
             >
               Supprimer
@@ -183,7 +193,9 @@ export function CompaniesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [rowSelection, setRowSelection] = useState({})
   const [sortValue, setSortValue] = useState('created_at:desc')
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }])
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'created_at', desc: true },
+  ])
 
   const companySortOptions = [
     { label: 'Date de création (récent)', value: 'created_at:desc' },
@@ -239,7 +251,11 @@ export function CompaniesPage() {
 
       <Main className='flex flex-1 flex-col space-y-4'>
         <div className='flex justify-end gap-2'>
-          <SortSelect options={companySortOptions} value={sortValue} onChange={handleSortChange} />
+          <SortSelect
+            options={companySortOptions}
+            value={sortValue}
+            onChange={handleSortChange}
+          />
           <Button onClick={handleCreate}>
             <Plus className='mr-2 h-4 w-4' />
             Ajouter une société
@@ -264,7 +280,10 @@ export function CompaniesPage() {
                         >
                           {header.isPlaceholder
                             ? null
-                            : flexRender(header.column.columnDef.header, header.getContext())}
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
                         </TableHead>
                       ))}
                     </TableRow>
@@ -293,14 +312,20 @@ export function CompaniesPage() {
                             key={cell.id}
                             className={cell.column.columnDef.meta?.className}
                           >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={companiesColumns.length} className='text-center text-muted-foreground py-8'>
+                      <TableCell
+                        colSpan={companiesColumns.length}
+                        className='py-8 text-center text-muted-foreground'
+                      >
                         Aucune société trouvée
                       </TableCell>
                     </TableRow>

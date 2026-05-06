@@ -1,14 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { toast } from 'sonner'
 import { X, Plus, Trash2, GripVertical } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent } from '@/components/ui/card'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +11,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -23,6 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import {
   useMenuFormFull,
   useUpdateMenuForm,
@@ -63,28 +63,36 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
 
   if (!formId) return null
 
-  const fields = (formData?.menu_form_fields || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
+  const fields = (formData?.menu_form_fields || []).sort(
+    (a: any, b: any) => a.sort_order - b.sort_order
+  )
 
   const handleAddField = () => {
     if (!formId) return
-    addField({
-      menuFormId: formId,
-      label: 'Nouveau champ',
-      fieldType: 'select',
-      options: [],
-      isPerPerson: true,
-      isRequired: false,
-      sortOrder: fields.length,
-    }, {
-      onSuccess: () => toast.success('Champ ajouté'),
-      onError: () => toast.error('Erreur'),
-    })
+    addField(
+      {
+        menuFormId: formId,
+        label: 'Nouveau champ',
+        fieldType: 'select',
+        options: [],
+        isPerPerson: true,
+        isRequired: false,
+        sortOrder: fields.length,
+      },
+      {
+        onSuccess: () => toast.success('Champ ajouté'),
+        onError: () => toast.error('Erreur'),
+      }
+    )
   }
 
   const handleUpdateField = (fieldId: string, updates: any) => {
-    updateField({ id: fieldId, ...updates }, {
-      onError: () => toast.error('Erreur lors de la sauvegarde'),
-    })
+    updateField(
+      { id: fieldId, ...updates },
+      {
+        onError: () => toast.error('Erreur lors de la sauvegarde'),
+      }
+    )
   }
 
   const handleDeleteField = (fieldId: string) => {
@@ -105,7 +113,7 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-4xl max-h-[90vh] overflow-y-auto'>
+      <DialogContent className='max-h-[90vh] max-w-4xl overflow-y-auto'>
         <DialogHeader>
           <div className='flex items-center justify-between'>
             <div>
@@ -114,7 +122,11 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
                 Configurez les champs et les options du formulaire de menu
               </DialogDescription>
             </div>
-            <Button variant='ghost' size='sm' onClick={() => onOpenChange(false)}>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => onOpenChange(false)}
+            >
               <X className='h-4 w-4' />
             </Button>
           </div>
@@ -151,12 +163,12 @@ export function MenuFormBuilder({ formId, open, onOpenChange }: Props) {
             <div className='flex items-center justify-between'>
               <div>
                 <h3 className='text-sm font-semibold'>Champs du formulaire</h3>
-                <p className='text-xs text-muted-foreground mt-0.5'>
+                <p className='mt-0.5 text-xs text-muted-foreground'>
                   Ajoutez des choix (liste déroulante) ou des champs texte libre
                 </p>
               </div>
               <Button size='sm' onClick={handleAddField}>
-                <Plus className='h-4 w-4 mr-2' />
+                <Plus className='mr-2 h-4 w-4' />
                 Ajouter un champ
               </Button>
             </div>
@@ -201,7 +213,11 @@ function parseOptions(options: any): MenuOption[] {
   }
 }
 
-function FieldEditor({ field, onUpdate, onDelete }: {
+function FieldEditor({
+  field,
+  onUpdate,
+  onDelete,
+}: {
   field: any
   onUpdate: (id: string, updates: any) => void
   onDelete: (id: string) => void
@@ -211,7 +227,9 @@ function FieldEditor({ field, onUpdate, onDelete }: {
   const [fieldType, setFieldType] = useState(field.field_type)
   const [isPerPerson, setIsPerPerson] = useState(field.is_per_person)
   const [isRequired, setIsRequired] = useState(field.is_required)
-  const [options, setOptions] = useState<MenuOption[]>(() => parseOptions(field.options))
+  const [options, setOptions] = useState<MenuOption[]>(() =>
+    parseOptions(field.options)
+  )
 
   // Sync options from server
   useEffect(() => {
@@ -226,14 +244,25 @@ function FieldEditor({ field, onUpdate, onDelete }: {
       is_per_person: isPerPerson,
       is_required: isRequired,
     })
-  }, [field.id, label, description, fieldType, isPerPerson, isRequired, onUpdate])
+  }, [
+    field.id,
+    label,
+    description,
+    fieldType,
+    isPerPerson,
+    isRequired,
+    onUpdate,
+  ])
 
-  const saveOptions = useCallback((newOptions: MenuOption[]) => {
-    setOptions(newOptions)
-    onUpdate(field.id, {
-      options: JSON.stringify(newOptions),
-    })
-  }, [field.id, onUpdate])
+  const saveOptions = useCallback(
+    (newOptions: MenuOption[]) => {
+      setOptions(newOptions)
+      onUpdate(field.id, {
+        options: JSON.stringify(newOptions),
+      })
+    },
+    [field.id, onUpdate]
+  )
 
   const handleAddOption = () => {
     const newOptions = [...options, { label: '', description: '' }]
@@ -269,12 +298,14 @@ function FieldEditor({ field, onUpdate, onDelete }: {
 
   return (
     <Card>
-      <CardContent className='p-4 space-y-4'>
+      <CardContent className='space-y-4 p-4'>
         {/* Field header */}
         <div className='flex items-start justify-between gap-2'>
-          <div className='flex-1 grid grid-cols-[1fr_auto] gap-3'>
+          <div className='grid flex-1 grid-cols-[1fr_auto] gap-3'>
             <div className='space-y-1.5'>
-              <Label className='text-xs text-muted-foreground'>Nom du champ</Label>
+              <Label className='text-xs text-muted-foreground'>
+                Nom du champ
+              </Label>
               <Input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -300,7 +331,9 @@ function FieldEditor({ field, onUpdate, onDelete }: {
 
         {/* Field description */}
         <div className='space-y-1.5'>
-          <Label className='text-xs text-muted-foreground'>Description du champ (optionnelle)</Label>
+          <Label className='text-xs text-muted-foreground'>
+            Description du champ (optionnelle)
+          </Label>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -325,7 +358,7 @@ function FieldEditor({ field, onUpdate, onDelete }: {
                 type='button'
                 variant='outline'
                 size='sm'
-                className='h-7 text-xs gap-1'
+                className='h-7 gap-1 text-xs'
                 onClick={handleAddOption}
               >
                 <Plus className='h-3 w-3' />
@@ -334,15 +367,16 @@ function FieldEditor({ field, onUpdate, onDelete }: {
             </div>
 
             {options.length === 0 ? (
-              <div className='border border-dashed rounded-lg p-4 text-center text-sm text-muted-foreground'>
-                Aucune option. Ajoutez des options pour que les clients puissent choisir.
+              <div className='rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground'>
+                Aucune option. Ajoutez des options pour que les clients puissent
+                choisir.
               </div>
             ) : (
               <div className='space-y-2'>
                 {options.map((option, index) => (
                   <div
                     key={index}
-                    className='group flex items-start gap-2 bg-muted/50 rounded-lg p-2.5'
+                    className='group flex items-start gap-2 rounded-lg bg-muted/50 p-2.5'
                   >
                     <div className='pt-2 text-muted-foreground/50'>
                       <GripVertical className='h-4 w-4' />
@@ -350,16 +384,22 @@ function FieldEditor({ field, onUpdate, onDelete }: {
                     <div className='flex-1 space-y-1.5'>
                       <Input
                         value={option.label}
-                        onChange={(e) => handleUpdateOption(index, { label: e.target.value })}
+                        onChange={(e) =>
+                          handleUpdateOption(index, { label: e.target.value })
+                        }
                         onBlur={() => handleSaveOption(index)}
-                        className='h-8 text-sm bg-background'
+                        className='h-8 bg-background text-sm'
                         placeholder={`Option ${index + 1} (ex: Salade César, Tartare de boeuf...)`}
                       />
                       <Input
                         value={option.description || ''}
-                        onChange={(e) => handleUpdateOption(index, { description: e.target.value })}
+                        onChange={(e) =>
+                          handleUpdateOption(index, {
+                            description: e.target.value,
+                          })
+                        }
                         onBlur={() => handleSaveOption(index)}
-                        className='h-7 text-xs bg-background text-muted-foreground'
+                        className='h-7 bg-background text-xs text-muted-foreground'
                         placeholder='Description (optionnelle) — ex: Avec copeaux de parmesan et croûtons'
                       />
                     </div>
@@ -367,7 +407,7 @@ function FieldEditor({ field, onUpdate, onDelete }: {
                       type='button'
                       variant='ghost'
                       size='sm'
-                      className='h-8 w-8 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity'
+                      className='h-8 w-8 p-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive'
                       onClick={() => handleRemoveOption(index)}
                     >
                       <Trash2 className='h-3.5 w-3.5' />
@@ -408,10 +448,10 @@ function FieldEditor({ field, onUpdate, onDelete }: {
           <Button
             variant='ghost'
             size='sm'
-            className='text-destructive hover:text-destructive text-xs'
+            className='text-xs text-destructive hover:text-destructive'
             onClick={() => onDelete(field.id)}
           >
-            <Trash2 className='h-3.5 w-3.5 mr-1.5' />
+            <Trash2 className='mr-1.5 h-3.5 w-3.5' />
             Supprimer le champ
           </Button>
         </div>

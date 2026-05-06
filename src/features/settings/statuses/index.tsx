@@ -1,6 +1,16 @@
 import { useState } from 'react'
 import { Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,20 +28,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { useStatuses, useDeleteStatus, type Status } from '../hooks/use-settings'
+  useStatuses,
+  useDeleteStatus,
+  type Status,
+} from '../hooks/use-settings'
 import { StatusDialog } from './status-dialog'
 
 export function StatusesSettings() {
-  const { data: bookingStatuses = [], isLoading: isLoadingBookings } = useStatuses('booking')
+  const { data: bookingStatuses = [], isLoading: isLoadingBookings } =
+    useStatuses('booking')
   const { mutate: deleteStatus } = useDeleteStatus()
   const [editingStatus, setEditingStatus] = useState<Status | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -79,7 +84,7 @@ export function StatusesSettings() {
 
   const StatusTable = ({ statuses }: { statuses: Status[] }) => (
     <>
-      <div className='flex justify-end mb-4'>
+      <div className='mb-4 flex justify-end'>
         <Button onClick={() => handleCreate()}>
           <Plus className='mr-2 h-4 w-4' />
           Ajouter un statut
@@ -100,7 +105,10 @@ export function StatusesSettings() {
           <TableBody>
             {statuses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className='text-center text-muted-foreground py-8'>
+                <TableCell
+                  colSpan={5}
+                  className='py-8 text-center text-muted-foreground'
+                >
                   Aucun statut configuré
                 </TableCell>
               </TableRow>
@@ -109,7 +117,7 @@ export function StatusesSettings() {
                 <TableRow key={status.id}>
                   <TableCell>
                     <div
-                      className='w-6 h-6 rounded-full border'
+                      className='h-6 w-6 rounded-full border'
                       style={{ backgroundColor: status.color || '#6b7280' }}
                     />
                   </TableCell>
@@ -150,7 +158,7 @@ export function StatusesSettings() {
   )
 
   return (
-    <div className='flex flex-1 flex-col w-full'>
+    <div className='flex w-full flex-1 flex-col'>
       <StatusTable statuses={bookingStatuses} />
 
       <StatusDialog
@@ -160,18 +168,22 @@ export function StatusesSettings() {
         type={statusType}
       />
 
-      <AlertDialog open={!!statusToDelete} onOpenChange={(open) => !open && setStatusToDelete(null)}>
+      <AlertDialog
+        open={!!statusToDelete}
+        onOpenChange={(open) => !open && setStatusToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce statut ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. Le statut "{statusToDelete?.name}" sera supprimé.
+              Cette action est irréversible. Le statut "{statusToDelete?.name}"
+              sera supprimé.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
               onClick={handleConfirmDelete}
             >
               Supprimer

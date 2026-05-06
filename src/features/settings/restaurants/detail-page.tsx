@@ -2,15 +2,15 @@ import { useEffect } from 'react'
 import { useParams, useSearch, useRouter, Link } from '@tanstack/react-router'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { RestaurantDetail } from './restaurant-detail'
-import { StripeConnectSection } from './components/stripe-connect-section'
 import { useRestaurants } from '../hooks/use-settings'
-import { Button } from '@/components/ui/button'
+import { StripeConnectSection } from './components/stripe-connect-section'
+import { RestaurantDetail } from './restaurant-detail'
 
 export function RestaurantDetailPage() {
   const { id } = useParams({ from: '/_authenticated/settings/restaurant/$id' })
@@ -18,7 +18,7 @@ export function RestaurantDetailPage() {
   const router = useRouter()
   const { data: restaurants = [], isLoading } = useRestaurants()
 
-  const restaurant = restaurants.find(r => r.id === id)
+  const restaurant = restaurants.find((r) => r.id === id)
 
   // Gestion du retour OAuth Stripe
   useEffect(() => {
@@ -53,10 +53,14 @@ export function RestaurantDetailPage() {
     return (
       <>
         <Header>
-          <h1 className='text-2xl font-bold tracking-tight'>Restaurant non trouvé</h1>
+          <h1 className='text-2xl font-bold tracking-tight'>
+            Restaurant non trouvé
+          </h1>
         </Header>
         <Main className='flex flex-1 flex-col items-center justify-center'>
-          <p className='text-muted-foreground'>Ce restaurant n'existe pas ou a été supprimé.</p>
+          <p className='text-muted-foreground'>
+            Ce restaurant n'existe pas ou a été supprimé.
+          </p>
         </Main>
       </>
     )
@@ -73,7 +77,7 @@ export function RestaurantDetailPage() {
           </Button>
           <div className='flex items-center gap-3'>
             <div
-              className='w-8 h-8 rounded-full border-2'
+              className='h-8 w-8 rounded-full border-2'
               style={{ backgroundColor: restaurant.color || '#3b82f6' }}
             />
             <Header fixed>

@@ -1,16 +1,16 @@
 import { useEffect, useMemo, forwardRef, useImperativeHandle } from 'react'
 import { z } from 'zod'
+import { format } from 'date-fns'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useBlocker, useNavigate } from '@tanstack/react-router'
-import { toast } from 'sonner'
 import { Link } from '@tanstack/react-router'
-import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { CalendarDays, ExternalLink, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Form,
   FormControl,
@@ -19,6 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -26,17 +27,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
-import type { ContactWithRelations } from '../types'
-import { CompanyCombobox } from './company-combobox'
+import { Textarea } from '@/components/ui/textarea'
+import { CreateBookingDialog } from '@/features/reservations/components/create-booking-dialog'
+import { useBookingsByContact } from '@/features/reservations/hooks/use-bookings'
 import {
   useUpdateContact,
   useDeleteContact,
   useOrganizationUsers,
 } from '../hooks/use-contacts'
-import { useBookingsByContact } from '@/features/reservations/hooks/use-bookings'
-import { CreateBookingDialog } from '@/features/reservations/components/create-booking-dialog'
+import type { ContactWithRelations } from '../types'
+import { CompanyCombobox } from './company-combobox'
 
 const contactDetailSchema = z.object({
   first_name: z.string().min(1, 'Le prénom est requis'),
@@ -68,25 +68,30 @@ export const ContactDetail = forwardRef<
 >(function ContactDetail({ contact, activeTab, onDirtyChange }, ref) {
   const navigate = useNavigate()
   const { mutate: updateContact, isPending: _isPending } = useUpdateContact()
-  const { data: bookings = [], isLoading: isLoadingBookings } = useBookingsByContact(contact.id)
-  const { mutate: deleteContactMutation, isPending: _isDeleting } = useDeleteContact()
+  const { data: bookings = [], isLoading: isLoadingBookings } =
+    useBookingsByContact(contact.id)
+  const { mutate: deleteContactMutation, isPending: _isDeleting } =
+    useDeleteContact()
   const { data: users = [] } = useOrganizationUsers()
 
-  const formValues = useMemo(() => ({
-    first_name: contact.first_name || '',
-    last_name: contact.last_name || '',
-    email: contact.email || '',
-    phone: contact.phone || '',
-    mobile: contact.mobile || '',
-    job_title: contact.job_title || '',
-    company_id: contact.company_id || null,
-    assigned_to: contact.assigned_to || '',
-    source: contact.source || '',
-    address: contact.address || '',
-    city: contact.city || '',
-    postal_code: contact.postal_code || '',
-    notes: contact.notes || '',
-  }), [contact])
+  const formValues = useMemo(
+    () => ({
+      first_name: contact.first_name || '',
+      last_name: contact.last_name || '',
+      email: contact.email || '',
+      phone: contact.phone || '',
+      mobile: contact.mobile || '',
+      job_title: contact.job_title || '',
+      company_id: contact.company_id || null,
+      assigned_to: contact.assigned_to || '',
+      source: contact.source || '',
+      address: contact.address || '',
+      city: contact.city || '',
+      postal_code: contact.postal_code || '',
+      notes: contact.notes || '',
+    }),
+    [contact]
+  )
 
   const form = useForm<ContactDetailFormData>({
     resolver: zodResolver(contactDetailSchema),
@@ -163,10 +168,14 @@ export const ContactDetail = forwardRef<
     })
   }
 
-  useImperativeHandle(ref, () => ({
-    submitForm: () => form.handleSubmit(onSubmit)(),
-    deleteContact: handleDelete,
-  }), [form, onSubmit, handleDelete])
+  useImperativeHandle(
+    ref,
+    () => ({
+      submitForm: () => form.handleSubmit(onSubmit)(),
+      deleteContact: handleDelete,
+    }),
+    [form, onSubmit, handleDelete]
+  )
 
   useEffect(() => {
     onDirtyChange?.(form.formState.isDirty)
@@ -196,291 +205,319 @@ export const ContactDetail = forwardRef<
         {activeTab === 'general' && (
           <div className='space-y-6'>
             <div className='grid gap-6 lg:grid-cols-2'>
-          {/* Informations personnelles */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Informations personnelles</CardTitle>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='grid grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='first_name'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Prénom *</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='last_name'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nom</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className='grid grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='email'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type='email' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='job_title'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fonction</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className='grid grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='phone'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Téléphone</FormLabel>
-                      <FormControl>
-                        <Input type='tel' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='mobile'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mobile</FormLabel>
-                      <FormControl>
-                        <Input type='tel' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Société & Attribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Société & Attribution</CardTitle>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <FormField
-                control={form.control}
-                name='company_id'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Société</FormLabel>
-                    <FormControl>
-                      <CompanyCombobox
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name='assigned_to'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Commercial</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Sélectionner...' />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {users.map((user: any) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.first_name} {user.last_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className='grid grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='source'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Source</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Sélectionner...' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {sources.map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* UTM Tracking — read-only */}
-              {(contact.utm_source || contact.utm_campaign || contact.utm_medium) && (
-                <div className='rounded-lg border bg-muted/30 p-4 space-y-2'>
-                  <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider'>Tracking publicitaire</p>
-                  <div className='grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm'>
-                    {contact.utm_source && (
-                      <>
-                        <span className='text-muted-foreground'>Source</span>
-                        <span className='font-medium'>{contact.utm_source}</span>
-                      </>
-                    )}
-                    {contact.utm_medium && (
-                      <>
-                        <span className='text-muted-foreground'>Medium</span>
-                        <span className='font-medium'>{contact.utm_medium}</span>
-                      </>
-                    )}
-                    {contact.utm_campaign && (
-                      <>
-                        <span className='text-muted-foreground'>Campagne</span>
-                        <span className='font-medium'>{contact.utm_campaign}</span>
-                      </>
-                    )}
-                    {contact.utm_content && (
-                      <>
-                        <span className='text-muted-foreground'>Contenu</span>
-                        <span className='font-medium'>{contact.utm_content}</span>
-                      </>
-                    )}
-                    {contact.utm_term && (
-                      <>
-                        <span className='text-muted-foreground'>Terme</span>
-                        <span className='font-medium'>{contact.utm_term}</span>
-                      </>
-                    )}
+              {/* Informations personnelles */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informations personnelles</CardTitle>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <div className='grid grid-cols-2 gap-4'>
+                    <FormField
+                      control={form.control}
+                      name='first_name'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Prénom *</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='last_name'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nom</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
-          {/* Adresse */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Adresse</CardTitle>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <FormField
-                control={form.control}
-                name='address'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Adresse</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className='grid grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='postal_code'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Code postal</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='city'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ville</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                  <div className='grid grid-cols-2 gap-4'>
+                    <FormField
+                      control={form.control}
+                      name='email'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input type='email' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='job_title'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fonction</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-          {/* Notes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FormField
-                control={form.control}
-                name='notes'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Textarea
-                        placeholder='Notes sur le contact...'
-                        className='min-h-[120px] resize-none'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+                  <div className='grid grid-cols-2 gap-4'>
+                    <FormField
+                      control={form.control}
+                      name='phone'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Téléphone</FormLabel>
+                          <FormControl>
+                            <Input type='tel' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='mobile'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mobile</FormLabel>
+                          <FormControl>
+                            <Input type='tel' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Société & Attribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Société & Attribution</CardTitle>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='company_id'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Société</FormLabel>
+                        <FormControl>
+                          <CompanyCombobox
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='assigned_to'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Commercial</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder='Sélectionner...' />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {users.map((user: any) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.first_name} {user.last_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className='grid grid-cols-2 gap-4'>
+                    <FormField
+                      control={form.control}
+                      name='source'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Source</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Sélectionner...' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {sources.map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {s}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* UTM Tracking — read-only */}
+                  {(contact.utm_source ||
+                    contact.utm_campaign ||
+                    contact.utm_medium) && (
+                    <div className='space-y-2 rounded-lg border bg-muted/30 p-4'>
+                      <p className='text-xs font-medium tracking-wider text-muted-foreground uppercase'>
+                        Tracking publicitaire
+                      </p>
+                      <div className='grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm'>
+                        {contact.utm_source && (
+                          <>
+                            <span className='text-muted-foreground'>
+                              Source
+                            </span>
+                            <span className='font-medium'>
+                              {contact.utm_source}
+                            </span>
+                          </>
+                        )}
+                        {contact.utm_medium && (
+                          <>
+                            <span className='text-muted-foreground'>
+                              Medium
+                            </span>
+                            <span className='font-medium'>
+                              {contact.utm_medium}
+                            </span>
+                          </>
+                        )}
+                        {contact.utm_campaign && (
+                          <>
+                            <span className='text-muted-foreground'>
+                              Campagne
+                            </span>
+                            <span className='font-medium'>
+                              {contact.utm_campaign}
+                            </span>
+                          </>
+                        )}
+                        {contact.utm_content && (
+                          <>
+                            <span className='text-muted-foreground'>
+                              Contenu
+                            </span>
+                            <span className='font-medium'>
+                              {contact.utm_content}
+                            </span>
+                          </>
+                        )}
+                        {contact.utm_term && (
+                          <>
+                            <span className='text-muted-foreground'>Terme</span>
+                            <span className='font-medium'>
+                              {contact.utm_term}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Adresse */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Adresse</CardTitle>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='address'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Adresse</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className='grid grid-cols-2 gap-4'>
+                    <FormField
+                      control={form.control}
+                      name='postal_code'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Code postal</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='city'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ville</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notes */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FormField
+                    control={form.control}
+                    name='notes'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea
+                            placeholder='Notes sur le contact...'
+                            className='min-h-[120px] resize-none'
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}
@@ -490,7 +527,7 @@ export const ContactDetail = forwardRef<
           <div className='space-y-6'>
             <Card>
               <CardHeader>
-                <div className='flex items-center justify-between w-full'>
+                <div className='flex w-full items-center justify-between'>
                   <div className='flex items-center gap-2'>
                     <CalendarDays className='h-5 w-5' />
                     Événements
@@ -499,75 +536,86 @@ export const ContactDetail = forwardRef<
                 </div>
               </CardHeader>
               <CardContent>
-            {isLoadingBookings ? (
-              <div className='flex items-center justify-center py-6'>
-                <Loader2 className='h-5 w-5 animate-spin text-muted-foreground' />
-              </div>
-            ) : bookings.length === 0 ? (
-              <p className='text-sm text-muted-foreground py-4 text-center'>
-                Aucun événement pour ce contact.
-              </p>
-            ) : (
-              <div className='divide-y rounded-md border'>
-                {bookings.map((booking) => {
-                  return (
-                    <Link
-                      key={booking.id}
-                      to='/evenements/booking/$id'
-                      params={{ id: booking.id }}
-                      className='flex items-center justify-between gap-4 px-4 py-3 hover:bg-muted/50 transition-colors'
-                    >
-                      <div className='flex items-center gap-4 min-w-0'>
-                        <div className='flex flex-col'>
-                          <span className='text-sm font-medium'>
-                            {format(new Date(booking.event_date), 'dd MMMM yyyy', { locale: fr })}
-                          </span>
-                          <span className='text-xs text-muted-foreground'>
-                            {booking.start_time || ''}{booking.end_time ? ` - ${booking.end_time}` : ''}
-                          </span>
-                        </div>
-                        {booking.restaurant && (
-                          <div className='flex items-center gap-1.5'>
-                            {booking.restaurant.color && (
-                              <div
-                                className='h-2 w-2 rounded-full shrink-0'
-                                style={{ backgroundColor: booking.restaurant.color }}
-                              />
+                {isLoadingBookings ? (
+                  <div className='flex items-center justify-center py-6'>
+                    <Loader2 className='h-5 w-5 animate-spin text-muted-foreground' />
+                  </div>
+                ) : bookings.length === 0 ? (
+                  <p className='py-4 text-center text-sm text-muted-foreground'>
+                    Aucun événement pour ce contact.
+                  </p>
+                ) : (
+                  <div className='divide-y rounded-md border'>
+                    {bookings.map((booking) => {
+                      return (
+                        <Link
+                          key={booking.id}
+                          to='/evenements/booking/$id'
+                          params={{ id: booking.id }}
+                          className='flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/50'
+                        >
+                          <div className='flex min-w-0 items-center gap-4'>
+                            <div className='flex flex-col'>
+                              <span className='text-sm font-medium'>
+                                {format(
+                                  new Date(booking.event_date),
+                                  'dd MMMM yyyy',
+                                  { locale: fr }
+                                )}
+                              </span>
+                              <span className='text-xs text-muted-foreground'>
+                                {booking.start_time || ''}
+                                {booking.end_time
+                                  ? ` - ${booking.end_time}`
+                                  : ''}
+                              </span>
+                            </div>
+                            {booking.restaurant && (
+                              <div className='flex items-center gap-1.5'>
+                                {booking.restaurant.color && (
+                                  <div
+                                    className='h-2 w-2 shrink-0 rounded-full'
+                                    style={{
+                                      backgroundColor: booking.restaurant.color,
+                                    }}
+                                  />
+                                )}
+                                <span className='truncate text-sm text-muted-foreground'>
+                                  {booking.restaurant.name}
+                                </span>
+                              </div>
                             )}
-                            <span className='text-sm text-muted-foreground truncate'>
-                              {booking.restaurant.name}
-                            </span>
+                            {booking.occasion && (
+                              <span className='hidden text-xs text-muted-foreground sm:inline'>
+                                {booking.occasion}
+                              </span>
+                            )}
+                            {booking.guests_count && (
+                              <span className='text-xs text-muted-foreground'>
+                                {booking.guests_count} pers.
+                              </span>
+                            )}
                           </div>
-                        )}
-                        {booking.occasion && (
-                          <span className='text-xs text-muted-foreground hidden sm:inline'>
-                            {booking.occasion}
-                          </span>
-                        )}
-                        {booking.guests_count && (
-                          <span className='text-xs text-muted-foreground'>
-                            {booking.guests_count} pers.
-                          </span>
-                        )}
-                      </div>
-                      <div className='flex items-center gap-3 shrink-0'>
-                        {booking.status && (
-                          <Badge variant='outline' className={cn('text-xs', booking.status.color)}>
-                            {booking.status.name}
-                          </Badge>
-                        )}
-                        <ExternalLink className='h-4 w-4 text-muted-foreground' />
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
+                          <div className='flex shrink-0 items-center gap-3'>
+                            {booking.status && (
+                              <Badge
+                                variant='outline'
+                                className={cn('text-xs', booking.status.color)}
+                              >
+                                {booking.status.name}
+                              </Badge>
+                            )}
+                            <ExternalLink className='h-4 w-4 text-muted-foreground' />
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
         )}
-
       </form>
     </Form>
   )

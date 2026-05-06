@@ -26,7 +26,7 @@ export function SortSelect({ options, value, onChange }: SortSelectProps) {
         <SelectValue placeholder='Trier par...' />
       </SelectTrigger>
       <SelectContent>
-        {options.map(o => (
+        {options.map((o) => (
           <SelectItem key={o.value} value={o.value} className='text-xs'>
             {o.label}
           </SelectItem>

@@ -8,13 +8,25 @@ export const contactStatuses = [
   { value: 'proposition', label: 'Proposition', color: 'bg-yellow-500' },
   { value: 'negociation', label: 'Négociation', color: 'bg-lime-500' },
   { value: 'confirme', label: 'Confirmé / Fon...', color: 'bg-green-500' },
-  { value: 'fonction_envoyee', label: 'Fonction envoy...', color: 'bg-teal-500' },
+  {
+    value: 'fonction_envoyee',
+    label: 'Fonction envoy...',
+    color: 'bg-teal-500',
+  },
   { value: 'a_facturer', label: 'A facturer', color: 'bg-blue-500' },
-  { value: 'attente_paiement', label: 'Attente paiem...', color: 'bg-purple-500' },
-  { value: 'relance_paiement', label: 'Relance paiem...', color: 'bg-pink-500' },
+  {
+    value: 'attente_paiement',
+    label: 'Attente paiem...',
+    color: 'bg-purple-500',
+  },
+  {
+    value: 'relance_paiement',
+    label: 'Relance paiem...',
+    color: 'bg-pink-500',
+  },
 ] as const
 
-export type ContactStatus = typeof contactStatuses[number]['value']
+export type ContactStatus = (typeof contactStatuses)[number]['value']
 
 export const espaces = [
   'Salle principale',
@@ -29,7 +41,7 @@ export const occasions = [
   'Anniversaire',
   'Mariage',
   'Séminaire',
-  'Dîner d\'équipe',
+  "Dîner d'équipe",
   'Cocktail',
   'Baptême',
   'Communion',
@@ -42,7 +54,7 @@ export const restaurants = [
   'Le Petit Bistro',
   'La Grande Table',
   'Chez Marcel',
-  'L\'Atelier Gourmand',
+  "L'Atelier Gourmand",
   'Bistrot Là-Haut',
 ] as const
 
@@ -76,10 +88,22 @@ export type Contact = {
 
 export const contacts: Contact[] = Array.from({ length: 30 }, (_, i) => {
   const status = faker.helpers.arrayElement(contactStatuses).value
-  const hasDevis = ['proposition', 'negociation', 'confirme', 'fonction_envoyee', 'a_facturer', 'attente_paiement', 'relance_paiement'].includes(status)
-  const hasFacture = ['a_facturer', 'attente_paiement', 'relance_paiement'].includes(status)
+  const hasDevis = [
+    'proposition',
+    'negociation',
+    'confirme',
+    'fonction_envoyee',
+    'a_facturer',
+    'attente_paiement',
+    'relance_paiement',
+  ].includes(status)
+  const hasFacture = [
+    'a_facturer',
+    'attente_paiement',
+    'relance_paiement',
+  ].includes(status)
   const needsRelance = ['attente_paiement', 'relance_paiement'].includes(status)
-  
+
   return {
     id: `RES-${1000 + i}`,
     companyName: faker.company.name(),
@@ -104,8 +128,8 @@ export const contacts: Contact[] = Array.from({ length: 30 }, (_, i) => {
 
 // Count contacts by status
 export const getStatusCounts = () => {
-  return contactStatuses.map(status => ({
+  return contactStatuses.map((status) => ({
     ...status,
-    count: contacts.filter(c => c.status === status.value).length,
+    count: contacts.filter((c) => c.status === status.value).length,
   }))
 }

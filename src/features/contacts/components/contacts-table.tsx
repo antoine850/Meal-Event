@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import {
   type SortingState,
   type VisibilityState,
@@ -8,7 +9,6 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -20,17 +20,22 @@ import {
 } from '@/components/ui/table'
 import { DataTablePagination } from '@/components/data-table'
 import type { ContactWithRelations } from '../types'
-import { contactsColumns as columns } from './contacts-columns'
 import { ContactsBulkActions } from './contacts-bulk-actions'
+import { contactsColumns as columns } from './contacts-columns'
 
 type ContactsTableProps = {
   data: ContactWithRelations[]
   sorting?: SortingState
 }
 
-export function ContactsTable({ data, sorting: externalSorting }: ContactsTableProps) {
+export function ContactsTable({
+  data,
+  sorting: externalSorting,
+}: ContactsTableProps) {
   const [rowSelection, setRowSelection] = useState({})
-  const [sorting, setSorting] = useState<SortingState>(externalSorting || [{ id: 'created_at', desc: true }])
+  const [sorting, setSorting] = useState<SortingState>(
+    externalSorting || [{ id: 'created_at', desc: true }]
+  )
 
   useEffect(() => {
     if (externalSorting) setSorting(externalSorting)

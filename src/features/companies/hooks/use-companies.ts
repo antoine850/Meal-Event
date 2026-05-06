@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
 
 export type Company = {
   id: string
@@ -64,7 +64,10 @@ export function useUpdateCompany() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Company> & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...updates
+    }: Partial<Company> & { id: string }) => {
       const { data, error } = await (supabase as any)
         .from('companies')
         .update(updates)
@@ -86,7 +89,10 @@ export function useDeleteCompany() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from('companies').delete().eq('id', id)
+      const { error } = await (supabase as any)
+        .from('companies')
+        .delete()
+        .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {

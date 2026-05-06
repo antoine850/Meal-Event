@@ -51,16 +51,20 @@ export function getProductsColumns({
       cell: ({ row }) => (
         <div className='flex flex-col'>
           <div className='flex items-center gap-2'>
-            <span className='font-medium text-sm'>{row.original.name}</span>
+            <span className='text-sm font-medium'>{row.original.name}</span>
             {!row.original.is_active && (
-              <Badge variant='secondary' className='text-[10px]'>Inactif</Badge>
+              <Badge variant='secondary' className='text-[10px]'>
+                Inactif
+              </Badge>
             )}
             {row.original.price_per_person && (
-              <Badge variant='outline' className='text-[10px]'>Par pers.</Badge>
+              <Badge variant='outline' className='text-[10px]'>
+                Par pers.
+              </Badge>
             )}
           </div>
           {row.original.description && (
-            <span className='text-xs text-muted-foreground truncate max-w-[300px]'>
+            <span className='max-w-[300px] truncate text-xs text-muted-foreground'>
               {row.original.description}
             </span>
           )}
@@ -83,7 +87,10 @@ export function getProductsColumns({
           prestataires: 'Prestataires',
         }
         return (
-          <Badge variant='outline' className='text-xs font-normal whitespace-nowrap'>
+          <Badge
+            variant='outline'
+            className='text-xs font-normal whitespace-nowrap'
+          >
             {typeLabels[row.original.type] || row.original.type}
           </Badge>
         )
@@ -130,26 +137,29 @@ export function getProductsColumns({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title='Marge' />
       ),
-      cell: ({ row }) => (
+      cell: ({ row }) =>
         row.original.margin > 0 ? (
-          <span className='text-sm text-green-600 tabular-nums'>{row.original.margin}%</span>
+          <span className='text-sm text-green-600 tabular-nums'>
+            {row.original.margin}%
+          </span>
         ) : (
           <span className='text-sm text-muted-foreground'>—</span>
-        )
-      ),
+        ),
     },
     {
       id: 'restaurants',
-      accessorFn: (row) => row.product_restaurants?.map(pr => pr.restaurant_id) || [],
+      accessorFn: (row) =>
+        row.product_restaurants?.map((pr) => pr.restaurant_id) || [],
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title='Restaurants' />
       ),
       cell: ({ row }) => {
         const prs = row.original.product_restaurants
-        if (!prs || prs.length === 0) return <span className='text-muted-foreground'>—</span>
+        if (!prs || prs.length === 0)
+          return <span className='text-muted-foreground'>—</span>
         return (
           <div className='flex items-center gap-1.5'>
-            {prs.map(pr => (
+            {prs.map((pr) => (
               <div
                 key={pr.restaurant_id}
                 className='h-2.5 w-2.5 rounded-full'
@@ -161,7 +171,8 @@ export function getProductsColumns({
         )
       },
       filterFn: (row, _id, value) => {
-        const restaurantIds = row.original.product_restaurants?.map(pr => pr.restaurant_id) || []
+        const restaurantIds =
+          row.original.product_restaurants?.map((pr) => pr.restaurant_id) || []
         return value.some((v: string) => restaurantIds.includes(v))
       },
       meta: { className: 'min-w-[150px]' },
@@ -184,7 +195,10 @@ export function getProductsColumns({
             size='icon'
             variant='ghost'
             className='h-7 w-7'
-            onClick={(e) => { e.stopPropagation(); onDuplicate(row.original) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDuplicate(row.original)
+            }}
             title='Dupliquer'
           >
             <Copy className='h-3.5 w-3.5' />
@@ -193,7 +207,10 @@ export function getProductsColumns({
             size='icon'
             variant='ghost'
             className='h-7 w-7'
-            onClick={(e) => { e.stopPropagation(); onEdit(row.original) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(row.original)
+            }}
             title='Modifier'
           >
             <Edit className='h-3.5 w-3.5' />
@@ -202,7 +219,10 @@ export function getProductsColumns({
             size='icon'
             variant='ghost'
             className='h-7 w-7 text-destructive hover:text-destructive'
-            onClick={(e) => { e.stopPropagation(); onDelete(row.original) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(row.original)
+            }}
             title='Supprimer'
           >
             <Trash2 className='h-3.5 w-3.5' />

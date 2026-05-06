@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
 
 // ============================================
 // Types
@@ -11,7 +11,13 @@ export type Product = {
   organization_id: string
   name: string
   description: string | null
-  type: 'boissons_alcoolisees' | 'boissons_sans_alcool' | 'food' | 'frais_personnel' | 'frais_privatisation' | 'prestataires'
+  type:
+    | 'boissons_alcoolisees'
+    | 'boissons_sans_alcool'
+    | 'food'
+    | 'frais_personnel'
+    | 'frais_privatisation'
+    | 'prestataires'
   tag: string | null
   price_per_person: boolean
   unit_price_ht: number
@@ -25,7 +31,10 @@ export type Product = {
 }
 
 export type ProductWithRestaurants = Product & {
-  product_restaurants: { restaurant_id: string; restaurant: { id: string; name: string; color: string | null } }[]
+  product_restaurants: {
+    restaurant_id: string
+    restaurant: { id: string; name: string; color: string | null }
+  }[]
 }
 
 export type Package = {
@@ -43,7 +52,10 @@ export type Package = {
 
 export type PackageWithRelations = Package & {
   package_products: { product_id: string; quantity: number; product: Product }[]
-  package_restaurants: { restaurant_id: string; restaurant: { id: string; name: string; color: string | null } }[]
+  package_restaurants: {
+    restaurant_id: string
+    restaurant: { id: string; name: string; color: string | null }
+  }[]
 }
 
 export const PRODUCT_TYPES = [
@@ -68,13 +80,15 @@ export function useProducts() {
 
       const { data, error } = await supabase
         .from('products')
-        .select(`
+        .select(
+          `
           *,
           product_restaurants(
             restaurant_id,
             restaurant:restaurants(id, name, color)
           )
-        `)
+        `
+        )
         .eq('organization_id', orgId)
         .order('name', { ascending: true })
 
@@ -88,7 +102,10 @@ export function useCreateProduct() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ restaurant_ids, ...product }: Partial<Product> & { restaurant_ids?: string[] }) => {
+    mutationFn: async ({
+      restaurant_ids,
+      ...product
+    }: Partial<Product> & { restaurant_ids?: string[] }) => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
@@ -103,7 +120,12 @@ export function useCreateProduct() {
       if (restaurant_ids && restaurant_ids.length > 0) {
         const { error: linkError } = await supabase
           .from('product_restaurants')
-          .insert(restaurant_ids.map(rid => ({ product_id: (data as any).id, restaurant_id: rid })) as never)
+          .insert(
+            restaurant_ids.map((rid) => ({
+              product_id: (data as any).id,
+              restaurant_id: rid,
+            })) as never
+          )
 
         if (linkError) throw linkError
       }
@@ -120,7 +142,11 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, restaurant_ids, ...updates }: Partial<Product> & { id: string; restaurant_ids?: string[] }) => {
+    mutationFn: async ({
+      id,
+      restaurant_ids,
+      ...updates
+    }: Partial<Product> & { id: string; restaurant_ids?: string[] }) => {
       const { data, error } = await supabase
         .from('products')
         .update(updates as never)
@@ -135,7 +161,12 @@ export function useUpdateProduct() {
         if (restaurant_ids.length > 0) {
           const { error: linkError } = await supabase
             .from('product_restaurants')
-            .insert(restaurant_ids.map(rid => ({ product_id: id, restaurant_id: rid })) as never)
+            .insert(
+              restaurant_ids.map((rid) => ({
+                product_id: id,
+                restaurant_id: rid,
+              })) as never
+            )
           if (linkError) throw linkError
         }
       }
@@ -175,7 +206,8 @@ export function usePackages() {
 
       const { data, error } = await supabase
         .from('packages')
-        .select(`
+        .select(
+          `
           *,
           package_products(
             product_id,
@@ -186,7 +218,8 @@ export function usePackages() {
             restaurant_id,
             restaurant:restaurants(id, name, color)
           )
-        `)
+        `
+        )
         .eq('organization_id', orgId)
         .order('name', { ascending: true })
 
@@ -200,7 +233,14 @@ export function useCreatePackage() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ restaurant_ids, product_items, ...pkg }: Partial<Package> & { restaurant_ids?: string[]; product_items?: { product_id: string; quantity: number }[] }) => {
+    mutationFn: async ({
+      restaurant_ids,
+      product_items,
+      ...pkg
+    }: Partial<Package> & {
+      restaurant_ids?: string[]
+      product_items?: { product_id: string; quantity: number }[]
+    }) => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
@@ -221,14 +261,25 @@ export function useCreatePackage() {
       if (product_items && product_items.length > 0) {
         const { error: prodError } = await supabase
           .from('package_products')
-          .insert(product_items.map(pi => ({ package_id: (data as any).id, product_id: pi.product_id, quantity: pi.quantity })) as never)
+          .insert(
+            product_items.map((pi) => ({
+              package_id: (data as any).id,
+              product_id: pi.product_id,
+              quantity: pi.quantity,
+            })) as never
+          )
         if (prodError) throw prodError
       }
 
       if (restaurant_ids && restaurant_ids.length > 0) {
         const { error: linkError } = await supabase
           .from('package_restaurants')
-          .insert(restaurant_ids.map(rid => ({ package_id: (data as any).id, restaurant_id: rid })) as never)
+          .insert(
+            restaurant_ids.map((rid) => ({
+              package_id: (data as any).id,
+              restaurant_id: rid,
+            })) as never
+          )
         if (linkError) throw linkError
       }
 
@@ -244,7 +295,16 @@ export function useUpdatePackage() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, restaurant_ids, product_items, ...updates }: Partial<Package> & { id: string; restaurant_ids?: string[]; product_items?: { product_id: string; quantity: number }[] }) => {
+    mutationFn: async ({
+      id,
+      restaurant_ids,
+      product_items,
+      ...updates
+    }: Partial<Package> & {
+      id: string
+      restaurant_ids?: string[]
+      product_items?: { product_id: string; quantity: number }[]
+    }) => {
       const { data, error } = await supabase
         .from('packages')
         .update(updates as never)
@@ -259,7 +319,13 @@ export function useUpdatePackage() {
         if (product_items.length > 0) {
           const { error: prodError } = await supabase
             .from('package_products')
-            .insert(product_items.map(pi => ({ package_id: id, product_id: pi.product_id, quantity: pi.quantity })) as never)
+            .insert(
+              product_items.map((pi) => ({
+                package_id: id,
+                product_id: pi.product_id,
+                quantity: pi.quantity,
+              })) as never
+            )
           if (prodError) throw prodError
         }
       }
@@ -269,7 +335,12 @@ export function useUpdatePackage() {
         if (restaurant_ids.length > 0) {
           const { error: linkError } = await supabase
             .from('package_restaurants')
-            .insert(restaurant_ids.map(rid => ({ package_id: id, restaurant_id: rid })) as never)
+            .insert(
+              restaurant_ids.map((rid) => ({
+                package_id: id,
+                restaurant_id: rid,
+              })) as never
+            )
           if (linkError) throw linkError
         }
       }

@@ -30,9 +30,13 @@ const routePermissions: Record<string, string> = {
   '/settings/members': 'users.view',
 }
 
-function filterNavItems(items: NavItem[], permissions: string[], isAdmin: boolean): NavItem[] {
+function filterNavItems(
+  items: NavItem[],
+  permissions: string[],
+  isAdmin: boolean
+): NavItem[] {
   return items
-    .map(item => {
+    .map((item) => {
       // Admin sees everything
       if (isAdmin) return item
 
@@ -77,17 +81,21 @@ export function AppSidebar() {
     : sidebarData.user
 
   const filteredNavGroups = useMemo(() => {
-    return sidebarData.navGroups.map(group => ({
-      ...group,
-      items: filterNavItems(group.items, permissions, isAdmin),
-    })).filter(g => g.items.length > 0)
+    return sidebarData.navGroups
+      .map((group) => ({
+        ...group,
+        items: filterNavItems(group.items, permissions, isAdmin),
+      }))
+      .filter((g) => g.items.length > 0)
   }, [permissions, isAdmin])
 
   const filteredFooterGroups = useMemo(() => {
-    return (sidebarData.footerGroups || []).map(group => ({
-      ...group,
-      items: filterNavItems(group.items, permissions, isAdmin),
-    })).filter(g => g.items.length > 0)
+    return (sidebarData.footerGroups || [])
+      .map((group) => ({
+        ...group,
+        items: filterNavItems(group.items, permissions, isAdmin),
+      }))
+      .filter((g) => g.items.length > 0)
   }, [permissions, isAdmin])
 
   return (

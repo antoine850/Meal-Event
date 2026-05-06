@@ -13,11 +13,6 @@ import {
   CommandSeparator,
 } from '@/components/ui/command'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -26,7 +21,15 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useCompanies, useCreateCompany } from '../../companies/hooks/use-companies'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  useCompanies,
+  useCreateCompany,
+} from '../../companies/hooks/use-companies'
 
 type CompanyComboboxProps = {
   value?: string | null
@@ -52,13 +55,13 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
   const { data: companies = [] } = useCompanies()
   const { mutate: createCompany, isPending } = useCreateCompany()
 
-  const selectedCompany = companies.find(c => c.id === value)
+  const selectedCompany = companies.find((c) => c.id === value)
 
   const handleCreate = () => {
     if (!newCompany.name.trim()) return
 
     createCompany(
-      { 
+      {
         name: newCompany.name.trim(),
         phone: newCompany.phone || null,
         billing_email: newCompany.billing_email || null,
@@ -104,14 +107,16 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
             aria-expanded={open}
             className='w-full justify-between font-normal'
           >
-            {selectedCompany ? selectedCompany.name : 'Sélectionner une société...'}
+            {selectedCompany
+              ? selectedCompany.name
+              : 'Sélectionner une société...'}
             <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </Button>
         </PopoverTrigger>
         <PopoverContent className='w-[350px] p-0' align='start'>
           <Command>
-            <CommandInput 
-              placeholder='Rechercher une société...' 
+            <CommandInput
+              placeholder='Rechercher une société...'
               value={searchValue}
               onValueChange={setSearchValue}
             />
@@ -126,7 +131,9 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                     }}
                   >
                     <Check className={cn('mr-2 h-4 w-4', 'invisible')} />
-                    <span className='text-muted-foreground'>Aucune société</span>
+                    <span className='text-muted-foreground'>
+                      Aucune société
+                    </span>
                   </CommandItem>
                 )}
                 {companies.map((company) => (
@@ -152,7 +159,7 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
               <CommandGroup>
                 <CommandItem
                   onSelect={() => {
-                    setNewCompany(prev => ({ ...prev, name: searchValue }))
+                    setNewCompany((prev) => ({ ...prev, name: searchValue }))
                     setCreateOpen(true)
                     setOpen(false)
                   }}
@@ -178,7 +185,9 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                 <Input
                   id='name'
                   value={newCompany.name}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCompany((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   placeholder='Nom de la société'
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
@@ -188,7 +197,12 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                 <Input
                   id='phone'
                   value={newCompany.phone}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCompany((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
                   placeholder='Téléphone'
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
@@ -202,7 +216,12 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                   id='billing_email'
                   type='email'
                   value={newCompany.billing_email}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, billing_email: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCompany((prev) => ({
+                      ...prev,
+                      billing_email: e.target.value,
+                    }))
+                  }
                   placeholder='Email'
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
@@ -212,7 +231,12 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                 <Input
                   id='tva_number'
                   value={newCompany.tva_number}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, tva_number: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCompany((prev) => ({
+                      ...prev,
+                      tva_number: e.target.value,
+                    }))
+                  }
                   placeholder='Numéro de TVA'
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
@@ -225,7 +249,12 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                 <Input
                   id='siret'
                   value={newCompany.siret}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, siret: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCompany((prev) => ({
+                      ...prev,
+                      siret: e.target.value,
+                    }))
+                  }
                   placeholder='SIRET'
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
@@ -237,7 +266,12 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
               <Input
                 id='billing_address'
                 value={newCompany.billing_address}
-                onChange={(e) => setNewCompany(prev => ({ ...prev, billing_address: e.target.value }))}
+                onChange={(e) =>
+                  setNewCompany((prev) => ({
+                    ...prev,
+                    billing_address: e.target.value,
+                  }))
+                }
                 placeholder='Adresse'
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               />
@@ -249,7 +283,12 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                 <Input
                   id='postal_code'
                   value={newCompany.billing_postal_code}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, billing_postal_code: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCompany((prev) => ({
+                      ...prev,
+                      billing_postal_code: e.target.value,
+                    }))
+                  }
                   placeholder='CP'
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
@@ -259,7 +298,12 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                 <Input
                   id='city'
                   value={newCompany.billing_city}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, billing_city: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCompany((prev) => ({
+                      ...prev,
+                      billing_city: e.target.value,
+                    }))
+                  }
                   placeholder='Ville'
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
@@ -269,7 +313,12 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                 <Input
                   id='country'
                   value={newCompany.billing_country}
-                  onChange={(e) => setNewCompany(prev => ({ ...prev, billing_country: e.target.value }))}
+                  onChange={(e) =>
+                    setNewCompany((prev) => ({
+                      ...prev,
+                      billing_country: e.target.value,
+                    }))
+                  }
                   placeholder='Pays'
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
@@ -280,7 +329,10 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
             <Button variant='outline' onClick={() => setCreateOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleCreate} disabled={isPending || !newCompany.name.trim()}>
+            <Button
+              onClick={handleCreate}
+              disabled={isPending || !newCompany.name.trim()}
+            >
               {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
               Créer
             </Button>

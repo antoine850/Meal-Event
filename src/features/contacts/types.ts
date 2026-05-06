@@ -5,4 +5,3 @@ export type ContactWithRelations = Contact & {
   assigned_user?: { id: string; first_name: string; last_name: string } | null
   restaurant?: { id: string; name: string } | null
 }
-

@@ -1,17 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { apiClient } from '@/lib/api-client'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
 import type { Quote, QuoteItem } from '@/lib/supabase/types'
+import {
+  roundLineTtc,
+  deriveLineHt,
+  computeQuoteTotals,
+} from '@/features/reservations/lib/quote-rounding'
 import type { ProductWithRestaurants } from '@/features/settings/hooks/use-products'
-import { roundLineTtc, deriveLineHt, computeQuoteTotals } from '@/features/reservations/lib/quote-rounding'
 
 // Set one quote as primary for a booking (single active quote)
 export function useSetPrimaryQuote() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+    mutationFn: async ({
+      quoteId,
+      bookingId,
+    }: {
+      quoteId: string
+      bookingId: string
+    }) => {
       // Clear existing primary on booking
       const { error: clearError } = await supabase
         .from('quotes')
@@ -31,7 +41,9 @@ export function useSetPrimaryQuote() {
       return data as Quote
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({
+        queryKey: ['quotes', variables.bookingId],
+      })
     },
   })
 }
@@ -44,10 +56,19 @@ export function useSendQuoteEmail() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId: _bookingId }: { quoteId: string; bookingId: string }) => {
-      return apiClient<{ success: boolean; emailId: string }>(`/api/quotes/${quoteId}/send-email`, {
-        method: 'POST',
-      })
+    mutationFn: async ({
+      quoteId,
+      bookingId: _bookingId,
+    }: {
+      quoteId: string
+      bookingId: string
+    }) => {
+      return apiClient<{ success: boolean; emailId: string }>(
+        `/api/quotes/${quoteId}/send-email`,
+        {
+          method: 'POST',
+        }
+      )
     },
     onSuccess: (_, { bookingId, quoteId }) => {
       queryClient.invalidateQueries({ queryKey: ['quotes', bookingId] })
@@ -60,8 +81,18 @@ export function useSendSignature() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId: _bookingId }: { quoteId: string; bookingId: string }) => {
-      return apiClient<{ success: boolean; documentId: string; inviteId: string }>(`/api/quotes/${quoteId}/send-signature`, {
+    mutationFn: async ({
+      quoteId,
+      bookingId: _bookingId,
+    }: {
+      quoteId: string
+      bookingId: string
+    }) => {
+      return apiClient<{
+        success: boolean
+        documentId: string
+        inviteId: string
+      }>(`/api/quotes/${quoteId}/send-signature`, {
         method: 'POST',
       })
     },
@@ -76,8 +107,18 @@ export function useSendDeposit() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId: _bookingId }: { quoteId: string; bookingId: string }) => {
-      return apiClient<{ success: boolean; sessionId: string; paymentUrl: string }>(`/api/quotes/${quoteId}/send-deposit`, {
+    mutationFn: async ({
+      quoteId,
+      bookingId: _bookingId,
+    }: {
+      quoteId: string
+      bookingId: string
+    }) => {
+      return apiClient<{
+        success: boolean
+        sessionId: string
+        paymentUrl: string
+      }>(`/api/quotes/${quoteId}/send-deposit`, {
         method: 'POST',
       })
     },
@@ -93,8 +134,18 @@ export function useSendBalance() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId: _bookingId }: { quoteId: string; bookingId: string }) => {
-      return apiClient<{ success: boolean; sessionId: string; paymentUrl: string }>(`/api/quotes/${quoteId}/send-balance`, {
+    mutationFn: async ({
+      quoteId,
+      bookingId: _bookingId,
+    }: {
+      quoteId: string
+      bookingId: string
+    }) => {
+      return apiClient<{
+        success: boolean
+        sessionId: string
+        paymentUrl: string
+      }>(`/api/quotes/${quoteId}/send-balance`, {
         method: 'POST',
       })
     },
@@ -374,17 +425,35 @@ Company: {{company_name}}, {{legal_form}}
 RCS: {{rcs}} | SIRET: {{siret}}`
 
 // Function to replace placeholders with actual restaurant billing info
-export function generateCGV(template: string, billingInfo: RestaurantBillingInfo): string {
+export function generateCGV(
+  template: string,
+  billingInfo: RestaurantBillingInfo
+): string {
   return template
-    .replace(/\{\{company_name\}\}/g, billingInfo.company_name || billingInfo.name || '[Nom de la société]')
-    .replace(/\{\{legal_form\}\}/g, billingInfo.legal_form || '[Forme juridique]')
-    .replace(/\{\{billing_address\}\}/g, billingInfo.billing_address || '[Adresse]')
-    .replace(/\{\{billing_postal_code\}\}/g, billingInfo.billing_postal_code || '[Code postal]')
+    .replace(
+      /\{\{company_name\}\}/g,
+      billingInfo.company_name || billingInfo.name || '[Nom de la société]'
+    )
+    .replace(
+      /\{\{legal_form\}\}/g,
+      billingInfo.legal_form || '[Forme juridique]'
+    )
+    .replace(
+      /\{\{billing_address\}\}/g,
+      billingInfo.billing_address || '[Adresse]'
+    )
+    .replace(
+      /\{\{billing_postal_code\}\}/g,
+      billingInfo.billing_postal_code || '[Code postal]'
+    )
     .replace(/\{\{billing_city\}\}/g, billingInfo.billing_city || '[Ville]')
     .replace(/\{\{rcs\}\}/g, billingInfo.rcs || '[RCS]')
     .replace(/\{\{siren\}\}/g, billingInfo.siren || '[SIREN]')
     .replace(/\{\{siret\}\}/g, billingInfo.siret || '[SIRET]')
-    .replace(/\{\{share_capital\}\}/g, billingInfo.share_capital || '[Capital social]')
+    .replace(
+      /\{\{share_capital\}\}/g,
+      billingInfo.share_capital || '[Capital social]'
+    )
     .replace(/\{\{billing_email\}\}/g, billingInfo.billing_email || '[Email]')
 }
 
@@ -407,7 +476,10 @@ export function getCGVTemplates(language: 'fr' | 'en') {
 }
 
 // Generate all CGV conditions for a restaurant
-export function generateAllCGV(language: 'fr' | 'en', billingInfo: RestaurantBillingInfo) {
+export function generateAllCGV(
+  language: 'fr' | 'en',
+  billingInfo: RestaurantBillingInfo
+) {
   const templates = getCGVTemplates(language)
   return {
     conditionsDevis: generateCGV(templates.devis, billingInfo),
@@ -454,10 +526,12 @@ export function useContactWithCompany(contactId: string | null) {
 
       const { data, error } = await supabase
         .from('contacts')
-        .select(`
+        .select(
+          `
           id, first_name, last_name, email, phone,
           company:companies(name, billing_address, billing_city, billing_postal_code, siret, tva_number)
-        `)
+        `
+        )
         .eq('id', contactId)
         .single()
 
@@ -476,10 +550,12 @@ export function useQuoteWithItems(quoteId: string | null) {
 
       const { data, error } = await supabase
         .from('quotes')
-        .select(`
+        .select(
+          `
           *,
           quote_items(*, position)
-        `)
+        `
+        )
         .eq('id', quoteId)
         .order('position', { referencedTable: 'quote_items', ascending: true })
         .single()
@@ -564,14 +640,19 @@ export function useCreateQuote() {
       let version: number
       if (existingQuotes && existingQuotes.length > 0) {
         // Trouver le shortId depuis un quote_number existant (format PREFIX-YYYY-MM-XXXX-vN)
-        const sample = existingQuotes.find((q: any) => q.quote_number)?.quote_number || ''
+        const sample =
+          existingQuotes.find((q: any) => q.quote_number)?.quote_number || ''
         const base = sample.split('-v')[0] // PREFIX-YYYY-MM-XXXX
         const parts = base.split('-')
         const existingShortId = parts[parts.length - 1]
-        shortId = existingShortId && existingShortId.length > 0
-          ? existingShortId
-          : Math.random().toString(36).substring(2, 6)
-        const maxVersion = existingQuotes.reduce((max: number, q: any) => Math.max(max, q.version || 1), 0)
+        shortId =
+          existingShortId && existingShortId.length > 0
+            ? existingShortId
+            : Math.random().toString(36).substring(2, 6)
+        const maxVersion = existingQuotes.reduce(
+          (max: number, q: any) => Math.max(max, q.version || 1),
+          0
+        )
         version = maxVersion + 1
       } else {
         shortId = Math.random().toString(36).substring(2, 6)
@@ -590,7 +671,10 @@ export function useCreateQuote() {
         siren: (restaurant as any)?.siren || null,
         siret: (restaurant as any)?.siret || null,
         share_capital: (restaurant as any)?.share_capital || null,
-        billing_email: (restaurant as any)?.billing_email || (restaurant as any)?.email || null,
+        billing_email:
+          (restaurant as any)?.billing_email ||
+          (restaurant as any)?.email ||
+          null,
         name: (restaurant as any)?.name || null,
       }
 
@@ -614,10 +698,14 @@ export function useCreateQuote() {
           deposit_days: depositDays ?? 7,
           balance_label: balanceLabel ?? 'Solde',
           balance_days: balanceDays ?? 0,
-          quote_due_days: quoteDueDays ?? (restaurant as any)?.quote_validity_days ?? 7,
-          invoice_due_days: invoiceDueDays ?? (restaurant as any)?.invoice_due_days ?? 0,
-          comments_fr: commentsFr ?? (restaurant as any)?.quote_comments_fr ?? null,
-          comments_en: commentsEn ?? (restaurant as any)?.quote_comments_en ?? null,
+          quote_due_days:
+            quoteDueDays ?? (restaurant as any)?.quote_validity_days ?? 7,
+          invoice_due_days:
+            invoiceDueDays ?? (restaurant as any)?.invoice_due_days ?? 0,
+          comments_fr:
+            commentsFr ?? (restaurant as any)?.quote_comments_fr ?? null,
+          comments_en:
+            commentsEn ?? (restaurant as any)?.quote_comments_en ?? null,
           conditions_devis: conditionsDevis ?? defaultCGV.conditionsDevis,
           conditions_facture: conditionsFacture ?? defaultCGV.conditionsFacture,
           conditions_acompte: conditionsAcompte ?? defaultCGV.conditionsAcompte,
@@ -633,7 +721,9 @@ export function useCreateQuote() {
       return data as Quote
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({
+        queryKey: ['quotes', variables.bookingId],
+      })
     },
   })
 }
@@ -642,7 +732,11 @@ export function useUpdateQuote() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, bookingId, ...updates }: Partial<Quote> & { id: string; bookingId?: string }) => {
+    mutationFn: async ({
+      id,
+      bookingId,
+      ...updates
+    }: Partial<Quote> & { id: string; bookingId?: string }) => {
       const { data, error } = await supabase
         .from('quotes')
         .update(updates as never)
@@ -654,7 +748,9 @@ export function useUpdateQuote() {
       return data as Quote
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', (data as any).booking_id] })
+      queryClient.invalidateQueries({
+        queryKey: ['quotes', (data as any).booking_id],
+      })
       queryClient.invalidateQueries({ queryKey: ['quote', (data as any).id] })
     },
   })
@@ -664,7 +760,13 @@ export function useDeleteQuote() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, bookingId }: { id: string; bookingId: string }) => {
+    mutationFn: async ({
+      id,
+      bookingId,
+    }: {
+      id: string
+      bookingId: string
+    }) => {
       const { error } = await supabase.from('quotes').delete().eq('id', id)
       if (error) throw error
       return { bookingId }
@@ -679,7 +781,13 @@ export function useDuplicateQuote() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+    mutationFn: async ({
+      quoteId,
+      bookingId,
+    }: {
+      quoteId: string
+      bookingId: string
+    }) => {
       // Fetch original quote with items
       const { data: original, error: fetchError } = await supabase
         .from('quotes')
@@ -700,13 +808,20 @@ export function useDuplicateQuote() {
         .eq('booking_id', bookingId)
 
       // Extraire le shortId d'un devis existant (toujours au moins l'original)
-      const sample = (original as any).quote_number || (existingQuotes?.[0] as any)?.quote_number || ''
+      const sample =
+        (original as any).quote_number ||
+        (existingQuotes?.[0] as any)?.quote_number ||
+        ''
       const base = sample.split('-v')[0]
       const parts = base.split('-')
-      const shortId = parts[parts.length - 1] && parts[parts.length - 1].length > 0
-        ? parts[parts.length - 1]
-        : Math.random().toString(36).substring(2, 6)
-      const maxVersion = (existingQuotes || []).reduce((max: number, q: any) => Math.max(max, q.version || 1), 0)
+      const shortId =
+        parts[parts.length - 1] && parts[parts.length - 1].length > 0
+          ? parts[parts.length - 1]
+          : Math.random().toString(36).substring(2, 6)
+      const maxVersion = (existingQuotes || []).reduce(
+        (max: number, q: any) => Math.max(max, q.version || 1),
+        0
+      )
       const version = maxVersion + 1
       const quoteNumber = `${prefix}-${year}-${month}-${shortId}-v${version}`
 
@@ -719,7 +834,9 @@ export function useDuplicateQuote() {
           contact_id: (original as any).contact_id,
           quote_number: quoteNumber,
           status: 'draft',
-          title: (original as any).title ? `${(original as any).title} (copie)` : null,
+          title: (original as any).title
+            ? `${(original as any).title} (copie)`
+            : null,
           language: (original as any).language || 'fr',
           date_start: (original as any).date_start,
           date_end: (original as any).date_end,
@@ -765,14 +882,18 @@ export function useDuplicateQuote() {
           item_type: item.item_type,
           position: item.position,
         }))
-        const { error: itemsError } = await supabase.from('quote_items').insert(newItems as never)
+        const { error: itemsError } = await supabase
+          .from('quote_items')
+          .insert(newItems as never)
         if (itemsError) throw itemsError
       }
 
       return newQuote as Quote
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({
+        queryKey: ['quotes', variables.bookingId],
+      })
     },
   })
 }
@@ -781,7 +902,13 @@ export function useMarkQuoteSigned() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, bookingId }: { quoteId: string; bookingId: string }) => {
+    mutationFn: async ({
+      quoteId,
+      bookingId,
+    }: {
+      quoteId: string
+      bookingId: string
+    }) => {
       const now = new Date().toISOString()
 
       // Clear primary on all quotes for this booking
@@ -805,7 +932,11 @@ export function useMarkQuoteSigned() {
       if (error) throw error
 
       // Auto-update booking status → Attente paiement
-      const { data: booking } = await supabase.from('bookings').select('organization_id').eq('id', bookingId).single()
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('organization_id')
+        .eq('id', bookingId)
+        .single()
       if (booking?.organization_id) {
         const { data: statusData } = await supabase
           .from('statuses')
@@ -815,17 +946,24 @@ export function useMarkQuoteSigned() {
           .eq('type', 'booking')
           .single()
         if (statusData) {
-          await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', bookingId)
+          await supabase
+            .from('bookings')
+            .update({ status_id: statusData.id })
+            .eq('id', bookingId)
         }
       }
 
       // Notify commercial(s) via backend (fire & forget)
-      apiClient(`/api/quotes/${quoteId}/notify-signed`, { method: 'POST' }).catch(() => {})
+      apiClient(`/api/quotes/${quoteId}/notify-signed`, {
+        method: 'POST',
+      }).catch(() => {})
 
       return data as Quote
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['quotes', variables.bookingId] })
+      queryClient.invalidateQueries({
+        queryKey: ['quotes', variables.bookingId],
+      })
       queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
     },
   })
@@ -896,7 +1034,9 @@ export function useAddQuoteItem() {
       return data as QuoteItem
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['quote', (data as any).quote_id] })
+      queryClient.invalidateQueries({
+        queryKey: ['quote', (data as any).quote_id],
+      })
       queryClient.invalidateQueries({ queryKey: ['quotes'] })
     },
   })
@@ -906,14 +1046,23 @@ export function useUpdateQuoteItem() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, quoteId, ...updates }: Partial<QuoteItem> & { id: string; quoteId: string }) => {
+    mutationFn: async ({
+      id,
+      quoteId,
+      ...updates
+    }: Partial<QuoteItem> & { id: string; quoteId: string }) => {
       // Recalculate totals if quantity/price changed
       const quantity = updates.quantity as number | undefined
       const unitPrice = updates.unit_price as number | undefined
       const tvaRate = updates.tva_rate as number | undefined
       const discountAmount = updates.discount_amount as number | undefined
 
-      if (quantity !== undefined || unitPrice !== undefined || discountAmount !== undefined || tvaRate !== undefined) {
+      if (
+        quantity !== undefined ||
+        unitPrice !== undefined ||
+        discountAmount !== undefined ||
+        tvaRate !== undefined
+      ) {
         // Fetch current item to get missing values
         const { data: current } = await supabase
           .from('quote_items')
@@ -926,7 +1075,12 @@ export function useUpdateQuoteItem() {
         const t = tvaRate ?? (current as any)?.tva_rate ?? 20
         const d = discountAmount ?? (current as any)?.discount_amount ?? 0
 
-        const totalTtc = roundLineTtc({ quantity: q, unit_price: p, discount_amount: d, tva_rate: t })
+        const totalTtc = roundLineTtc({
+          quantity: q,
+          unit_price: p,
+          discount_amount: d,
+          tva_rate: t,
+        })
         const totalHt = deriveLineHt(totalTtc, t)
 
         updates = { ...updates, total_ht: totalHt, total_ttc: totalTtc } as any
@@ -956,11 +1110,20 @@ export function useReorderQuoteItems() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ quoteId, orderedIds }: { quoteId: string; orderedIds: string[] }) => {
+    mutationFn: async ({
+      quoteId,
+      orderedIds,
+    }: {
+      quoteId: string
+      orderedIds: string[]
+    }) => {
       // Update positions in parallel
       await Promise.all(
         orderedIds.map((id, index) =>
-          supabase.from('quote_items').update({ position: index } as never).eq('id', id)
+          supabase
+            .from('quote_items')
+            .update({ position: index } as never)
+            .eq('id', id)
         )
       )
       return { quoteId }
@@ -999,7 +1162,9 @@ async function recalculateQuoteTotals(quoteId: string) {
   if (!items) return
 
   // Extras facturés séparément, exclus du total devis
-  const productItems = (items as any[]).filter((item: any) => item.item_type !== 'extra')
+  const productItems = (items as any[]).filter(
+    (item: any) => item.item_type !== 'extra'
+  )
 
   const { data: quote } = await supabase
     .from('quotes')
@@ -1007,7 +1172,10 @@ async function recalculateQuoteTotals(quoteId: string) {
     .eq('id', quoteId)
     .single()
 
-  const totals = computeQuoteTotals(productItems, (quote as any)?.discount_percentage)
+  const totals = computeQuoteTotals(
+    productItems,
+    (quote as any)?.discount_percentage
+  )
 
   await supabase
     .from('quotes')
@@ -1034,13 +1202,15 @@ export function useProductsByRestaurant(restaurantId: string | null) {
 
       const { data, error } = await supabase
         .from('products')
-        .select(`
+        .select(
+          `
           *,
           product_restaurants!inner(
             restaurant_id,
             restaurant:restaurants(id, name, color)
           )
-        `)
+        `
+        )
         .eq('organization_id', orgId)
         .eq('is_active', true)
         .eq('product_restaurants.restaurant_id', restaurantId)
@@ -1048,7 +1218,7 @@ export function useProductsByRestaurant(restaurantId: string | null) {
 
       if (error) throw error
 
-      return (data as unknown as ProductWithRestaurants[])
+      return data as unknown as ProductWithRestaurants[]
     },
     enabled: !!restaurantId,
   })
@@ -1070,7 +1240,10 @@ export type PackageWithRelations = {
   created_at: string
   updated_at: string
   package_products: { product_id: string; quantity: number; product: any }[]
-  package_restaurants: { restaurant_id: string; restaurant: { id: string; name: string; color: string | null } }[]
+  package_restaurants: {
+    restaurant_id: string
+    restaurant: { id: string; name: string; color: string | null }
+  }[]
 }
 
 export function usePackagesByRestaurant(restaurantId: string | null) {
@@ -1084,7 +1257,8 @@ export function usePackagesByRestaurant(restaurantId: string | null) {
 
       const { data, error } = await supabase
         .from('packages')
-        .select(`
+        .select(
+          `
           *,
           package_products(
             product_id,
@@ -1095,7 +1269,8 @@ export function usePackagesByRestaurant(restaurantId: string | null) {
             restaurant_id,
             restaurant:restaurants(id, name, color)
           )
-        `)
+        `
+        )
         .eq('organization_id', orgId)
         .eq('is_active', true)
         .eq('package_restaurants.restaurant_id', restaurantId)
@@ -1103,9 +1278,8 @@ export function usePackagesByRestaurant(restaurantId: string | null) {
 
       if (error) throw error
 
-      return (data as unknown as PackageWithRelations[])
+      return data as unknown as PackageWithRelations[]
     },
     enabled: !!restaurantId,
   })
 }
-

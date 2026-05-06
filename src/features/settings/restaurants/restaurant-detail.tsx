@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
+import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Loader2, Save, MoreHorizontal, Pencil, Plus, Trash2, Copy, ExternalLink } from 'lucide-react'
-import { toast } from 'sonner'
 import { useBlocker, useNavigate, useSearch } from '@tanstack/react-router'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  Loader2,
+  Save,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  Copy,
+  ExternalLink,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +24,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Form,
   FormControl,
@@ -30,8 +48,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import { ImageUpload } from '@/components/ui/image-upload'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -39,12 +57,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { ImageUpload } from '@/components/ui/image-upload'
-import { useUpdateRestaurant, useSpaces, useDeleteSpace, type Restaurant, type Space } from '../hooks/use-settings'
-import { SpaceDialog } from './components/space-dialog'
+import { Switch } from '@/components/ui/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  useUpdateRestaurant,
+  useSpaces,
+  useDeleteSpace,
+  type Restaurant,
+  type Space,
+} from '../hooks/use-settings'
 import { GoogleCalendarSettings } from './components/google-calendar-settings'
+import { SpaceDialog } from './components/space-dialog'
 
 const COUNTRIES = [
   { value: 'France', label: 'France' },
@@ -68,7 +101,11 @@ const CURRENCIES = [
 const restaurantDetailSchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
   email: z.string().email('Email invalide').optional().or(z.literal('')),
-  phone: z.string().regex(/^\+?[0-9\s\-()]{7,20}$/, 'Numéro de téléphone invalide').optional().or(z.literal('')),
+  phone: z
+    .string()
+    .regex(/^\+?[0-9\s\-()]{7,20}$/, 'Numéro de téléphone invalide')
+    .optional()
+    .or(z.literal('')),
   address: z.string().optional(),
   city: z.string().optional(),
   postal_code: z.string().optional(),
@@ -84,21 +121,48 @@ const restaurantDetailSchema = z.object({
   website: z.string().optional(),
   instagram: z.string().optional(),
   facebook: z.string().optional(),
-  notification_emails: z.string().optional().refine(val => {
-    if (!val) return true;
-    const emails = val.split(',').map(e => e.trim()).filter(e => e.length > 0);
-    return emails.every(e => z.string().email().safeParse(e).success);
-  }, { message: 'Une ou plusieurs adresses email sont invalides' }),
-  recap_emails: z.string().optional().refine(val => {
-    if (!val) return true;
-    const emails = val.split(',').map(e => e.trim()).filter(e => e.length > 0);
-    return emails.every(e => z.string().email().safeParse(e).success);
-  }, { message: 'Une ou plusieurs adresses email sont invalides' }),
-  cc_export_emails: z.string().optional().refine(val => {
-    if (!val) return true;
-    const emails = val.split(',').map(e => e.trim()).filter(e => e.length > 0);
-    return emails.every(e => z.string().email().safeParse(e).success);
-  }, { message: 'Une ou plusieurs adresses email sont invalides' }),
+  notification_emails: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val) return true
+        const emails = val
+          .split(',')
+          .map((e) => e.trim())
+          .filter((e) => e.length > 0)
+        return emails.every((e) => z.string().email().safeParse(e).success)
+      },
+      { message: 'Une ou plusieurs adresses email sont invalides' }
+    ),
+  recap_emails: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val) return true
+        const emails = val
+          .split(',')
+          .map((e) => e.trim())
+          .filter((e) => e.length > 0)
+        return emails.every((e) => z.string().email().safeParse(e).success)
+      },
+      { message: 'Une ou plusieurs adresses email sont invalides' }
+    ),
+  cc_export_emails: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val) return true
+        const emails = val
+          .split(',')
+          .map((e) => e.trim())
+          .filter((e) => e.length > 0)
+        return emails.every((e) => z.string().email().safeParse(e).success)
+      },
+      { message: 'Une ou plusieurs adresses email sont invalides' }
+    ),
   event_reminder_enabled: z.boolean().optional(),
   email_signature_enabled: z.boolean().optional(),
   email_signature_text: z.string().optional(),
@@ -113,8 +177,16 @@ const restaurantDetailSchema = z.object({
   siren: z.string().optional(),
   rcs: z.string().optional(),
   share_capital: z.string().optional(),
-  billing_email: z.string().email('Email invalide').optional().or(z.literal('')),
-  billing_phone: z.string().regex(/^\+?[0-9\s\-()]{7,20}$/, 'Numéro de téléphone invalide').optional().or(z.literal('')),
+  billing_email: z
+    .string()
+    .email('Email invalide')
+    .optional()
+    .or(z.literal('')),
+  billing_phone: z
+    .string()
+    .regex(/^\+?[0-9\s\-()]{7,20}$/, 'Numéro de téléphone invalide')
+    .optional()
+    .or(z.literal('')),
   billing_address: z.string().optional(),
   billing_postal_code: z.string().optional(),
   billing_city: z.string().optional(),
@@ -140,14 +212,20 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
   const { mutate: updateRestaurant, isPending } = useUpdateRestaurant()
   const { data: allSpaces = [] } = useSpaces()
   const { mutate: deleteSpace } = useDeleteSpace()
-  const restaurantSpaces = allSpaces.filter(s => s.restaurant_id === restaurant.id)
-  const [editingSpace, setEditingSpace] = useState<(Space & { restaurant: { id: string; name: string } | null }) | null>(null)
+  const restaurantSpaces = allSpaces.filter(
+    (s) => s.restaurant_id === restaurant.id
+  )
+  const [editingSpace, setEditingSpace] = useState<
+    (Space & { restaurant: { id: string; name: string } | null }) | null
+  >(null)
   const [isSpaceDialogOpen, setIsSpaceDialogOpen] = useState(false)
   const [spaceToDelete, setSpaceToDelete] = useState<string | null>(null)
 
   // Tab persistence
   const navigate = useNavigate()
-  const search = useSearch({ from: '/_authenticated/settings/restaurant/$id' }) as any
+  const search = useSearch({
+    from: '/_authenticated/settings/restaurant/$id',
+  }) as any
   const currentTab = search.tab || 'general'
 
   const handleTabChange = (value: string) => {
@@ -191,14 +269,21 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       website: (r.website as string) || '',
       instagram: (r.instagram as string) || '',
       facebook: (r.facebook as string) || '',
-      notification_emails: Array.isArray(r.notification_emails) ? (r.notification_emails as string[]).join(', ') : '',
-      recap_emails: Array.isArray(r.recap_emails) ? (r.recap_emails as string[]).join(', ') : '',
-      cc_export_emails: Array.isArray(r.cc_export_emails) ? (r.cc_export_emails as string[]).join(', ') : '',
+      notification_emails: Array.isArray(r.notification_emails)
+        ? (r.notification_emails as string[]).join(', ')
+        : '',
+      recap_emails: Array.isArray(r.recap_emails)
+        ? (r.recap_emails as string[]).join(', ')
+        : '',
+      cc_export_emails: Array.isArray(r.cc_export_emails)
+        ? (r.cc_export_emails as string[]).join(', ')
+        : '',
       event_reminder_enabled: (r.event_reminder_enabled as boolean) ?? false,
       email_signature_enabled: (r.email_signature_enabled as boolean) ?? true,
       email_signature_text: (r.email_signature_text as string) || '',
       email_tracking_enabled: (r.email_tracking_enabled as boolean) ?? true,
-      client_portal_background_url: (r.client_portal_background_url as string) || '',
+      client_portal_background_url:
+        (r.client_portal_background_url as string) || '',
       sms_name: (r.sms_name as string) || '',
       sms_signature: (r.sms_signature as string) || '',
       sms_signature_en: (r.sms_signature_en as string) || '',
@@ -273,7 +358,10 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
     // Convert comma-separated strings to arrays for PostgreSQL
     const parseEmailList = (str: string | undefined): string[] | null => {
       if (!str || str.trim() === '') return null
-      return str.split(',').map(e => e.trim()).filter(e => e.length > 0)
+      return str
+        .split(',')
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0)
     }
 
     const payload = {
@@ -295,17 +383,29 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
   return (
     <div className='space-y-6'>
       <Form {...form}>
-        <form id='restaurant-form' onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
-          <Tabs value={currentTab} onValueChange={handleTabChange} className='w-full'>
-            <div className='flex items-center justify-between gap-4 mb-6'>
-              <TabsList className='grid grid-cols-4 w-[360px] sm:w-[500px]'>
+        <form
+          id='restaurant-form'
+          onSubmit={form.handleSubmit(onSubmit)}
+          className='space-y-6'
+        >
+          <Tabs
+            value={currentTab}
+            onValueChange={handleTabChange}
+            className='w-full'
+          >
+            <div className='mb-6 flex items-center justify-between gap-4'>
+              <TabsList className='grid w-[360px] grid-cols-4 sm:w-[500px]'>
                 <TabsTrigger value='general'>Général</TabsTrigger>
                 <TabsTrigger value='facturation'>Facturation</TabsTrigger>
                 <TabsTrigger value='espaces'>Espaces</TabsTrigger>
                 <TabsTrigger value='calendrier'>Calendrier</TabsTrigger>
               </TabsList>
-              
-              <Button type='submit' disabled={isPending || !form.formState.isDirty} className='hidden sm:flex'>
+
+              <Button
+                type='submit'
+                disabled={isPending || !form.formState.isDirty}
+                className='hidden sm:flex'
+              >
                 {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
                 <Save className='mr-2 h-4 w-4' />
                 Enregistrer
@@ -316,520 +416,590 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
             <TabsContent value='general' className='space-y-6'>
               {/* Informations générales */}
               <Card>
-            <CardHeader>
-              <CardTitle>Informations générales</CardTitle>
-              <CardDescription>Les informations de base de l'établissement</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='name'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nom de l'établissement *</FormLabel>
-                      <FormControl>
-                        <Input placeholder='Le Petit Bistro' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='logo_url'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Logo</FormLabel>
-                      <FormControl>
-                        <div className='max-w-[100px]'>
-                          <ImageUpload
+                <CardHeader>
+                  <CardTitle>Informations générales</CardTitle>
+                  <CardDescription>
+                    Les informations de base de l'établissement
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                    <FormField
+                      control={form.control}
+                      name='name'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nom de l'établissement *</FormLabel>
+                          <FormControl>
+                            <Input placeholder='Le Petit Bistro' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='logo_url'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Logo</FormLabel>
+                          <FormControl>
+                            <div className='max-w-[100px]'>
+                              <ImageUpload
+                                value={field.value}
+                                onChange={field.onChange}
+                                folder='logos'
+                                placeholder='Logo'
+                                maxSizeMB={0.5}
+                                maxWidthOrHeight={128}
+                                aspectRatio='square'
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                    <FormField
+                      control={form.control}
+                      name='email'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input
+                              type='email'
+                              placeholder='contact@restaurant.com'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='phone'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Téléphone</FormLabel>
+                          <FormControl>
+                            <Input placeholder='+33 1 23 45 67 89' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                    <FormField
+                      control={form.control}
+                      name='color'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Couleur</FormLabel>
+                          <div className='flex items-center gap-3'>
+                            <FormControl>
+                              <input
+                                type='color'
+                                value={field.value || '#3b82f6'}
+                                onChange={field.onChange}
+                                className='h-10 w-14 cursor-pointer rounded-md border border-input bg-transparent p-1'
+                              />
+                            </FormControl>
+                            <Input
+                              value={field.value || '#3b82f6'}
+                              onChange={(e) => field.onChange(e.target.value)}
+                              placeholder='#3b82f6'
+                              className='w-28 font-mono text-sm uppercase'
+                              maxLength={7}
+                            />
+                            <div
+                              className='h-10 flex-1 rounded-md border'
+                              style={{
+                                backgroundColor: field.value || '#3b82f6',
+                              }}
+                            />
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='is_active'
+                      render={({ field }) => (
+                        <FormItem className='mt-8 flex flex-row items-center justify-between rounded-lg border p-3'>
+                          <FormLabel className='text-sm'>
+                            Établissement actif
+                          </FormLabel>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Localisation */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Localisation</CardTitle>
+                  <CardDescription>
+                    Adresse et paramètres régionaux
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='address'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Adresse</FormLabel>
+                        <FormControl>
+                          <Input placeholder='123 Rue de la Paix' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+                    <FormField
+                      control={form.control}
+                      name='postal_code'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Code postal</FormLabel>
+                          <FormControl>
+                            <Input placeholder='75001' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='city'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ville</FormLabel>
+                          <FormControl>
+                            <Input placeholder='Paris' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='country'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Pays</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
                             value={field.value}
-                            onChange={field.onChange}
-                            folder='logos'
-                            placeholder='Logo'
-                            maxSizeMB={0.5}
-                            maxWidthOrHeight={128}
-                            aspectRatio='square'
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Pays' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {COUNTRIES.map((c) => (
+                                <SelectItem key={c.value} value={c.value}>
+                                  {c.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+                    <FormField
+                      control={form.control}
+                      name='language'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Langue</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Langue' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {LANGUAGES.map((l) => (
+                                <SelectItem key={l.value} value={l.value}>
+                                  {l.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='translation_language'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Langue de traduction</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Langue' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {LANGUAGES.map((l) => (
+                                <SelectItem key={l.value} value={l.value}>
+                                  {l.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='currency'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Devise</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Devise' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {CURRENCIES.map((c) => (
+                                <SelectItem key={c.value} value={c.value}>
+                                  {c.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Liens web */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Liens web</CardTitle>
+                  <CardDescription>Site web et réseaux sociaux</CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='website'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Site web</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder='https://www.restaurant.com'
+                            {...field}
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                    <FormField
+                      control={form.control}
+                      name='instagram'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Instagram</FormLabel>
+                          <FormControl>
+                            <Input placeholder='@restaurant' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='facebook'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Facebook</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='facebook.com/restaurant'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notifications */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Notifications</CardTitle>
+                  <CardDescription>
+                    Listes de diffusion et rappels
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='notification_emails'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Liste Notification Évènements</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder='email1@example.com, email2@example.com'
+                            className='min-h-[60px]'
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription className='text-xs'>
+                          Séparez les emails par des virgules
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='recap_emails'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Liste Récapitulatif Évènements</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder='email@example.com'
+                            className='min-h-[60px]'
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription className='text-xs'>
+                          Séparez les emails par des virgules
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='cc_export_emails'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Liste CC exports</FormLabel>
+                        <FormControl>
+                          <Input placeholder='email@example.com' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='event_reminder_enabled'
+                    render={({ field }) => (
+                      <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
+                        <div>
+                          <FormLabel className='text-sm'>
+                            Rappel évènement
+                          </FormLabel>
+                          <FormDescription className='text-xs'>
+                            Activer les rappels automatiques
+                          </FormDescription>
                         </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='email'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type='email' placeholder='contact@restaurant.com' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='phone'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Téléphone</FormLabel>
-                      <FormControl>
-                        <Input placeholder='+33 1 23 45 67 89' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='color'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Couleur</FormLabel>
-                      <div className='flex items-center gap-3'>
                         <FormControl>
-                          <input
-                            type='color'
-                            value={field.value || '#3b82f6'}
-                            onChange={field.onChange}
-                            className='h-10 w-14 cursor-pointer rounded-md border border-input p-1 bg-transparent'
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <Input
-                          value={field.value || '#3b82f6'}
-                          onChange={e => field.onChange(e.target.value)}
-                          placeholder='#3b82f6'
-                          className='w-28 font-mono text-sm uppercase'
-                          maxLength={7}
-                        />
-                        <div
-                          className='h-10 flex-1 rounded-md border'
-                          style={{ backgroundColor: field.value || '#3b82f6' }}
-                        />
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='is_active'
-                  render={({ field }) => (
-                    <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3 mt-8'>
-                      <FormLabel className='text-sm'>Établissement actif</FormLabel>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
 
-          {/* Localisation */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Localisation</CardTitle>
-              <CardDescription>Adresse et paramètres régionaux</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <FormField
-                control={form.control}
-                name='address'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Adresse</FormLabel>
-                    <FormControl>
-                      <Input placeholder='123 Rue de la Paix' {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Communication */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Communication</CardTitle>
+                  <CardDescription>Paramètres email et SMS</CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-6'>
+                  <div className='space-y-4'>
+                    <h4 className='font-medium'>Email</h4>
+                    <FormField
+                      control={form.control}
+                      name='email_signature_enabled'
+                      render={({ field }) => (
+                        <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
+                          <div>
+                            <FormLabel className='text-sm'>
+                              Signature électronique
+                            </FormLabel>
+                            <FormDescription className='text-xs'>
+                              Activer la signature dans les emails
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='email_signature_text'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Signature Email</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="L'équipe du Restaurant&#10;Adresse&#10;Email"
+                              className='min-h-[100px]'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='email_tracking_enabled'
+                      render={({ field }) => (
+                        <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
+                          <div>
+                            <FormLabel className='text-sm'>
+                              Suivi des ouvertures des emails
+                            </FormLabel>
+                            <FormDescription className='text-xs'>
+                              Suivre l'ouverture des emails
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='postal_code'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Code postal</FormLabel>
-                      <FormControl>
-                        <Input placeholder='75001' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='city'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ville</FormLabel>
-                      <FormControl>
-                        <Input placeholder='Paris' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='country'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Pays</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Pays' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {COUNTRIES.map((c) => (
-                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                  <Separator />
 
-              <Separator />
-
-              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='language'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Langue</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Langue' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {LANGUAGES.map((l) => (
-                            <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='translation_language'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Langue de traduction</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Langue' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {LANGUAGES.map((l) => (
-                            <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='currency'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Devise</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder='Devise' />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CURRENCIES.map((c) => (
-                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Liens web */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Liens web</CardTitle>
-              <CardDescription>Site web et réseaux sociaux</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <FormField
-                control={form.control}
-                name='website'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Site web</FormLabel>
-                    <FormControl>
-                      <Input placeholder='https://www.restaurant.com' {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <FormField
-                  control={form.control}
-                  name='instagram'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Instagram</FormLabel>
-                      <FormControl>
-                        <Input placeholder='@restaurant' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='facebook'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Facebook</FormLabel>
-                      <FormControl>
-                        <Input placeholder='facebook.com/restaurant' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Notifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>Listes de diffusion et rappels</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <FormField
-                control={form.control}
-                name='notification_emails'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Liste Notification Évènements</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="email1@example.com, email2@example.com" 
-                        className='min-h-[60px]'
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormDescription className='text-xs'>
-                      Séparez les emails par des virgules
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='recap_emails'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Liste Récapitulatif Évènements</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="email@example.com" 
-                        className='min-h-[60px]'
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormDescription className='text-xs'>
-                      Séparez les emails par des virgules
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='cc_export_emails'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Liste CC exports</FormLabel>
-                    <FormControl>
-                      <Input placeholder="email@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='event_reminder_enabled'
-                render={({ field }) => (
-                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
-                    <div>
-                      <FormLabel className='text-sm'>Rappel évènement</FormLabel>
-                      <FormDescription className='text-xs'>
-                        Activer les rappels automatiques
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Communication */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Communication</CardTitle>
-              <CardDescription>Paramètres email et SMS</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-6'>
-              <div className='space-y-4'>
-                <h4 className='font-medium'>Email</h4>
-                <FormField
-                  control={form.control}
-                  name='email_signature_enabled'
-                  render={({ field }) => (
-                    <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
-                      <div>
-                        <FormLabel className='text-sm'>Signature électronique</FormLabel>
-                        <FormDescription className='text-xs'>
-                          Activer la signature dans les emails
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='email_signature_text'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Signature Email</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="L'équipe du Restaurant&#10;Adresse&#10;Email" 
-                          className='min-h-[100px]'
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='email_tracking_enabled'
-                  render={({ field }) => (
-                    <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
-                      <div>
-                        <FormLabel className='text-sm'>Suivi des ouvertures des emails</FormLabel>
-                        <FormDescription className='text-xs'>
-                          Suivre l'ouverture des emails
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <Separator />
-
-              <div className='space-y-4'>
-                <h4 className='font-medium'>SMS</h4>
-                <FormField
-                  control={form.control}
-                  name='sms_name'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nom SMS</FormLabel>
-                      <FormControl>
-                        <Input placeholder='MonRestaurant' maxLength={11} {...field} />
-                      </FormControl>
-                      <FormDescription className='text-xs'>
-                        Maximum 11 caractères, sans espaces
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='sms_signature'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Signature SMS 🇫🇷</FormLabel>
-                      <FormControl>
-                        <Input placeholder='Restaurant • email@example.com' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='sms_signature_en'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Signature SMS 🇺🇸</FormLabel>
-                      <FormControl>
-                        <Input placeholder='Restaurant • email@example.com' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                  <div className='space-y-4'>
+                    <h4 className='font-medium'>SMS</h4>
+                    <FormField
+                      control={form.control}
+                      name='sms_name'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nom SMS</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='MonRestaurant'
+                              maxLength={11}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription className='text-xs'>
+                            Maximum 11 caractères, sans espaces
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='sms_signature'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Signature SMS 🇫🇷</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='Restaurant • email@example.com'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='sms_signature_en'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Signature SMS 🇺🇸</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='Restaurant • email@example.com'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Affichage */}
               <Card>
                 <CardHeader>
                   <CardTitle>Affichage</CardTitle>
-                  <CardDescription>Options d'affichage et portail client</CardDescription>
+                  <CardDescription>
+                    Options d'affichage et portail client
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   <FormField
@@ -840,26 +1010,29 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                         <FormLabel>Fond espace client</FormLabel>
                         <FormControl>
                           <ImageUpload
-                        value={field.value}
-                        onChange={field.onChange}
-                        folder='backgrounds'
-                        placeholder='Cliquez pour ajouter une image de fond'
-                        maxSizeMB={2}
-                        maxWidthOrHeight={1920}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+                            value={field.value}
+                            onChange={field.onChange}
+                            folder='backgrounds'
+                            placeholder='Cliquez pour ajouter une image de fond'
+                            maxSizeMB={2}
+                            maxWidthOrHeight={1920}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
 
               {/* Formulaire public */}
               <Card>
                 <CardHeader>
                   <CardTitle>Formulaire de réservation</CardTitle>
-                  <CardDescription>Lien public du formulaire de demande de réservation intégrable sur votre site web</CardDescription>
+                  <CardDescription>
+                    Lien public du formulaire de demande de réservation
+                    intégrable sur votre site web
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-3'>
                   <div className='flex items-center gap-2'>
@@ -874,7 +1047,9 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                       size='icon'
                       className='shrink-0'
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/r/${(restaurant as any).slug || ''}`)
+                        navigator.clipboard.writeText(
+                          `${window.location.origin}/r/${(restaurant as any).slug || ''}`
+                        )
                         toast.success('Lien copié !')
                       }}
                     >
@@ -885,13 +1060,20 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                       variant='outline'
                       size='icon'
                       className='shrink-0'
-                      onClick={() => window.open(`/r/${(restaurant as any).slug || ''}`, '_blank')}
+                      onClick={() =>
+                        window.open(
+                          `/r/${(restaurant as any).slug || ''}`,
+                          '_blank'
+                        )
+                      }
                     >
                       <ExternalLink className='h-4 w-4' />
                     </Button>
                   </div>
                   <p className='text-xs text-muted-foreground'>
-                    Partagez ce lien avec vos clients ou intégrez-le dans votre site web pour recevoir des demandes de réservation directement dans votre CRM.
+                    Partagez ce lien avec vos clients ou intégrez-le dans votre
+                    site web pour recevoir des demandes de réservation
+                    directement dans votre CRM.
                   </p>
                 </CardContent>
               </Card>
@@ -906,7 +1088,7 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                   <CardDescription>SIRET et numéro de TVA</CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-4'>
-                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                     <FormField
                       control={form.control}
                       name='siret'
@@ -943,340 +1125,394 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                   <CardTitle>Facturation</CardTitle>
                   <CardDescription>Paramètres de facturation</CardDescription>
                 </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                  <FormField
-                    control={form.control}
-                    name='company_name'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Raison sociale</FormLabel>
-                        <FormControl>
-                          <Input placeholder='MAKE IT HAPPEN 2' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='legal_form'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Forme juridique</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                <CardContent className='space-y-4'>
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                    <FormField
+                      control={form.control}
+                      name='company_name'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Raison sociale</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder='Sélectionner' />
-                            </SelectTrigger>
+                            <Input placeholder='MAKE IT HAPPEN 2' {...field} />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value='SAS'>SAS</SelectItem>
-                            <SelectItem value='SARL'>SARL</SelectItem>
-                            <SelectItem value='EURL'>EURL</SelectItem>
-                            <SelectItem value='SA'>SA</SelectItem>
-                            <SelectItem value='SCI'>SCI</SelectItem>
-                            <SelectItem value='EI'>EI</SelectItem>
-                            <SelectItem value='SASU'>SASU</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='siren'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SIREN</FormLabel>
-                        <FormControl>
-                          <Input placeholder='534 085 857 00041' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='rcs'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>RCS</FormLabel>
-                        <FormControl>
-                          <Input placeholder='534 085 857 Nanterre B' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='share_capital'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Capital social</FormLabel>
-                        <FormControl>
-                          <Input placeholder='3 992,00 euros' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='billing_email'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email facturation</FormLabel>
-                        <FormControl>
-                          <Input type='email' placeholder='facturation@example.com' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='billing_phone'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Téléphone facturation</FormLabel>
-                        <FormControl>
-                          <Input placeholder='+33 1 23 45 67 89' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-              </div>
-
-              <Separator />
-
-              <div className='space-y-4'>
-                <h4 className='font-medium'>Adresse de facturation</h4>
-                <FormField
-                  control={form.control}
-                  name='billing_address'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Adresse</FormLabel>
-                      <FormControl>
-                        <Input placeholder='123 Rue de la Paix' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                  <FormField
-                    control={form.control}
-                    name='billing_postal_code'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Code postal</FormLabel>
-                        <FormControl>
-                          <Input placeholder='75001' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='billing_city'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ville</FormLabel>
-                        <FormControl>
-                          <Input placeholder='Paris' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='billing_country'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Pays</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='legal_form'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Forme juridique</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Sélectionner' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value='SAS'>SAS</SelectItem>
+                              <SelectItem value='SARL'>SARL</SelectItem>
+                              <SelectItem value='EURL'>EURL</SelectItem>
+                              <SelectItem value='SA'>SA</SelectItem>
+                              <SelectItem value='SCI'>SCI</SelectItem>
+                              <SelectItem value='EI'>EI</SelectItem>
+                              <SelectItem value='SASU'>SASU</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='siren'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SIREN</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder='Pays' />
-                            </SelectTrigger>
+                            <Input placeholder='534 085 857 00041' {...field} />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value='France'>France</SelectItem>
-                            <SelectItem value='Belgique'>Belgique</SelectItem>
-                            <SelectItem value='Suisse'>Suisse</SelectItem>
-                            <SelectItem value='Luxembourg'>Luxembourg</SelectItem>
-                            <SelectItem value='Canada'>Canada</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='rcs'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>RCS</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='534 085 857 Nanterre B'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='share_capital'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Capital social</FormLabel>
+                          <FormControl>
+                            <Input placeholder='3 992,00 euros' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='billing_email'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email facturation</FormLabel>
+                          <FormControl>
+                            <Input
+                              type='email'
+                              placeholder='facturation@example.com'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='billing_phone'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Téléphone facturation</FormLabel>
+                          <FormControl>
+                            <Input placeholder='+33 1 23 45 67 89' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-              <Separator />
+                  <Separator />
 
-              {/* Stripe Toggle */}
-              <FormField
-                control={form.control}
-                name='stripe_enabled'
-                render={({ field }) => (
-                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                    <div className='space-y-0.5'>
-                      <FormLabel className='text-base'>Paiement Stripe</FormLabel>
-                      <FormDescription>
-                        Activer les paiements en ligne via Stripe. Si désactivé, seules les informations de virement bancaire seront envoyées aux clients.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
+                  <div className='space-y-4'>
+                    <h4 className='font-medium'>Adresse de facturation</h4>
+                    <FormField
+                      control={form.control}
+                      name='billing_address'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Adresse</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='123 Rue de la Paix'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+                      <FormField
+                        control={form.control}
+                        name='billing_postal_code'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Code postal</FormLabel>
+                            <FormControl>
+                              <Input placeholder='75001' {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                      <FormField
+                        control={form.control}
+                        name='billing_city'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Ville</FormLabel>
+                            <FormControl>
+                              <Input placeholder='Paris' {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name='billing_country'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Pays</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder='Pays' />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value='France'>France</SelectItem>
+                                <SelectItem value='Belgique'>
+                                  Belgique
+                                </SelectItem>
+                                <SelectItem value='Suisse'>Suisse</SelectItem>
+                                <SelectItem value='Luxembourg'>
+                                  Luxembourg
+                                </SelectItem>
+                                <SelectItem value='Canada'>Canada</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
 
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  <Separator />
+
+                  {/* Stripe Toggle */}
                   <FormField
                     control={form.control}
-                    name='billing_additional_text'
+                    name='stripe_enabled'
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Texte complémentaire</FormLabel>
+                      <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                        <div className='space-y-0.5'>
+                          <FormLabel className='text-base'>
+                            Paiement Stripe
+                          </FormLabel>
+                          <FormDescription>
+                            Activer les paiements en ligne via Stripe. Si
+                            désactivé, seules les informations de virement
+                            bancaire seront envoyées aux clients.
+                          </FormDescription>
+                        </div>
                         <FormControl>
-                          <Textarea placeholder='Texte additionnel pour les factures...' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='iban'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>IBAN</FormLabel>
-                        <FormControl>
-                          <Input placeholder='FR76 3000 4031 2000 0108 0479 516' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='bic'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>BIC</FormLabel>
-                        <FormControl>
-                          <Input placeholder='BNPAFRPPXXX' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='bank_name'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nom de la banque</FormLabel>
-                        <FormControl>
-                          <Input placeholder='BNP Paribas' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-              </div>
-              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                  <FormField
-                    control={form.control}
-                    name='invoice_prefix'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Préfixe</FormLabel>
-                        <FormControl>
-                          <Input placeholder='LAHAUT' {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='quote_validity_days'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Échéance devis (jours)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type='number' 
-                            placeholder='7' 
-                            {...field}
-                            onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name='invoice_due_days'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Échéance facture (jours)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type='number' 
-                            placeholder='30' 
-                            value={field.value ?? ''}
-                            onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='payment_balance_days'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Paiement du solde (jours)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type='number' 
-                            placeholder='15' 
-                            value={field.value ?? ''}
-                            onChange={e => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-              </div>
-            </CardContent>
-          </Card>
+
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                    <FormField
+                      control={form.control}
+                      name='billing_additional_text'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Texte complémentaire</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder='Texte additionnel pour les factures...'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='iban'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>IBAN</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='FR76 3000 4031 2000 0108 0479 516'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='bic'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>BIC</FormLabel>
+                          <FormControl>
+                            <Input placeholder='BNPAFRPPXXX' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='bank_name'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nom de la banque</FormLabel>
+                          <FormControl>
+                            <Input placeholder='BNP Paribas' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+                    <FormField
+                      control={form.control}
+                      name='invoice_prefix'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Préfixe</FormLabel>
+                          <FormControl>
+                            <Input placeholder='LAHAUT' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='quote_validity_days'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Échéance devis (jours)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              placeholder='7'
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? parseInt(e.target.value)
+                                    : undefined
+                                )
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='invoice_due_days'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Échéance facture (jours)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              placeholder='30'
+                              value={field.value ?? ''}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? parseInt(e.target.value)
+                                    : undefined
+                                )
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name='payment_balance_days'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Paiement du solde (jours)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              placeholder='15'
+                              value={field.value ?? ''}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? parseInt(e.target.value)
+                                    : undefined
+                                )
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Bouton de sauvegarde en bas */}
               <div className='flex justify-end'>
-                <Button type='submit' disabled={isPending || !form.formState.isDirty} size='lg'>
-                  {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                <Button
+                  type='submit'
+                  disabled={isPending || !form.formState.isDirty}
+                  size='lg'
+                >
+                  {isPending && (
+                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  )}
                   <Save className='mr-2 h-4 w-4' />
                   Enregistrer les modifications
                 </Button>
@@ -1289,11 +1525,13 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                 <CardHeader className='flex flex-row items-center justify-between'>
                   <div>
                     <CardTitle>Espaces</CardTitle>
-                    <CardDescription>Espaces liés à ce restaurant</CardDescription>
+                    <CardDescription>
+                      Espaces liés à ce restaurant
+                    </CardDescription>
                   </div>
-                  <Button 
-                    type='button' 
-                    size='sm' 
+                  <Button
+                    type='button'
+                    size='sm'
                     onClick={() => {
                       setEditingSpace(null)
                       setIsSpaceDialogOpen(true)
@@ -1309,7 +1547,9 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nom</TableHead>
-                          <TableHead className='hidden md:table-cell'>Capacité</TableHead>
+                          <TableHead className='hidden md:table-cell'>
+                            Capacité
+                          </TableHead>
                           <TableHead>Statut</TableHead>
                           <TableHead className='w-[70px]'></TableHead>
                         </TableRow>
@@ -1317,32 +1557,51 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                       <TableBody>
                         {restaurantSpaces.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} className='text-center text-muted-foreground py-8'>
+                            <TableCell
+                              colSpan={4}
+                              className='py-8 text-center text-muted-foreground'
+                            >
                               Aucun espace configuré
                             </TableCell>
                           </TableRow>
                         ) : (
                           restaurantSpaces.map((space) => (
                             <TableRow key={space.id}>
-                              <TableCell className='font-medium'>{space.name}</TableCell>
-                              <TableCell className='hidden md:table-cell'>{space.capacity ? `${space.capacity} pers.` : '-'}</TableCell>
+                              <TableCell className='font-medium'>
+                                {space.name}
+                              </TableCell>
+                              <TableCell className='hidden md:table-cell'>
+                                {space.capacity
+                                  ? `${space.capacity} pers.`
+                                  : '-'}
+                              </TableCell>
                               <TableCell>
-                                <Badge variant={space.is_active ? 'success' : 'secondary'}>
+                                <Badge
+                                  variant={
+                                    space.is_active ? 'success' : 'secondary'
+                                  }
+                                >
                                   {space.is_active ? 'Actif' : 'Inactif'}
                                 </Badge>
                               </TableCell>
                               <TableCell>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant='ghost' size='icon' className='h-8 w-8'>
+                                    <Button
+                                      variant='ghost'
+                                      size='icon'
+                                      className='h-8 w-8'
+                                    >
                                       <MoreHorizontal className='h-4 w-4' />
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align='end'>
-                                    <DropdownMenuItem onClick={() => {
-                                      setEditingSpace(space as any)
-                                      setIsSpaceDialogOpen(true)
-                                    }}>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setEditingSpace(space as any)
+                                        setIsSpaceDialogOpen(true)
+                                      }}
+                                    >
                                       <Pencil className='mr-2 h-4 w-4' />
                                       Modifier
                                     </DropdownMenuItem>
@@ -1381,19 +1640,23 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
         defaultRestaurantId={restaurant.id}
       />
 
-      <AlertDialog open={!!spaceToDelete} onOpenChange={(open) => !open && setSpaceToDelete(null)}>
+      <AlertDialog
+        open={!!spaceToDelete}
+        onOpenChange={(open) => !open && setSpaceToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer l'espace</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer cet espace ? Cette action est irréversible.
+              Êtes-vous sûr de vouloir supprimer cet espace ? Cette action est
+              irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteSpace}
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
             >
               Supprimer
             </AlertDialogAction>

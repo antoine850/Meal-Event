@@ -16,7 +16,10 @@ type AuthContextType = {
   session: Session | null
   isLoading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string) => Promise<{ error: Error | null; user: User | null }>
+  signUp: (
+    email: string,
+    password: string
+  ) => Promise<{ error: Error | null; user: User | null }>
   signOut: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -32,16 +35,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: dbUser } = await supabase
         .from('users')
-        .select(`
+        .select(
+          `
           *,
           role:roles (*),
           organization:organizations (*)
-        `)
+        `
+        )
         .eq('id', authUser.id)
         .single()
 
       if (dbUser) {
-        const userData = dbUser as DbUser & { organization: Organization; role: Role }
+        const userData = dbUser as DbUser & {
+          organization: Organization
+          role: Role
+        }
         setUser({
           id: authUser.id,
           email: authUser.email || '',
@@ -82,17 +90,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session)
-        if (session?.user) {
-          await fetchUserData(session.user)
-        } else {
-          setUser(null)
-        }
-        setIsLoading(false)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session)
+      if (session?.user) {
+        await fetchUserData(session.user)
+      } else {
+        setUser(null)
       }
-    )
+      setIsLoading(false)
+    })
 
     return () => subscription.unsubscribe()
   }, [])

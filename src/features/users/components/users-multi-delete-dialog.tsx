@@ -58,14 +58,15 @@ export function UsersMultiDeleteDialog<TData>({
             className='me-1 inline-block stroke-destructive'
             size={18}
           />{' '}
-          Supprimer {selectedRows.length}{' '}
-          utilisateur{selectedRows.length > 1 ? 's' : ''}
+          Supprimer {selectedRows.length} utilisateur
+          {selectedRows.length > 1 ? 's' : ''}
         </span>
       }
       desc={
         <div className='space-y-4'>
           <p className='mb-2'>
-            Êtes-vous sûr de vouloir supprimer les utilisateurs sélectionnés ? <br />
+            Êtes-vous sûr de vouloir supprimer les utilisateurs sélectionnés ?{' '}
+            <br />
             Cette action est irréversible.
           </p>
 

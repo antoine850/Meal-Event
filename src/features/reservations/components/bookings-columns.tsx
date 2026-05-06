@@ -1,5 +1,5 @@
-import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
+import { type ColumnDef } from '@tanstack/react-table'
 import { fr } from 'date-fns/locale'
 import { ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,7 +11,9 @@ import type { BookingWithRelations } from '../hooks/use-bookings'
 
 type OrgUser = { id: string; first_name: string; last_name: string }
 
-export const buildBookingsColumns = (users: OrgUser[]): ColumnDef<BookingWithRelations>[] => [
+export const buildBookingsColumns = (
+  users: OrgUser[]
+): ColumnDef<BookingWithRelations>[] => [
   {
     id: 'select',
     header: ({ table }) => (
@@ -49,14 +51,17 @@ export const buildBookingsColumns = (users: OrgUser[]): ColumnDef<BookingWithRel
       return (
         <div className='flex items-center gap-2'>
           {isUnread && (
-            <div className='h-2 w-2 rounded-full bg-blue-500 shrink-0' />
+            <div className='h-2 w-2 shrink-0 rounded-full bg-blue-500' />
           )}
           <div className='flex flex-col'>
             <span className={cn(isUnread ? 'font-semibold' : 'font-medium')}>
-              {format(new Date(row.original.event_date), 'dd/MM/yyyy', { locale: fr })}
+              {format(new Date(row.original.event_date), 'dd/MM/yyyy', {
+                locale: fr,
+              })}
             </span>
             <span className='text-xs text-muted-foreground'>
-              {row.original.start_time || ''}{row.original.end_time ? ` - ${row.original.end_time}` : ''}
+              {row.original.start_time || ''}
+              {row.original.end_time ? ` - ${row.original.end_time}` : ''}
             </span>
           </div>
         </div>
@@ -94,7 +99,9 @@ export const buildBookingsColumns = (users: OrgUser[]): ColumnDef<BookingWithRel
             {contact.first_name} {contact.last_name || ''}
           </span>
           {contact.email && (
-            <span className='text-xs text-muted-foreground'>{contact.email}</span>
+            <span className='text-xs text-muted-foreground'>
+              {contact.email}
+            </span>
           )}
         </div>
       )
@@ -109,10 +116,7 @@ export const buildBookingsColumns = (users: OrgUser[]): ColumnDef<BookingWithRel
       const status = row.original.status
       if (!status) return <span className='text-muted-foreground'>-</span>
       return (
-        <Badge
-          variant='outline'
-          className={cn('text-xs', status.color)}
-        >
+        <Badge variant='outline' className={cn('text-xs', status.color)}>
           {status.name}
         </Badge>
       )
@@ -170,9 +174,11 @@ export const buildBookingsColumns = (users: OrgUser[]): ColumnDef<BookingWithRel
     ),
     cell: ({ row }) => {
       const ids = row.original.assigned_user_ids || []
-      if (ids.length === 0) return <span className='text-muted-foreground'>-</span>
-      const assigned = users.filter(u => ids.includes(u.id))
-      if (assigned.length === 0) return <span className='text-muted-foreground'>-</span>
+      if (ids.length === 0)
+        return <span className='text-muted-foreground'>-</span>
+      const assigned = users.filter((u) => ids.includes(u.id))
+      if (assigned.length === 0)
+        return <span className='text-muted-foreground'>-</span>
       const [first, ...rest] = assigned
       return (
         <span className='text-sm'>
@@ -185,7 +191,7 @@ export const buildBookingsColumns = (users: OrgUser[]): ColumnDef<BookingWithRel
     },
     filterFn: (row, _id, value: string[]) => {
       const ids = row.original.assigned_user_ids || []
-      return value.some(v => ids.includes(v))
+      return value.some((v) => ids.includes(v))
     },
   },
   {
@@ -195,7 +201,9 @@ export const buildBookingsColumns = (users: OrgUser[]): ColumnDef<BookingWithRel
     ),
     cell: ({ row }) => (
       <span className='text-sm font-medium'>
-        {row.original.total_amount ? `${row.original.total_amount.toLocaleString('fr-FR')} €` : '-'}
+        {row.original.total_amount
+          ? `${row.original.total_amount.toLocaleString('fr-FR')} €`
+          : '-'}
       </span>
     ),
   },

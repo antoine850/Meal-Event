@@ -1,12 +1,19 @@
 import { useState, useEffect } from 'react'
 import { z } from 'zod'
+import { format } from 'date-fns'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
-import { CalendarIcon, Check, ChevronsUpDown, Loader2, Plus, ArrowLeft } from 'lucide-react'
-import { toast } from 'sonner'
 import { useNavigate } from '@tanstack/react-router'
+import { fr } from 'date-fns/locale'
+import {
+  CalendarIcon,
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  Plus,
+  ArrowLeft,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -36,7 +43,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { TimePicker } from '@/components/ui/time-picker'
 import {
   Popover,
   PopoverContent,
@@ -49,11 +55,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { useCreateBooking, useBookingStatuses, useRestaurants } from '../hooks/use-bookings'
-import { useContacts, useCreateContact } from '@/features/contacts/hooks/use-contacts'
+import { Textarea } from '@/components/ui/textarea'
+import { TimePicker } from '@/components/ui/time-picker'
 import { CompanyCombobox } from '@/features/contacts/components/company-combobox'
+import {
+  useContacts,
+  useCreateContact,
+} from '@/features/contacts/hooks/use-contacts'
+import {
+  useCreateBooking,
+  useBookingStatuses,
+  useRestaurants,
+} from '../hooks/use-bookings'
 
 const bookingSchema = z.object({
   // Contact mode: 'existing' or 'new'
@@ -88,14 +102,22 @@ interface CreateBookingDialogProps {
   onOpenChange?: (open: boolean) => void
 }
 
-export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, open: controlledOpen, onOpenChange }: CreateBookingDialogProps) {
+export function CreateBookingDialog({
+  defaultDate,
+  defaultContactId,
+  iconOnly,
+  open: controlledOpen,
+  onOpenChange,
+}: CreateBookingDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false)
   const [contactPopoverOpen, setContactPopoverOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
   const setOpen = onOpenChange ?? setInternalOpen
   const navigate = useNavigate()
-  const { mutate: createBooking, isPending: isBookingPending } = useCreateBooking()
-  const { mutate: createContact, isPending: isContactPending } = useCreateContact()
+  const { mutate: createBooking, isPending: isBookingPending } =
+    useCreateBooking()
+  const { mutate: createContact, isPending: isContactPending } =
+    useCreateContact()
   const { data: contacts = [] } = useContacts()
   const { data: statuses = [] } = useBookingStatuses()
   const { data: restaurants = [] } = useRestaurants()
@@ -137,7 +159,7 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
   // Set default status to "nouveau" when statuses load
   useEffect(() => {
     if (statuses.length > 0 && !form.getValues('status_id')) {
-      const nouveau = statuses.find(s => s.name.toLowerCase() === 'nouveau')
+      const nouveau = statuses.find((s) => s.name.toLowerCase() === 'nouveau')
       if (nouveau) {
         form.setValue('status_id', nouveau.id)
       }
@@ -166,7 +188,10 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
           setOpen(false)
           form.reset()
           if (result?.id) {
-            navigate({ to: '/evenements/booking/$id', params: { id: result.id } })
+            navigate({
+              to: '/evenements/booking/$id',
+              params: { id: result.id },
+            })
           }
         },
         onError: (error) => {
@@ -239,7 +264,7 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className='sm:max-w-[600px] max-h-[90vh] overflow-y-auto'>
+      <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-[600px]'>
         <DialogHeader>
           <DialogTitle>Nouvel événement</DialogTitle>
           <DialogDescription>
@@ -254,12 +279,17 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                 control={form.control}
                 name='contact_id'
                 render={({ field }) => {
-                  const selectedContact = contacts.find(c => c.id === field.value)
+                  const selectedContact = contacts.find(
+                    (c) => c.id === field.value
+                  )
                   return (
                     <FormItem className='flex flex-col'>
                       <FormLabel>Contact *</FormLabel>
                       <div className='flex gap-2'>
-                        <Popover open={contactPopoverOpen} onOpenChange={setContactPopoverOpen}>
+                        <Popover
+                          open={contactPopoverOpen}
+                          onOpenChange={setContactPopoverOpen}
+                        >
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
@@ -273,11 +303,19 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                               >
                                 {selectedContact ? (
                                   <span className='flex items-center gap-2 truncate'>
-                                    <span>{selectedContact.first_name} {selectedContact.last_name || ''}</span>
-                                    {selectedContact.company?.name
-                                      ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded'>B2B</span>
-                                      : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded'>B2C</span>
-                                    }
+                                    <span>
+                                      {selectedContact.first_name}{' '}
+                                      {selectedContact.last_name || ''}
+                                    </span>
+                                    {selectedContact.company?.name ? (
+                                      <span className='rounded bg-blue-500 px-1.5 py-0.5 text-xs text-white'>
+                                        B2B
+                                      </span>
+                                    ) : (
+                                      <span className='rounded bg-gray-500 px-1.5 py-0.5 text-xs text-white'>
+                                        B2C
+                                      </span>
+                                    )}
                                   </span>
                                 ) : (
                                   'Rechercher un contact...'
@@ -286,13 +324,18 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
-                          <PopoverContent className='w-[--radix-popover-trigger-width] p-0' align='start'>
+                          <PopoverContent
+                            className='w-[--radix-popover-trigger-width] p-0'
+                            align='start'
+                          >
                             <Command>
                               <CommandInput placeholder='Rechercher par nom, email...' />
                               <CommandList className='max-h-[200px]'>
                                 <CommandEmpty>
                                   <div className='py-2 text-center'>
-                                    <p className='text-sm text-muted-foreground mb-2'>Aucun contact trouvé.</p>
+                                    <p className='mb-2 text-sm text-muted-foreground'>
+                                      Aucun contact trouvé.
+                                    </p>
                                     <Button
                                       type='button'
                                       variant='outline'
@@ -321,17 +364,29 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                                       <Check
                                         className={cn(
                                           'mr-2 h-4 w-4',
-                                          field.value === contact.id ? 'opacity-100' : 'opacity-0'
+                                          field.value === contact.id
+                                            ? 'opacity-100'
+                                            : 'opacity-0'
                                         )}
                                       />
-                                      <div className='flex items-center gap-2 min-w-0'>
-                                        <span className='font-medium truncate'>{contact.first_name} {contact.last_name || ''}</span>
-                                        {contact.company?.name
-                                          ? <span className='text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded shrink-0'>B2B</span>
-                                          : <span className='text-xs bg-gray-500 text-white px-1.5 py-0.5 rounded shrink-0'>B2C</span>
-                                        }
+                                      <div className='flex min-w-0 items-center gap-2'>
+                                        <span className='truncate font-medium'>
+                                          {contact.first_name}{' '}
+                                          {contact.last_name || ''}
+                                        </span>
+                                        {contact.company?.name ? (
+                                          <span className='shrink-0 rounded bg-blue-500 px-1.5 py-0.5 text-xs text-white'>
+                                            B2B
+                                          </span>
+                                        ) : (
+                                          <span className='shrink-0 rounded bg-gray-500 px-1.5 py-0.5 text-xs text-white'>
+                                            B2C
+                                          </span>
+                                        )}
                                         {contact.company?.name && (
-                                          <span className='text-muted-foreground text-xs truncate'>- {contact.company.name}</span>
+                                          <span className='truncate text-xs text-muted-foreground'>
+                                            - {contact.company.name}
+                                          </span>
                                         )}
                                       </div>
                                     </CommandItem>
@@ -361,8 +416,8 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                 }}
               />
             ) : (
-              <div className='space-y-3 rounded-lg border p-4 bg-muted/30'>
-                <div className='flex items-center justify-between mb-1'>
+              <div className='space-y-3 rounded-lg border bg-muted/30 p-4'>
+                <div className='mb-1 flex items-center justify-between'>
                   <p className='text-sm font-medium'>Nouveau contact</p>
                   <Button
                     type='button'
@@ -415,7 +470,11 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input type='email' placeholder='jean@exemple.com' {...field} />
+                          <Input
+                            type='email'
+                            placeholder='jean@exemple.com'
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -438,10 +497,14 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
 
                 {/* B2B / B2C toggle */}
                 <div className='flex items-center gap-3 pt-1'>
-                  <span className={cn(
-                    'text-sm font-medium px-2 py-0.5 rounded',
-                    !isB2B ? 'bg-gray-500 text-white' : 'text-muted-foreground'
-                  )}>
+                  <span
+                    className={cn(
+                      'rounded px-2 py-0.5 text-sm font-medium',
+                      !isB2B
+                        ? 'bg-gray-500 text-white'
+                        : 'text-muted-foreground'
+                    )}
+                  >
                     B2C
                   </span>
                   <FormField
@@ -463,10 +526,12 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                       </FormItem>
                     )}
                   />
-                  <span className={cn(
-                    'text-sm font-medium px-2 py-0.5 rounded',
-                    isB2B ? 'bg-blue-500 text-white' : 'text-muted-foreground'
-                  )}>
+                  <span
+                    className={cn(
+                      'rounded px-2 py-0.5 text-sm font-medium',
+                      isB2B ? 'bg-blue-500 text-white' : 'text-muted-foreground'
+                    )}
+                  >
                     B2B
                   </span>
                 </div>
@@ -545,7 +610,9 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                         type='number'
                         min={1}
                         {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value) || 0)
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -610,7 +677,7 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                             <div className='flex items-center gap-2'>
                               {restaurant.color && (
                                 <div
-                                  className='w-2 h-2 rounded-full'
+                                  className='h-2 w-2 rounded-full'
                                   style={{ backgroundColor: restaurant.color }}
                                 />
                               )}
@@ -668,7 +735,7 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
                         <SelectItem key={status.id} value={status.id}>
                           <div className='flex items-center gap-2'>
                             <div
-                              className='w-2 h-2 rounded-full'
+                              className='h-2 w-2 rounded-full'
                               style={{ backgroundColor: status.color }}
                             />
                             {status.name}
@@ -702,12 +769,18 @@ export function CreateBookingDialog({ defaultDate, defaultContactId, iconOnly, o
             />
 
             <DialogFooter>
-              <Button type='button' variant='outline' onClick={() => setOpen(false)}>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setOpen(false)}
+              >
                 Annuler
               </Button>
               <Button type='submit' disabled={isPending}>
                 {isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-                {contactMode === 'new' ? "Créer le contact et l'événement" : "Créer l'événement"}
+                {contactMode === 'new'
+                  ? "Créer le contact et l'événement"
+                  : "Créer l'événement"}
               </Button>
             </DialogFooter>
           </form>

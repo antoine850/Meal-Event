@@ -19,7 +19,8 @@ export function ForgotPassword() {
             Mot de passe oublié
           </CardTitle>
           <CardDescription>
-            Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+            Entrez votre adresse email et nous vous enverrons un lien pour
+            réinitialiser votre mot de passe.
           </CardDescription>
         </CardHeader>
         <CardContent>

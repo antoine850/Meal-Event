@@ -18,7 +18,9 @@ export function useGoogleCalendarStatus(restaurantId: string) {
   return useQuery({
     queryKey: ['google-calendar-status', restaurantId],
     queryFn: () =>
-      apiClient<CalendarStatus>(`/api/google-calendar/status?restaurant_id=${restaurantId}`),
+      apiClient<CalendarStatus>(
+        `/api/google-calendar/status?restaurant_id=${restaurantId}`
+      ),
     enabled: !!restaurantId,
   })
 }
@@ -26,7 +28,9 @@ export function useGoogleCalendarStatus(restaurantId: string) {
 export function useGoogleCalendarAuthUrl(restaurantId: string) {
   return useMutation({
     mutationFn: () =>
-      apiClient<{ url: string }>(`/api/google-calendar/auth-url?restaurant_id=${restaurantId}`),
+      apiClient<{ url: string }>(
+        `/api/google-calendar/auth-url?restaurant_id=${restaurantId}`
+      ),
   })
 }
 
@@ -34,7 +38,9 @@ export function useGoogleCalendars(restaurantId: string, enabled: boolean) {
   return useQuery({
     queryKey: ['google-calendars', restaurantId],
     queryFn: () =>
-      apiClient<{ calendars: GoogleCalendar[] }>(`/api/google-calendar/calendars?restaurant_id=${restaurantId}`),
+      apiClient<{ calendars: GoogleCalendar[] }>(
+        `/api/google-calendar/calendars?restaurant_id=${restaurantId}`
+      ),
     enabled: enabled && !!restaurantId,
   })
 }
@@ -48,7 +54,9 @@ export function useSelectGoogleCalendar() {
         body: params,
       }),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['google-calendar-status', variables.restaurant_id] })
+      queryClient.invalidateQueries({
+        queryKey: ['google-calendar-status', variables.restaurant_id],
+      })
       queryClient.invalidateQueries({ queryKey: ['restaurants'] })
     },
   })
@@ -58,12 +66,19 @@ export function useDisconnectGoogleCalendar() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (restaurantId: string) =>
-      apiClient(`/api/google-calendar/disconnect?restaurant_id=${restaurantId}`, {
-        method: 'DELETE',
-      }),
+      apiClient(
+        `/api/google-calendar/disconnect?restaurant_id=${restaurantId}`,
+        {
+          method: 'DELETE',
+        }
+      ),
     onSuccess: (_data, restaurantId) => {
-      queryClient.invalidateQueries({ queryKey: ['google-calendar-status', restaurantId] })
-      queryClient.invalidateQueries({ queryKey: ['google-calendars', restaurantId] })
+      queryClient.invalidateQueries({
+        queryKey: ['google-calendar-status', restaurantId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['google-calendars', restaurantId],
+      })
       queryClient.invalidateQueries({ queryKey: ['restaurants'] })
     },
   })

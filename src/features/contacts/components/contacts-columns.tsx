@@ -1,8 +1,8 @@
-import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
+import { Link } from '@tanstack/react-router'
+import { type ColumnDef } from '@tanstack/react-table'
 import { fr } from 'date-fns/locale'
 import { ExternalLink } from 'lucide-react'
-import { Link } from '@tanstack/react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -49,7 +49,9 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
             {row.original.first_name} {row.original.last_name || ''}
           </span>
           {row.original.company && (
-            <Badge className='bg-blue-500 text-white text-[10px] px-1.5 py-0 h-5'>Pro</Badge>
+            <Badge className='h-5 bg-blue-500 px-1.5 py-0 text-[10px] text-white'>
+              Pro
+            </Badge>
           )}
         </div>
         <span className='text-xs text-muted-foreground'>
@@ -67,7 +69,7 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
       <DataTableColumnHeader column={column} title='Email' />
     ),
     cell: ({ row }) => (
-      <span className='text-sm truncate max-w-[200px]'>
+      <span className='max-w-[200px] truncate text-sm'>
         {row.original.email || '-'}
       </span>
     ),
@@ -81,7 +83,9 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
       <DataTableColumnHeader column={column} title='Téléphone' />
     ),
     cell: ({ row }) => (
-      <span className='text-sm'>{row.original.phone || row.original.mobile || '-'}</span>
+      <span className='text-sm'>
+        {row.original.phone || row.original.mobile || '-'}
+      </span>
     ),
   },
   {
@@ -139,7 +143,11 @@ export const contactsColumns: ColumnDef<ContactWithRelations>[] = [
     ),
     cell: ({ row }) => (
       <span className='text-sm text-muted-foreground'>
-        {row.original.created_at ? format(new Date(row.original.created_at), 'dd/MM/yyyy', { locale: fr }) : '-'}
+        {row.original.created_at
+          ? format(new Date(row.original.created_at), 'dd/MM/yyyy', {
+              locale: fr,
+            })
+          : '-'}
       </span>
     ),
   },

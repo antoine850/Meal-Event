@@ -1,7 +1,19 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { type Table } from '@tanstack/react-table'
 import { Trash2, UserRound, Globe } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -14,19 +26,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
-import { supabase } from '@/lib/supabase'
-import { useQueryClient } from '@tanstack/react-query'
 import { useOrganizationUsers } from '../hooks/use-contacts'
 import type { ContactWithRelations } from '../types'
 
@@ -89,7 +89,9 @@ export function ContactsBulkActions({ table }: ContactsBulkActionsProps) {
 
       table.resetRowSelection()
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      toast.success(`Source mise à jour en "${source}" pour ${count} contact${count > 1 ? 's' : ''}.`)
+      toast.success(
+        `Source mise à jour en "${source}" pour ${count} contact${count > 1 ? 's' : ''}.`
+      )
     } catch {
       toast.error('Erreur lors de la mise à jour de la source.')
     }
@@ -100,16 +102,15 @@ export function ContactsBulkActions({ table }: ContactsBulkActionsProps) {
     const count = ids.length
 
     try {
-      const { error } = await supabase
-        .from('contacts')
-        .delete()
-        .in('id', ids)
+      const { error } = await supabase.from('contacts').delete().in('id', ids)
 
       if (error) throw error
 
       table.resetRowSelection()
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
-      toast.success(`${count} contact${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''}.`)
+      toast.success(
+        `${count} contact${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''}.`
+      )
     } catch {
       toast.error('Erreur lors de la suppression.')
     }
@@ -146,7 +147,12 @@ export function ContactsBulkActions({ table }: ContactsBulkActionsProps) {
             {users.map((user) => (
               <DropdownMenuItem
                 key={user.id}
-                onClick={() => handleBulkAssign(user.id, `${user.first_name} ${user.last_name}`)}
+                onClick={() =>
+                  handleBulkAssign(
+                    user.id,
+                    `${user.first_name} ${user.last_name}`
+                  )
+                }
               >
                 {user.first_name} {user.last_name}
               </DropdownMenuItem>
@@ -209,13 +215,14 @@ export function ContactsBulkActions({ table }: ContactsBulkActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
-              Supprimer {count} contact{count > 1 ? 's' : ''} ? Cette action est irréversible.
+              Supprimer {count} contact{count > 1 ? 's' : ''} ? Cette action est
+              irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
               onClick={handleBulkDelete}
             >
               Supprimer

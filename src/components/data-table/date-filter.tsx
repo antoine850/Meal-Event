@@ -1,5 +1,14 @@
 import { useState } from 'react'
-import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, startOfQuarter, startOfYear } from 'date-fns'
+import {
+  format,
+  startOfDay,
+  endOfDay,
+  subDays,
+  startOfWeek,
+  startOfMonth,
+  startOfQuarter,
+  startOfYear,
+} from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
@@ -19,15 +28,24 @@ const DATE_PRESETS = [
   },
   {
     label: '7 derniers jours',
-    range: () => ({ from: startOfDay(subDays(new Date(), 6)), to: endOfDay(new Date()) }),
+    range: () => ({
+      from: startOfDay(subDays(new Date(), 6)),
+      to: endOfDay(new Date()),
+    }),
   },
   {
     label: '30 derniers jours',
-    range: () => ({ from: startOfDay(subDays(new Date(), 29)), to: endOfDay(new Date()) }),
+    range: () => ({
+      from: startOfDay(subDays(new Date(), 29)),
+      to: endOfDay(new Date()),
+    }),
   },
   {
     label: 'Cette semaine',
-    range: () => ({ from: startOfWeek(new Date(), { locale: fr }), to: endOfDay(new Date()) }),
+    range: () => ({
+      from: startOfWeek(new Date(), { locale: fr }),
+      to: endOfDay(new Date()),
+    }),
   },
   {
     label: 'Ce mois',
@@ -35,7 +53,10 @@ const DATE_PRESETS = [
   },
   {
     label: 'Ce trimestre',
-    range: () => ({ from: startOfQuarter(new Date()), to: endOfDay(new Date()) }),
+    range: () => ({
+      from: startOfQuarter(new Date()),
+      to: endOfDay(new Date()),
+    }),
   },
   {
     label: 'Cette année',
@@ -49,10 +70,10 @@ type DateFilterProps = {
   placeholder?: string
 }
 
-export function DateFilter({ 
-  value, 
-  onChange, 
-  placeholder = 'Filtrer par date' 
+export function DateFilter({
+  value,
+  onChange,
+  placeholder = 'Filtrer par date',
 }: DateFilterProps) {
   const [open, setOpen] = useState(false)
 
@@ -84,13 +105,13 @@ export function DateFilter({
       </PopoverTrigger>
       <PopoverContent className='w-auto p-0' align='start'>
         <div className='flex'>
-          <div className='flex flex-col border-r p-2 gap-1'>
+          <div className='flex flex-col gap-1 border-r p-2'>
             {DATE_PRESETS.map((preset) => (
               <Button
                 key={preset.label}
                 variant='ghost'
                 size='sm'
-                className='justify-start text-xs h-7 px-2'
+                className='h-7 justify-start px-2 text-xs'
                 onClick={() => {
                   onChange?.(preset.range())
                   setOpen(false)
@@ -103,7 +124,7 @@ export function DateFilter({
               <Button
                 variant='ghost'
                 size='sm'
-                className='justify-start text-xs h-7 px-2 text-muted-foreground'
+                className='h-7 justify-start px-2 text-xs text-muted-foreground'
                 onClick={() => {
                   onChange?.(undefined)
                   setOpen(false)

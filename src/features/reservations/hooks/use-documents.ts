@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
+import { supabase } from '@/lib/supabase'
 import type { Document } from '@/lib/supabase/types'
 
 export function useDocumentsByBooking(bookingId: string) {
@@ -78,7 +78,9 @@ export function useUploadDocument() {
     },
     onSuccess: (data) => {
       if ((data as any)?.booking_id) {
-        queryClient.invalidateQueries({ queryKey: ['documents', (data as any).booking_id] })
+        queryClient.invalidateQueries({
+          queryKey: ['documents', (data as any).booking_id],
+        })
       }
     },
   })
@@ -119,7 +121,9 @@ export function useDeleteDocument() {
     },
     onSuccess: (data) => {
       if ((data as any)?.booking_id) {
-        queryClient.invalidateQueries({ queryKey: ['documents', (data as any).booking_id] })
+        queryClient.invalidateQueries({
+          queryKey: ['documents', (data as any).booking_id],
+        })
       }
     },
   })

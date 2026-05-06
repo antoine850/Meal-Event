@@ -18,12 +18,16 @@ import {
   Minus,
   Plus,
 } from 'lucide-react'
-
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -31,7 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
 
 // ============================================
 // Types & Constants
@@ -66,7 +69,7 @@ type Country = { code: string; name: string; dial: string; flag: string }
 
 const API_BASE_URL = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_API_URL || 'http://localhost:3001')
+  : import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 const OCCASION_OPTIONS = [
   'Anniversaire',
@@ -134,33 +137,54 @@ function NumberStepper({
 }) {
   const numVal = typeof value === 'number' ? value : 0
   return (
-    <div className={cn(
-      'flex items-center gap-3 rounded-md border bg-white p-1.5 transition-colors',
-      hasError ? 'border-destructive' : 'border-input'
-    )}>
-      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onChange(Math.max(min, numVal - 1))}>
-        <Minus className="h-4 w-4" />
+    <div
+      className={cn(
+        'flex items-center gap-3 rounded-md border bg-white p-1.5 transition-colors',
+        hasError ? 'border-destructive' : 'border-input'
+      )}
+    >
+      <Button
+        type='button'
+        variant='ghost'
+        size='icon'
+        className='h-8 w-8 shrink-0'
+        onClick={() => onChange(Math.max(min, numVal - 1))}
+      >
+        <Minus className='h-4 w-4' />
       </Button>
-      <div className="flex-1 flex items-center justify-center gap-1.5">
-        <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <div className='flex flex-1 items-center justify-center gap-1.5'>
+        <Users className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
         <input
-          type="number"
-          inputMode="numeric"
+          type='number'
+          inputMode='numeric'
           min={min}
           value={value === '' ? '' : value}
-          onChange={e => {
+          onChange={(e) => {
             const raw = e.target.value
-            if (raw === '') { onChange(''); return }
+            if (raw === '') {
+              onChange('')
+              return
+            }
             const n = parseInt(raw, 10)
             if (!isNaN(n)) onChange(Math.max(min, n))
           }}
           placeholder={placeholder}
-          className="w-16 text-center text-sm font-semibold bg-transparent focus:outline-none placeholder:text-muted-foreground placeholder:font-normal [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className='w-16 [appearance:textfield] bg-transparent text-center text-sm font-semibold placeholder:font-normal placeholder:text-muted-foreground focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
         />
-        {value !== '' && <span className="text-xs text-muted-foreground shrink-0">invités</span>}
+        {value !== '' && (
+          <span className='shrink-0 text-xs text-muted-foreground'>
+            invités
+          </span>
+        )}
       </div>
-      <Button type="button" size="icon" className="h-8 w-8 shrink-0 text-white" style={{ backgroundColor: accentColor }} onClick={() => onChange(Math.max(min, numVal + 1))}>
-        <Plus className="h-4 w-4" />
+      <Button
+        type='button'
+        size='icon'
+        className='h-8 w-8 shrink-0 text-white'
+        style={{ backgroundColor: accentColor }}
+        onClick={() => onChange(Math.max(min, numVal + 1))}
+      >
+        <Plus className='h-4 w-4' />
       </Button>
     </div>
   )
@@ -182,49 +206,63 @@ function PhoneInput({
   onPhoneChange: (phone: string) => void
   hasError?: boolean
 }) {
-  const country = COUNTRIES.find(c => c.code === countryCode) || COUNTRIES[0]
+  const country = COUNTRIES.find((c) => c.code === countryCode) || COUNTRIES[0]
 
   return (
-    <div className={cn(
-      'flex items-center rounded-md border bg-white overflow-hidden transition-colors',
-      hasError ? 'border-destructive' : 'border-input'
-    )}>
+    <div
+      className={cn(
+        'flex items-center overflow-hidden rounded-md border bg-white transition-colors',
+        hasError ? 'border-destructive' : 'border-input'
+      )}
+    >
       <Popover>
         <PopoverTrigger asChild>
-          <Button type="button" variant="ghost" className="h-auto rounded-none border-r px-2.5 py-2.5 hover:bg-muted/50 shrink-0 gap-1.5">
-            <span className="text-base leading-none">{country.flag}</span>
-            <span className="text-xs text-muted-foreground font-medium">{country.dial}</span>
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <Button
+            type='button'
+            variant='ghost'
+            className='h-auto shrink-0 gap-1.5 rounded-none border-r px-2.5 py-2.5 hover:bg-muted/50'
+          >
+            <span className='text-base leading-none'>{country.flag}</span>
+            <span className='text-xs font-medium text-muted-foreground'>
+              {country.dial}
+            </span>
+            <ChevronDown className='h-3 w-3 text-muted-foreground' />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-56 p-1" align="start">
-          <div className="max-h-[200px] overflow-y-auto">
-            {COUNTRIES.map(c => (
+        <PopoverContent className='w-56 p-1' align='start'>
+          <div className='max-h-[200px] overflow-y-auto'>
+            {COUNTRIES.map((c) => (
               <button
                 key={c.code}
-                type="button"
+                type='button'
                 onClick={() => onCountryChange(c.code)}
                 className={cn(
-                  'w-full text-left px-2.5 py-1.5 text-sm rounded-sm transition-colors flex items-center gap-2',
-                  countryCode === c.code ? 'bg-accent text-accent-foreground font-medium' : 'hover:bg-muted'
+                  'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-sm transition-colors',
+                  countryCode === c.code
+                    ? 'bg-accent font-medium text-accent-foreground'
+                    : 'hover:bg-muted'
                 )}
               >
-                <span className="text-base leading-none">{c.flag}</span>
-                <span className="flex-1 truncate">{c.name}</span>
-                <span className="text-xs text-muted-foreground">{c.dial}</span>
-                {countryCode === c.code && <Check className="h-3.5 w-3.5 shrink-0" />}
+                <span className='text-base leading-none'>{c.flag}</span>
+                <span className='flex-1 truncate'>{c.name}</span>
+                <span className='text-xs text-muted-foreground'>{c.dial}</span>
+                {countryCode === c.code && (
+                  <Check className='h-3.5 w-3.5 shrink-0' />
+                )}
               </button>
             ))}
           </div>
         </PopoverContent>
       </Popover>
       <input
-        type="tel"
+        type='tel'
         value={phone}
-        onChange={e => onPhoneChange(e.target.value.replace(/[^\d\s.\-]/g, ''))}
-        placeholder="6 12 34 56 78"
-        autoComplete="tel-national"
-        className="flex-1 px-3 py-2.5 text-sm bg-transparent focus:outline-none placeholder:text-muted-foreground"
+        onChange={(e) =>
+          onPhoneChange(e.target.value.replace(/[^\d\s.\-]/g, ''))
+        }
+        placeholder='6 12 34 56 78'
+        autoComplete='tel-national'
+        className='flex-1 bg-transparent px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none'
       />
     </div>
   )
@@ -294,14 +332,23 @@ export function PublicBookingForm({ slug }: { slug: string }) {
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/public/restaurants/${slug}`)
-      .then(res => { if (!res.ok) throw new Error('Not found'); return res.json() })
-      .then(data => { setRestaurant(data); setLoading(false) })
-      .catch(() => { setNotFound(true); setLoading(false) })
+      .then((res) => {
+        if (!res.ok) throw new Error('Not found')
+        return res.json()
+      })
+      .then((data) => {
+        setRestaurant(data)
+        setLoading(false)
+      })
+      .catch(() => {
+        setNotFound(true)
+        setLoading(false)
+      })
   }, [slug])
 
   const updateForm = (field: keyof FormData, value: any) => {
-    setForm(prev => ({ ...prev, [field]: value }))
-    setErrors(prev => ({ ...prev, [field]: '' }))
+    setForm((prev) => ({ ...prev, [field]: value }))
+    setErrors((prev) => ({ ...prev, [field]: '' }))
   }
 
   const validateStep1 = () => {
@@ -309,15 +356,18 @@ export function PublicBookingForm({ slug }: { slug: string }) {
     if (!form.event_type) e.event_type = 'Requis'
     if (!form.reservation_type) e.reservation_type = 'Requis'
     if (!form.occasion) e.occasion = 'Requis'
-    setErrors(e); return Object.keys(e).length === 0
+    setErrors(e)
+    return Object.keys(e).length === 0
   }
 
   const validateStep2 = () => {
     const e: Record<string, string> = {}
     if (!form.event_date) e.event_date = 'Requis'
     if (!form.time_slot) e.time_slot = 'Requis'
-    if (!form.guests_count || Number(form.guests_count) < 16) e.guests_count = 'Min. 16 invités'
-    setErrors(e); return Object.keys(e).length === 0
+    if (!form.guests_count || Number(form.guests_count) < 16)
+      e.guests_count = 'Min. 16 invités'
+    setErrors(e)
+    return Object.keys(e).length === 0
   }
 
   const validateStep3 = () => {
@@ -326,9 +376,15 @@ export function PublicBookingForm({ slug }: { slug: string }) {
     if (!form.first_name.trim()) e.first_name = 'Requis'
     if (!form.phone.trim()) e.phone = 'Requis'
     if (!form.email.trim()) e.email = 'Requis'
-    else if (!/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(form.email.trim())) e.email = 'Email invalide'
+    else if (
+      !/^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/.test(
+        form.email.trim()
+      )
+    )
+      e.email = 'Email invalide'
     else if (/\.\.|\.@|@\./.test(form.email.trim())) e.email = 'Email invalide'
-    setErrors(e); return Object.keys(e).length === 0
+    setErrors(e)
+    return Object.keys(e).length === 0
   }
 
   const goNext = () => {
@@ -337,7 +393,9 @@ export function PublicBookingForm({ slug }: { slug: string }) {
     else if (step === 3 && validateStep3()) handleSubmit()
   }
 
-  const goBack = () => { if (step > 1) setStep(step - 1) }
+  const goBack = () => {
+    if (step > 1) setStep(step - 1)
+  }
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -351,7 +409,9 @@ export function PublicBookingForm({ slug }: { slug: string }) {
           reservation_type: form.reservation_type,
           occasion: form.occasion,
           time_slot: form.time_slot,
-          event_date: form.event_date ? format(form.event_date, 'yyyy-MM-dd') : null,
+          event_date: form.event_date
+            ? format(form.event_date, 'yyyy-MM-dd')
+            : null,
           guests_count: Number(form.guests_count),
           allergies: form.allergies,
           budget: form.budget,
@@ -359,7 +419,7 @@ export function PublicBookingForm({ slug }: { slug: string }) {
           company_name: form.company_name,
           last_name: form.last_name,
           first_name: form.first_name,
-          phone: `${COUNTRIES.find(c => c.code === form.phone_country)?.dial || '+33'} ${form.phone}`,
+          phone: `${COUNTRIES.find((c) => c.code === form.phone_country)?.dial || '+33'} ${form.phone}`,
           email: form.email,
           website_url: honeypot,
           // UTM tracking & Facebook metadata
@@ -380,76 +440,142 @@ export function PublicBookingForm({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="h-dvh flex items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className='flex h-dvh items-center justify-center bg-white'>
+        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
       </div>
     )
   }
 
   if (notFound || !restaurant) {
     return (
-      <div className="h-dvh flex items-center justify-center bg-white">
-        <div className="text-center space-y-3 px-6">
-          <AlertTriangle className="h-12 w-12 text-muted-foreground/40 mx-auto" />
-          <h1 className="text-xl font-semibold">Page introuvable</h1>
-          <p className="text-muted-foreground">Ce restaurant n'existe pas ou n'est plus actif.</p>
+      <div className='flex h-dvh items-center justify-center bg-white'>
+        <div className='space-y-3 px-6 text-center'>
+          <AlertTriangle className='mx-auto h-12 w-12 text-muted-foreground/40' />
+          <h1 className='text-xl font-semibold'>Page introuvable</h1>
+          <p className='text-muted-foreground'>
+            Ce restaurant n'existe pas ou n'est plus actif.
+          </p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-dvh bg-white flex flex-col overflow-hidden">
+    <div className='flex h-dvh flex-col overflow-hidden bg-white'>
       {/* Header */}
-      <header className="shrink-0 bg-white/80 backdrop-blur-md border-b z-10">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+      <header className='z-10 shrink-0 border-b bg-white/80 backdrop-blur-md'>
+        <div className='mx-auto flex max-w-lg items-center gap-3 px-4 py-3'>
           {restaurant.logo_url ? (
-            <img src={restaurant.logo_url} alt={restaurant.name} className="h-9 w-9 rounded-full object-cover ring-2 ring-muted" />
+            <img
+              src={restaurant.logo_url}
+              alt={restaurant.name}
+              className='h-9 w-9 rounded-full object-cover ring-2 ring-muted'
+            />
           ) : (
-            <div className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: accentColor }}>
+            <div
+              className='flex h-9 w-9 items-center justify-center rounded-full font-bold text-white'
+              style={{ backgroundColor: accentColor }}
+            >
               {restaurant.name.charAt(0)}
             </div>
           )}
-          <div className="flex-1 min-w-0">
-            <h1 className="font-semibold truncate text-sm">{restaurant.name}</h1>
-            <p className="text-xs text-muted-foreground">Demande de réservation</p>
+          <div className='min-w-0 flex-1'>
+            <h1 className='truncate text-sm font-semibold'>
+              {restaurant.name}
+            </h1>
+            <p className='text-xs text-muted-foreground'>
+              Demande de réservation
+            </p>
           </div>
-          <div className="flex items-center gap-1.5">
-            {[1, 2, 3, 4].map(s => (
-              <div key={s} className="h-1.5 rounded-full transition-all duration-500" style={{ width: step >= s ? 20 : 6, backgroundColor: step >= s ? accentColor : '#d6d3d1' }} />
+          <div className='flex items-center gap-1.5'>
+            {[1, 2, 3, 4].map((s) => (
+              <div
+                key={s}
+                className='h-1.5 rounded-full transition-all duration-500'
+                style={{
+                  width: step >= s ? 20 : 6,
+                  backgroundColor: step >= s ? accentColor : '#d6d3d1',
+                }}
+              />
             ))}
           </div>
         </div>
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto min-h-0">
-        <div className="max-w-lg w-full mx-auto px-4 py-4 flex flex-col min-h-full">
-          {step === 1 && <Step1 form={form} errors={errors} accentColor={accentColor} updateForm={updateForm} />}
-          {step === 2 && <Step2Date form={form} errors={errors} accentColor={accentColor} updateForm={updateForm} />}
-          {step === 3 && <Step3Contact form={form} errors={errors} accentColor={accentColor} updateForm={updateForm} honeypot={honeypot} setHoneypot={setHoneypot} />}
-          {step === 4 && <Step4Success restaurant={restaurant} accentColor={accentColor} />}
+      <main className='min-h-0 flex-1 overflow-y-auto'>
+        <div className='mx-auto flex min-h-full w-full max-w-lg flex-col px-4 py-4'>
+          {step === 1 && (
+            <Step1
+              form={form}
+              errors={errors}
+              accentColor={accentColor}
+              updateForm={updateForm}
+            />
+          )}
+          {step === 2 && (
+            <Step2Date
+              form={form}
+              errors={errors}
+              accentColor={accentColor}
+              updateForm={updateForm}
+            />
+          )}
+          {step === 3 && (
+            <Step3Contact
+              form={form}
+              errors={errors}
+              accentColor={accentColor}
+              updateForm={updateForm}
+              honeypot={honeypot}
+              setHoneypot={setHoneypot}
+            />
+          )}
+          {step === 4 && (
+            <Step4Success restaurant={restaurant} accentColor={accentColor} />
+          )}
         </div>
       </main>
 
       {/* Footer */}
       {step < 4 && (
-        <footer className="shrink-0 bg-white/80 backdrop-blur-md border-t">
-          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <footer className='shrink-0 border-t bg-white/80 backdrop-blur-md'>
+          <div className='mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-3'>
             {step > 1 ? (
-              <Button type="button" variant="ghost" onClick={goBack} className="gap-1">
-                <ChevronLeft className="h-4 w-4" /> Retour
+              <Button
+                type='button'
+                variant='ghost'
+                onClick={goBack}
+                className='gap-1'
+              >
+                <ChevronLeft className='h-4 w-4' /> Retour
               </Button>
-            ) : <div />}
-            {errors.submit && <p className="text-xs text-destructive flex-1 text-center">{errors.submit}</p>}
+            ) : (
+              <div />
+            )}
+            {errors.submit && (
+              <p className='flex-1 text-center text-xs text-destructive'>
+                {errors.submit}
+              </p>
+            )}
             <Button
-              type="button"
+              type='button'
               onClick={goNext}
               disabled={submitting}
-              className="rounded-full px-6 gap-2 text-white shadow-lg"
+              className='gap-2 rounded-full px-6 text-white shadow-lg'
               style={{ backgroundColor: accentColor }}
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 3 ? (<>Envoyer <Check className="h-4 w-4" /></>) : (<>Continuer <ChevronRight className="h-4 w-4" /></>)}
+              {submitting ? (
+                <Loader2 className='h-4 w-4 animate-spin' />
+              ) : step === 3 ? (
+                <>
+                  Envoyer <Check className='h-4 w-4' />
+                </>
+              ) : (
+                <>
+                  Continuer <ChevronRight className='h-4 w-4' />
+                </>
+              )}
             </Button>
           </div>
         </footer>
@@ -462,9 +588,15 @@ export function PublicBookingForm({ slug }: { slug: string }) {
 // Step 1 — Event type + reservation type + occasion
 // ============================================
 function Step1({
-  form, errors, accentColor, updateForm,
+  form,
+  errors,
+  accentColor,
+  updateForm,
 }: {
-  form: FormData; errors: Record<string, string>; accentColor: string; updateForm: (field: keyof FormData, value: any) => void
+  form: FormData
+  errors: Record<string, string>
+  accentColor: string
+  updateForm: (field: keyof FormData, value: any) => void
 }) {
   const eventTypes = [
     { value: 'repas-assis', label: 'Repas Assis', icon: UtensilsCrossed },
@@ -473,84 +605,138 @@ function Step1({
   ]
 
   return (
-    <div className="flex-1 flex flex-col justify-center gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
+    <div className='flex flex-1 animate-in flex-col justify-center gap-5 duration-300 fade-in slide-in-from-right-4'>
       <div>
-        <h2 className="text-2xl font-bold">Votre événement</h2>
-        <p className="text-muted-foreground mt-1 text-sm">Dites-nous en plus sur votre projet.</p>
+        <h2 className='text-2xl font-bold'>Votre événement</h2>
+        <p className='mt-1 text-sm text-muted-foreground'>
+          Dites-nous en plus sur votre projet.
+        </p>
       </div>
 
-      <fieldset className="space-y-2">
-        <Label>Quelle est votre demande ? <span className="text-destructive">*</span></Label>
-        <div className="grid grid-cols-3 gap-2">
-          {eventTypes.map(t => {
+      <fieldset className='space-y-2'>
+        <Label>
+          Quelle est votre demande ? <span className='text-destructive'>*</span>
+        </Label>
+        <div className='grid grid-cols-3 gap-2'>
+          {eventTypes.map((t) => {
             const selected = form.event_type === t.value
             return (
               <button
                 key={t.value}
-                type="button"
+                type='button'
                 onClick={() => updateForm('event_type', t.value)}
                 className={cn(
-                  'relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all',
-                  selected ? 'bg-accent/30 shadow-sm' : 'border-input hover:border-ring bg-white'
+                  'relative flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all',
+                  selected
+                    ? 'bg-accent/30 shadow-sm'
+                    : 'border-input bg-white hover:border-ring'
                 )}
                 style={selected ? { borderColor: accentColor } : undefined}
               >
-                <t.icon className={cn('h-5 w-5', selected ? '' : 'text-muted-foreground')} style={selected ? { color: accentColor } : undefined} />
-                <span className={cn('text-xs font-medium text-center leading-tight', selected ? '' : 'text-muted-foreground')}>{t.label}</span>
+                <t.icon
+                  className={cn(
+                    'h-5 w-5',
+                    selected ? '' : 'text-muted-foreground'
+                  )}
+                  style={selected ? { color: accentColor } : undefined}
+                />
+                <span
+                  className={cn(
+                    'text-center text-xs leading-tight font-medium',
+                    selected ? '' : 'text-muted-foreground'
+                  )}
+                >
+                  {t.label}
+                </span>
                 {selected && (
-                  <div className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: accentColor }}>
-                    <Check className="h-2 w-2" />
+                  <div
+                    className='absolute top-1 right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-white'
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    <Check className='h-2 w-2' />
                   </div>
                 )}
               </button>
             )
           })}
         </div>
-        {errors.event_type && <p className="text-xs text-destructive">{errors.event_type}</p>}
+        {errors.event_type && (
+          <p className='text-xs text-destructive'>{errors.event_type}</p>
+        )}
       </fieldset>
 
-      <fieldset className="space-y-2">
-        <Label>Type de réservation <span className="text-destructive">*</span></Label>
-        <div className="grid grid-cols-3 gap-2">
-          {RESERVATION_TYPE_OPTIONS.map(t => {
+      <fieldset className='space-y-2'>
+        <Label>
+          Type de réservation <span className='text-destructive'>*</span>
+        </Label>
+        <div className='grid grid-cols-3 gap-2'>
+          {RESERVATION_TYPE_OPTIONS.map((t) => {
             const selected = form.reservation_type === t.value
             return (
               <button
                 key={t.value}
-                type="button"
+                type='button'
                 onClick={() => updateForm('reservation_type', t.value)}
                 className={cn(
-                  'relative flex items-center justify-center p-2.5 rounded-xl border-2 transition-all text-center',
-                  selected ? 'bg-accent/30 shadow-sm' : 'border-input hover:border-ring bg-white'
+                  'relative flex items-center justify-center rounded-xl border-2 p-2.5 text-center transition-all',
+                  selected
+                    ? 'bg-accent/30 shadow-sm'
+                    : 'border-input bg-white hover:border-ring'
                 )}
                 style={selected ? { borderColor: accentColor } : undefined}
               >
-                <span className={cn('text-xs font-medium leading-tight', selected ? '' : 'text-muted-foreground')}>{t.label}</span>
+                <span
+                  className={cn(
+                    'text-xs leading-tight font-medium',
+                    selected ? '' : 'text-muted-foreground'
+                  )}
+                >
+                  {t.label}
+                </span>
                 {selected && (
-                  <div className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: accentColor }}>
-                    <Check className="h-2 w-2" />
+                  <div
+                    className='absolute top-1 right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-white'
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    <Check className='h-2 w-2' />
                   </div>
                 )}
               </button>
             )
           })}
         </div>
-        {errors.reservation_type && <p className="text-xs text-destructive">{errors.reservation_type}</p>}
+        {errors.reservation_type && (
+          <p className='text-xs text-destructive'>{errors.reservation_type}</p>
+        )}
       </fieldset>
 
-      <fieldset className="space-y-2">
-        <Label>À quelle occasion ? <span className="text-destructive">*</span></Label>
-        <Select value={form.occasion} onValueChange={v => updateForm('occasion', v)}>
-          <SelectTrigger className={cn('w-full h-10', errors.occasion && 'border-destructive')}>
-            <SelectValue placeholder="Sélectionner une occasion..." />
+      <fieldset className='space-y-2'>
+        <Label>
+          À quelle occasion ? <span className='text-destructive'>*</span>
+        </Label>
+        <Select
+          value={form.occasion}
+          onValueChange={(v) => updateForm('occasion', v)}
+        >
+          <SelectTrigger
+            className={cn(
+              'h-10 w-full',
+              errors.occasion && 'border-destructive'
+            )}
+          >
+            <SelectValue placeholder='Sélectionner une occasion...' />
           </SelectTrigger>
           <SelectContent>
-            {OCCASION_OPTIONS.map(o => (
-              <SelectItem key={o} value={o}>{o}</SelectItem>
+            {OCCASION_OPTIONS.map((o) => (
+              <SelectItem key={o} value={o}>
+                {o}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {errors.occasion && <p className="text-xs text-destructive">{errors.occasion}</p>}
+        {errors.occasion && (
+          <p className='text-xs text-destructive'>{errors.occasion}</p>
+        )}
       </fieldset>
     </div>
   )
@@ -560,108 +746,149 @@ function Step1({
 // Step 2 — Date + guests + allergies
 // ============================================
 function Step2Date({
-  form, errors, accentColor, updateForm,
+  form,
+  errors,
+  accentColor,
+  updateForm,
 }: {
-  form: FormData; errors: Record<string, string>; accentColor: string; updateForm: (field: keyof FormData, value: any) => void
+  form: FormData
+  errors: Record<string, string>
+  accentColor: string
+  updateForm: (field: keyof FormData, value: any) => void
 }) {
   const [calOpen, setCalOpen] = useState(false)
 
   return (
-    <div className="flex-1 flex flex-col justify-center gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
+    <div className='flex flex-1 animate-in flex-col justify-center gap-5 duration-300 fade-in slide-in-from-right-4'>
       <div>
-        <h2 className="text-2xl font-bold">Les détails</h2>
-        <p className="text-muted-foreground mt-1 text-sm">Date, nombre d'invités et restrictions.</p>
+        <h2 className='text-2xl font-bold'>Les détails</h2>
+        <p className='mt-1 text-sm text-muted-foreground'>
+          Date, nombre d'invités et restrictions.
+        </p>
       </div>
 
-      <fieldset className="space-y-2">
-        <Label>Date souhaitée <span className="text-destructive">*</span></Label>
+      <fieldset className='space-y-2'>
+        <Label>
+          Date souhaitée <span className='text-destructive'>*</span>
+        </Label>
         <Popover open={calOpen} onOpenChange={setCalOpen}>
           <PopoverTrigger asChild>
             <Button
-              type="button"
-              variant="outline"
+              type='button'
+              variant='outline'
               className={cn(
-                'w-full justify-start text-left font-normal h-10',
+                'h-10 w-full justify-start text-left font-normal',
                 !form.event_date && 'text-muted-foreground',
                 errors.event_date && 'border-destructive'
               )}
             >
-              <CalendarDays className="mr-2 h-4 w-4" />
-              {form.event_date ? format(form.event_date, 'EEEE d MMMM yyyy', { locale: fr }) : 'Sélectionner une date'}
+              <CalendarDays className='mr-2 h-4 w-4' />
+              {form.event_date
+                ? format(form.event_date, 'EEEE d MMMM yyyy', { locale: fr })
+                : 'Sélectionner une date'}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
+          <PopoverContent className='w-auto p-0' align='start'>
             <Calendar
-              mode="single"
+              mode='single'
               selected={form.event_date}
-              onSelect={date => { updateForm('event_date', date); setCalOpen(false) }}
+              onSelect={(date) => {
+                updateForm('event_date', date)
+                setCalOpen(false)
+              }}
               disabled={{ before: new Date() }}
               locale={fr}
               initialFocus
             />
           </PopoverContent>
         </Popover>
-        {errors.event_date && <p className="text-xs text-destructive">{errors.event_date}</p>}
+        {errors.event_date && (
+          <p className='text-xs text-destructive'>{errors.event_date}</p>
+        )}
       </fieldset>
 
-      <fieldset className="space-y-2">
-        <Label>Choix du créneau <span className="text-destructive">*</span></Label>
-        <div className="grid grid-cols-3 gap-2">
-          {TIME_SLOT_OPTIONS.map(t => {
+      <fieldset className='space-y-2'>
+        <Label>
+          Choix du créneau <span className='text-destructive'>*</span>
+        </Label>
+        <div className='grid grid-cols-3 gap-2'>
+          {TIME_SLOT_OPTIONS.map((t) => {
             const selected = form.time_slot === t.value
             return (
               <button
                 key={t.value}
-                type="button"
+                type='button'
                 onClick={() => updateForm('time_slot', t.value)}
                 className={cn(
-                  'relative flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all',
-                  selected ? 'bg-accent/30 shadow-sm' : 'border-input hover:border-ring bg-white'
+                  'relative flex flex-col items-center gap-1 rounded-xl border-2 p-2.5 transition-all',
+                  selected
+                    ? 'bg-accent/30 shadow-sm'
+                    : 'border-input bg-white hover:border-ring'
                 )}
                 style={selected ? { borderColor: accentColor } : undefined}
               >
-                <span className={cn('text-xs font-medium', selected ? '' : 'text-muted-foreground')}>{t.label}</span>
-                {t.time && <span className="text-[10px] text-muted-foreground">à partir de {t.time}</span>}
+                <span
+                  className={cn(
+                    'text-xs font-medium',
+                    selected ? '' : 'text-muted-foreground'
+                  )}
+                >
+                  {t.label}
+                </span>
+                {t.time && (
+                  <span className='text-[10px] text-muted-foreground'>
+                    à partir de {t.time}
+                  </span>
+                )}
                 {selected && (
-                  <div className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: accentColor }}>
-                    <Check className="h-2 w-2" />
+                  <div
+                    className='absolute top-1 right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-white'
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    <Check className='h-2 w-2' />
                   </div>
                 )}
               </button>
             )
           })}
         </div>
-        {errors.time_slot && <p className="text-xs text-destructive">{errors.time_slot}</p>}
+        {errors.time_slot && (
+          <p className='text-xs text-destructive'>{errors.time_slot}</p>
+        )}
       </fieldset>
 
-      <fieldset className="space-y-2">
-        <Label>Combien d'invités ? <span className="text-destructive">*</span></Label>
+      <fieldset className='space-y-2'>
+        <Label>
+          Combien d'invités ? <span className='text-destructive'>*</span>
+        </Label>
         <NumberStepper
           value={form.guests_count}
-          onChange={v => updateForm('guests_count', v)}
+          onChange={(v) => updateForm('guests_count', v)}
           min={16}
           placeholder="Nombre d'invités"
           hasError={!!errors.guests_count}
           accentColor={accentColor}
         />
-        {errors.guests_count && <p className="text-xs text-destructive">{errors.guests_count}</p>}
+        {errors.guests_count && (
+          <p className='text-xs text-destructive'>{errors.guests_count}</p>
+        )}
       </fieldset>
 
-      <fieldset className="space-y-2">
+      <fieldset className='space-y-2'>
         <Label>Budget estimé</Label>
         <Input
           value={form.budget}
-          onChange={e => updateForm('budget', e.target.value)}
-          placeholder="Ex : 50€/pers, 2000€ total..."
+          onChange={(e) => updateForm('budget', e.target.value)}
+          placeholder='Ex : 50€/pers, 2000€ total...'
         />
       </fieldset>
 
-      <fieldset className="space-y-2">
+      <fieldset className='space-y-2'>
         <Label>Allergies ou régimes spécifiques ?</Label>
         <Input
           value={form.allergies}
-          onChange={e => updateForm('allergies', e.target.value)}
-          placeholder="Allergies, intolérances, végétarien, halal..."
+          onChange={(e) => updateForm('allergies', e.target.value)}
+          placeholder='Allergies, intolérances, végétarien, halal...'
         />
       </fieldset>
     </div>
@@ -672,111 +899,225 @@ function Step2Date({
 // Step 3 — Contact details
 // ============================================
 function Step3Contact({
-  form, errors, accentColor, updateForm, honeypot, setHoneypot,
+  form,
+  errors,
+  accentColor,
+  updateForm,
+  honeypot,
+  setHoneypot,
 }: {
-  form: FormData; errors: Record<string, string>; accentColor: string; updateForm: (field: keyof FormData, value: any) => void; honeypot: string; setHoneypot: (v: string) => void
+  form: FormData
+  errors: Record<string, string>
+  accentColor: string
+  updateForm: (field: keyof FormData, value: any) => void
+  honeypot: string
+  setHoneypot: (v: string) => void
 }) {
   const clientTypes = [
     { value: 'particulier' as const, label: 'Particulier', icon: User },
-    { value: 'professionnel' as const, label: 'Professionnel', icon: Building2 },
+    {
+      value: 'professionnel' as const,
+      label: 'Professionnel',
+      icon: Building2,
+    },
   ]
 
   return (
-    <div className="flex-1 flex flex-col justify-center gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
+    <div className='flex flex-1 animate-in flex-col justify-center gap-4 duration-300 fade-in slide-in-from-right-4'>
       <div>
-        <h2 className="text-2xl font-bold">Vos coordonnées</h2>
-        <p className="text-muted-foreground mt-1 text-sm">Pour que nous puissions vous recontacter.</p>
+        <h2 className='text-2xl font-bold'>Vos coordonnées</h2>
+        <p className='mt-1 text-sm text-muted-foreground'>
+          Pour que nous puissions vous recontacter.
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        {clientTypes.map(t => {
+      <div className='grid grid-cols-2 gap-2'>
+        {clientTypes.map((t) => {
           const selected = form.client_type === t.value
           return (
             <button
               key={t.value}
-              type="button"
+              type='button'
               onClick={() => updateForm('client_type', t.value)}
               className={cn(
-                'flex items-center gap-2 p-2.5 rounded-xl border-2 transition-all text-sm',
-                selected ? 'bg-accent/30 shadow-sm' : 'border-input hover:border-ring bg-white'
+                'flex items-center gap-2 rounded-xl border-2 p-2.5 text-sm transition-all',
+                selected
+                  ? 'bg-accent/30 shadow-sm'
+                  : 'border-input bg-white hover:border-ring'
               )}
               style={selected ? { borderColor: accentColor } : undefined}
             >
-              <t.icon className={cn('h-4 w-4', selected ? '' : 'text-muted-foreground')} style={selected ? { color: accentColor } : undefined} />
-              <span className={cn('font-medium', selected ? '' : 'text-muted-foreground')}>{t.label}</span>
+              <t.icon
+                className={cn(
+                  'h-4 w-4',
+                  selected ? '' : 'text-muted-foreground'
+                )}
+                style={selected ? { color: accentColor } : undefined}
+              />
+              <span
+                className={cn(
+                  'font-medium',
+                  selected ? '' : 'text-muted-foreground'
+                )}
+              >
+                {t.label}
+              </span>
             </button>
           )
         })}
       </div>
 
       {form.client_type === 'professionnel' && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-          <Input value={form.company_name} onChange={e => updateForm('company_name', e.target.value)} placeholder="Nom de l'entreprise" />
+        <div className='animate-in duration-200 fade-in slide-in-from-top-2'>
+          <Input
+            value={form.company_name}
+            onChange={(e) => updateForm('company_name', e.target.value)}
+            placeholder="Nom de l'entreprise"
+          />
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Input autoComplete="given-name" value={form.first_name} onChange={e => updateForm('first_name', e.target.value)} placeholder="Prénom *" className={cn(errors.first_name && 'border-destructive')} />
-          {errors.first_name && <p className="text-xs text-destructive">{errors.first_name}</p>}
+      <div className='grid grid-cols-2 gap-2'>
+        <div className='space-y-1'>
+          <Input
+            autoComplete='given-name'
+            value={form.first_name}
+            onChange={(e) => updateForm('first_name', e.target.value)}
+            placeholder='Prénom *'
+            className={cn(errors.first_name && 'border-destructive')}
+          />
+          {errors.first_name && (
+            <p className='text-xs text-destructive'>{errors.first_name}</p>
+          )}
         </div>
-        <div className="space-y-1">
-          <Input autoComplete="family-name" value={form.last_name} onChange={e => updateForm('last_name', e.target.value)} placeholder="Nom *" className={cn(errors.last_name && 'border-destructive')} />
-          {errors.last_name && <p className="text-xs text-destructive">{errors.last_name}</p>}
+        <div className='space-y-1'>
+          <Input
+            autoComplete='family-name'
+            value={form.last_name}
+            onChange={(e) => updateForm('last_name', e.target.value)}
+            placeholder='Nom *'
+            className={cn(errors.last_name && 'border-destructive')}
+          />
+          {errors.last_name && (
+            <p className='text-xs text-destructive'>{errors.last_name}</p>
+          )}
         </div>
       </div>
 
-      <fieldset className="space-y-1">
-        <Label>Téléphone <span className="text-destructive">*</span></Label>
+      <fieldset className='space-y-1'>
+        <Label>
+          Téléphone <span className='text-destructive'>*</span>
+        </Label>
         <PhoneInput
           countryCode={form.phone_country}
           phone={form.phone}
-          onCountryChange={v => updateForm('phone_country', v)}
-          onPhoneChange={v => updateForm('phone', v)}
+          onCountryChange={(v) => updateForm('phone_country', v)}
+          onPhoneChange={(v) => updateForm('phone', v)}
           hasError={!!errors.phone}
         />
-        {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+        {errors.phone && (
+          <p className='text-xs text-destructive'>{errors.phone}</p>
+        )}
       </fieldset>
 
-      <fieldset className="space-y-1">
-        <Label>Email <span className="text-destructive">*</span></Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input type="email" autoComplete="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="vous@email.com" className={cn('pl-9', errors.email && 'border-destructive')} />
+      <fieldset className='space-y-1'>
+        <Label>
+          Email <span className='text-destructive'>*</span>
+        </Label>
+        <div className='relative'>
+          <Mail className='absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
+          <Input
+            type='email'
+            autoComplete='email'
+            value={form.email}
+            onChange={(e) => updateForm('email', e.target.value)}
+            placeholder='vous@email.com'
+            className={cn('pl-9', errors.email && 'border-destructive')}
+          />
         </div>
-        {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+        {errors.email && (
+          <p className='text-xs text-destructive'>{errors.email}</p>
+        )}
       </fieldset>
 
       {/* Guests recap — editable */}
-      <div className="flex items-center justify-between rounded-lg border border-input bg-white px-3 py-2">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Users className="h-3.5 w-3.5" />
+      <div className='flex items-center justify-between rounded-lg border border-input bg-white px-3 py-2'>
+        <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+          <Users className='h-3.5 w-3.5' />
           <span>Invités</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateForm('guests_count', Math.max(16, (typeof form.guests_count === 'number' ? form.guests_count : 16) - 1))}>
-            <Minus className="h-3 w-3" />
+        <div className='flex items-center gap-1.5'>
+          <Button
+            type='button'
+            variant='ghost'
+            size='icon'
+            className='h-6 w-6'
+            onClick={() =>
+              updateForm(
+                'guests_count',
+                Math.max(
+                  16,
+                  (typeof form.guests_count === 'number'
+                    ? form.guests_count
+                    : 16) - 1
+                )
+              )
+            }
+          >
+            <Minus className='h-3 w-3' />
           </Button>
           <input
-            type="number"
-            inputMode="numeric"
+            type='number'
+            inputMode='numeric'
             min={16}
             value={form.guests_count === '' ? '' : form.guests_count}
-            onChange={e => {
+            onChange={(e) => {
               const raw = e.target.value
-              if (raw === '') { updateForm('guests_count', ''); return }
+              if (raw === '') {
+                updateForm('guests_count', '')
+                return
+              }
               const n = parseInt(raw, 10)
               if (!isNaN(n)) updateForm('guests_count', Math.max(16, n))
             }}
-            className="w-8 text-center text-sm font-semibold bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className='w-8 [appearance:textfield] bg-transparent text-center text-sm font-semibold focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
           />
-          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateForm('guests_count', (typeof form.guests_count === 'number' ? form.guests_count : 0) + 1)}>
-            <Plus className="h-3 w-3" />
+          <Button
+            type='button'
+            variant='ghost'
+            size='icon'
+            className='h-6 w-6'
+            onClick={() =>
+              updateForm(
+                'guests_count',
+                (typeof form.guests_count === 'number'
+                  ? form.guests_count
+                  : 0) + 1
+              )
+            }
+          >
+            <Plus className='h-3 w-3' />
           </Button>
         </div>
       </div>
 
-      <input type="text" name="website_url" value={honeypot} onChange={e => setHoneypot(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, height: 0, width: 0 }} />
+      <input
+        type='text'
+        name='website_url'
+        value={honeypot}
+        onChange={(e) => setHoneypot(e.target.value)}
+        tabIndex={-1}
+        autoComplete='off'
+        aria-hidden='true'
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: '-9999px',
+          opacity: 0,
+          height: 0,
+          width: 0,
+        }}
+      />
     </div>
   )
 }
@@ -784,20 +1125,37 @@ function Step3Contact({
 // ============================================
 // Step 4 — Success
 // ============================================
-function Step4Success({ restaurant, accentColor }: { restaurant: RestaurantInfo; accentColor: string }) {
+function Step4Success({
+  restaurant,
+  accentColor,
+}: {
+  restaurant: RestaurantInfo
+  accentColor: string
+}) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500">
-      <div className="h-16 w-16 rounded-full flex items-center justify-center mb-5 shadow-lg" style={{ backgroundColor: accentColor }}>
-        <Check className="h-8 w-8 text-white" />
+    <div className='flex flex-1 animate-in flex-col items-center justify-center px-4 text-center duration-500 zoom-in-95 fade-in'>
+      <div
+        className='mb-5 flex h-16 w-16 items-center justify-center rounded-full shadow-lg'
+        style={{ backgroundColor: accentColor }}
+      >
+        <Check className='h-8 w-8 text-white' />
       </div>
-      <h2 className="text-2xl font-bold mb-2">Merci pour votre demande !</h2>
-      <p className="text-muted-foreground max-w-sm mb-6 leading-relaxed text-sm">
-        Votre demande a bien été prise en compte. L'équipe de <strong className="text-foreground">{restaurant.name}</strong> vous recontactera très prochainement pour finaliser votre événement.
+      <h2 className='mb-2 text-2xl font-bold'>Merci pour votre demande !</h2>
+      <p className='mb-6 max-w-sm text-sm leading-relaxed text-muted-foreground'>
+        Votre demande a bien été prise en compte. L'équipe de{' '}
+        <strong className='text-foreground'>{restaurant.name}</strong> vous
+        recontactera très prochainement pour finaliser votre événement.
       </p>
       {restaurant.logo_url && (
-        <img src={restaurant.logo_url} alt={restaurant.name} className="h-14 w-14 rounded-full object-cover ring-4 ring-muted mb-4" />
+        <img
+          src={restaurant.logo_url}
+          alt={restaurant.name}
+          className='mb-4 h-14 w-14 rounded-full object-cover ring-4 ring-muted'
+        />
       )}
-      <p className="text-xs text-muted-foreground">En attendant, projetez-vous au coeur de votre événement.</p>
+      <p className='text-xs text-muted-foreground'>
+        En attendant, projetez-vous au coeur de votre événement.
+      </p>
     </div>
   )
 }

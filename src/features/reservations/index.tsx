@@ -1,26 +1,30 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { type DateRange } from 'react-day-picker'
-import { type SortingState } from '@tanstack/react-table'
-import { useSearch, useNavigate } from '@tanstack/react-router'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Cross2Icon } from '@radix-ui/react-icons'
+import { useSearch, useNavigate } from '@tanstack/react-router'
+import { type SortingState } from '@tanstack/react-table'
 import { Calendar as CalendarIcon, Columns3, List, Loader2 } from 'lucide-react'
+import { type DateRange } from 'react-day-picker'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { DateFilter, FacetedFilter } from '@/components/data-table'
-import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ConfigDrawer } from '@/components/config-drawer'
+import { DateFilter, FacetedFilter } from '@/components/data-table'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
+import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { CalendarView } from './components/calendar-view'
-import { BookingsTable } from './components/bookings-table'
-import { PipelineView } from './components/pipeline-view'
-import { CreateBookingDialog } from './components/create-booking-dialog'
-import { useBookings, useBookingStatuses, useRestaurants } from './hooks/use-bookings'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
+import { BookingsTable } from './components/bookings-table'
+import { CalendarView } from './components/calendar-view'
+import { CreateBookingDialog } from './components/create-booking-dialog'
+import { PipelineView } from './components/pipeline-view'
+import {
+  useBookings,
+  useBookingStatuses,
+  useRestaurants,
+} from './hooks/use-bookings'
 import { bookingToReservation } from './types'
 
 type MainView = 'calendar' | 'list' | 'pipeline'
@@ -44,8 +48,13 @@ export function Reservations() {
   }, [])
 
   const dateRange: DateRange | undefined = search.from
-    ? { from: new Date(search.from), to: search.to ? new Date(search.to) : undefined }
-    : (mainView === 'list' && search.from === undefined ? { from: defaultFrom, to: undefined } : undefined)
+    ? {
+        from: new Date(search.from),
+        to: search.to ? new Date(search.to) : undefined,
+      }
+    : mainView === 'list' && search.from === undefined
+      ? { from: defaultFrom, to: undefined }
+      : undefined
   const selectedCommercials = useMemo(
     () => new Set(search.commercial ? search.commercial.split(',') : []),
     [search.commercial]
@@ -62,7 +71,10 @@ export function Reservations() {
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false)
   const [bookingDialogDate, setBookingDialogDate] = useState<Date | undefined>()
   const [sortValue, setSortValue] = useState('event_date:asc')
-  const tableSorting: SortingState = useMemo(() => [parseSortValue(sortValue)], [sortValue])
+  const tableSorting: SortingState = useMemo(
+    () => [parseSortValue(sortValue)],
+    [sortValue]
+  )
 
   // Recherche : input local + debounce pour ne pas mettre à jour l'URL à chaque frappe
   const [searchInput, setSearchInput] = useState(searchValue)
@@ -72,8 +84,11 @@ export function Reservations() {
       // setSearch appelé seulement quand la valeur débouncée change
       navigate({
         search: (prev: Record<string, unknown>) => {
-          const next = { ...prev, q: debouncedSearch || undefined } as Record<string, unknown>
-          Object.keys(next).forEach(k => {
+          const next = { ...prev, q: debouncedSearch || undefined } as Record<
+            string,
+            unknown
+          >
+          Object.keys(next).forEach((k) => {
             if (next[k] === undefined || next[k] === '') delete next[k]
           })
           return next
@@ -101,7 +116,7 @@ export function Reservations() {
       navigate({
         search: (prev: Record<string, unknown>) => {
           const next = { ...prev, ...updates } as Record<string, unknown>
-          Object.keys(next).forEach(k => {
+          Object.keys(next).forEach((k) => {
             if (next[k] === undefined || next[k] === '') delete next[k]
           })
           return next
@@ -117,7 +132,13 @@ export function Reservations() {
   const { data: users = [] } = useOrganizationUsers()
   const { data: restaurants = [] } = useRestaurants()
 
-  const hasActiveFilters = !!(searchValue || dateRange?.from || selectedCommercials.size || selectedStatuses.size || selectedRestaurants.size)
+  const hasActiveFilters = !!(
+    searchValue ||
+    dateRange?.from ||
+    selectedCommercials.size ||
+    selectedStatuses.size ||
+    selectedRestaurants.size
+  )
 
   const onResetFilters = useCallback(() => {
     setSearchInput('')
@@ -136,43 +157,55 @@ export function Reservations() {
 
     if (searchValue) {
       const q = searchValue.toLowerCase()
-      result = result.filter(b =>
-        (b.contact?.first_name || '').toLowerCase().includes(q) ||
-        (b.contact?.last_name || '').toLowerCase().includes(q) ||
-        (b.contact?.email || '').toLowerCase().includes(q) ||
-        (b.event_type || '').toLowerCase().includes(q) ||
-        (b.restaurant?.name || '').toLowerCase().includes(q)
+      result = result.filter(
+        (b) =>
+          (b.contact?.first_name || '').toLowerCase().includes(q) ||
+          (b.contact?.last_name || '').toLowerCase().includes(q) ||
+          (b.contact?.email || '').toLowerCase().includes(q) ||
+          (b.event_type || '').toLowerCase().includes(q) ||
+          (b.restaurant?.name || '').toLowerCase().includes(q)
       )
     }
 
     if (dateRange?.from) {
       const fromDate = new Date(dateRange.from)
       fromDate.setHours(0, 0, 0, 0)
-      result = result.filter(b => new Date(b.event_date) >= fromDate)
+      result = result.filter((b) => new Date(b.event_date) >= fromDate)
     }
 
     if (dateRange?.to) {
       const toDate = new Date(dateRange.to)
       toDate.setHours(23, 59, 59, 999)
-      result = result.filter(b => new Date(b.event_date) <= toDate)
+      result = result.filter((b) => new Date(b.event_date) <= toDate)
     }
 
     if (selectedCommercials.size > 0) {
-      result = result.filter(b =>
-        (b.assigned_user_ids || []).some(id => selectedCommercials.has(id))
+      result = result.filter((b) =>
+        (b.assigned_user_ids || []).some((id) => selectedCommercials.has(id))
       )
     }
 
     if (selectedStatuses.size > 0) {
-      result = result.filter(b => b.status?.slug && selectedStatuses.has(b.status.slug))
+      result = result.filter(
+        (b) => b.status?.slug && selectedStatuses.has(b.status.slug)
+      )
     }
 
     if (selectedRestaurants.size > 0) {
-      result = result.filter(b => b.restaurant_id && selectedRestaurants.has(b.restaurant_id))
+      result = result.filter(
+        (b) => b.restaurant_id && selectedRestaurants.has(b.restaurant_id)
+      )
     }
 
     return result
-  }, [bookings, searchValue, dateRange, selectedCommercials, selectedStatuses, selectedRestaurants])
+  }, [
+    bookings,
+    searchValue,
+    dateRange,
+    selectedCommercials,
+    selectedStatuses,
+    selectedRestaurants,
+  ])
 
   const reservations = useMemo(() => {
     return filteredBookings.map(bookingToReservation)
@@ -225,21 +258,36 @@ export function Reservations() {
             )}
             <FacetedFilter
               title='Commercial'
-              options={users.map(u => ({ label: `${u.first_name} ${u.last_name}`, value: u.id }))}
+              options={users.map((u) => ({
+                label: `${u.first_name} ${u.last_name}`,
+                value: u.id,
+              }))}
               selected={selectedCommercials}
-              onSelectionChange={(set) => setSearch({ commercial: set.size ? Array.from(set).join(',') : undefined })}
+              onSelectionChange={(set) =>
+                setSearch({
+                  commercial: set.size ? Array.from(set).join(',') : undefined,
+                })
+              }
             />
             <FacetedFilter
               title='Restaurant'
-              options={restaurants.map(r => ({ label: r.name, value: r.id }))}
+              options={restaurants.map((r) => ({ label: r.name, value: r.id }))}
               selected={selectedRestaurants}
-              onSelectionChange={(set) => setSearch({ restaurant: set.size ? Array.from(set).join(',') : undefined })}
+              onSelectionChange={(set) =>
+                setSearch({
+                  restaurant: set.size ? Array.from(set).join(',') : undefined,
+                })
+              }
             />
             <FacetedFilter
               title='Statut'
-              options={statuses.map(s => ({ label: s.name, value: s.slug }))}
+              options={statuses.map((s) => ({ label: s.name, value: s.slug }))}
               selected={selectedStatuses}
-              onSelectionChange={(set) => setSearch({ status: set.size ? Array.from(set).join(',') : undefined })}
+              onSelectionChange={(set) =>
+                setSearch({
+                  status: set.size ? Array.from(set).join(',') : undefined,
+                })
+              }
             />
           </div>
           {hasActiveFilters && (
@@ -254,24 +302,40 @@ export function Reservations() {
           )}
           <div className='ml-auto flex items-center gap-2'>
             {mainView === 'list' && (
-              <SortSelect options={eventSortOptions} value={sortValue} onChange={setSortValue} />
+              <SortSelect
+                options={eventSortOptions}
+                value={sortValue}
+                onChange={setSortValue}
+              />
             )}
             <ToggleGroup
               type='single'
               value={mainView}
               onValueChange={(value) => value && setSearch({ view: value })}
             >
-              <ToggleGroupItem value='calendar' aria-label='Vue calendrier' className='px-2 gap-1.5'>
+              <ToggleGroupItem
+                value='calendar'
+                aria-label='Vue calendrier'
+                className='gap-1.5 px-2'
+              >
                 <CalendarIcon className='h-4 w-4' />
-                <span className='hidden sm:inline text-xs'>Calendrier</span>
+                <span className='hidden text-xs sm:inline'>Calendrier</span>
               </ToggleGroupItem>
-              <ToggleGroupItem value='list' aria-label='Vue liste' className='px-2 gap-1.5'>
+              <ToggleGroupItem
+                value='list'
+                aria-label='Vue liste'
+                className='gap-1.5 px-2'
+              >
                 <List className='h-4 w-4' />
-                <span className='hidden sm:inline text-xs'>Liste</span>
+                <span className='hidden text-xs sm:inline'>Liste</span>
               </ToggleGroupItem>
-              <ToggleGroupItem value='pipeline' aria-label='Vue pipeline' className='px-2 gap-1.5'>
+              <ToggleGroupItem
+                value='pipeline'
+                aria-label='Vue pipeline'
+                className='gap-1.5 px-2'
+              >
                 <Columns3 className='h-4 w-4' />
-                <span className='hidden sm:inline text-xs'>Pipeline</span>
+                <span className='hidden text-xs sm:inline'>Pipeline</span>
               </ToggleGroupItem>
             </ToggleGroup>
             <CreateBookingDialog
@@ -283,7 +347,11 @@ export function Reservations() {
         </div>
 
         {mainView === 'list' && (
-          <BookingsTable data={filteredBookings} users={users} sorting={tableSorting} />
+          <BookingsTable
+            data={filteredBookings}
+            users={users}
+            sorting={tableSorting}
+          />
         )}
         {mainView === 'calendar' && (
           <div className='flex-1 overflow-hidden'>
