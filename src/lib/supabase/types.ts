@@ -85,7 +85,7 @@ export type Database = {
         Row: {
           allergies_regimes: string | null
           booking_id: string | null
-          budget_client: string | null
+          budget_client: number | null
           client_preferred_time: string | null
           commentaires: string | null
           contact_sur_place_nom: string | null
@@ -119,7 +119,7 @@ export type Database = {
         Insert: {
           allergies_regimes?: string | null
           booking_id?: string | null
-          budget_client?: string | null
+          budget_client?: number | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_sur_place_nom?: string | null
@@ -153,7 +153,7 @@ export type Database = {
         Update: {
           allergies_regimes?: string | null
           booking_id?: string | null
-          budget_client?: string | null
+          budget_client?: number | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_sur_place_nom?: string | null
@@ -397,13 +397,13 @@ export type Database = {
           contact_sur_place_tel: string | null
           created_at: string | null
           date_signature_devis: string | null
-          client_notes: string | null
           deposit_amount: number | null
-          deposit_percentage: number | null
           deroulement: string | null
           end_time: string | null
           event_date: string
           event_type: string | null
+          fbc: string | null
+          fbclid: string | null
           format_souhaite: string | null
           google_calendar_event_id: string | null
           guests_count: number | null
@@ -422,29 +422,25 @@ export type Database = {
           menu_entree: string | null
           menu_plat: string | null
           mise_en_place: string | null
-          notion_url: string | null
           occasion: string | null
           option: string | null
           organization_id: string | null
           prestations_souhaitees: string | null
+          read_at: string | null
           relance: string | null
+          reservation_type: string | null
           restaurant_id: string | null
           source: string | null
-          special_requests: string | null
-          time_slot_id: string | null
-          utm_source: string | null
-          utm_medium: string | null
-          utm_campaign: string | null
-          utm_content: string | null
-          utm_term: string | null
-          fbclid: string | null
-          fbc: string | null
           space_id: string | null
           start_time: string | null
           status_id: string | null
           total_amount: number | null
-          read_at: string | null
           updated_at: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
           allergies_regimes?: string | null
@@ -458,13 +454,13 @@ export type Database = {
           contact_sur_place_tel?: string | null
           created_at?: string | null
           date_signature_devis?: string | null
-          client_notes?: string | null
           deposit_amount?: number | null
-          deposit_percentage?: number | null
           deroulement?: string | null
           end_time?: string | null
           event_date: string
           event_type?: string | null
+          fbc?: string | null
+          fbclid?: string | null
           format_souhaite?: string | null
           google_calendar_event_id?: string | null
           guests_count?: number | null
@@ -483,35 +479,30 @@ export type Database = {
           menu_entree?: string | null
           menu_plat?: string | null
           mise_en_place?: string | null
-          notion_url?: string | null
           occasion?: string | null
           option?: string | null
           organization_id?: string | null
           prestations_souhaitees?: string | null
+          read_at?: string | null
           relance?: string | null
+          reservation_type?: string | null
           restaurant_id?: string | null
           source?: string | null
-          special_requests?: string | null
-          time_slot_id?: string | null
-          utm_source?: string | null
-          utm_medium?: string | null
-          utm_campaign?: string | null
-          utm_content?: string | null
-          utm_term?: string | null
-          fbclid?: string | null
-          fbc?: string | null
           space_id?: string | null
           start_time?: string | null
           status_id?: string | null
-          read_at?: string | null
           total_amount?: number | null
           updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
           allergies_regimes?: string | null
           assigned_user_ids?: string[] | null
           budget_client?: string | null
-          client_notes?: string | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_id?: string | null
@@ -521,11 +512,12 @@ export type Database = {
           created_at?: string | null
           date_signature_devis?: string | null
           deposit_amount?: number | null
-          deposit_percentage?: number | null
           deroulement?: string | null
           end_time?: string | null
           event_date?: string
           event_type?: string | null
+          fbc?: string | null
+          fbclid?: string | null
           format_souhaite?: string | null
           google_calendar_event_id?: string | null
           guests_count?: number | null
@@ -544,29 +536,25 @@ export type Database = {
           menu_entree?: string | null
           menu_plat?: string | null
           mise_en_place?: string | null
-          notion_url?: string | null
           occasion?: string | null
           option?: string | null
           organization_id?: string | null
           prestations_souhaitees?: string | null
+          read_at?: string | null
           relance?: string | null
+          reservation_type?: string | null
           restaurant_id?: string | null
           source?: string | null
-          special_requests?: string | null
-          time_slot_id?: string | null
-          utm_source?: string | null
-          utm_medium?: string | null
-          utm_campaign?: string | null
-          utm_content?: string | null
-          utm_term?: string | null
-          fbclid?: string | null
-          fbc?: string | null
           space_id?: string | null
           start_time?: string | null
           status_id?: string | null
-          read_at?: string | null
           total_amount?: number | null
           updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: [
           {
@@ -684,6 +672,8 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           email: string | null
+          fbc: string | null
+          fbclid: string | null
           first_name: string
           id: string
           job_title: string | null
@@ -694,14 +684,12 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           source: string | null
-          utm_source: string | null
-          utm_medium: string | null
+          updated_at: string | null
           utm_campaign: string | null
           utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
           utm_term: string | null
-          fbclid: string | null
-          fbc: string | null
-          updated_at: string | null
         }
         Insert: {
           address?: string | null
@@ -710,6 +698,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           email?: string | null
+          fbc?: string | null
+          fbclid?: string | null
           first_name: string
           id?: string
           job_title?: string | null
@@ -720,14 +710,12 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           source?: string | null
-          utm_source?: string | null
-          utm_medium?: string | null
+          updated_at?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
           utm_term?: string | null
-          fbclid?: string | null
-          fbc?: string | null
-          updated_at?: string | null
         }
         Update: {
           address?: string | null
@@ -736,6 +724,8 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           email?: string | null
+          fbc?: string | null
+          fbclid?: string | null
           first_name?: string
           id?: string
           job_title?: string | null
@@ -746,14 +736,12 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           source?: string | null
-          utm_source?: string | null
-          utm_medium?: string | null
+          updated_at?: string | null
           utm_campaign?: string | null
           utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
           utm_term?: string | null
-          fbclid?: string | null
-          fbc?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -915,6 +903,70 @@ export type Database = {
             columns: ['quote_id']
             isOneToOne: false
             referencedRelation: 'quotes'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          invited_by: string | null
+          organization_id: string
+          restaurant_ids: string[] | null
+          role_id: string
+          status: string | null
+          token: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          invited_by?: string | null
+          organization_id: string
+          restaurant_ids?: string[] | null
+          role_id: string
+          status?: string | null
+          token?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          invited_by?: string | null
+          organization_id?: string
+          restaurant_ids?: string[] | null
+          role_id?: string
+          status?: string | null
+          token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'invitations_invited_by_fkey'
+            columns: ['invited_by']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'invitations_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'invitations_role_id_fkey'
+            columns: ['role_id']
+            isOneToOne: false
+            referencedRelation: 'roles'
             referencedColumns: ['id']
           },
         ]
@@ -1087,11 +1139,16 @@ export type Database = {
       organizations: {
         Row: {
           address: string | null
+          api_key_hash: string | null
+          api_key_last_used_at: string | null
+          api_key_prefix: string | null
           created_at: string | null
           email: string | null
           facturation_email: string | null
           id: string
           logo_url: string | null
+          meta_conversions_token: string | null
+          meta_pixel_id: string | null
           name: string
           phone: string | null
           siret: string | null
@@ -1099,24 +1156,19 @@ export type Database = {
           tva_number: string | null
           updated_at: string | null
           website: string | null
-          meta_pixel_id: string | null
-          meta_conversions_token: string | null
-          api_key_hash: string | null
-          api_key_prefix: string | null
-          api_key_last_used_at: string | null
         }
         Insert: {
           address?: string | null
+          api_key_hash?: string | null
+          api_key_last_used_at?: string | null
+          api_key_prefix?: string | null
           created_at?: string | null
           email?: string | null
           facturation_email?: string | null
           id?: string
           logo_url?: string | null
-          meta_pixel_id?: string | null
           meta_conversions_token?: string | null
-          api_key_hash?: string | null
-          api_key_prefix?: string | null
-          api_key_last_used_at?: string | null
+          meta_pixel_id?: string | null
           name: string
           phone?: string | null
           siret?: string | null
@@ -1127,16 +1179,16 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          api_key_hash?: string | null
+          api_key_last_used_at?: string | null
+          api_key_prefix?: string | null
           created_at?: string | null
           email?: string | null
           facturation_email?: string | null
           id?: string
           logo_url?: string | null
-          meta_pixel_id?: string | null
           meta_conversions_token?: string | null
-          api_key_hash?: string | null
-          api_key_prefix?: string | null
-          api_key_last_used_at?: string | null
+          meta_pixel_id?: string | null
           name?: string
           phone?: string | null
           siret?: string | null
@@ -1274,6 +1326,7 @@ export type Database = {
           link_type: string
           percentage: number | null
           quote_id: string | null
+          stripe_account_id: string | null
           stripe_link_id: string | null
           url: string
           used_at: string | null
@@ -1288,6 +1341,7 @@ export type Database = {
           link_type: string
           percentage?: number | null
           quote_id?: string | null
+          stripe_account_id?: string | null
           stripe_link_id?: string | null
           url: string
           used_at?: string | null
@@ -1302,6 +1356,7 @@ export type Database = {
           link_type?: string
           percentage?: number | null
           quote_id?: string | null
+          stripe_account_id?: string | null
           stripe_link_id?: string | null
           url?: string
           used_at?: string | null
@@ -1380,6 +1435,8 @@ export type Database = {
       payments: {
         Row: {
           amount: number
+          attachment_path: string | null
+          attachment_url: string | null
           booking_id: string | null
           created_at: string | null
           id: string
@@ -1390,13 +1447,17 @@ export type Database = {
           payment_modality: string | null
           payment_type: string
           quote_id: string | null
+          receipt_url: string | null
           status: string | null
+          stripe_account_id: string | null
           stripe_payment_id: string | null
           stripe_payment_intent_id: string | null
           updated_at: string | null
         }
         Insert: {
           amount: number
+          attachment_path?: string | null
+          attachment_url?: string | null
           booking_id?: string | null
           created_at?: string | null
           id?: string
@@ -1407,13 +1468,17 @@ export type Database = {
           payment_modality?: string | null
           payment_type: string
           quote_id?: string | null
+          receipt_url?: string | null
           status?: string | null
+          stripe_account_id?: string | null
           stripe_payment_id?: string | null
           stripe_payment_intent_id?: string | null
           updated_at?: string | null
         }
         Update: {
           amount?: number
+          attachment_path?: string | null
+          attachment_url?: string | null
           booking_id?: string | null
           created_at?: string | null
           id?: string
@@ -1424,7 +1489,9 @@ export type Database = {
           payment_modality?: string | null
           payment_type?: string
           quote_id?: string | null
+          receipt_url?: string | null
           status?: string | null
+          stripe_account_id?: string | null
           stripe_payment_id?: string | null
           stripe_payment_intent_id?: string | null
           updated_at?: string | null
@@ -1659,8 +1726,8 @@ export type Database = {
           created_at: string | null
           date_end: string | null
           date_start: string | null
-          deposit_days: number | null
           deposit_amount_override: number | null
+          deposit_days: number | null
           deposit_label: string | null
           deposit_paid_at: string | null
           deposit_percentage: number | null
@@ -1972,7 +2039,15 @@ export type Database = {
           sms_name: string | null
           sms_signature: string | null
           sms_signature_en: string | null
+          stripe_account_email: string | null
+          stripe_account_id: string | null
+          stripe_account_name: string | null
+          stripe_charges_enabled: boolean | null
+          stripe_connected_at: string | null
+          stripe_connected_by: string | null
+          stripe_disabled_reason: string | null
           stripe_enabled: boolean
+          stripe_payouts_enabled: boolean | null
           translation_language: string | null
           tva_number: string | null
           updated_at: string | null
@@ -2036,7 +2111,15 @@ export type Database = {
           sms_name?: string | null
           sms_signature?: string | null
           sms_signature_en?: string | null
+          stripe_account_email?: string | null
+          stripe_account_id?: string | null
+          stripe_account_name?: string | null
+          stripe_charges_enabled?: boolean | null
+          stripe_connected_at?: string | null
+          stripe_connected_by?: string | null
+          stripe_disabled_reason?: string | null
           stripe_enabled?: boolean
+          stripe_payouts_enabled?: boolean | null
           translation_language?: string | null
           tva_number?: string | null
           updated_at?: string | null
@@ -2100,7 +2183,15 @@ export type Database = {
           sms_name?: string | null
           sms_signature?: string | null
           sms_signature_en?: string | null
+          stripe_account_email?: string | null
+          stripe_account_id?: string | null
+          stripe_account_name?: string | null
+          stripe_charges_enabled?: boolean | null
+          stripe_connected_at?: string | null
+          stripe_connected_by?: string | null
+          stripe_disabled_reason?: string | null
           stripe_enabled?: boolean
+          stripe_payouts_enabled?: boolean | null
           translation_language?: string | null
           tva_number?: string | null
           updated_at?: string | null
@@ -2112,6 +2203,13 @@ export type Database = {
             columns: ['organization_id']
             isOneToOne: false
             referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'restaurants_stripe_connected_by_fkey'
+            columns: ['stripe_connected_by']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           },
         ]
@@ -2362,6 +2460,61 @@ export type Database = {
           },
         ]
       }
+      stripe_oauth_states: {
+        Row: {
+          consumed_at: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          organization_id: string
+          restaurant_id: string
+          state_token: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          organization_id: string
+          restaurant_id: string
+          state_token: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          organization_id?: string
+          restaurant_id?: string
+          state_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'stripe_oauth_states_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'stripe_oauth_states_restaurant_id_fkey'
+            columns: ['restaurant_id']
+            isOneToOne: false
+            referencedRelation: 'restaurants'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'stripe_oauth_states_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       user_restaurants: {
         Row: {
           created_at: string | null
@@ -2593,65 +2746,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
-// Convenience types
-export type Organization = Tables<'organizations'>
-export type User = Tables<'users'>
-export type Role = Tables<'roles'>
-export type Permission = Tables<'permissions'>
-export type Restaurant = Tables<'restaurants'>
-export type Space = Tables<'spaces'>
-export type Status = Tables<'statuses'>
-export type Company = Tables<'companies'>
-export type Contact = Tables<'contacts'>
-export type Booking = Tables<'bookings'>
-export type BookingEvent = Tables<'booking_events'>
-export type BookingExtra = Tables<'booking_extras'>
-export type BookingProductService = Tables<'booking_products_services'>
-export type Quote = Tables<'quotes'>
-export type QuoteItem = Tables<'quote_items'>
-export type Payment = Tables<'payments'>
-export type PaymentLink = Tables<'payment_links'>
-export type PaymentReminder = Tables<'payment_reminders'>
-export type Receipt = Tables<'receipts'>
-export type Document = Tables<'documents'>
-export type Settings = Tables<'settings'>
-export type MenuForm = Tables<'menu_forms'>
-export type MenuFormField = Tables<'menu_form_fields'>
-export type MenuFormResponse = Tables<'menu_form_responses'>
-export type BookingMenuForm = Tables<'booking_menu_forms'>
-export type ActivityLog = Tables<'activity_logs'>
-export type Product = Tables<'products'>
-export type Package = Tables<'packages'>
-export type EmailLog = Tables<'email_logs'>
-
-// Extended types with relations
-export type ContactWithRelations = Contact & {
-  company?: Company | null
-  status?: Status | null
-  assigned_user?: User | null
-  bookings?: Booking[]
-}
-
-export type BookingWithRelations = Booking & {
-  restaurant?: Restaurant | null
-  contact?: Contact | null
-  status?: Status | null
-  assigned_user?: User | null
-  space?: Space | null
-  events?: BookingEvent[]
-  products_services?: BookingProductService[]
-  quotes?: Quote[]
-  payments?: Payment[]
-}
-
-export type QuoteWithRelations = Quote & {
-  booking?: BookingWithRelations | null
-  items?: QuoteItem[]
-  payments?: Payment[]
-}
-
-export type UserWithRelations = User & {
-  role?: Role | null
-  restaurants?: Restaurant[]
-}
