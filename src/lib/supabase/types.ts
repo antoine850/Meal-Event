@@ -2746,3 +2746,65 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+// Convenience types
+export type Organization = Tables<'organizations'>
+export type User = Tables<'users'>
+export type Role = Tables<'roles'>
+export type Permission = Tables<'permissions'>
+export type Restaurant = Tables<'restaurants'>
+export type Space = Tables<'spaces'>
+export type Status = Tables<'statuses'>
+export type Company = Tables<'companies'>
+export type Contact = Tables<'contacts'>
+export type Booking = Tables<'bookings'>
+export type BookingEvent = Tables<'booking_events'>
+export type BookingExtra = Tables<'booking_extras'>
+export type BookingProductService = Tables<'booking_products_services'>
+export type Quote = Tables<'quotes'>
+export type QuoteItem = Tables<'quote_items'>
+export type Payment = Tables<'payments'>
+export type PaymentLink = Tables<'payment_links'>
+export type PaymentReminder = Tables<'payment_reminders'>
+export type Receipt = Tables<'receipts'>
+export type Document = Tables<'documents'>
+export type Settings = Tables<'settings'>
+export type MenuForm = Tables<'menu_forms'>
+export type MenuFormField = Tables<'menu_form_fields'>
+export type MenuFormResponse = Tables<'menu_form_responses'>
+export type BookingMenuForm = Tables<'booking_menu_forms'>
+export type ActivityLog = Tables<'activity_logs'>
+export type Product = Tables<'products'>
+export type Package = Tables<'packages'>
+export type EmailLog = Tables<'email_logs'>
+
+// Extended types with relations
+export type ContactWithRelations = Contact & {
+  company?: Company | null
+  status?: Status | null
+  assigned_user?: User | null
+  bookings?: Booking[]
+}
+
+export type BookingWithRelations = Booking & {
+  restaurant?: Restaurant | null
+  contact?: Contact | null
+  status?: Status | null
+  assigned_user?: User | null
+  space?: Space | null
+  events?: BookingEvent[]
+  products_services?: BookingProductService[]
+  quotes?: Quote[]
+  payments?: Payment[]
+}
+
+export type QuoteWithRelations = Quote & {
+  booking?: BookingWithRelations | null
+  items?: QuoteItem[]
+  payments?: Payment[]
+}
+
+export type UserWithRelations = User & {
+  role?: Role | null
+  restaurants?: Restaurant[]
+}
