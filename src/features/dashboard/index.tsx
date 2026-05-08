@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { RotateCcw } from 'lucide-react'
-import { type DateRange } from 'react-day-picker'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -24,7 +24,6 @@ import { ReservationsTab } from './components/reservations-tab'
 import {
   useDashboardData,
   type DashboardFilters,
-  type DashboardDateField,
 } from './hooks/use-dashboard-data'
 
 const tabs = [
@@ -34,54 +33,91 @@ const tabs = [
   { value: 'reservations', label: 'Événements' },
 ]
 
+// Helpers pour convertir entre Set et chaîne CSV dans l'URL
+function toSet(csv: string | undefined): Set<string> {
+  if (!csv) return new Set()
+  return new Set(csv.split(',').filter(Boolean))
+}
+
+function toCsv(set: Set<string>): string | undefined {
+  if (set.size === 0) return undefined
+  return [...set].join(',')
+}
+
 export function Dashboard() {
-  const [activeTab, setActiveTab] = useState('general')
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false }) as {
+    tab?: 'general' | 'commercial' | 'marketing' | 'reservations'
+    fromEvent?: string
+    toEvent?: string
+    fromSign?: string
+    toSign?: string
+    fromImport?: string
+    toImport?: string
+    restaurants?: string
+    statuses?: string
+    commercials?: string
+    clientType?: string
+  }
 
-  // Filters state
-  const [dateRange, setDateRange] = useState<DateRange | undefined>()
-  const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(
-    new Set()
-  )
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
-    new Set()
-  )
-  const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(
-    new Set()
-  )
-  const [selectedClientType, setSelectedClientType] = useState<Set<string>>(
-    new Set()
-  )
+  const activeTab = search.tab ?? 'general'
 
-  // Date de référence par onglet :
-  // - commercial → date de signature du devis
-  // - reservations (événements) → date de l'événement
-  // - marketing → date d'import (created_at du booking)
-  // - general → date de l'événement (défaut)
-  const dateField: DashboardDateField = useMemo(() => {
-    if (activeTab === 'commercial') return 'signed_at'
-    if (activeTab === 'marketing') return 'created_at'
-    return 'event_date'
-  }, [activeTab])
+  const toDateRange = (from?: string, to?: string) => {
+    if (!from || !to) return undefined
+    return { from: new Date(from), to: new Date(to) }
+  }
+  const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
+
+  const eventDateRange = useMemo(() => toDateRange(search.fromEvent, search.toEvent), [search.fromEvent, search.toEvent])
+  const signDateRange = useMemo(() => toDateRange(search.fromSign, search.toSign), [search.fromSign, search.toSign])
+  const importDateRange = useMemo(() => toDateRange(search.fromImport, search.toImport), [search.fromImport, search.toImport])
+
+  const selectedRestaurants = useMemo(() => toSet(search.restaurants), [search.restaurants])
+  const selectedStatuses = useMemo(() => toSet(search.statuses), [search.statuses])
+  const selectedCommercials = useMemo(() => toSet(search.commercials), [search.commercials])
+  const selectedClientType = useMemo(() => toSet(search.clientType), [search.clientType])
+
+  const setSearch = (patch: Partial<typeof search>) => {
+    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
+  }
+
+  const setActiveTab = (tab: string) =>
+    setSearch({ tab: tab as typeof search.tab })
+
+  const setEventDateRange = (range: { from?: Date; to?: Date } | undefined) =>
+    setSearch({ fromEvent: toIso(range?.from), toEvent: toIso(range?.to) })
+  const setSignDateRange = (range: { from?: Date; to?: Date } | undefined) =>
+    setSearch({ fromSign: toIso(range?.from), toSign: toIso(range?.to) })
+  const setImportDateRange = (range: { from?: Date; to?: Date } | undefined) =>
+    setSearch({ fromImport: toIso(range?.from), toImport: toIso(range?.to) })
+
+  const setSelectedRestaurants = (s: Set<string>) =>
+    setSearch({ restaurants: toCsv(s) })
+  const setSelectedStatuses = (s: Set<string>) =>
+    setSearch({ statuses: toCsv(s) })
+  const setSelectedCommercials = (s: Set<string>) =>
+    setSearch({ commercials: toCsv(s) })
+  const setSelectedClientType = (s: Set<string>) =>
+    setSearch({ clientType: toCsv(s) })
 
   const filters: DashboardFilters = useMemo(
     () => ({
-      dateRange:
-        dateRange?.from && dateRange?.to
-          ? { from: dateRange.from, to: dateRange.to }
-          : undefined,
+      eventDateRange,
+      signDateRange,
+      importDateRange,
       restaurants: selectedRestaurants,
       statuses: selectedStatuses,
       commercials: selectedCommercials,
       clientType: selectedClientType,
-      dateField,
     }),
     [
-      dateRange,
+      eventDateRange,
+      signDateRange,
+      importDateRange,
       selectedRestaurants,
       selectedStatuses,
       selectedCommercials,
       selectedClientType,
-      dateField,
     ]
   )
 
@@ -97,19 +133,27 @@ export function Dashboard() {
   } = useDashboardData(filters)
 
   const hasFilters =
-    !!dateRange ||
+    !!eventDateRange ||
+    !!signDateRange ||
+    !!importDateRange ||
     selectedRestaurants.size > 0 ||
     selectedStatuses.size > 0 ||
     selectedCommercials.size > 0 ||
     selectedClientType.size > 0
 
-  const resetFilters = () => {
-    setDateRange(undefined)
-    setSelectedRestaurants(new Set())
-    setSelectedStatuses(new Set())
-    setSelectedCommercials(new Set())
-    setSelectedClientType(new Set())
-  }
+  const resetFilters = () =>
+    setSearch({
+      fromEvent: undefined,
+      toEvent: undefined,
+      fromSign: undefined,
+      toSign: undefined,
+      fromImport: undefined,
+      toImport: undefined,
+      restaurants: undefined,
+      statuses: undefined,
+      commercials: undefined,
+      clientType: undefined,
+    })
 
   const restaurantOptions = restaurants.map((r) => ({
     label: r.name,
@@ -159,17 +203,27 @@ export function Dashboard() {
 
       {/* ===== Main ===== */}
       <Main>
-        <div className='mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center'>
-          <h2 className='text-2xl font-bold tracking-tight whitespace-nowrap'>
+        <div className='mb-4 space-y-3'>
+          <h2 className='text-2xl font-bold tracking-tight'>
             👋 Bonjour{userName ? `, ${userName}` : ''} !
           </h2>
 
           {/* Filters */}
-          <div className='flex flex-wrap items-center justify-end gap-2'>
+          <div className='flex flex-wrap items-center gap-2'>
             <DateFilter
-              value={dateRange}
-              onChange={setDateRange}
-              placeholder='Période'
+              value={eventDateRange}
+              onChange={setEventDateRange}
+              placeholder="Date d'événement"
+            />
+            <DateFilter
+              value={signDateRange}
+              onChange={setSignDateRange}
+              placeholder='Date de signature'
+            />
+            <DateFilter
+              value={importDateRange}
+              onChange={setImportDateRange}
+              placeholder="Date d'import"
             />
             <FacetedFilter
               title='Restaurant'

@@ -26,6 +26,7 @@ import {
 } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Tooltip as UITooltip,
   TooltipContent,
@@ -107,8 +108,69 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
 
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center py-20'>
-        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      <div className='space-y-4'>
+        {/* KPI Cards */}
+        <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <Skeleton className='h-4 w-28' />
+                <Skeleton className='h-4 w-4 rounded-full' />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className='mb-2 h-8 w-20' />
+                <Skeleton className='h-3 w-36' />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {/* Charts Row */}
+        <div className='grid gap-4 lg:grid-cols-7'>
+          <Card className='lg:col-span-4'>
+            <CardHeader>
+              <Skeleton className='h-5 w-56' />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className='h-[250px] w-full' />
+            </CardContent>
+          </Card>
+          <Card className='lg:col-span-3'>
+            <CardHeader>
+              <Skeleton className='h-5 w-40' />
+            </CardHeader>
+            <CardContent className='flex items-center justify-center'>
+              <Skeleton className='h-[280px] w-[280px] rounded-full' />
+            </CardContent>
+          </Card>
+        </div>
+        {/* Trend & Upcoming */}
+        <div className='grid gap-4 lg:grid-cols-2'>
+          <Card>
+            <CardHeader>
+              <Skeleton className='h-5 w-40' />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className='h-[200px] w-full' />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className='h-5 w-44' />
+            </CardHeader>
+            <CardContent className='space-y-3'>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className='flex items-center gap-3'>
+                  <Skeleton className='h-10 w-10 rounded-md' />
+                  <div className='flex-1 space-y-1'>
+                    <Skeleton className='h-4 w-36' />
+                    <Skeleton className='h-3 w-24' />
+                  </div>
+                  <Skeleton className='h-5 w-16 rounded-full' />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
@@ -292,7 +354,7 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
                     name === 'reservations'
                       ? `${value ?? 0} événements`
                       : `${(Number(value) ?? 0).toLocaleString('fr-FR')} €`,
-                    name === 'reservations' ? 'Événements' : 'CA',
+                    name === 'reservations' ? 'Événements' : 'CA HT',
                   ]}
                 />
                 <Line

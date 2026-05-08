@@ -77,7 +77,8 @@ export type BookingWithRelations = {
   }[]
   quotes?: {
     id: string
-    total_ttc: number
+    total_ht: number | null
+    total_ttc: number | null
     status: string | null
     primary_quote: boolean | null
     quote_number: string | null
@@ -124,7 +125,7 @@ export function useBookings() {
           contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
           status:statuses(id, name, color, slug),
           payments(id, amount, status, payment_modality, paid_at),
-          quotes(id, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
+          quotes(id, total_ht, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
         `
         )
         .eq('organization_id', orgId)

@@ -3,7 +3,7 @@ import {
   Euro,
   Target,
   TrendingUp,
-  Users,
+  Clock,
   Loader2,
   Info,
   AlertTriangle,
@@ -30,6 +30,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Tooltip as UITooltip,
   TooltipContent,
@@ -45,6 +46,7 @@ import {
   groupByUser,
   getMonthlyRevenueByCommercial,
   getStaleProposals,
+  useAvgResponseTime,
 } from '../hooks/use-dashboard-data'
 
 function KpiTooltip({ text }: { text: string }) {
@@ -111,10 +113,14 @@ export function CommercialTab({
 
   const bestPerformer = commercialStats[0]
 
-  const pieData = useMemo(
-    () => commercialStats.map((c) => ({ name: c.name, value: c.sales })),
-    [commercialStats]
-  )
+  const pieData = useMemo(() => {
+    const items = commercialStats.map((c) => ({ name: c.name, value: c.sales }))
+    const total = items.reduce((s, i) => s + i.value, 0)
+    return items.map((i) => ({
+      ...i,
+      percent: total > 0 ? (i.value / total) * 100 : 0,
+    }))
+  }, [commercialStats])
 
   const monthlyData = useMemo(
     () => getMonthlyRevenueByCommercial(bookings, users),
@@ -126,6 +132,15 @@ export function CommercialTab({
   )
 
   const staleProposals = useMemo(() => getStaleProposals(bookings), [bookings])
+  const { data: responseTimeData } = useAvgResponseTime(bookings)
+
+  const responseTimeLabel = useMemo(() => {
+    if (!responseTimeData) return null
+    const { avgHours } = responseTimeData
+    if (avgHours < 1) return `${Math.round(avgHours * 60)} min`
+    if (avgHours < 24) return `${avgHours.toFixed(1)}h`
+    return `${(avgHours / 24).toFixed(1)}j`
+  }, [responseTimeData])
 
   // Dynamic target: max commercial sales * 1.2 rounded to nearest 10k
   const target = useMemo(() => {
@@ -136,8 +151,65 @@ export function CommercialTab({
 
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center py-20'>
-        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      <div className='space-y-4'>
+        {/* KPI Cards */}
+        <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <Skeleton className='h-4 w-32' />
+                <Skeleton className='h-4 w-4 rounded-full' />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className='mb-2 h-8 w-24' />
+                <Skeleton className='h-3 w-36' />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {/* Charts */}
+        <div className='grid gap-4 lg:grid-cols-7'>
+          <Card className='col-span-1 lg:col-span-4'>
+            <CardHeader>
+              <Skeleton className='h-5 w-48' />
+              <Skeleton className='h-3 w-64' />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className='h-[300px] w-full' />
+            </CardContent>
+          </Card>
+          <Card className='col-span-1 lg:col-span-3'>
+            <CardHeader>
+              <Skeleton className='h-5 w-36' />
+              <Skeleton className='h-3 w-52' />
+            </CardHeader>
+            <CardContent className='flex items-center justify-center'>
+              <Skeleton className='h-[300px] w-[300px] rounded-full' />
+            </CardContent>
+          </Card>
+        </div>
+        {/* Detail card */}
+        <Card>
+          <CardHeader>
+            <Skeleton className='h-5 w-40' />
+            <Skeleton className='h-3 w-56' />
+          </CardHeader>
+          <CardContent className='space-y-6'>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className='space-y-2'>
+                <div className='flex items-center gap-3'>
+                  <Skeleton className='h-10 w-10 rounded-full' />
+                  <div className='flex-1 space-y-1'>
+                    <Skeleton className='h-4 w-32' />
+                    <Skeleton className='h-3 w-48' />
+                  </div>
+                  <Skeleton className='h-6 w-20' />
+                </div>
+                <Skeleton className='h-2 w-full rounded-full' />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -159,9 +231,9 @@ export function CommercialTab({
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Montant total TTC des devis signés sur les événements assignés à l'équipe" />
+              <KpiTooltip text="Montant total HT des devis signés sur les événements assignés à l'équipe" />
               <CardTitle className='text-sm font-medium'>
-                CA Signé Équipe
+                CA Signé Équipe HT
               </CardTitle>
             </div>
             <Euro className='h-4 w-4 text-muted-foreground' />
@@ -178,28 +250,28 @@ export function CommercialTab({
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Nombre total d'événements assignés (tous statuts)" />
+              <KpiTooltip text='Delta moyen entre la création du booking et son premier changement de statut depuis "Nouveau"' />
               <CardTitle className='text-sm font-medium'>
-                Événements traités
+                Temps de réponse moyen
               </CardTitle>
             </div>
-            <Users className='h-4 w-4 text-muted-foreground' />
+            <Clock className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>{totalBookings}</div>
+            <div className='text-2xl font-bold'>
+              {responseTimeLabel ?? '—'}
+            </div>
             <p className='text-xs text-muted-foreground'>
-              Ø{' '}
-              {commercialStats.length > 0
-                ? Math.round(totalBookings / commercialStats.length)
-                : 0}{' '}
-              par commercial
+              {responseTimeData
+                ? `Sur ${responseTimeData.count} événement${responseTimeData.count > 1 ? 's' : ''}`
+                : 'Pas encore de données'}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Moyenne pondérée : total signés / total non-annulés' />
+              <KpiTooltip text='Événements avec au moins un devis signé / total événements (annulés inclus)' />
               <CardTitle className='text-sm font-medium'>
                 Taux de conversion
               </CardTitle>
@@ -209,7 +281,7 @@ export function CommercialTab({
           <CardContent>
             <div className='text-2xl font-bold'>{avgConversion}%</div>
             <p className='text-xs text-muted-foreground'>
-              Signés / total hors annulés
+              Devis signés / total événements
             </p>
           </CardContent>
         </Card>
@@ -229,7 +301,7 @@ export function CommercialTab({
             </div>
             <p className='text-xs text-muted-foreground'>
               {bestPerformer
-                ? `${bestPerformer.sales.toLocaleString('fr-FR')} € de CA`
+                ? `${bestPerformer.sales.toLocaleString('fr-FR')} € de CA HT`
                 : '-'}
             </p>
           </CardContent>
@@ -290,9 +362,9 @@ export function CommercialTab({
       <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
         <Card className='col-span-1 lg:col-span-4'>
           <CardHeader>
-            <CardTitle>Performance mensuelle</CardTitle>
+            <CardTitle>Performance mensuelle HT</CardTitle>
             <CardDescription>
-              CA signé par commercial sur les 6 derniers mois
+              CA signé HT par commercial sur les 6 derniers mois
             </CardDescription>
           </CardHeader>
           <CardContent className='ps-2'>
@@ -334,26 +406,22 @@ export function CommercialTab({
 
         <Card className='col-span-1 lg:col-span-3'>
           <CardHeader>
-            <CardTitle>Répartition du CA</CardTitle>
+            <CardTitle>Répartition du CA HT</CardTitle>
             <CardDescription>
-              Part de chaque commercial dans le CA signé
+              Part de chaque commercial dans le CA signé HT
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width='100%' height={250}>
+            <ResponsiveContainer width='100%' height={300}>
               <PieChart>
                 <Pie
                   data={pieData}
                   cx='50%'
-                  cy='50%'
+                  cy='45%'
                   innerRadius={60}
-                  outerRadius={80}
+                  outerRadius={90}
                   paddingAngle={5}
                   dataKey='value'
-                  label={({ name, percent }) =>
-                    `${(name ?? '').split(' ')[0]} ${((percent ?? 0) * 100).toFixed(0)}%`
-                  }
-                  labelLine={false}
                 >
                   {pieData.map((_, index) => (
                     <Cell
@@ -367,6 +435,22 @@ export function CommercialTab({
                     `${Number(value ?? 0).toLocaleString('fr-FR')} €`,
                     'CA',
                   ]}
+                />
+                <Legend
+                  verticalAlign='bottom'
+                  align='center'
+                  iconType='circle'
+                  iconSize={10}
+                  formatter={(value, entry) => {
+                    const percent = ((entry.payload as { percent?: number })?.percent ?? 0).toFixed(0)
+                    const firstName = (value ?? '').split(' ')[0]
+                    return (
+                      <span style={{ color: entry.color, fontSize: 13 }}>
+                        {firstName} {percent}%
+                      </span>
+                    )
+                  }}
+                  wrapperStyle={{ paddingTop: 16 }}
                 />
               </PieChart>
             </ResponsiveContainer>

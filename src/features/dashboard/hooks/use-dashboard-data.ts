@@ -12,6 +12,7 @@ import {
   parseISO,
 } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
+import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { fr } from 'date-fns/locale'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -30,13 +31,13 @@ import {
 export type DashboardDateField = 'event_date' | 'signed_at' | 'created_at'
 
 export type DashboardFilters = {
-  dateRange?: { from: Date; to: Date }
+  eventDateRange?: { from: Date; to: Date }
+  signDateRange?: { from: Date; to: Date }
+  importDateRange?: { from: Date; to: Date }
   restaurants: Set<string>
   statuses: Set<string>
   commercials: Set<string>
   clientType: Set<string> // 'b2b' | 'b2c'
-  /** Quelle date de référence utiliser pour filtrer (défaut: event_date) */
-  dateField?: DashboardDateField
 }
 
 /** Récupère la date effective d'un booking selon le champ demandé */
@@ -97,20 +98,51 @@ export function useDashboardData(filters: DashboardFilters) {
 
   const filteredBookings = useMemo(() => {
     let result = allBookings
-    const dateField: DashboardDateField = filters.dateField || 'event_date'
 
-    // Date range filter (sur le champ de référence du tab)
-    if (filters.dateRange?.from) {
-      const from = startOfDay(filters.dateRange.from)
+    // Filtre date d'événement
+    if (filters.eventDateRange?.from) {
+      const from = startOfDay(filters.eventDateRange.from)
       result = result.filter((b) => {
-        const ref = getBookingRefDate(b, dateField)
+        const ref = getBookingRefDate(b, 'event_date')
         return ref !== null && !isBefore(ref, from)
       })
     }
-    if (filters.dateRange?.to) {
-      const to = endOfDay(filters.dateRange.to)
+    if (filters.eventDateRange?.to) {
+      const to = endOfDay(filters.eventDateRange.to)
       result = result.filter((b) => {
-        const ref = getBookingRefDate(b, dateField)
+        const ref = getBookingRefDate(b, 'event_date')
+        return ref !== null && !isAfter(ref, to)
+      })
+    }
+
+    // Filtre date de signature
+    if (filters.signDateRange?.from) {
+      const from = startOfDay(filters.signDateRange.from)
+      result = result.filter((b) => {
+        const ref = getBookingRefDate(b, 'signed_at')
+        return ref !== null && !isBefore(ref, from)
+      })
+    }
+    if (filters.signDateRange?.to) {
+      const to = endOfDay(filters.signDateRange.to)
+      result = result.filter((b) => {
+        const ref = getBookingRefDate(b, 'signed_at')
+        return ref !== null && !isAfter(ref, to)
+      })
+    }
+
+    // Filtre date d'import
+    if (filters.importDateRange?.from) {
+      const from = startOfDay(filters.importDateRange.from)
+      result = result.filter((b) => {
+        const ref = getBookingRefDate(b, 'created_at')
+        return ref !== null && !isBefore(ref, from)
+      })
+    }
+    if (filters.importDateRange?.to) {
+      const to = endOfDay(filters.importDateRange.to)
+      result = result.filter((b) => {
+        const ref = getBookingRefDate(b, 'created_at')
         return ref !== null && !isAfter(ref, to)
       })
     }
@@ -154,21 +186,19 @@ export function useDashboardData(filters: DashboardFilters) {
   const filteredContacts = useMemo(() => {
     let result = allContacts
 
-    // Date range filter on contacts
-    if (filters.dateRange?.from) {
-      const from = startOfDay(filters.dateRange.from)
+    // Filtre date d'import sur les contacts (created_at)
+    if (filters.importDateRange?.from) {
+      const from = startOfDay(filters.importDateRange.from)
       result = result.filter((c) => {
         if (!c.created_at) return false
-        const createdAt = parseISO(c.created_at)
-        return !isBefore(createdAt, from)
+        return !isBefore(parseISO(c.created_at), from)
       })
     }
-    if (filters.dateRange?.to) {
-      const to = endOfDay(filters.dateRange.to)
+    if (filters.importDateRange?.to) {
+      const to = endOfDay(filters.importDateRange.to)
       result = result.filter((c) => {
         if (!c.created_at) return false
-        const createdAt = parseISO(c.created_at)
-        return !isAfter(createdAt, to)
+        return !isAfter(parseISO(c.created_at), to)
       })
     }
 
@@ -235,10 +265,10 @@ export function calcSignedCount(bookings: BookingWithRelations[]) {
     .length
 }
 
-/** Get primary quote total_ttc for a booking */
+/** Get primary quote total_ht for a booking */
 function getSignedQuoteTtc(b: BookingWithRelations) {
   const primaryQuote = b.quotes?.find((q) => q.primary_quote)
-  if (primaryQuote) return primaryQuote.total_ttc || 0
+  if (primaryQuote) return primaryQuote.total_ht || 0
   // Fallback: first signed quote
   const signedQuote = b.quotes?.find(
     (q) =>
@@ -247,17 +277,17 @@ function getSignedQuoteTtc(b: BookingWithRelations) {
       q.status === 'balance_paid' ||
       q.status === 'completed'
   )
-  return signedQuote?.total_ttc || 0
+  return signedQuote?.total_ht || 0
 }
 
-/** Pipeline-friendly: return the most important quote's total_ttc regardless of status.
- *  Priority: primary > signed/active > highest total_ttc among any quote.
+/** Pipeline-friendly: return the most important quote's total_ht regardless of status.
+ *  Priority: primary > signed/active > highest total_ht among any quote.
  *  Used so prospect/proposal bookings still contribute their estimated value
  *  to the pipeline even before a quote is signed. */
 function getPipelineQuoteTtc(b: BookingWithRelations) {
   if (!b.quotes?.length) return 0
   const primary = b.quotes.find((q) => q.primary_quote)
-  if (primary) return primary.total_ttc || 0
+  if (primary) return primary.total_ht || 0
   const signed = b.quotes.find(
     (q) =>
       q.status === 'quote_signed' ||
@@ -265,9 +295,9 @@ function getPipelineQuoteTtc(b: BookingWithRelations) {
       q.status === 'balance_paid' ||
       q.status === 'completed'
   )
-  if (signed) return signed.total_ttc || 0
-  // Fallback: take the quote with the highest total_ttc (any status)
-  return b.quotes.reduce((max, q) => Math.max(max, q.total_ttc || 0), 0)
+  if (signed) return signed.total_ht || 0
+  // Fallback: take the quote with the highest total_ht (any status)
+  return b.quotes.reduce((max, q) => Math.max(max, q.total_ht || 0), 0)
 }
 
 /** Sum of all paid payments (acompte + solde + extras) for confirmed bookings */
@@ -310,14 +340,15 @@ export function getBookingTotalCA(b: BookingWithRelations) {
   return getSignedQuoteTtc(b)
 }
 
-/** Taux de conversion based on signatures (signed / total hors annulés) */
+const SIGNED_QUOTE_STATUSES = ['quote_signed', 'deposit_paid', 'balance_paid', 'completed']
+
+/** Taux de conversion : événements avec au moins un devis signé / total événements (annulés inclus) */
 export function calcConversionRate(bookings: BookingWithRelations[]) {
-  const nonCancelled = bookings.filter((b) => b.status?.slug !== 'cancelled')
-  if (nonCancelled.length === 0) return 0
-  const signed = nonCancelled.filter((b) =>
-    SIGNED_SLUGS.includes(b.status?.slug || '')
+  if (bookings.length === 0) return 0
+  const withSignedQuote = bookings.filter((b) =>
+    b.quotes?.some((q) => SIGNED_QUOTE_STATUSES.includes(q.status || ''))
   ).length
-  return Math.round((signed / nonCancelled.length) * 1000) / 10
+  return Math.round((withSignedQuote / bookings.length) * 1000) / 10
 }
 
 export function calcSignatureRate(bookings: BookingWithRelations[]) {
@@ -398,7 +429,7 @@ export function getStaleProposals(bookings: BookingWithRelations[]) {
         contactName,
         restaurantName: b.restaurant?.name || '',
         quoteNumber: q.quote_number || '',
-        amount: q.total_ttc || 0,
+        amount: q.total_ht || 0,
         sentAt: sentDate,
         daysSince,
       })
@@ -709,5 +740,66 @@ export function getMonthlyLeadsBySource(contacts: ContactWithRelations[]) {
       ).length
     })
     return row
+  })
+}
+
+/**
+ * Calcule le temps de réponse moyen : delta entre created_at du booking
+ * et le premier changement de statut depuis "Nouveau".
+ * Retourne { avgHours, count } ou null si pas de données.
+ */
+export function useAvgResponseTime(bookings: BookingWithRelations[]) {
+  const bookingIds = bookings.map((b) => b.id)
+
+  return useQuery({
+    queryKey: ['avg-response-time', bookingIds],
+    queryFn: async () => {
+      if (bookingIds.length === 0) return null
+
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return null
+
+      const { data: logs } = await supabase
+        .from('activity_logs')
+        .select('booking_id, created_at, metadata')
+        .eq('action_type', 'booking.status_changed')
+        .in('booking_id', bookingIds)
+        .order('created_at', { ascending: true })
+
+      if (!logs?.length) return null
+
+      // Garder uniquement les logs où l'ancien statut est "Nouveau"
+      const nouveauLogs = logs.filter(
+        (l) => ((l.metadata as any)?.old_status || '').toLowerCase() === 'nouveau'
+      )
+
+      const bookingMap = new Map(bookings.map((b) => [b.id, b]))
+
+      // Pour chaque booking, prendre le premier log "quitte Nouveau"
+      const firstChangeByBooking = new Map<string, string>()
+      nouveauLogs.forEach((log) => {
+        if (!firstChangeByBooking.has(log.booking_id)) {
+          firstChangeByBooking.set(log.booking_id, log.created_at)
+        }
+      })
+
+      const deltas: number[] = []
+      firstChangeByBooking.forEach((firstChangeAt, bookingId) => {
+        const booking = bookingMap.get(bookingId)
+        if (!booking?.created_at) return
+        const deltaHours =
+          (new Date(firstChangeAt).getTime() -
+            new Date(booking.created_at).getTime()) /
+          (1000 * 60 * 60)
+        if (deltaHours >= 0) deltas.push(deltaHours)
+      })
+
+      if (deltas.length === 0) return null
+
+      const avgHours = deltas.reduce((a, b) => a + b, 0) / deltas.length
+      return { avgHours, count: deltas.length }
+    },
+    enabled: bookingIds.length > 0,
+    staleTime: 5 * 60 * 1000,
   })
 }

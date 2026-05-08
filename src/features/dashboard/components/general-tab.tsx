@@ -1,13 +1,15 @@
 import { useMemo } from 'react'
+import { parseISO, differenceInDays } from 'date-fns'
 import { Link } from '@tanstack/react-router'
 import {
   Euro,
   TrendingUp,
   Users,
   Utensils,
-  Loader2,
   Info,
   AlertCircle,
+  ArrowRight,
+  CalendarDays,
 } from 'lucide-react'
 import { ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from 'recharts'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -19,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Tooltip as UITooltip,
   TooltipContent,
@@ -116,55 +119,118 @@ export function GeneralTab({
 
   // Actions requises: propositions stale + paiements en retard + relances
   const actionItems = useMemo(() => {
-    const stale = getStaleProposals(bookings)
-      .slice(0, 3)
-      .map((s) => ({
-        type: 'stale' as const,
-        bookingId: s.bookingId,
-        title: s.contactName,
-        detail: `Devis envoyé depuis ${s.daysSince}j sans réponse`,
-        amount: s.amount,
-        severity: 'warning' as const,
-      }))
+    const fmtDate = (d: string | null | undefined) =>
+      d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : null
 
     const now = new Date()
+
+    const notCancelled = (b: { status?: { slug?: string | null; name?: string | null } | null }) => {
+      const slug = b.status?.slug || ''
+      const name = b.status?.name?.toLowerCase() || ''
+      return !slug.includes('annul') && !name.includes('annul')
+    }
+
+    const stale = getStaleProposals(
+      bookings.filter((b) => notCancelled(b))
+    ).map((s) => {
+        const booking = bookings.find((b) => b.id === s.bookingId)
+        return {
+          type: 'stale' as const,
+          bookingId: s.bookingId,
+          title: s.contactName,
+          detail: `Devis envoyé depuis ${s.daysSince}j sans réponse`,
+          eventDate: fmtDate(booking?.event_date),
+          restaurant: s.restaurantName,
+          statusName: booking?.status?.name || '',
+          statusColor: booking?.status?.color || null,
+          guests: booking?.guests_count || 0,
+          amount: s.amount,
+          severity: 'warning' as const,
+        }
+      })
+
     const overdue = bookings
+      .filter((b) => notCancelled(b))
       .filter((b) => SIGNED_SLUGS.includes(b.status?.slug || ''))
       .filter((b) => {
         const primary = b.quotes?.find((q) => q.primary_quote)
-        const ttc = primary?.total_ttc || 0
+        const ht = primary?.total_ht || 0
         const paid = getPaidAmount(b)
-        return ttc > 0 && paid < ttc && new Date(b.event_date) < now
+        return ht > 0 && paid < ht && new Date(b.event_date) < now
       })
-      .slice(0, 3)
       .map((b) => ({
         type: 'overdue' as const,
         bookingId: b.id,
         title: b.contact
           ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim()
           : 'Sans contact',
-        detail: `Paiement en retard — événement du ${new Date(b.event_date).toLocaleDateString('fr-FR')}`,
+        detail: 'Paiement en retard',
+        eventDate: fmtDate(b.event_date),
+        restaurant: b.restaurant?.name || '',
+        statusName: b.status?.name || '',
+        statusColor: b.status?.color || null,
+        guests: b.guests_count || 0,
         amount:
-          (b.quotes?.find((q) => q.primary_quote)?.total_ttc || 0) -
+          (b.quotes?.find((q) => q.primary_quote)?.total_ht || 0) -
           getPaidAmount(b),
         severity: 'danger' as const,
       }))
 
     const relances = bookings
+      .filter((b) => notCancelled(b))
       .filter((b) => b.status?.slug === 'relance_paiement')
-      .slice(0, 3)
       .map((b) => ({
         type: 'relance' as const,
         bookingId: b.id,
         title: b.contact
           ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim()
           : 'Sans contact',
-        detail: `Relance de paiement à envoyer`,
+        detail: 'Relance de paiement à envoyer',
+        eventDate: fmtDate(b.event_date),
+        restaurant: b.restaurant?.name || '',
+        statusName: b.status?.name || '',
+        statusColor: b.status?.color || null,
+        guests: b.guests_count || 0,
         amount: b.quotes?.find((q) => q.primary_quote)?.total_ttc || 0,
         severity: 'warning' as const,
       }))
 
-    return [...overdue, ...stale, ...relances].slice(0, 6)
+    const urgentUpcoming = bookings
+      .filter((b) => {
+        if (!b.event_date) return false
+        const daysUntil = differenceInDays(parseISO(b.event_date), now)
+        return daysUntil >= 0 && daysUntil < 3
+      })
+      .filter((b) => notCancelled(b))
+      .filter((b) => b.status?.slug !== 'nouveau')
+      .filter((b) => {
+        const isSigned = SIGNED_SLUGS.includes(b.status?.slug || '')
+        const hasPaidDeposit = getPaidAmount(b) > 0
+        return !isSigned || !hasPaidDeposit
+      })
+      .map((b) => {
+        const daysUntil = differenceInDays(parseISO(b.event_date), now)
+        const isSigned = SIGNED_SLUGS.includes(b.status?.slug || '')
+        const reason = !isSigned ? 'non signé' : 'acompte non payé'
+        const whenLabel = daysUntil === 0 ? "aujourd'hui" : `dans ${daysUntil}j`
+        return {
+          type: 'urgent_upcoming' as const,
+          bookingId: b.id,
+          title: b.contact
+            ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim()
+            : 'Sans contact',
+          detail: `Événement ${whenLabel} — ${reason}`,
+          eventDate: fmtDate(b.event_date),
+          restaurant: b.restaurant?.name || '',
+          statusName: b.status?.name || '',
+          statusColor: b.status?.color || null,
+          guests: b.guests_count || 0,
+          amount: b.quotes?.find((q) => q.primary_quote)?.total_ht || 0,
+          severity: 'danger' as const,
+        }
+      })
+
+    return [...urgentUpcoming, ...overdue, ...stale, ...relances]
   }, [bookings])
 
   const pieData = useMemo(
@@ -188,8 +254,67 @@ export function GeneralTab({
 
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center py-20'>
-        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      <div className='space-y-4'>
+        {/* KPI Cards */}
+        <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <Skeleton className='h-4 w-28' />
+                <Skeleton className='h-4 w-4 rounded-full' />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className='mb-2 h-8 w-24' />
+                <Skeleton className='h-3 w-36' />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {/* Pipeline */}
+        <Card>
+          <CardHeader className='pb-3'>
+            <Skeleton className='h-5 w-24' />
+            <Skeleton className='h-3 w-48' />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className='mb-4 h-3 w-full rounded-full' />
+            <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className='h-16 rounded-lg' />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        {/* Charts */}
+        <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
+          <Card className='col-span-1 lg:col-span-4'>
+            <CardHeader>
+              <Skeleton className='h-5 w-40' />
+              <Skeleton className='h-3 w-56' />
+            </CardHeader>
+            <CardContent className='flex items-center justify-center'>
+              <Skeleton className='h-[350px] w-[350px] rounded-full' />
+            </CardContent>
+          </Card>
+          <Card className='col-span-1 lg:col-span-3'>
+            <CardHeader>
+              <Skeleton className='h-5 w-48' />
+              <Skeleton className='h-3 w-64' />
+            </CardHeader>
+            <CardContent className='space-y-4'>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className='flex items-center gap-4'>
+                  <Skeleton className='h-10 w-10 rounded-full' />
+                  <div className='flex-1 space-y-2'>
+                    <Skeleton className='h-4 w-32' />
+                    <Skeleton className='h-2 w-full' />
+                  </div>
+                  <Skeleton className='h-4 w-20' />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
@@ -197,12 +322,25 @@ export function GeneralTab({
   return (
     <div className='space-y-4'>
       {/* KPI Cards */}
-      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Montant total TTC des devis signés (primary quote)' />
-              <CardTitle className='text-sm font-medium'>CA Signé</CardTitle>
+              <KpiTooltip text='Nombre total de demandes reçues, tous statuts confondus' />
+              <CardTitle className='text-sm font-medium'>Total demandes</CardTitle>
+            </div>
+            <Users className='h-4 w-4 text-muted-foreground' />
+          </CardHeader>
+          <CardContent>
+            <div className='text-2xl font-bold'>{bookings.length}</div>
+            <p className='text-xs text-muted-foreground'>Tous statuts confondus</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <div className='flex items-center gap-1.5'>
+              <KpiTooltip text='Montant total HT des devis signés (primary quote)' />
+              <CardTitle className='text-sm font-medium'>CA Signé HT</CardTitle>
             </div>
             <Euro className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
@@ -211,7 +349,11 @@ export function GeneralTab({
               {signedRevenue.toLocaleString('fr-FR')} €
             </div>
             <p className='text-xs text-muted-foreground'>
-              {signedCount} événements signés
+              Ø{' '}
+              {signedCount > 0
+                ? Math.round(signedRevenue / signedCount).toLocaleString('fr-FR')
+                : 0}{' '}
+              € HT / événement
             </p>
           </CardContent>
         </Card>
@@ -219,7 +361,7 @@ export function GeneralTab({
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
               <KpiTooltip text='Événements signés (après signature, hors annulés/nouveaux/qualification)' />
-              <CardTitle className='text-sm font-medium'>Événements</CardTitle>
+              <CardTitle className='text-sm font-medium'>Événements signés</CardTitle>
             </div>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
@@ -233,9 +375,9 @@ export function GeneralTab({
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='CA signé / nombre total de convives signés' />
+              <KpiTooltip text='CA signé HT / nombre total de convives signés' />
               <CardTitle className='text-sm font-medium'>
-                Ticket moyen
+                Ticket moyen HT
               </CardTitle>
             </div>
             <Utensils className='h-4 w-4 text-muted-foreground' />
@@ -250,7 +392,7 @@ export function GeneralTab({
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Événements avec devis signé / total (hors annulés)' />
+              <KpiTooltip text='Événements avec au moins un devis signé / total événements (annulés inclus)' />
               <CardTitle className='text-sm font-medium'>
                 Taux de conversion
               </CardTitle>
@@ -259,7 +401,7 @@ export function GeneralTab({
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{conversionRate}%</div>
-            <p className='text-xs text-muted-foreground'>Signés / total</p>
+            <p className='text-xs text-muted-foreground'>Devis signés / total événements</p>
           </CardContent>
         </Card>
       </div>
@@ -340,33 +482,54 @@ export function GeneralTab({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className='space-y-2'>
+            <div className='divide-y'>
               {actionItems.map((item) => (
-                <Link
+                <div
                   key={`${item.type}-${item.bookingId}`}
-                  to='/evenements/booking/$id'
-                  params={{ id: item.bookingId }}
-                  className='flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent'
+                  className='flex items-center gap-3 py-2.5 first:pt-0 last:pb-0'
                 >
-                  <div className='flex min-w-0 items-center gap-3'>
-                    <div
-                      className={`h-2 w-2 shrink-0 rounded-full ${item.severity === 'danger' ? 'bg-red-500' : 'bg-orange-500'}`}
-                    />
-                    <div className='min-w-0 flex-1'>
-                      <p className='truncate text-sm font-medium'>
-                        {item.title}
-                      </p>
-                      <p className='truncate text-xs text-muted-foreground'>
-                        {item.detail}
-                      </p>
-                    </div>
-                  </div>
-                  {item.amount > 0 && (
-                    <span className='ml-2 shrink-0 text-sm font-medium'>
-                      {item.amount.toLocaleString('fr-FR')} €
+                  <div className={`h-2 w-2 shrink-0 rounded-full ${item.severity === 'danger' ? 'bg-red-500' : 'bg-orange-500'}`} />
+
+                  <div className='min-w-0 flex-1 flex items-center gap-2 overflow-hidden'>
+                    <span className='shrink-0 text-sm font-semibold'>{item.title}</span>
+                    {item.statusName && (
+                      <span
+                        className='shrink-0 rounded-full border px-1.5 py-0.5 text-xs font-medium'
+                        style={{
+                          borderColor: item.statusColor || undefined,
+                          color: item.statusColor || undefined,
+                          backgroundColor: item.statusColor ? `${item.statusColor}18` : undefined,
+                        }}
+                      >
+                        {item.statusName}
+                      </span>
+                    )}
+                    <span className='truncate text-xs text-muted-foreground'>
+                      {[
+                        item.detail,
+                        item.eventDate,
+                        item.restaurant,
+                        item.guests > 0 ? `${item.guests} pers.` : null,
+                      ].filter(Boolean).join(' · ')}
                     </span>
-                  )}
-                </Link>
+                  </div>
+
+                  <div className='flex shrink-0 items-center gap-3'>
+                    {item.amount > 0 && (
+                      <span className='text-sm font-semibold tabular-nums'>
+                        {item.amount.toLocaleString('fr-FR')} €
+                      </span>
+                    )}
+                    <Link
+                      to='/evenements/booking/$id'
+                      params={{ id: item.bookingId }}
+                      className='flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90'
+                    >
+                      Voir
+                      <ArrowRight className='h-3 w-3' />
+                    </Link>
+                  </div>
+                </div>
               ))}
             </div>
           </CardContent>
@@ -377,9 +540,9 @@ export function GeneralTab({
       <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
         <Card className='col-span-1 lg:col-span-4'>
           <CardHeader>
-            <CardTitle>CA par restaurant</CardTitle>
+            <CardTitle>CA HT par restaurant</CardTitle>
             <CardDescription>
-              Répartition du chiffre d'affaires signé
+              Répartition du chiffre d'affaires signé HT
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -428,9 +591,9 @@ export function GeneralTab({
 
         <Card className='col-span-1 lg:col-span-3'>
           <CardHeader>
-            <CardTitle>Performance par restaurant</CardTitle>
+            <CardTitle>Performance HT par restaurant</CardTitle>
             <CardDescription>
-              CA signé, événements et ticket moyen
+              CA signé HT, événements et ticket moyen HT
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -490,7 +653,7 @@ export function GeneralTab({
                 const primaryQuote = booking.quotes?.find(
                   (q) => q.primary_quote
                 )
-                const quoteTtc = primaryQuote?.total_ttc || 0
+                const quoteTtc = primaryQuote?.total_ht || 0
                 return (
                   <div key={booking.id} className='flex items-center gap-4'>
                     <Avatar className='h-9 w-9'>

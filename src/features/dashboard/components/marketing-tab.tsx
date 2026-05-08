@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Tooltip as UITooltip,
   TooltipContent,
@@ -140,8 +141,67 @@ export function MarketingTab({
 
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center py-20'>
-        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+      <div className='space-y-4'>
+        {/* KPI Cards */}
+        <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                <Skeleton className='h-4 w-28' />
+                <Skeleton className='h-4 w-4 rounded-full' />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className='mb-2 h-8 w-20' />
+                <Skeleton className='h-3 w-36' />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {/* Charts */}
+        <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
+          <Card className='col-span-1 lg:col-span-4'>
+            <CardHeader>
+              <Skeleton className='h-5 w-40' />
+              <Skeleton className='h-3 w-56' />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className='h-[350px] w-full' />
+            </CardContent>
+          </Card>
+          <Card className='col-span-1 lg:col-span-3'>
+            <CardHeader>
+              <Skeleton className='h-5 w-36' />
+              <Skeleton className='h-3 w-52' />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className='h-[350px] w-full' />
+            </CardContent>
+          </Card>
+        </div>
+        {/* Source details */}
+        <Card>
+          <CardHeader>
+            <Skeleton className='h-5 w-44' />
+            <Skeleton className='h-3 w-64' />
+          </CardHeader>
+          <CardContent className='space-y-6'>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className='space-y-2'>
+                <div className='flex items-center gap-4'>
+                  <Skeleton className='h-10 w-10 rounded-full' />
+                  <div className='flex flex-1 items-center justify-between gap-2'>
+                    <div className='space-y-1'>
+                      <Skeleton className='h-4 w-24' />
+                      <Skeleton className='h-3 w-48' />
+                    </div>
+                    <Skeleton className='h-4 w-20' />
+                  </div>
+                </div>
+                <Skeleton className='h-2 w-full rounded-full' />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -365,7 +425,7 @@ export function MarketingTab({
                           {source.revenue.toLocaleString('fr-FR')} €
                         </p>
                         <p className='text-xs text-muted-foreground'>
-                          CA signé total
+                          CA signé HT
                         </p>
                       </div>
                     </div>
