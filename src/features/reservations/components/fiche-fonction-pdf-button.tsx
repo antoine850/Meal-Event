@@ -59,7 +59,11 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
           convCtx.fillStyle = color
           convCtx.fillRect(0, 0, 1, 1)
           const d = convCtx.getImageData(0, 0, 1, 1).data
-          if (d[3] === 0) return 'transparent'
+          // Ne pas retourner 'transparent' si le canvas n'a pas pu parser la couleur
+          // (ex: oklch non supporté dans fillStyle sur certains Safari) — le texte
+          // deviendrait invisible. On retourne la valeur originale : html2canvas
+          // utilisera son propre parser ou tombera sur black, qui est mieux que transparent.
+          if (d[3] === 0) return color
           return d[3] < 255
             ? `rgba(${d[0]},${d[1]},${d[2]},${(d[3] / 255).toFixed(3)})`
             : `rgb(${d[0]},${d[1]},${d[2]})`
@@ -319,14 +323,24 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
       if (insertError) throw insertError
 
       // 6. Trigger direct download in the browser
-      const downloadUrl = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = downloadUrl
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(downloadUrl)
+      // iOS Safari ne supporte pas les blob URL downloads (le fichier s'ouvre dans
+      // l'onglet courant plutôt que de se télécharger). On utilise directement l'URL
+      // publique Supabase déjà uploadée, qui s'ouvre dans l'aperçu PDF natif iOS.
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      if (isIOS) {
+        window.open(fileUrl, '_blank')
+      } else {
+        const downloadUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = downloadUrl
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        // Safari macOS initie les téléchargements de façon asynchrone : révoquer
+        // l'URL immédiatement annule le téléchargement avant qu'il démarre.
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 300)
+      }
 
       // 7. Invalidate documents query
       queryClient.invalidateQueries({ queryKey: ['documents', bookingId] })
@@ -336,6 +350,12 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
       console.error('Fiche de fonction PDF export error:', err)
       toast.error("Erreur lors de l'export PDF")
     } finally {
+      // Nettoyage de sécurité : supprime les attributs data-pdf-idx même si une
+      // erreur a interrompu le flux avant le nettoyage normal (après worker.output).
+      element.removeAttribute('data-pdf-idx')
+      element.querySelectorAll('[data-pdf-idx]').forEach((el) =>
+        el.removeAttribute('data-pdf-idx')
+      )
       setIsExporting(false)
     }
   }
