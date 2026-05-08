@@ -9,7 +9,6 @@ import {
   Info,
   AlertCircle,
   ArrowRight,
-  CalendarDays,
 } from 'lucide-react'
 import { ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from 'recharts'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'

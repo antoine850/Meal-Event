@@ -778,7 +778,7 @@ export function useAvgResponseTime(bookings: BookingWithRelations[]) {
       // Pour chaque booking, prendre le premier log "quitte Nouveau"
       const firstChangeByBooking = new Map<string, string>()
       nouveauLogs.forEach((log) => {
-        if (!firstChangeByBooking.has(log.booking_id)) {
+        if (!firstChangeByBooking.has(log.booking_id) && log.created_at) {
           firstChangeByBooking.set(log.booking_id, log.created_at)
         }
       })

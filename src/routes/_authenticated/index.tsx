@@ -7,8 +7,12 @@ const dashboardSearchSchema = z.object({
     .enum(['general', 'commercial', 'marketing', 'reservations'])
     .optional()
     .catch(undefined),
-  from: z.string().optional().catch(undefined),
-  to: z.string().optional().catch(undefined),
+  fromEvent: z.string().optional().catch(undefined),
+  toEvent: z.string().optional().catch(undefined),
+  fromSign: z.string().optional().catch(undefined),
+  toSign: z.string().optional().catch(undefined),
+  fromImport: z.string().optional().catch(undefined),
+  toImport: z.string().optional().catch(undefined),
   restaurants: z.string().optional().catch(undefined),
   statuses: z.string().optional().catch(undefined),
   commercials: z.string().optional().catch(undefined),

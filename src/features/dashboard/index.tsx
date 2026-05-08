@@ -45,7 +45,7 @@ function toCsv(set: Set<string>): string | undefined {
 }
 
 export function Dashboard() {
-  const navigate = useNavigate()
+  const navigate = useNavigate({ from: '/' })
   const search = useSearch({ strict: false }) as {
     tab?: 'general' | 'commercial' | 'marketing' | 'reservations'
     fromEvent?: string
@@ -78,7 +78,7 @@ export function Dashboard() {
   const selectedClientType = useMemo(() => toSet(search.clientType), [search.clientType])
 
   const setSearch = (patch: Partial<typeof search>) => {
-    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true })
+    navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
 
   const setActiveTab = (tab: string) =>

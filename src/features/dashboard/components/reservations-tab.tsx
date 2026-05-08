@@ -7,7 +7,6 @@ import {
   Clock,
   TrendingUp,
   Users,
-  Loader2,
   Info,
 } from 'lucide-react'
 import {

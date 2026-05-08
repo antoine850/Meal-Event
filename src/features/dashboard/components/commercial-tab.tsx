@@ -4,7 +4,6 @@ import {
   Target,
   TrendingUp,
   Clock,
-  Loader2,
   Info,
   AlertTriangle,
 } from 'lucide-react'
@@ -102,11 +101,7 @@ export function CommercialTab({
   }, [bookings, users])
 
   const totalSales = useMemo(() => calcSignedRevenue(bookings), [bookings])
-  const totalBookings = useMemo(
-    () => commercialStats.reduce((acc, c) => acc + c.bookings, 0),
-    [commercialStats]
-  )
-  const avgConversion = useMemo(
+const avgConversion = useMemo(
     () => calcConversionRate(bookings).toFixed(1),
     [bookings]
   )

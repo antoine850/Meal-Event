@@ -6,7 +6,6 @@ import {
   MessageCircle,
   Users,
   TrendingUp,
-  Loader2,
   Info,
 } from 'lucide-react'
 import {
