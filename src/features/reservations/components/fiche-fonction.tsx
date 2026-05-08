@@ -33,14 +33,23 @@ type Props = {
 
 const DASH = '—'
 
+// Intl.NumberFormat('fr-FR') insère U+202F (NARROW NO-BREAK SPACE) comme
+// séparateur de milliers ; html2canvas/jsPDF ne sait pas le rendre et
+// l'affiche comme "/" dans le PDF. On normalise vers U+00A0 (NBSP).
+function normalizeFrenchSpaces(s: string): string {
+  return s.replace(/ /g, ' ')
+}
+
 function formatCurrency(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return DASH
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)
+  return normalizeFrenchSpaces(
+    new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value)
+  )
 }
 
 function formatHorairesGlobal(
@@ -79,7 +88,7 @@ function formatDate(v: string | null | undefined): string {
 
 function formatNumber(v: number | null | undefined, suffix = ''): string {
   if (v == null || !Number.isFinite(v)) return DASH
-  return `${new Intl.NumberFormat('fr-FR').format(v)}${suffix}`
+  return `${normalizeFrenchSpaces(new Intl.NumberFormat('fr-FR').format(v))}${suffix}`
 }
 
 function ItemsTable({ title, items }: { title: string; items: QuoteItem[] }) {

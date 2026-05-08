@@ -51,23 +51,36 @@ export function computeQuoteTotals(
   return { totalHt, totalTva, totalTtc }
 }
 
+// Normalise les séparateurs de l'Intl.NumberFormat fr-FR pour le rendu PDF.
+// Intl produit U+202F (NARROW NO-BREAK SPACE) comme séparateur de milliers ; ce
+// caractère est mal supporté par html2canvas/jsPDF et apparaît comme "/" dans
+// les PDF téléchargés. On le remplace par U+00A0 (NO-BREAK SPACE) qui est rendu
+// correctement par toutes les polices.
+export function normalizeFrenchSpaces(s: string): string {
+  return s.replace(/ /g, ' ')
+}
+
 // Format "1 234 €" — pour TTC entiers.
 export function formatEuroWhole(amount: number): string {
   const rounded = Math.round(amount)
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(rounded)
+  return normalizeFrenchSpaces(
+    new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    }).format(rounded),
+  )
 }
 
 // Format "1 234,56 €" — pour HT/TVA décimaux dérivés.
 export function formatEuroDecimal(amount: number): string {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  }).format(amount)
+  return normalizeFrenchSpaces(
+    new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    }).format(amount),
+  )
 }
