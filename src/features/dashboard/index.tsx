@@ -68,14 +68,35 @@ export function Dashboard() {
   }
   const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
 
-  const eventDateRange = useMemo(() => toDateRange(search.fromEvent, search.toEvent), [search.fromEvent, search.toEvent])
-  const signDateRange = useMemo(() => toDateRange(search.fromSign, search.toSign), [search.fromSign, search.toSign])
-  const importDateRange = useMemo(() => toDateRange(search.fromImport, search.toImport), [search.fromImport, search.toImport])
+  const eventDateRange = useMemo(
+    () => toDateRange(search.fromEvent, search.toEvent),
+    [search.fromEvent, search.toEvent]
+  )
+  const signDateRange = useMemo(
+    () => toDateRange(search.fromSign, search.toSign),
+    [search.fromSign, search.toSign]
+  )
+  const importDateRange = useMemo(
+    () => toDateRange(search.fromImport, search.toImport),
+    [search.fromImport, search.toImport]
+  )
 
-  const selectedRestaurants = useMemo(() => toSet(search.restaurants), [search.restaurants])
-  const selectedStatuses = useMemo(() => toSet(search.statuses), [search.statuses])
-  const selectedCommercials = useMemo(() => toSet(search.commercials), [search.commercials])
-  const selectedClientType = useMemo(() => toSet(search.clientType), [search.clientType])
+  const selectedRestaurants = useMemo(
+    () => toSet(search.restaurants),
+    [search.restaurants]
+  )
+  const selectedStatuses = useMemo(
+    () => toSet(search.statuses),
+    [search.statuses]
+  )
+  const selectedCommercials = useMemo(
+    () => toSet(search.commercials),
+    [search.commercials]
+  )
+  const selectedClientType = useMemo(
+    () => toSet(search.clientType),
+    [search.clientType]
+  )
 
   const setSearch = (patch: Partial<typeof search>) => {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })

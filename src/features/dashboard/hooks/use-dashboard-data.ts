@@ -12,8 +12,8 @@ import {
   parseISO,
 } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
-import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { fr } from 'date-fns/locale'
+import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/use-permissions'
 import {
@@ -340,7 +340,12 @@ export function getBookingTotalCA(b: BookingWithRelations) {
   return getSignedQuoteTtc(b)
 }
 
-const SIGNED_QUOTE_STATUSES = ['quote_signed', 'deposit_paid', 'balance_paid', 'completed']
+const SIGNED_QUOTE_STATUSES = [
+  'quote_signed',
+  'deposit_paid',
+  'balance_paid',
+  'completed',
+]
 
 /** Taux de conversion : événements avec au moins un devis signé / total événements (annulés inclus) */
 export function calcConversionRate(bookings: BookingWithRelations[]) {
@@ -770,7 +775,8 @@ export function useAvgResponseTime(bookings: BookingWithRelations[]) {
 
       // Garder uniquement les logs où l'ancien statut est "Nouveau"
       const nouveauLogs = logs.filter(
-        (l) => ((l.metadata as any)?.old_status || '').toLowerCase() === 'nouveau'
+        (l) =>
+          ((l.metadata as any)?.old_status || '').toLowerCase() === 'nouveau'
       )
 
       const bookingMap = new Map(bookings.map((b) => [b.id, b]))

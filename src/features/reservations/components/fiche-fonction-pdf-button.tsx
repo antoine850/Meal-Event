@@ -353,9 +353,9 @@ export function FicheFonctionPdfButton({ bookingId, printRef }: Props) {
       // Nettoyage de sécurité : supprime les attributs data-pdf-idx même si une
       // erreur a interrompu le flux avant le nettoyage normal (après worker.output).
       element.removeAttribute('data-pdf-idx')
-      element.querySelectorAll('[data-pdf-idx]').forEach((el) =>
-        el.removeAttribute('data-pdf-idx')
-      )
+      element
+        .querySelectorAll('[data-pdf-idx]')
+        .forEach((el) => el.removeAttribute('data-pdf-idx'))
       setIsExporting(false)
     }
   }

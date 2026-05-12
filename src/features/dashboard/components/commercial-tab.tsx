@@ -101,7 +101,7 @@ export function CommercialTab({
   }, [bookings, users])
 
   const totalSales = useMemo(() => calcSignedRevenue(bookings), [bookings])
-const avgConversion = useMemo(
+  const avgConversion = useMemo(
     () => calcConversionRate(bookings).toFixed(1),
     [bookings]
   )
@@ -253,9 +253,7 @@ const avgConversion = useMemo(
             <Clock className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
-            <div className='text-2xl font-bold'>
-              {responseTimeLabel ?? '—'}
-            </div>
+            <div className='text-2xl font-bold'>{responseTimeLabel ?? '—'}</div>
             <p className='text-xs text-muted-foreground'>
               {responseTimeData
                 ? `Sur ${responseTimeData.count} événement${responseTimeData.count > 1 ? 's' : ''}`
@@ -437,7 +435,9 @@ const avgConversion = useMemo(
                   iconType='circle'
                   iconSize={10}
                   formatter={(value, entry) => {
-                    const percent = ((entry.payload as { percent?: number })?.percent ?? 0).toFixed(0)
+                    const percent = (
+                      (entry.payload as { percent?: number })?.percent ?? 0
+                    ).toFixed(0)
                     const firstName = (value ?? '').split(' ')[0]
                     return (
                       <span style={{ color: entry.color, fontSize: 13 }}>

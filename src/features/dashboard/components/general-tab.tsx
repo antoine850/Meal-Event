@@ -119,11 +119,19 @@ export function GeneralTab({
   // Actions requises: propositions stale + paiements en retard + relances
   const actionItems = useMemo(() => {
     const fmtDate = (d: string | null | undefined) =>
-      d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : null
+      d
+        ? new Date(d).toLocaleDateString('fr-FR', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          })
+        : null
 
     const now = new Date()
 
-    const notCancelled = (b: { status?: { slug?: string | null; name?: string | null } | null }) => {
+    const notCancelled = (b: {
+      status?: { slug?: string | null; name?: string | null } | null
+    }) => {
       const slug = b.status?.slug || ''
       const name = b.status?.name?.toLowerCase() || ''
       return !slug.includes('annul') && !name.includes('annul')
@@ -132,21 +140,21 @@ export function GeneralTab({
     const stale = getStaleProposals(
       bookings.filter((b) => notCancelled(b))
     ).map((s) => {
-        const booking = bookings.find((b) => b.id === s.bookingId)
-        return {
-          type: 'stale' as const,
-          bookingId: s.bookingId,
-          title: s.contactName,
-          detail: `Devis envoyé depuis ${s.daysSince}j sans réponse`,
-          eventDate: fmtDate(booking?.event_date),
-          restaurant: s.restaurantName,
-          statusName: booking?.status?.name || '',
-          statusColor: booking?.status?.color || null,
-          guests: booking?.guests_count || 0,
-          amount: s.amount,
-          severity: 'warning' as const,
-        }
-      })
+      const booking = bookings.find((b) => b.id === s.bookingId)
+      return {
+        type: 'stale' as const,
+        bookingId: s.bookingId,
+        title: s.contactName,
+        detail: `Devis envoyé depuis ${s.daysSince}j sans réponse`,
+        eventDate: fmtDate(booking?.event_date),
+        restaurant: s.restaurantName,
+        statusName: booking?.status?.name || '',
+        statusColor: booking?.status?.color || null,
+        guests: booking?.guests_count || 0,
+        amount: s.amount,
+        severity: 'warning' as const,
+      }
+    })
 
     const overdue = bookings
       .filter((b) => notCancelled(b))
@@ -326,13 +334,17 @@ export function GeneralTab({
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
               <KpiTooltip text='Nombre total de demandes reçues, tous statuts confondus' />
-              <CardTitle className='text-sm font-medium'>Total demandes</CardTitle>
+              <CardTitle className='text-sm font-medium'>
+                Total demandes
+              </CardTitle>
             </div>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{bookings.length}</div>
-            <p className='text-xs text-muted-foreground'>Tous statuts confondus</p>
+            <p className='text-xs text-muted-foreground'>
+              Tous statuts confondus
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -350,7 +362,9 @@ export function GeneralTab({
             <p className='text-xs text-muted-foreground'>
               Ø{' '}
               {signedCount > 0
-                ? Math.round(signedRevenue / signedCount).toLocaleString('fr-FR')
+                ? Math.round(signedRevenue / signedCount).toLocaleString(
+                    'fr-FR'
+                  )
                 : 0}{' '}
               € HT / événement
             </p>
@@ -360,7 +374,9 @@ export function GeneralTab({
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
               <KpiTooltip text='Événements signés (après signature, hors annulés/nouveaux/qualification)' />
-              <CardTitle className='text-sm font-medium'>Événements signés</CardTitle>
+              <CardTitle className='text-sm font-medium'>
+                Événements signés
+              </CardTitle>
             </div>
             <Users className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
@@ -400,7 +416,9 @@ export function GeneralTab({
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>{conversionRate}%</div>
-            <p className='text-xs text-muted-foreground'>Devis signés / total événements</p>
+            <p className='text-xs text-muted-foreground'>
+              Devis signés / total événements
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -487,17 +505,23 @@ export function GeneralTab({
                   key={`${item.type}-${item.bookingId}`}
                   className='flex items-center gap-3 py-2.5 first:pt-0 last:pb-0'
                 >
-                  <div className={`h-2 w-2 shrink-0 rounded-full ${item.severity === 'danger' ? 'bg-red-500' : 'bg-orange-500'}`} />
+                  <div
+                    className={`h-2 w-2 shrink-0 rounded-full ${item.severity === 'danger' ? 'bg-red-500' : 'bg-orange-500'}`}
+                  />
 
-                  <div className='min-w-0 flex-1 flex items-center gap-2 overflow-hidden'>
-                    <span className='shrink-0 text-sm font-semibold'>{item.title}</span>
+                  <div className='flex min-w-0 flex-1 items-center gap-2 overflow-hidden'>
+                    <span className='shrink-0 text-sm font-semibold'>
+                      {item.title}
+                    </span>
                     {item.statusName && (
                       <span
                         className='shrink-0 rounded-full border px-1.5 py-0.5 text-xs font-medium'
                         style={{
                           borderColor: item.statusColor || undefined,
                           color: item.statusColor || undefined,
-                          backgroundColor: item.statusColor ? `${item.statusColor}18` : undefined,
+                          backgroundColor: item.statusColor
+                            ? `${item.statusColor}18`
+                            : undefined,
                         }}
                       >
                         {item.statusName}
@@ -509,7 +533,9 @@ export function GeneralTab({
                         item.eventDate,
                         item.restaurant,
                         item.guests > 0 ? `${item.guests} pers.` : null,
-                      ].filter(Boolean).join(' · ')}
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </span>
                   </div>
 

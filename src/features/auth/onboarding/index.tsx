@@ -380,14 +380,12 @@ export function Onboarding() {
         },
       ]
 
-      await supabase
-        .from('statuses')
-        .insert(
-          defaultStatuses.map((s) => ({
-            ...s,
-            organization_id: organization.id,
-          })) as never
-        )
+      await supabase.from('statuses').insert(
+        defaultStatuses.map((s) => ({
+          ...s,
+          organization_id: organization.id,
+        })) as never
+      )
 
       setCurrentStep(3)
       toast.success('Organisation créée avec succès !')
