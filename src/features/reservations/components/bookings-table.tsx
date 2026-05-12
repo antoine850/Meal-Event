@@ -51,6 +51,11 @@ export function BookingsTable({
   const table = useReactTable({
     data,
     columns,
+    // 50 lignes par défaut (au lieu des 10 par défaut de TanStack Table).
+    // L'utilisateur peut toujours changer via le sélecteur de pagination.
+    initialState: {
+      pagination: { pageSize: 50, pageIndex: 0 },
+    },
     state: {
       sorting,
       columnVisibility,

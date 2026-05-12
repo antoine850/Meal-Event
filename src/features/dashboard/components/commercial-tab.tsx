@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link, useSearch } from '@tanstack/react-router'
 import {
   Euro,
   Target,
@@ -47,6 +48,11 @@ import {
   getStaleProposals,
   useAvgResponseTime,
 } from '../hooks/use-dashboard-data'
+import {
+  buildEventsSearch,
+  signedSearch,
+  type DashboardSearch,
+} from '../lib/events-drill-down'
 
 function KpiTooltip({ text }: { text: string }) {
   return (
@@ -79,11 +85,13 @@ export function CommercialTab({
   users,
   isLoading,
 }: DashboardTabProps) {
+  const dash = useSearch({ strict: false }) as DashboardSearch
   const commercialStats = useMemo(() => {
     const groups = groupByUser(bookings, users)
     return Object.entries(groups)
       .filter(([key]) => key !== 'unassigned')
-      .map(([, data]) => ({
+      .map(([key, data]) => ({
+        id: data.user?.id || key,
         name: data.user
           ? `${data.user.first_name} ${data.user.last_name}`
           : 'Inconnu',
@@ -221,27 +229,31 @@ export function CommercialTab({
 
   return (
     <div className='space-y-4'>
-      {/* KPI Cards */}
+      {/* KPI Cards — drill-down vers /evenements */}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Montant total HT des devis signés sur les événements assignés à l'équipe" />
-              <CardTitle className='text-sm font-medium'>
-                CA Signé Équipe HT
-              </CardTitle>
-            </div>
-            <Euro className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>
-              {totalSales.toLocaleString('fr-FR')} €
-            </div>
-            <p className='text-xs text-muted-foreground'>
-              Réparti sur {commercialStats.length} commerciaux
-            </p>
-          </CardContent>
-        </Card>
+        <Link to='/evenements' search={signedSearch(dash)} className='block'>
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text="Montant total HT des devis signés sur les événements assignés à l'équipe" />
+                <CardTitle className='text-sm font-medium'>
+                  CA Signé Équipe HT
+                </CardTitle>
+              </div>
+              <Euro className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>
+                {totalSales.toLocaleString('fr-FR')} €
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                Réparti sur {commercialStats.length} commerciaux
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        {/* Pas de drill-down pour le temps de réponse (KPI calculé global,
+            sans filtre événement équivalent) */}
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
@@ -261,56 +273,78 @@ export function CommercialTab({
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Événements avec au moins un devis signé / total événements (annulés inclus)' />
-              <CardTitle className='text-sm font-medium'>
-                Taux de conversion
-              </CardTitle>
-            </div>
-            <TrendingUp className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{avgConversion}%</div>
-            <p className='text-xs text-muted-foreground'>
-              Devis signés / total événements
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Commercial avec le plus de CA signé' />
-              <CardTitle className='text-sm font-medium'>
-                Meilleur performeur
-              </CardTitle>
-            </div>
-            <Target className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='truncate text-2xl font-bold'>
-              {bestPerformer?.name || '-'}
-            </div>
-            <p className='text-xs text-muted-foreground'>
-              {bestPerformer
-                ? `${bestPerformer.sales.toLocaleString('fr-FR')} € de CA HT`
-                : '-'}
-            </p>
-          </CardContent>
-        </Card>
+        <Link
+          to='/evenements'
+          search={buildEventsSearch(dash)}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Événements avec au moins un devis signé / total événements (annulés inclus)' />
+                <CardTitle className='text-sm font-medium'>
+                  Taux de conversion
+                </CardTitle>
+              </div>
+              <TrendingUp className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>{avgConversion}%</div>
+              <p className='text-xs text-muted-foreground'>
+                Devis signés / total événements
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link
+          to='/evenements'
+          search={signedSearch({
+            ...dash,
+            commercials: bestPerformer?.id,
+          })}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Commercial avec le plus de CA signé' />
+                <CardTitle className='text-sm font-medium'>
+                  Meilleur performeur
+                </CardTitle>
+              </div>
+              <Target className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='truncate text-2xl font-bold'>
+                {bestPerformer?.name || '-'}
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                {bestPerformer
+                  ? `${bestPerformer.sales.toLocaleString('fr-FR')} € de CA HT`
+                  : '-'}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
-      {/* Stale Proposals */}
+      {/* Stale Proposals : header est un lien vers la liste filtrée stale=1,
+          chaque ligne mène directement à la fiche du booking concerné. */}
       {staleProposals.length > 0 && (
         <Card className='border-yellow-200 dark:border-yellow-900'>
           <CardHeader className='pb-3'>
-            <div className='flex items-center gap-2'>
-              <AlertTriangle className='h-4 w-4 text-yellow-500' />
-              <CardTitle className='text-base'>
-                Propositions sans réponse
-              </CardTitle>
-            </div>
+            <Link
+              to='/evenements'
+              search={buildEventsSearch(dash, { stale: '1' })}
+              className='block'
+            >
+              <div className='flex items-center gap-2 transition-colors hover:text-primary'>
+                <AlertTriangle className='h-4 w-4 text-yellow-500' />
+                <CardTitle className='text-base'>
+                  Propositions sans réponse
+                </CardTitle>
+              </div>
+            </Link>
             <CardDescription>
               Devis envoyés depuis plus de 3 jours sans action
             </CardDescription>
@@ -318,9 +352,11 @@ export function CommercialTab({
           <CardContent>
             <div className='space-y-3'>
               {staleProposals.map((proposal) => (
-                <div
+                <Link
                   key={`${proposal.bookingId}-${proposal.quoteNumber}`}
-                  className='flex items-center justify-between rounded-lg border p-3'
+                  to='/evenements/booking/$id'
+                  params={{ id: proposal.bookingId }}
+                  className='flex items-center justify-between rounded-lg border p-3 transition-all hover:border-primary/50 hover:bg-accent'
                 >
                   <div className='min-w-0 flex-1'>
                     <p className='truncate text-sm font-medium'>
@@ -344,7 +380,7 @@ export function CommercialTab({
                       {proposal.daysSince}j
                     </Badge>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>
@@ -462,12 +498,19 @@ export function CommercialTab({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='space-y-6'>
+          <div className='space-y-3'>
             {commercialStats.map((commercial, index) => {
               const progress =
                 target > 0 ? (commercial.sales / target) * 100 : 0
               return (
-                <div key={commercial.name} className='space-y-2'>
+                <Link
+                  key={commercial.id}
+                  to='/evenements'
+                  search={buildEventsSearch(dash, {
+                    commercial: commercial.id,
+                  })}
+                  className='-mx-2 block space-y-2 rounded-md px-2 py-2 transition-colors hover:bg-accent'
+                >
                   <div className='flex items-center gap-4'>
                     <Avatar className='h-10 w-10'>
                       <AvatarFallback
@@ -506,7 +549,7 @@ export function CommercialTab({
                       {progress.toFixed(0)}%
                     </span>
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>

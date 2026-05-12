@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { format, parseISO, isAfter } from 'date-fns'
+import { Link, useSearch } from '@tanstack/react-router'
 import { fr } from 'date-fns/locale'
 import {
   Calendar,
@@ -38,6 +39,12 @@ import {
   getReservationsByType,
   getMonthlyTrend,
 } from '../hooks/use-dashboard-data'
+import {
+  buildEventsSearch,
+  confirmedSearch,
+  pendingSearch,
+  type DashboardSearch,
+} from '../lib/events-drill-down'
 
 function KpiTooltip({ text }: { text: string }) {
   return (
@@ -55,6 +62,7 @@ function KpiTooltip({ text }: { text: string }) {
 }
 
 export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
+  const dash = useSearch({ strict: false }) as DashboardSearch
   const stats = useMemo(() => {
     const confirmed = bookings.filter(
       (b) =>
@@ -176,79 +184,99 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
 
   return (
     <div className='space-y-4'>
-      {/* KPI Cards */}
+      {/* KPI Cards — drill-down vers /evenements */}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text="Nombre d'événements sur la période sélectionnée" />
-              <CardTitle className='text-sm font-medium'>
-                Total Événements
-              </CardTitle>
-            </div>
-            <Calendar className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{stats.total}</div>
-            <p className='text-xs text-muted-foreground'>
-              Sur la période sélectionnée
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Événements avec acompte payé ou plus avancé dans le pipeline' />
-              <CardTitle className='text-sm font-medium'>Confirmées</CardTitle>
-            </div>
-            <CheckCircle className='h-4 w-4 text-green-500' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold text-green-600'>
-              {stats.confirmed}
-            </div>
-            <p className='text-xs text-muted-foreground'>
-              {stats.total > 0
-                ? ((stats.confirmed / stats.total) * 100).toFixed(0)
-                : 0}
-              % du total
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Événements en cours de traitement (nouveau → relance paiement)' />
-              <CardTitle className='text-sm font-medium'>En attente</CardTitle>
-            </div>
-            <Clock className='h-4 w-4 text-yellow-500' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold text-yellow-600'>
-              {stats.pending}
-            </div>
-            <p className='text-xs text-muted-foreground'>À confirmer</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Somme des convives, tous événements confondus' />
-              <CardTitle className='text-sm font-medium'>
-                Total Convives
-              </CardTitle>
-            </div>
-            <Users className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>
-              {stats.totalGuests.toLocaleString('fr-FR')}
-            </div>
-            <p className='text-xs text-muted-foreground'>
-              Moy. {stats.avgGuests} pers./événement
-            </p>
-          </CardContent>
-        </Card>
+        <Link
+          to='/evenements'
+          search={buildEventsSearch(dash)}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text="Nombre d'événements sur la période sélectionnée" />
+                <CardTitle className='text-sm font-medium'>
+                  Total Événements
+                </CardTitle>
+              </div>
+              <Calendar className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>{stats.total}</div>
+              <p className='text-xs text-muted-foreground'>
+                Sur la période sélectionnée
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to='/evenements' search={confirmedSearch(dash)} className='block'>
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Événements avec acompte payé ou plus avancé dans le pipeline' />
+                <CardTitle className='text-sm font-medium'>
+                  Confirmées
+                </CardTitle>
+              </div>
+              <CheckCircle className='h-4 w-4 text-green-500' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold text-green-600'>
+                {stats.confirmed}
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                {stats.total > 0
+                  ? ((stats.confirmed / stats.total) * 100).toFixed(0)
+                  : 0}
+                % du total
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to='/evenements' search={pendingSearch(dash)} className='block'>
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Événements en cours de traitement (nouveau → relance paiement)' />
+                <CardTitle className='text-sm font-medium'>
+                  En attente
+                </CardTitle>
+              </div>
+              <Clock className='h-4 w-4 text-yellow-500' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold text-yellow-600'>
+                {stats.pending}
+              </div>
+              <p className='text-xs text-muted-foreground'>À confirmer</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link
+          to='/evenements'
+          search={buildEventsSearch(dash)}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Somme des convives, tous événements confondus' />
+                <CardTitle className='text-sm font-medium'>
+                  Total Convives
+                </CardTitle>
+              </div>
+              <Users className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>
+                {stats.totalGuests.toLocaleString('fr-FR')}
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                Moy. {stats.avgGuests} pers./événement
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Charts Row */}

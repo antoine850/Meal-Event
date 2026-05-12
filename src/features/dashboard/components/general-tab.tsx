@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { parseISO, differenceInDays } from 'date-fns'
-import { Link } from '@tanstack/react-router'
+import { Link, useSearch } from '@tanstack/react-router'
 import {
   Euro,
   TrendingUp,
@@ -39,6 +39,11 @@ import {
   getPaidAmount,
   SIGNED_SLUGS,
 } from '../hooks/use-dashboard-data'
+import {
+  buildEventsSearch,
+  signedSearch,
+  type DashboardSearch,
+} from '../lib/events-drill-down'
 
 function KpiTooltip({ text }: { text: string }) {
   return (
@@ -76,6 +81,8 @@ export function GeneralTab({
   restaurants,
   statuses = [],
 }: GeneralTabProps) {
+  // Filtres actuels du dashboard, propagés à chaque drill-down vers /evenements
+  const dash = useSearch({ strict: false }) as DashboardSearch
   const signedRevenue = useMemo(() => calcSignedRevenue(bookings), [bookings])
   const signedCount = useMemo(() => calcSignedCount(bookings), [bookings])
   const avgTicketPerGuest = useMemo(
@@ -102,16 +109,20 @@ export function GeneralTab({
   const restaurantKPIs = useMemo(() => {
     const groups = groupBySignedRestaurant(bookings)
     return Object.entries(groups)
-      .map(([name, items]) => ({
-        name,
-        revenue: calcSignedRevenue(items),
-        signedCount: items.length,
-        avgTicket:
-          items.length > 0
-            ? Math.round(calcSignedRevenue(items) / items.length)
-            : 0,
-        color: restaurants.find((r) => r.name === name)?.color || null,
-      }))
+      .map(([name, items]) => {
+        const r = restaurants.find((r) => r.name === name)
+        return {
+          id: r?.id || null,
+          name,
+          revenue: calcSignedRevenue(items),
+          signedCount: items.length,
+          avgTicket:
+            items.length > 0
+              ? Math.round(calcSignedRevenue(items) / items.length)
+              : 0,
+          color: r?.color || null,
+        }
+      })
       .filter((r) => r.revenue > 0)
       .sort((a, b) => b.revenue - a.revenue)
   }, [bookings, restaurants])
@@ -328,99 +339,120 @@ export function GeneralTab({
 
   return (
     <div className='space-y-4'>
-      {/* KPI Cards */}
+      {/* KPI Cards — chaque carte est un drill-down vers /evenements
+          en vue Liste avec les filtres du dashboard propagés. */}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Nombre total de demandes reçues, tous statuts confondus' />
-              <CardTitle className='text-sm font-medium'>
-                Total demandes
-              </CardTitle>
-            </div>
-            <Users className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{bookings.length}</div>
-            <p className='text-xs text-muted-foreground'>
-              Tous statuts confondus
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Montant total HT des devis signés (primary quote)' />
-              <CardTitle className='text-sm font-medium'>CA Signé HT</CardTitle>
-            </div>
-            <Euro className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>
-              {signedRevenue.toLocaleString('fr-FR')} €
-            </div>
-            <p className='text-xs text-muted-foreground'>
-              Ø{' '}
-              {signedCount > 0
-                ? Math.round(signedRevenue / signedCount).toLocaleString(
-                    'fr-FR'
-                  )
-                : 0}{' '}
-              € HT / événement
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Événements signés (après signature, hors annulés/nouveaux/qualification)' />
-              <CardTitle className='text-sm font-medium'>
-                Événements signés
-              </CardTitle>
-            </div>
-            <Users className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{signedBookings.length}</div>
-            <p className='text-xs text-muted-foreground'>
-              {signedGuests.toLocaleString('fr-FR')} convives signés
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='CA signé HT / nombre total de convives signés' />
-              <CardTitle className='text-sm font-medium'>
-                Ticket moyen HT
-              </CardTitle>
-            </div>
-            <Utensils className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>
-              {avgTicketPerGuest.toLocaleString('fr-FR')} €
-            </div>
-            <p className='text-xs text-muted-foreground'>Par convive</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Événements avec au moins un devis signé / total événements (annulés inclus)' />
-              <CardTitle className='text-sm font-medium'>
-                Taux de conversion
-              </CardTitle>
-            </div>
-            <TrendingUp className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{conversionRate}%</div>
-            <p className='text-xs text-muted-foreground'>
-              Devis signés / total événements
-            </p>
-          </CardContent>
-        </Card>
+        <Link
+          to='/evenements'
+          search={buildEventsSearch(dash)}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Nombre total de demandes reçues, tous statuts confondus' />
+                <CardTitle className='text-sm font-medium'>
+                  Total demandes
+                </CardTitle>
+              </div>
+              <Users className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>{bookings.length}</div>
+              <p className='text-xs text-muted-foreground'>
+                Tous statuts confondus
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to='/evenements' search={signedSearch(dash)} className='block'>
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Montant total HT des devis signés (primary quote)' />
+                <CardTitle className='text-sm font-medium'>
+                  CA Signé HT
+                </CardTitle>
+              </div>
+              <Euro className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>
+                {signedRevenue.toLocaleString('fr-FR')} €
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                Ø{' '}
+                {signedCount > 0
+                  ? Math.round(signedRevenue / signedCount).toLocaleString(
+                      'fr-FR'
+                    )
+                  : 0}{' '}
+                € HT / événement
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to='/evenements' search={signedSearch(dash)} className='block'>
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Événements signés (après signature, hors annulés/nouveaux/qualification)' />
+                <CardTitle className='text-sm font-medium'>
+                  Événements signés
+                </CardTitle>
+              </div>
+              <Users className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>{signedBookings.length}</div>
+              <p className='text-xs text-muted-foreground'>
+                {signedGuests.toLocaleString('fr-FR')} convives signés
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to='/evenements' search={signedSearch(dash)} className='block'>
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='CA signé HT / nombre total de convives signés' />
+                <CardTitle className='text-sm font-medium'>
+                  Ticket moyen HT
+                </CardTitle>
+              </div>
+              <Utensils className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>
+                {avgTicketPerGuest.toLocaleString('fr-FR')} €
+              </div>
+              <p className='text-xs text-muted-foreground'>Par convive</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link
+          to='/evenements'
+          search={buildEventsSearch(dash)}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Événements avec au moins un devis signé / total événements (annulés inclus)' />
+                <CardTitle className='text-sm font-medium'>
+                  Taux de conversion
+                </CardTitle>
+              </div>
+              <TrendingUp className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>{conversionRate}%</div>
+              <p className='text-xs text-muted-foreground'>
+                Devis signés / total événements
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Pipeline by statuses */}
@@ -461,7 +493,7 @@ export function GeneralTab({
                 <Link
                   key={stage.statusId}
                   to='/evenements'
-                  search={{ view: 'list', status: stage.slug } as any}
+                  search={buildEventsSearch(dash, { status: stage.slug })}
                   className='flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent'
                 >
                   <div
@@ -622,34 +654,48 @@ export function GeneralTab({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className='space-y-4'>
+            <div className='space-y-2'>
               {restaurantKPIs.length > 0 ? (
-                restaurantKPIs.map((restaurant) => (
-                  <div
-                    key={restaurant.name}
-                    className='flex items-center gap-4'
-                  >
-                    <Avatar className='h-9 w-9'>
-                      <AvatarFallback className='bg-primary/10 text-primary'>
-                        {restaurant.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className='flex flex-1 flex-wrap items-center justify-between gap-2'>
-                      <div className='space-y-1'>
-                        <p className='text-sm leading-none font-medium'>
-                          {restaurant.name}
-                        </p>
-                        <p className='text-xs text-muted-foreground'>
-                          {restaurant.signedCount} événements signés · Ø{' '}
-                          {restaurant.avgTicket.toLocaleString('fr-FR')} €
-                        </p>
-                      </div>
-                      <div className='font-medium text-green-600'>
-                        {restaurant.revenue.toLocaleString('fr-FR')} €
+                restaurantKPIs.map((restaurant) => {
+                  const row = (
+                    <div className='flex items-center gap-4'>
+                      <Avatar className='h-9 w-9'>
+                        <AvatarFallback className='bg-primary/10 text-primary'>
+                          {restaurant.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className='flex flex-1 flex-wrap items-center justify-between gap-2'>
+                        <div className='space-y-1'>
+                          <p className='text-sm leading-none font-medium'>
+                            {restaurant.name}
+                          </p>
+                          <p className='text-xs text-muted-foreground'>
+                            {restaurant.signedCount} événements signés · Ø{' '}
+                            {restaurant.avgTicket.toLocaleString('fr-FR')} €
+                          </p>
+                        </div>
+                        <div className='font-medium text-green-600'>
+                          {restaurant.revenue.toLocaleString('fr-FR')} €
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  )
+                  return restaurant.id ? (
+                    <Link
+                      key={restaurant.name}
+                      to='/evenements'
+                      search={signedSearch({
+                        ...dash,
+                        restaurants: restaurant.id,
+                      })}
+                      className='-mx-2 block rounded-md px-2 py-1.5 transition-colors hover:bg-accent'
+                    >
+                      {row}
+                    </Link>
+                  ) : (
+                    <div key={restaurant.name}>{row}</div>
+                  )
+                })
               ) : (
                 <p className='py-4 text-center text-sm text-muted-foreground'>
                   Aucune donnée

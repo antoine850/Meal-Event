@@ -5,6 +5,7 @@ import { type SortingState } from '@tanstack/react-table'
 import { Calendar as CalendarIcon, Columns3, List, Loader2 } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -16,6 +17,10 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
+import {
+  SIGNED_SLUGS,
+  getStaleProposals,
+} from '@/features/dashboard/hooks/use-dashboard-data'
 import { BookingsTable } from './components/bookings-table'
 import { CalendarView } from './components/calendar-view'
 import { CreateBookingDialog } from './components/create-booking-dialog'
@@ -159,7 +164,10 @@ export function Reservations() {
     search.toImport ||
     search.commercial ||
     search.status ||
-    search.restaurant
+    search.restaurant ||
+    search.signed ||
+    search.stale ||
+    search.source
   )
 
   const onResetFilters = useCallback(() => {
@@ -175,6 +183,9 @@ export function Reservations() {
       commercial: undefined,
       status: undefined,
       restaurant: undefined,
+      signed: undefined,
+      stale: undefined,
+      source: undefined,
     })
   }, [setSearch])
 
@@ -257,6 +268,23 @@ export function Reservations() {
       )
     }
 
+    // Drill-down depuis le dashboard : signé / proposition stale / source contact
+    if (search.signed === '1') {
+      result = result.filter((b) => SIGNED_SLUGS.includes(b.status?.slug || ''))
+    }
+    if (search.stale === '1') {
+      const staleIds = new Set(
+        getStaleProposals(result).map((s) => s.bookingId)
+      )
+      result = result.filter((b) => staleIds.has(b.id))
+    }
+    if (search.source) {
+      const wanted = search.source.toLowerCase()
+      result = result.filter(
+        (b) => (b.contact?.source || 'Autre').toLowerCase() === wanted
+      )
+    }
+
     return result
   }, [
     bookings,
@@ -267,6 +295,9 @@ export function Reservations() {
     selectedCommercials,
     selectedStatuses,
     selectedRestaurants,
+    search.signed,
+    search.stale,
+    search.source,
   ])
 
   const reservations = useMemo(() => {
@@ -425,6 +456,45 @@ export function Reservations() {
             </Button>
           )}
         </div>
+
+        {/* Bannière de drill-down : affiche les filtres venus du dashboard
+            (signed / stale / source) qui n'ont pas d'UI dédiée dans la
+            barre de filtres. Cliquable pour retirer chaque filtre. */}
+        {(search.signed || search.stale || search.source) && (
+          <div className='flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/40 px-3 py-2 text-xs'>
+            <span className='text-muted-foreground'>Vue filtrée :</span>
+            {search.signed === '1' && (
+              <Badge
+                variant='secondary'
+                className='cursor-pointer gap-1 hover:bg-secondary/80'
+                onClick={() => setSearch({ signed: undefined })}
+              >
+                Signés uniquement
+                <Cross2Icon className='h-3 w-3' />
+              </Badge>
+            )}
+            {search.stale === '1' && (
+              <Badge
+                variant='secondary'
+                className='cursor-pointer gap-1 hover:bg-secondary/80'
+                onClick={() => setSearch({ stale: undefined })}
+              >
+                Propositions sans réponse (&gt;3j)
+                <Cross2Icon className='h-3 w-3' />
+              </Badge>
+            )}
+            {search.source && (
+              <Badge
+                variant='secondary'
+                className='cursor-pointer gap-1 hover:bg-secondary/80'
+                onClick={() => setSearch({ source: undefined })}
+              >
+                Source : {search.source}
+                <Cross2Icon className='h-3 w-3' />
+              </Badge>
+            )}
+          </div>
+        )}
 
         {mainView === 'list' && (
           <BookingsTable

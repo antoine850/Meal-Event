@@ -13,6 +13,10 @@ const reservationsSearchSchema = z.object({
   toSign: z.string().optional().catch(undefined),
   fromImport: z.string().optional().catch(undefined),
   toImport: z.string().optional().catch(undefined),
+  // Drill-down depuis le dashboard
+  signed: z.enum(['1']).optional().catch(undefined), // n'afficher que les événements signés
+  stale: z.enum(['1']).optional().catch(undefined), // propositions sans réponse >3j
+  source: z.string().optional().catch(undefined), // source du contact (Instagram, Site web…)
   view: z.enum(['calendar', 'list', 'pipeline']).optional().catch('list'),
   calendarMode: z.enum(['month', 'week', 'day']).optional().catch('week'),
 })

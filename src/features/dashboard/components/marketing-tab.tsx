@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link, useSearch } from '@tanstack/react-router'
 import {
   Instagram,
   Facebook,
@@ -39,6 +40,11 @@ import {
   getContactsBySource,
   getMonthlyLeadsBySource,
 } from '../hooks/use-dashboard-data'
+import {
+  buildEventsSearch,
+  signedSearch,
+  type DashboardSearch,
+} from '../lib/events-drill-down'
 
 function KpiTooltip({ text }: { text: string }) {
   return (
@@ -92,6 +98,7 @@ export function MarketingTab({
   contacts,
   isLoading,
 }: DashboardTabProps) {
+  const dash = useSearch({ strict: false }) as DashboardSearch
   const marketingBySource = useMemo(
     () => getContactsBySource(contacts, bookings),
     [contacts, bookings]
@@ -217,7 +224,8 @@ export function MarketingTab({
 
   return (
     <div className='space-y-4'>
-      {/* KPI Cards */}
+      {/* KPI Cards — drill-down vers /evenements (Total Leads non cliquable
+          car compte des contacts, pas des bookings). */}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
@@ -234,60 +242,83 @@ export function MarketingTab({
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Leads ayant généré au moins un événement' />
-              <CardTitle className='text-sm font-medium'>Événements</CardTitle>
-            </div>
-            <TrendingUp className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{totalBookings}</div>
-            <p className='text-xs text-muted-foreground'>
-              Leads convertis en événements
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Événements signés (ou statut ultérieur) / total événements de la période' />
-              <CardTitle className='text-sm font-medium'>
-                Taux de conversion
-              </CardTitle>
-            </div>
-            <TrendingUp className='h-4 w-4 text-muted-foreground' />
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>{avgConversion}%</div>
-            <p className='text-xs text-muted-foreground'>
-              {totalSigned} signés / {totalBookings} événements
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Source avec le meilleur taux de signature (signés / leads)' />
-              <CardTitle className='text-sm font-medium'>
-                Meilleure source
-              </CardTitle>
-            </div>
-            {bestSource &&
-              (sourceIcons[bestSource.source] || (
-                <Globe className='h-4 w-4 text-muted-foreground' />
-              ))}
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold'>
-              {bestSource?.source || '-'}
-            </div>
-            <p className='text-xs text-muted-foreground'>
-              {bestSource ? `${bestSource.signatureRate}% de signés` : '-'}
-            </p>
-          </CardContent>
-        </Card>
+        <Link
+          to='/evenements'
+          search={buildEventsSearch(dash)}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Leads ayant généré au moins un événement' />
+                <CardTitle className='text-sm font-medium'>
+                  Événements
+                </CardTitle>
+              </div>
+              <TrendingUp className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>{totalBookings}</div>
+              <p className='text-xs text-muted-foreground'>
+                Leads convertis en événements
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link
+          to='/evenements'
+          search={buildEventsSearch(dash)}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Événements signés (ou statut ultérieur) / total événements de la période' />
+                <CardTitle className='text-sm font-medium'>
+                  Taux de conversion
+                </CardTitle>
+              </div>
+              <TrendingUp className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>{avgConversion}%</div>
+              <p className='text-xs text-muted-foreground'>
+                {totalSigned} signés / {totalBookings} événements
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link
+          to='/evenements'
+          search={{
+            ...signedSearch(dash),
+            ...(bestSource?.source ? { source: bestSource.source } : {}),
+          }}
+          className='block'
+        >
+          <Card className='h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-md'>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <div className='flex items-center gap-1.5'>
+                <KpiTooltip text='Source avec le meilleur taux de signature (signés / leads)' />
+                <CardTitle className='text-sm font-medium'>
+                  Meilleure source
+                </CardTitle>
+              </div>
+              {bestSource &&
+                (sourceIcons[bestSource.source] || (
+                  <Globe className='h-4 w-4 text-muted-foreground' />
+                ))}
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>
+                {bestSource?.source || '-'}
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                {bestSource ? `${bestSource.signatureRate}% de signés` : '-'}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Charts */}
@@ -390,7 +421,7 @@ export function MarketingTab({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='space-y-6'>
+          <div className='space-y-3'>
             {marketingBySource.map((source) => {
               const maxLeads = Math.max(
                 ...marketingBySource.map((s) => s.leads)
@@ -399,7 +430,12 @@ export function MarketingTab({
                 maxLeads > 0 ? (source.leads / maxLeads) * 100 : 0
               const color = sourceColors[source.source] || '#6B7280'
               return (
-                <div key={source.source} className='space-y-2'>
+                <Link
+                  key={source.source}
+                  to='/evenements'
+                  search={buildEventsSearch(dash, { source: source.source })}
+                  className='-mx-2 block space-y-2 rounded-md px-2 py-2 transition-colors hover:bg-accent'
+                >
                   <div className='flex items-center gap-4'>
                     <div
                       className='flex h-10 w-10 items-center justify-center rounded-full'
@@ -430,7 +466,7 @@ export function MarketingTab({
                     </div>
                   </div>
                   <Progress value={progress} className='h-2' />
-                </div>
+                </Link>
               )
             })}
           </div>
