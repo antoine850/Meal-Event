@@ -68,6 +68,13 @@ export function Reservations() {
     [search.restaurant]
   )
 
+  const toDateRange = (from?: string, to?: string) =>
+    from ? { from: new Date(from), to: to ? new Date(to) : undefined } : undefined
+  const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
+
+  const signDateRange = toDateRange(search.fromSign, search.toSign)
+  const importDateRange = toDateRange(search.fromImport, search.toImport)
+
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false)
   const [bookingDialogDate, setBookingDialogDate] = useState<Date | undefined>()
   const [sortValue, setSortValue] = useState('event_date:asc')
@@ -135,6 +142,8 @@ export function Reservations() {
   const hasActiveFilters = !!(
     searchValue ||
     dateRange?.from ||
+    signDateRange?.from ||
+    importDateRange?.from ||
     selectedCommercials.size ||
     selectedStatuses.size ||
     selectedRestaurants.size
@@ -146,6 +155,10 @@ export function Reservations() {
       q: undefined,
       from: undefined,
       to: undefined,
+      fromSign: undefined,
+      toSign: undefined,
+      fromImport: undefined,
+      toImport: undefined,
       commercial: undefined,
       status: undefined,
       restaurant: undefined,
@@ -197,11 +210,39 @@ export function Reservations() {
       )
     }
 
+    // Filtre date de signature
+    if (signDateRange?.from) {
+      const from = new Date(signDateRange.from); from.setHours(0, 0, 0, 0)
+      result = result.filter((b) => {
+        const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
+        return signedAt && new Date(signedAt) >= from
+      })
+    }
+    if (signDateRange?.to) {
+      const to = new Date(signDateRange.to); to.setHours(23, 59, 59, 999)
+      result = result.filter((b) => {
+        const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
+        return signedAt && new Date(signedAt) <= to
+      })
+    }
+
+    // Filtre date d'import (created_at)
+    if (importDateRange?.from) {
+      const from = new Date(importDateRange.from); from.setHours(0, 0, 0, 0)
+      result = result.filter((b) => b.created_at && new Date(b.created_at) >= from)
+    }
+    if (importDateRange?.to) {
+      const to = new Date(importDateRange.to); to.setHours(23, 59, 59, 999)
+      result = result.filter((b) => b.created_at && new Date(b.created_at) <= to)
+    }
+
     return result
   }, [
     bookings,
     searchValue,
     dateRange,
+    signDateRange,
+    importDateRange,
     selectedCommercials,
     selectedStatuses,
     selectedRestaurants,
@@ -245,16 +286,38 @@ export function Reservations() {
           />
           <div className='flex flex-wrap gap-2'>
             {(mainView === 'list' || mainView === 'pipeline') && (
-              <DateFilter
-                value={dateRange}
-                onChange={(range) => {
-                  setSearch({
-                    from: range?.from ? range.from.toISOString() : undefined,
-                    to: range?.to ? range.to.toISOString() : undefined,
-                  })
-                }}
-                placeholder="Date d'événement"
-              />
+              <>
+                <DateFilter
+                  value={dateRange}
+                  onChange={(range) =>
+                    setSearch({
+                      from: range?.from ? range.from.toISOString() : undefined,
+                      to: range?.to ? range.to.toISOString() : undefined,
+                    })
+                  }
+                  placeholder="Date d'événement"
+                />
+                <DateFilter
+                  value={signDateRange}
+                  onChange={(range) =>
+                    setSearch({
+                      fromSign: toIso(range?.from),
+                      toSign: toIso(range?.to),
+                    })
+                  }
+                  placeholder='Date de signature'
+                />
+                <DateFilter
+                  value={importDateRange}
+                  onChange={(range) =>
+                    setSearch({
+                      fromImport: toIso(range?.from),
+                      toImport: toIso(range?.to),
+                    })
+                  }
+                  placeholder="Date d'import"
+                />
+              </>
             )}
             <FacetedFilter
               title='Commercial'
