@@ -69,7 +69,9 @@ export function Reservations() {
   )
 
   const toDateRange = (from?: string, to?: string) =>
-    from ? { from: new Date(from), to: to ? new Date(to) : undefined } : undefined
+    from
+      ? { from: new Date(from), to: to ? new Date(to) : undefined }
+      : undefined
   const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
 
   const signDateRange = toDateRange(search.fromSign, search.toSign)
@@ -86,9 +88,13 @@ export function Reservations() {
   // Recherche : input local + debounce pour ne pas mettre à jour l'URL à chaque frappe
   const [searchInput, setSearchInput] = useState(searchValue)
   const debouncedSearch = useDebouncedValue(searchInput, 150)
+  // Sync input ← URL quand l'URL change de manière externe (back/forward, lien partagé)
+  useEffect(() => {
+    setSearchInput((prev) => (prev === searchValue ? prev : searchValue))
+  }, [searchValue])
+  // Sync URL ← input débouncé
   useEffect(() => {
     if (debouncedSearch !== searchValue) {
-      // setSearch appelé seulement quand la valeur débouncée change
       navigate({
         search: (prev: Record<string, unknown>) => {
           const next = { ...prev, q: debouncedSearch || undefined } as Record<
@@ -139,14 +145,21 @@ export function Reservations() {
   const { data: users = [] } = useOrganizationUsers()
   const { data: restaurants = [] } = useRestaurants()
 
+  // Reset visible uniquement si au moins un filtre est explicitement présent
+  // dans l'URL. On ignore le défaut « événements à venir » de la vue liste
+  // (qui n'est pas dans l'URL) pour ne pas afficher Reset alors qu'il n'y a
+  // rien à reset.
   const hasActiveFilters = !!(
-    searchValue ||
-    dateRange?.from ||
-    signDateRange?.from ||
-    importDateRange?.from ||
-    selectedCommercials.size ||
-    selectedStatuses.size ||
-    selectedRestaurants.size
+    search.q ||
+    search.from ||
+    search.to ||
+    search.fromSign ||
+    search.toSign ||
+    search.fromImport ||
+    search.toImport ||
+    search.commercial ||
+    search.status ||
+    search.restaurant
   )
 
   const onResetFilters = useCallback(() => {
@@ -212,14 +225,16 @@ export function Reservations() {
 
     // Filtre date de signature
     if (signDateRange?.from) {
-      const from = new Date(signDateRange.from); from.setHours(0, 0, 0, 0)
+      const from = new Date(signDateRange.from)
+      from.setHours(0, 0, 0, 0)
       result = result.filter((b) => {
         const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
         return signedAt && new Date(signedAt) >= from
       })
     }
     if (signDateRange?.to) {
-      const to = new Date(signDateRange.to); to.setHours(23, 59, 59, 999)
+      const to = new Date(signDateRange.to)
+      to.setHours(23, 59, 59, 999)
       result = result.filter((b) => {
         const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
         return signedAt && new Date(signedAt) <= to
@@ -228,12 +243,18 @@ export function Reservations() {
 
     // Filtre date d'import (created_at)
     if (importDateRange?.from) {
-      const from = new Date(importDateRange.from); from.setHours(0, 0, 0, 0)
-      result = result.filter((b) => b.created_at && new Date(b.created_at) >= from)
+      const from = new Date(importDateRange.from)
+      from.setHours(0, 0, 0, 0)
+      result = result.filter(
+        (b) => b.created_at && new Date(b.created_at) >= from
+      )
     }
     if (importDateRange?.to) {
-      const to = new Date(importDateRange.to); to.setHours(23, 59, 59, 999)
-      result = result.filter((b) => b.created_at && new Date(b.created_at) <= to)
+      const to = new Date(importDateRange.to)
+      to.setHours(23, 59, 59, 999)
+      result = result.filter(
+        (b) => b.created_at && new Date(b.created_at) <= to
+      )
     }
 
     return result
@@ -277,93 +298,15 @@ export function Reservations() {
       </Header>
 
       <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
+        {/* Ligne 1 : recherche (s'étire sur l'espace dispo) + tri / bascule de vue / création (droite) */}
         <div className='flex flex-wrap items-center gap-2'>
           <Input
             placeholder='Rechercher par contact, type, restaurant...'
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className='h-8 w-full sm:w-[200px] lg:w-[250px]'
+            className='h-8 min-w-[180px] flex-1'
           />
-          <div className='flex flex-wrap gap-2'>
-            {(mainView === 'list' || mainView === 'pipeline') && (
-              <>
-                <DateFilter
-                  value={dateRange}
-                  onChange={(range) =>
-                    setSearch({
-                      from: range?.from ? range.from.toISOString() : undefined,
-                      to: range?.to ? range.to.toISOString() : undefined,
-                    })
-                  }
-                  placeholder="Date d'événement"
-                />
-                <DateFilter
-                  value={signDateRange}
-                  onChange={(range) =>
-                    setSearch({
-                      fromSign: toIso(range?.from),
-                      toSign: toIso(range?.to),
-                    })
-                  }
-                  placeholder='Date de signature'
-                />
-                <DateFilter
-                  value={importDateRange}
-                  onChange={(range) =>
-                    setSearch({
-                      fromImport: toIso(range?.from),
-                      toImport: toIso(range?.to),
-                    })
-                  }
-                  placeholder="Date d'import"
-                />
-              </>
-            )}
-            <FacetedFilter
-              title='Commercial'
-              options={users.map((u) => ({
-                label: `${u.first_name} ${u.last_name}`,
-                value: u.id,
-              }))}
-              selected={selectedCommercials}
-              onSelectionChange={(set) =>
-                setSearch({
-                  commercial: set.size ? Array.from(set).join(',') : undefined,
-                })
-              }
-            />
-            <FacetedFilter
-              title='Restaurant'
-              options={restaurants.map((r) => ({ label: r.name, value: r.id }))}
-              selected={selectedRestaurants}
-              onSelectionChange={(set) =>
-                setSearch({
-                  restaurant: set.size ? Array.from(set).join(',') : undefined,
-                })
-              }
-            />
-            <FacetedFilter
-              title='Statut'
-              options={statuses.map((s) => ({ label: s.name, value: s.slug }))}
-              selected={selectedStatuses}
-              onSelectionChange={(set) =>
-                setSearch({
-                  status: set.size ? Array.from(set).join(',') : undefined,
-                })
-              }
-            />
-          </div>
-          {hasActiveFilters && (
-            <Button
-              variant='ghost'
-              onClick={onResetFilters}
-              className='h-8 px-2 lg:px-3'
-            >
-              Reset
-              <Cross2Icon className='ms-2 h-4 w-4' />
-            </Button>
-          )}
-          <div className='ml-auto flex items-center gap-2'>
+          <div className='flex items-center gap-2'>
             {mainView === 'list' && (
               <SortSelect
                 options={eventSortOptions}
@@ -379,26 +322,23 @@ export function Reservations() {
               <ToggleGroupItem
                 value='calendar'
                 aria-label='Vue calendrier'
-                className='gap-1.5 px-2'
+                className='h-8 w-8 px-0'
               >
                 <CalendarIcon className='h-4 w-4' />
-                <span className='hidden text-xs sm:inline'>Calendrier</span>
               </ToggleGroupItem>
               <ToggleGroupItem
                 value='list'
                 aria-label='Vue liste'
-                className='gap-1.5 px-2'
+                className='h-8 w-8 px-0'
               >
                 <List className='h-4 w-4' />
-                <span className='hidden text-xs sm:inline'>Liste</span>
               </ToggleGroupItem>
               <ToggleGroupItem
                 value='pipeline'
                 aria-label='Vue pipeline'
-                className='gap-1.5 px-2'
+                className='h-8 w-8 px-0'
               >
                 <Columns3 className='h-4 w-4' />
-                <span className='hidden text-xs sm:inline'>Pipeline</span>
               </ToggleGroupItem>
             </ToggleGroup>
             <CreateBookingDialog
@@ -407,6 +347,83 @@ export function Reservations() {
               defaultDate={bookingDialogDate}
             />
           </div>
+        </div>
+
+        {/* Ligne 2 : tous les filtres en dessous, communs aux 3 vues */}
+        <div className='flex flex-wrap items-center gap-2'>
+          <DateFilter
+            value={dateRange}
+            onChange={(range) =>
+              setSearch({
+                from: range?.from ? range.from.toISOString() : undefined,
+                to: range?.to ? range.to.toISOString() : undefined,
+              })
+            }
+            placeholder="Date d'événement"
+          />
+          <DateFilter
+            value={signDateRange}
+            onChange={(range) =>
+              setSearch({
+                fromSign: toIso(range?.from),
+                toSign: toIso(range?.to),
+              })
+            }
+            placeholder='Date de signature'
+          />
+          <DateFilter
+            value={importDateRange}
+            onChange={(range) =>
+              setSearch({
+                fromImport: toIso(range?.from),
+                toImport: toIso(range?.to),
+              })
+            }
+            placeholder="Date d'import"
+          />
+          <FacetedFilter
+            title='Commercial'
+            options={users.map((u) => ({
+              label: `${u.first_name} ${u.last_name}`,
+              value: u.id,
+            }))}
+            selected={selectedCommercials}
+            onSelectionChange={(set) =>
+              setSearch({
+                commercial: set.size ? Array.from(set).join(',') : undefined,
+              })
+            }
+          />
+          <FacetedFilter
+            title='Restaurant'
+            options={restaurants.map((r) => ({ label: r.name, value: r.id }))}
+            selected={selectedRestaurants}
+            onSelectionChange={(set) =>
+              setSearch({
+                restaurant: set.size ? Array.from(set).join(',') : undefined,
+              })
+            }
+          />
+          <FacetedFilter
+            title='Statut'
+            options={statuses.map((s) => ({ label: s.name, value: s.slug }))}
+            selected={selectedStatuses}
+            onSelectionChange={(set) =>
+              setSearch({
+                status: set.size ? Array.from(set).join(',') : undefined,
+              })
+            }
+          />
+          {hasActiveFilters && (
+            <Button
+              variant='ghost'
+              onClick={onResetFilters}
+              className='h-8 px-2 lg:px-3'
+            >
+              Reset
+              <Cross2Icon className='ms-2 h-4 w-4' />
+            </Button>
+          )}
         </div>
 
         {mainView === 'list' && (

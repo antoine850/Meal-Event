@@ -206,84 +206,91 @@ function MonthView({
   }
 
   return (
-    <div className='flex h-full flex-col'>
-      {/* Header */}
-      <div className='grid grid-cols-7 border-b'>
-        {dayNames.full.map((day, i) => (
-          <div
-            key={day}
-            className='border-r p-1 text-center text-xs font-medium text-muted-foreground last:border-r-0 sm:p-2 sm:text-sm'
-          >
-            <span className='hidden sm:inline'>{day}</span>
-            <span className='sm:hidden'>{dayNames.short[i]}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Days Grid - Full Height */}
-      <div
-        className='grid flex-1 grid-cols-7 grid-rows-[repeat(var(--weeks),1fr)]'
-        style={{ '--weeks': numWeeks } as React.CSSProperties}
-      >
-        {days.map((day) => {
-          const dayReservations = (
-            reservationsByDate.get(day.toDateString()) || []
-          ).sort((a, b) => a.startTime.localeCompare(b.startTime))
-          const isCurrentMonth = isSameMonth(day, currentDate)
-          const isToday = isSameDay(day, today)
-
-          return (
+    <ScrollArea className='h-full'>
+      <div className='flex min-h-full flex-col'>
+        {/* Header */}
+        <div className='sticky top-0 z-10 grid grid-cols-7 border-b bg-card'>
+          {dayNames.full.map((day, i) => (
             <div
-              key={day.toISOString()}
-              onClick={() => onAddReservation?.(day)}
-              className={cn(
-                'min-h-[60px] cursor-pointer overflow-hidden border-r border-b p-0.5 transition-colors last:border-r-0 hover:bg-muted/50 sm:min-h-0 sm:p-1',
-                !isCurrentMonth && 'bg-muted/30',
-                isToday && 'bg-primary/5'
-              )}
+              key={day}
+              className='border-r p-1 text-center text-xs font-medium text-muted-foreground last:border-r-0 sm:p-2 sm:text-sm'
             >
-              {/* Day Number */}
-              <div className='mb-0.5 flex items-center justify-between sm:mb-1'>
-                <div
-                  className={cn(
-                    'flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium sm:h-7 sm:w-7 sm:text-sm',
-                    isToday && 'bg-primary text-primary-foreground'
-                  )}
-                >
-                  {format(day, 'd')}
-                </div>
-                {dayReservations.length > 0 && (
-                  <span className='text-[10px] text-muted-foreground sm:text-xs'>
-                    <span className='hidden sm:inline'>
-                      {dayReservations.length} rés.
-                    </span>
-                    <span className='sm:hidden'>{dayReservations.length}</span>
-                  </span>
-                )}
-              </div>
+              <span className='hidden sm:inline'>{day}</span>
+              <span className='sm:hidden'>{dayNames.short[i]}</span>
+            </div>
+          ))}
+        </div>
 
-              {/* Reservations - Mobile: dots, Desktop: cards */}
-              <div className='flex flex-wrap gap-0.5 sm:hidden'>
-                {dayReservations.slice(0, 4).map((reservation) => (
+        {/* Days Grid — chaque ligne de semaine prend une hauteur auto
+            (= la cellule la plus haute de la semaine, avec un plancher
+            de 120px pour les semaines vides). Plus de scroll interne au
+            sein d'un jour : tout s'affiche, le ScrollArea parent prend
+            le relais si la grille dépasse l'écran. */}
+        <div
+          className='grid flex-1 grid-cols-7 sm:grid-rows-[repeat(var(--weeks),minmax(120px,auto))]'
+          style={{ '--weeks': numWeeks } as React.CSSProperties}
+        >
+          {days.map((day) => {
+            const dayReservations = (
+              reservationsByDate.get(day.toDateString()) || []
+            ).sort((a, b) => a.startTime.localeCompare(b.startTime))
+            const isCurrentMonth = isSameMonth(day, currentDate)
+            const isToday = isSameDay(day, today)
+
+            return (
+              <div
+                key={day.toISOString()}
+                onClick={() => onAddReservation?.(day)}
+                className={cn(
+                  'min-h-[60px] cursor-pointer border-r border-b p-0.5 transition-colors last:border-r-0 hover:bg-muted/50 sm:min-h-0 sm:p-1',
+                  !isCurrentMonth && 'bg-muted/30',
+                  isToday && 'bg-primary/5'
+                )}
+              >
+                {/* Day Number */}
+                <div className='mb-0.5 flex items-center justify-between sm:mb-1'>
                   <div
-                    key={reservation.id}
-                    className='h-2 w-2 rounded-full'
-                    style={{ backgroundColor: reservation.restaurant.color }}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onReservationClick?.(reservation)
-                    }}
-                  />
-                ))}
-                {dayReservations.length > 4 && (
-                  <span className='text-[8px] text-muted-foreground'>
-                    +{dayReservations.length - 4}
-                  </span>
-                )}
-              </div>
+                    className={cn(
+                      'flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium sm:h-7 sm:w-7 sm:text-sm',
+                      isToday && 'bg-primary text-primary-foreground'
+                    )}
+                  >
+                    {format(day, 'd')}
+                  </div>
+                  {dayReservations.length > 0 && (
+                    <span className='text-[10px] text-muted-foreground sm:text-xs'>
+                      <span className='hidden sm:inline'>
+                        {dayReservations.length} rés.
+                      </span>
+                      <span className='sm:hidden'>
+                        {dayReservations.length}
+                      </span>
+                    </span>
+                  )}
+                </div>
 
-              <ScrollArea className='hidden h-[calc(100%-32px)] sm:block'>
-                <div className='space-y-1 pr-2'>
+                {/* Mobile : pastilles compactes */}
+                <div className='flex flex-wrap gap-0.5 sm:hidden'>
+                  {dayReservations.slice(0, 4).map((reservation) => (
+                    <div
+                      key={reservation.id}
+                      className='h-2 w-2 rounded-full'
+                      style={{ backgroundColor: reservation.restaurant.color }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onReservationClick?.(reservation)
+                      }}
+                    />
+                  ))}
+                  {dayReservations.length > 4 && (
+                    <span className='text-[8px] text-muted-foreground'>
+                      +{dayReservations.length - 4}
+                    </span>
+                  )}
+                </div>
+
+                {/* Desktop : toutes les cartes, hauteur libre */}
+                <div className='hidden space-y-1 sm:block'>
                   {dayReservations.map((reservation) => (
                     <ReservationCard
                       key={reservation.id}
@@ -292,12 +299,12 @@ function MonthView({
                     />
                   ))}
                 </div>
-              </ScrollArea>
-            </div>
-          )
-        })}
+              </div>
+            )
+          })}
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   )
 }
 
@@ -363,7 +370,10 @@ function WeekView({
                   {dayReservations.length} rés.
                 </div>
               </div>
-              <div className='space-y-1 sm:max-h-[250px] sm:overflow-y-auto'>
+              {/* Pas de max-height ni de scroll interne : la colonne grandit
+                  selon le nb d'événements. Le scroll global de la semaine
+                  (ScrollArea parent) prend le relais si besoin. */}
+              <div className='space-y-1'>
                 {dayReservations
                   .sort((a, b) => a.startTime.localeCompare(b.startTime))
                   .map((reservation) => (
@@ -457,59 +467,67 @@ function DayView({
         </div>
       </Card>
 
-      {/* Reservations List */}
-      <Card className='p-4 lg:order-1'>
-        <h3 className='mb-4 font-medium'>
+      {/* Reservations List — colonne étroite (200px), cartes compactes
+          pour que tout (nom, email, horaire, restaurant, type, montant) reste
+          visible sans truncation au-delà du conteneur. */}
+      <Card className='p-3 lg:order-1'>
+        <h3 className='mb-3 text-xs font-semibold text-muted-foreground uppercase'>
           Événements du jour ({dayReservations.length})
         </h3>
         <ScrollArea className='h-[500px]'>
-          <div className='space-y-3'>
+          <div className='space-y-2 pr-2'>
             {dayReservations.map((reservation) => (
               <Link
                 key={reservation.id}
                 to='/evenements/booking/$id'
                 params={{ id: reservation.id }}
-                className='block cursor-pointer rounded-lg border p-3 transition-all hover:shadow-md hover:ring-2 hover:ring-primary/30'
+                className='block cursor-pointer rounded-md border bg-card p-2 transition-all hover:shadow-md hover:ring-2 hover:ring-primary/30'
                 style={{
                   borderLeftColor: reservation.restaurant.color,
-                  borderLeftWidth: 4,
+                  borderLeftWidth: 3,
                 }}
               >
-                <div className='flex items-start justify-between'>
-                  <div>
-                    <div className='font-medium'>{reservation.clientName}</div>
-                    <div className='text-sm text-muted-foreground'>
-                      {reservation.clientEmail}
-                    </div>
+                {/* Ligne 1 : nom (tronqué) + horaire à droite */}
+                <div className='flex items-baseline justify-between gap-1.5'>
+                  <div className='min-w-0 flex-1 truncate text-xs font-semibold'>
+                    {reservation.clientName}
                   </div>
-                  <div className='text-right'>
-                    <div className='font-medium'>
-                      {reservation.startTime} - {reservation.endTime}
-                    </div>
-                    <div className='text-sm text-muted-foreground'>
-                      {reservation.guests} personnes
-                    </div>
+                  <div className='shrink-0 text-[10px] font-medium text-muted-foreground tabular-nums'>
+                    {reservation.startTime}–{reservation.endTime}
                   </div>
                 </div>
-                <div className='mt-2 flex items-center gap-2 text-sm'>
+                {/* Email tronqué */}
+                {reservation.clientEmail && (
+                  <div className='truncate text-[10px] text-muted-foreground'>
+                    {reservation.clientEmail}
+                  </div>
+                )}
+                {/* Ligne 2 : badge restaurant + nb pers */}
+                <div className='mt-1.5 flex items-center gap-1.5'>
                   <span
-                    className='rounded px-2 py-0.5 text-xs text-white'
+                    className='truncate rounded px-1.5 py-px text-[9px] font-medium text-white'
                     style={{ backgroundColor: reservation.restaurant.color }}
                   >
                     {reservation.restaurant.name}
                   </span>
-                  <span className='text-muted-foreground'>
+                  <span className='shrink-0 text-[10px] text-muted-foreground'>
+                    {reservation.guests} pers.
+                  </span>
+                </div>
+                {/* Ligne 3 : type d'événement + montant */}
+                <div className='mt-0.5 flex items-baseline justify-between gap-1.5 text-[10px]'>
+                  <span className='truncate text-muted-foreground'>
                     {reservation.eventType}
                   </span>
-                  <span className='ml-auto font-medium'>
+                  <span className='shrink-0 font-medium tabular-nums'>
                     {reservation.amountHT.toLocaleString('fr-FR')} € HT
                   </span>
                 </div>
               </Link>
             ))}
             {dayReservations.length === 0 && (
-              <div className='py-8 text-center text-muted-foreground'>
-                Aucun événement pour cette journée
+              <div className='py-6 text-center text-xs text-muted-foreground'>
+                Aucun événement
               </div>
             )}
           </div>
@@ -625,25 +643,6 @@ export function CalendarView({
           {getTitle()}
         </h2>
         <div className='hidden items-center gap-3 sm:flex'>
-          {/* Restaurant legend */}
-          <div className='flex items-center gap-2 overflow-x-auto'>
-            {Array.from(
-              new Map(
-                reservations.map((r) => [r.restaurant.id, r.restaurant])
-              ).values()
-            ).map((restaurant) => (
-              <div
-                key={restaurant.id}
-                className='flex shrink-0 items-center gap-1 text-xs'
-              >
-                <div
-                  className='h-2 w-2 rounded sm:h-3 sm:w-3'
-                  style={{ backgroundColor: restaurant.color }}
-                />
-                <span className='hidden md:inline'>{restaurant.name}</span>
-              </div>
-            ))}
-          </div>
           {/* Calendar mode selector - Desktop */}
           {onViewModeChange && (
             <ToggleGroup
@@ -681,8 +680,17 @@ export function CalendarView({
         </div>
       </div>
 
-      {/* Calendar - Full Height */}
-      <div className='min-h-0 flex-1 overflow-hidden sm:rounded-lg sm:border'>
+      {/* Calendar - Full Height.
+          Border/rounded uniquement pour la vue Mois (qui s'appuie sur le
+          wrapper pour les bordures haut/gauche de la grille).
+          En vue Semaine, chaque jour a déjà sa propre carte → on évite
+          la double bordure. En vue Jour, le <Card> interne suffit. */}
+      <div
+        className={cn(
+          'min-h-0 flex-1 overflow-hidden',
+          viewMode === 'month' && 'sm:rounded-lg sm:border'
+        )}
+      >
         {viewMode === 'month' && (
           <MonthView
             currentDate={currentDate}
@@ -706,6 +714,32 @@ export function CalendarView({
           />
         )}
       </div>
+
+      {/* Restaurant legend - affichée sous la grille pour ne pas être tronquée
+          par le header dense quand la fenêtre est étroite */}
+      {reservations.length > 0 && (
+        <div className='flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t bg-muted/30 px-3 py-2'>
+          <span className='text-xs font-medium text-muted-foreground'>
+            Légende :
+          </span>
+          {Array.from(
+            new Map(
+              reservations.map((r) => [r.restaurant.id, r.restaurant])
+            ).values()
+          ).map((restaurant) => (
+            <div
+              key={restaurant.id}
+              className='flex shrink-0 items-center gap-1.5 text-xs'
+            >
+              <div
+                className='h-3 w-3 rounded'
+                style={{ backgroundColor: restaurant.color }}
+              />
+              <span>{restaurant.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

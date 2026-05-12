@@ -4,7 +4,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select'
 
 export type SortOption = {
@@ -21,9 +20,12 @@ type SortSelectProps = {
 export function SortSelect({ options, value, onChange }: SortSelectProps) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className='h-8 w-auto min-w-[160px] gap-2 text-xs'>
+      {/* Libellé figé "Trier" : on n'affiche pas l'option courante dans
+          le bouton pour garder une largeur compacte. L'option sélectionnée
+          reste visible (highlight) dans le menu déroulant. */}
+      <SelectTrigger className='h-8 w-auto gap-1.5 text-xs' aria-label='Trier'>
         <ArrowDownUp className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
-        <SelectValue placeholder='Trier par...' />
+        <span>Trier</span>
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (
