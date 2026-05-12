@@ -1,4 +1,5 @@
 import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces'
+import { readFileSync } from 'fs'
 import { supabase } from './supabase.js'
 import { formatEuroWhole, formatEuroDecimal } from './quote-rounding.js'
 
@@ -6,13 +7,23 @@ import { formatEuroWhole, formatEuroDecimal } from './quote-rounding.js'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PdfPrinter = require('pdfmake')
 
-// ── Fonts (use standard fonts that don't require external files) ──
+// ── Fonts : Roboto via @fontsource/roboto ──
+// Roboto couvre tout Unicode Latin : accents français (é,è,ô…),
+// guillemets typographiques («»,"",''…), symbole €, etc.
+// Contrairement à Helvetica (police PDF standard), Roboto est embedée
+// dans le PDF et rend correctement tous ces caractères.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+function robotoFile(name: string): Buffer {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return readFileSync(require.resolve(`@fontsource/roboto/files/${name}`))
+}
+
 const fonts = {
-  Helvetica: {
-    normal: 'Helvetica',
-    bold: 'Helvetica-Bold',
-    italics: 'Helvetica-Oblique',
-    bolditalics: 'Helvetica-BoldOblique',
+  Roboto: {
+    normal:      robotoFile('roboto-latin-400-normal.woff'),
+    bold:        robotoFile('roboto-latin-700-normal.woff'),
+    italics:     robotoFile('roboto-latin-400-italic.woff'),
+    bolditalics: robotoFile('roboto-latin-700-italic.woff'),
   },
 }
 
@@ -988,7 +999,7 @@ function buildDocDefinition(
       margin: [30, 0, 30, 10] as [number, number, number, number],
     },
     defaultStyle: {
-      font: 'Helvetica',
+      font: 'Roboto',
       fontSize: 9,
       lineHeight: 1.35,
     },
