@@ -71,12 +71,6 @@ function formatHorairesGlobal(
   }
 }
 
-function formatBool(v: boolean | null | undefined): string {
-  if (v === true) return 'Oui'
-  if (v === false) return 'Non'
-  return DASH
-}
-
 function formatDate(v: string | null | undefined): string {
   if (!v) return DASH
   try {
@@ -601,89 +595,6 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
             </CardContent>
           </Card>
         </div>
-
-        {/* Type & format de l'événement */}
-        <Card className='gap-1 py-2 print:border-0 print:bg-white print:shadow-none'>
-          <CardHeader className='px-3 pt-0 pb-0'>
-            <CardTitle className='text-[11px] font-semibold tracking-wide text-muted-foreground uppercase'>
-              Type & format
-            </CardTitle>
-          </CardHeader>
-          <CardContent className='px-3 pt-0 pb-0'>
-            <div className='grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2'>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Type d&apos;événement
-                </div>
-                <div className='font-medium'>{booking.event_type || DASH}</div>
-              </div>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Type de réservation
-                </div>
-                <div className='font-medium'>
-                  {booking.reservation_type || DASH}
-                </div>
-              </div>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Privatif
-                </div>
-                <div className='font-medium'>
-                  {formatBool(booking.is_privatif)}
-                </div>
-              </div>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Format souhaité
-                </div>
-                <div className='font-medium'>
-                  {booking.format_souhaite || DASH}
-                </div>
-              </div>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Heure préférée client
-                </div>
-                <div className='font-medium'>
-                  {booking.client_preferred_time || DASH}
-                </div>
-              </div>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Date flexible
-                </div>
-                <div className='font-medium'>
-                  {formatBool(booking.is_date_flexible)}
-                </div>
-              </div>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Restaurant flexible
-                </div>
-                <div className='font-medium'>
-                  {formatBool(booking.is_restaurant_flexible)}
-                </div>
-              </div>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Table bloquée
-                </div>
-                <div className='font-medium'>
-                  {formatBool(booking.is_table_blocked)}
-                </div>
-              </div>
-              <div className='space-y-0.5'>
-                <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
-                  Prestataire externe
-                </div>
-                <div className='font-medium'>
-                  {formatBool(booking.has_extra_provider)}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Mise en place */}
         <Card className='gap-1 py-2 print:border-0 print:bg-white print:shadow-none'>
