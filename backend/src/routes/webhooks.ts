@@ -186,10 +186,10 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
     let receiptUrl: string | null = null
     if (session.payment_intent) {
       try {
-        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, stripeRequestOptions(eventAccount ?? null) ?? {})
+        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, stripeRequestOptions(eventAccount ?? null))
         // Get the latest charge to find receipt URL
         if (paymentIntent.latest_charge) {
-          const charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string, stripeRequestOptions(eventAccount ?? null) ?? {})
+          const charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string, stripeRequestOptions(eventAccount ?? null))
           receiptUrl = charge.receipt_url || null
           console.log(`[Stripe] Receipt URL: ${receiptUrl}`)
         }
@@ -390,7 +390,7 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
     let receiptUrl: string | null = null
     if (invoice.charge) {
       try {
-        const charge = await stripe.charges.retrieve(invoice.charge as string, stripeRequestOptions(eventAccount ?? null) ?? {})
+        const charge = await stripe.charges.retrieve(invoice.charge as string, stripeRequestOptions(eventAccount ?? null))
         receiptUrl = charge.receipt_url || null
         console.log(`[Stripe Invoice] Receipt URL: ${receiptUrl}`)
       } catch (err) {
@@ -552,7 +552,7 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent, eventAcc
       const sessions = await stripe.checkout.sessions.list({
         payment_intent: paymentIntent.id,
         limit: 1,
-      }, stripeRequestOptions(eventAccount ?? null) ?? {})
+      }, stripeRequestOptions(eventAccount ?? null))
       const session = sessions.data[0]
       if (session?.metadata) {
         bookingId = session.metadata.booking_id
@@ -962,7 +962,7 @@ async function autoSendDepositAfterSignature(quoteId: string) {
           restaurant_id: restaurant?.id || '',
         },
         description: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
-      }, stripeOpts ?? {})
+      }, stripeOpts)
 
       await stripe.invoiceItems.create({
         invoice: invoice.id,
@@ -970,9 +970,9 @@ async function autoSendDepositAfterSignature(quoteId: string) {
         amount: Math.round(depositAmount * 100),
         currency: 'eur',
         description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
-      }, stripeOpts ?? {})
+      }, stripeOpts)
 
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, undefined, stripeOpts ?? {})
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, undefined, stripeOpts)
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
 
