@@ -1,6 +1,7 @@
-import { Fragment, useMemo, useRef } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { toast } from 'sonner'
 import type { Quote, QuoteItem, Payment } from '@/lib/supabase/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,8 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
-import type { BookingWithRelations } from '../hooks/use-bookings'
+import {
+  type BookingWithRelations,
+  useUpdateBooking,
+} from '../hooks/use-bookings'
 import {
   computeVatBreakdown,
   formatBookingId,
@@ -178,6 +183,23 @@ function ItemsTable({ title, items }: { title: string; items: QuoteItem[] }) {
 export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
   const printRef = useRef<HTMLDivElement>(null)
   const { data: orgUsers = [] } = useOrganizationUsers()
+  const { mutate: updateBooking } = useUpdateBooking()
+
+  // Édition inline du commentaire facturation : état local, save on blur,
+  // resync si la valeur change côté DB (ex. autre tab/onglet édite le booking).
+  const [billingNotes, setBillingNotes] = useState(booking.internal_notes || '')
+  useEffect(() => {
+    setBillingNotes(booking.internal_notes || '')
+  }, [booking.internal_notes])
+
+  const saveBillingNotes = () => {
+    const next = billingNotes.trim() || null
+    const current = booking.internal_notes || null
+    if (next === current) return
+    updateBooking({ id: booking.id, internal_notes: next } as never, {
+      onError: () => toast.error('Erreur lors de la sauvegarde'),
+    })
+  }
 
   const activeQuote = useMemo(
     () => getActiveQuote(quotes) as QuoteWithItems | null,
@@ -564,13 +586,22 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           </>
         )}
 
-        {/* Commentaires facturation */}
+        {/* Commentaires facturation — éditable inline (save on blur).
+            En print, on remplace le Textarea par le texte brut pour rester
+            propre à l'export PDF. */}
         <Card className='gap-1 py-2 print:border-0 print:bg-white print:shadow-none'>
-          <CardContent className='space-y-0.5 px-3 py-0'>
+          <CardContent className='space-y-1 px-3 py-0'>
             <div className='text-[10px] tracking-wide text-muted-foreground uppercase'>
               Commentaires facturation
             </div>
-            <p className='text-xs whitespace-pre-wrap'>
+            <Textarea
+              value={billingNotes}
+              onChange={(e) => setBillingNotes(e.target.value)}
+              onBlur={saveBillingNotes}
+              placeholder='Ajouter un commentaire de facturation…'
+              className='min-h-[60px] resize-y border-dashed text-xs print:hidden'
+            />
+            <p className='hidden text-xs whitespace-pre-wrap print:block'>
               {booking.internal_notes || DASH}
             </p>
           </CardContent>
