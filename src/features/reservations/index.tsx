@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { type SortingState } from '@tanstack/react-table'
@@ -90,33 +90,40 @@ export function Reservations() {
     [sortValue]
   )
 
-  // Recherche : input local + debounce pour ne pas mettre à jour l'URL à chaque frappe
+  // Recherche : input local + debounce pour ne pas mettre à jour l'URL à chaque frappe.
+  // On retient la dernière valeur qu'on a poussée dans l'URL pour distinguer
+  // un changement "à nous" (qu'on ignore) d'un changement externe (back/forward,
+  // lien partagé) qui doit, lui, resynchroniser l'input.
   const [searchInput, setSearchInput] = useState(searchValue)
-  const debouncedSearch = useDebouncedValue(searchInput, 150)
-  // Sync input ← URL quand l'URL change de manière externe (back/forward, lien partagé)
-  useEffect(() => {
-    setSearchInput((prev) => (prev === searchValue ? prev : searchValue))
-  }, [searchValue])
+  const debouncedSearch = useDebouncedValue(searchInput)
+  const lastSyncedSearchRef = useRef(searchValue)
   // Sync URL ← input débouncé
   useEffect(() => {
-    if (debouncedSearch !== searchValue) {
-      navigate({
-        search: (prev: Record<string, unknown>) => {
-          const next = { ...prev, q: debouncedSearch || undefined } as Record<
-            string,
-            unknown
-          >
-          Object.keys(next).forEach((k) => {
-            if (next[k] === undefined || next[k] === '') delete next[k]
-          })
-          return next
-        },
-        replace: true,
-      })
-    }
-    // Ne dépend que du debouncedSearch pour éviter une boucle
+    if (debouncedSearch === lastSyncedSearchRef.current) return
+    lastSyncedSearchRef.current = debouncedSearch
+    navigate({
+      search: (prev: Record<string, unknown>) => {
+        const next = { ...prev, q: debouncedSearch || undefined } as Record<
+          string,
+          unknown
+        >
+        Object.keys(next).forEach((k) => {
+          if (next[k] === undefined || next[k] === '') delete next[k]
+        })
+        return next
+      },
+      replace: true,
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch])
+  // Sync input ← URL UNIQUEMENT si le changement vient de l'extérieur
+  // (back/forward, lien partagé). Évite d'écraser une frappe en cours
+  // quand l'URL se met à jour à cause de notre propre navigate().
+  useEffect(() => {
+    if (searchValue === lastSyncedSearchRef.current) return
+    lastSyncedSearchRef.current = searchValue
+    setSearchInput(searchValue)
+  }, [searchValue])
 
   const eventSortOptions = [
     { label: 'Date de création (récent)', value: 'created_at:desc' },
