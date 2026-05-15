@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { format } from 'date-fns'
 import {
   type ColumnDef,
@@ -103,6 +104,7 @@ export function MenusPage() {
   // Filter
   const [restaurantFilter, setRestaurantFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([])
@@ -211,8 +213,8 @@ export function MenusPage() {
     if (restaurantFilter !== 'all') {
       result = result.filter((f) => f.restaurant_id === restaurantFilter)
     }
-    if (search) {
-      const q = search.toLowerCase()
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter(
         (f) =>
           f.title.toLowerCase().includes(q) ||
@@ -220,7 +222,7 @@ export function MenusPage() {
       )
     }
     return result
-  }, [menuForms, restaurantFilter, search])
+  }, [menuForms, restaurantFilter, debouncedSearch])
 
   const columns = useMemo<ColumnDef<MenuFormWithFields>[]>(
     () => [

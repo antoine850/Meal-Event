@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Cross2Icon as RadixCross2Icon } from '@radix-ui/react-icons'
 import {
   type ColumnDef,
@@ -131,6 +132,7 @@ export function MembersSettings() {
   } | null>(null)
   const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null)
   const [searchValue, setSearchValue] = useState('')
+  const debouncedSearchValue = useDebouncedValue(searchValue)
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set())
   const [selectedRestaurants, setSelectedRestaurants] = useState<Set<string>>(
     new Set()
@@ -188,8 +190,8 @@ export function MembersSettings() {
   const filteredRows = useMemo(() => {
     let result = allRows
 
-    if (searchValue) {
-      const q = searchValue.toLowerCase()
+    if (debouncedSearchValue) {
+      const q = debouncedSearchValue.toLowerCase()
       result = result.filter(
         (r) =>
           r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
@@ -213,7 +215,7 @@ export function MembersSettings() {
     return result
   }, [
     allRows,
-    searchValue,
+    debouncedSearchValue,
     selectedRoles,
     selectedRestaurants,
     selectedStatuses,

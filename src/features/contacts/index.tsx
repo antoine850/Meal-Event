@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from 'react'
+import { useEffect, useMemo, useCallback, useState } from 'react'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { type SortingState } from '@tanstack/react-table'
@@ -56,11 +56,6 @@ export function Contacts() {
     [setSearch]
   )
 
-  const onSearchChange = useCallback(
-    (value: string) => setSearch({ q: value || undefined }),
-    [setSearch]
-  )
-
   const onResetFilters = useCallback(() => {
     setSearchValue('')
     setSelectedCommercials(new Set())
@@ -72,9 +67,15 @@ export function Contacts() {
     })
   }, [navigate])
 
+  // Input local immédiat ; le filtrage et la sync URL utilisent la valeur débouncée
+  // pour ne pas re-render toute la page à chaque frappe.
   const [searchValue, setSearchValue] = useState(search.q || '')
-  // Valeur débouncée utilisée pour le filtrage effectif (évite un re-render par frappe sur gros volume)
-  const debouncedSearchValue = useDebouncedValue(searchValue, 150)
+  const debouncedSearchValue = useDebouncedValue(searchValue)
+  useEffect(() => {
+    if ((debouncedSearchValue || '') === (search.q || '')) return
+    setSearch({ q: debouncedSearchValue || undefined })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchValue])
 
   const [selectedCommercials, setSelectedCommercials] = useState<Set<string>>(
     new Set()
@@ -202,10 +203,7 @@ export function Contacts() {
           <Input
             placeholder='Rechercher par nom, contact ou email...'
             value={searchValue}
-            onChange={(e) => {
-              setSearchValue(e.target.value)
-              onSearchChange(e.target.value)
-            }}
+            onChange={(e) => setSearchValue(e.target.value)}
             className='h-8 w-full sm:w-[200px] lg:w-[250px]'
           />
           <div className='flex flex-wrap gap-2'>

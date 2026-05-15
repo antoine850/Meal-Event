@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ColumnFiltersState,
   OnChangeFn,
   PaginationState,
 } from '@tanstack/react-table'
+import { useDebouncedValue } from './use-debounced-value'
 
 type SearchRecord = Record<string, unknown>
 
@@ -28,6 +29,7 @@ type UseTableUrlStateParams = {
     enabled?: boolean
     key?: string
     trim?: boolean
+    debounceMs?: number
   }
   columnFilters?: Array<
     | {
@@ -84,6 +86,7 @@ export function useTableUrlState(
   const globalFilterKey = globalFilterCfg?.key ?? ('filter' as string)
   const globalFilterEnabled = globalFilterCfg?.enabled ?? true
   const trimGlobal = globalFilterCfg?.trim ?? true
+  const globalFilterDebounceMs = globalFilterCfg?.debounceMs ?? 200
 
   // Build initial column filters from the current search params
   const initialColumnFilters: ColumnFiltersState = useMemo(() => {
@@ -139,6 +142,34 @@ export function useTableUrlState(
     return typeof raw === 'string' ? raw : ''
   })
 
+  // L'input se met à jour immédiatement (state local), mais l'URL n'est
+  // synchronisée qu'après une pause de saisie : évite de re-render toute
+  // la page (et donc de re-fetch les queries) à chaque frappe.
+  const debouncedGlobalFilter = useDebouncedValue(
+    globalFilter ?? '',
+    globalFilterDebounceMs
+  )
+  const skipFirstSyncRef = useRef(true)
+  useEffect(() => {
+    if (!globalFilterEnabled) return
+    if (skipFirstSyncRef.current) {
+      skipFirstSyncRef.current = false
+      return
+    }
+    const value = trimGlobal
+      ? debouncedGlobalFilter.trim()
+      : debouncedGlobalFilter
+    navigate({
+      search: (prev) => ({
+        ...(prev as SearchRecord),
+        [pageKey]: undefined,
+        [globalFilterKey]: value ? value : undefined,
+      }),
+    })
+    // navigate/pageKey/globalFilterKey/trimGlobal sont stables pour la vie du hook
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedGlobalFilter, globalFilterEnabled])
+
   const onGlobalFilterChange: OnChangeFn<string> | undefined =
     globalFilterEnabled
       ? (updater) => {
@@ -148,13 +179,6 @@ export function useTableUrlState(
               : updater
           const value = trimGlobal ? next.trim() : next
           setGlobalFilter(value)
-          navigate({
-            search: (prev) => ({
-              ...(prev as SearchRecord),
-              [pageKey]: undefined,
-              [globalFilterKey]: value ? value : undefined,
-            }),
-          })
         }
       : undefined
 

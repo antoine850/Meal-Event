@@ -1,6 +1,7 @@
-import { type ChangeEvent, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { SlidersHorizontal, ArrowUpAZ, ArrowDownAZ } from 'lucide-react'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -39,6 +40,17 @@ export function Apps() {
   const [sort, setSort] = useState(initSort)
   const [appType, setAppType] = useState(type)
   const [searchTerm, setSearchTerm] = useState(filter)
+  const debouncedSearchTerm = useDebouncedValue(searchTerm)
+  useEffect(() => {
+    if ((debouncedSearchTerm || '') === (filter || '')) return
+    navigate({
+      search: (prev) => ({
+        ...prev,
+        filter: debouncedSearchTerm || undefined,
+      }),
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm])
 
   const filteredApps = apps
     .sort((a, b) =>
@@ -54,16 +66,6 @@ export function Apps() {
           : true
     )
     .filter((app) => app.name.toLowerCase().includes(searchTerm.toLowerCase()))
-
-  const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value)
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        filter: e.target.value || undefined,
-      }),
-    })
-  }
 
   const handleTypeChange = (value: AppType) => {
     setAppType(value)
@@ -103,7 +105,7 @@ export function Apps() {
               placeholder='Filter apps...'
               className='h-9 w-40 lg:w-[250px]'
               value={searchTerm}
-              onChange={handleSearch}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
             <Select value={appType} onValueChange={handleTypeChange}>
               <SelectTrigger className='w-36'>
