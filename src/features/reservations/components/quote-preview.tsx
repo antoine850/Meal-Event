@@ -483,6 +483,19 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   }) {
     return deriveLineHt(computeItemTtc(item), item.tva_rate ?? 20)
   }
+  function computeItemDiscount(item: {
+    quantity?: number | null
+    unit_price?: number | null
+    discount_amount?: number | null
+  }) {
+    const base = (item.quantity || 1) * (item.unit_price || 0)
+    const amount = item.discount_amount || 0
+    const pct =
+      amount > 0 && base > 0
+        ? Math.round((amount / base) * 1000) / 10
+        : 0
+    return { amount, pct }
+  }
 
   // Regroupement TVA par taux après remise globale (HT/TVA décimaux dérivés).
   const discountMult =
@@ -603,11 +616,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 </thead>
                 <tbody>
                   {data.items.map((item, i) => {
-                    const base = (item.quantity || 1) * (item.unit_price || 0)
-                    const discountPct =
-                      (item.discount_amount || 0) > 0 && base > 0
-                        ? Math.round((item.discount_amount! / base) * 1000) / 10
-                        : 0
+                    const disc = computeItemDiscount(item)
                     return (
                       <tr
                         key={item.id}
@@ -615,9 +624,9 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                       >
                         <td className='px-2 py-1.5'>
                           <span className='font-medium'>{item.name}</span>
-                          {discountPct > 0 && (
+                          {disc.pct > 0 && (
                             <span className='ml-1.5 inline-block rounded bg-red-100 px-1 py-0.5 text-[8px] font-semibold text-red-600'>
-                              -{discountPct}%
+                              -{disc.pct}%
                             </span>
                           )}
                           {item.description && (
@@ -625,12 +634,17 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                               {item.description}
                             </span>
                           )}
+                          {disc.pct > 0 && (
+                            <span className='block text-[9px] text-red-600'>
+                              {l.discount} -{formatEuroDecimal(disc.amount)} HT
+                            </span>
+                          )}
                         </td>
                         <td className='px-2 py-1.5 text-center'>
                           {item.quantity}
                         </td>
                         <td className='px-2 py-1.5 text-right'>
-                          {discountPct > 0 ? (
+                          {disc.pct > 0 ? (
                             <span className='text-gray-400 line-through'>
                               {formatEuroDecimal(item.unit_price || 0)}
                             </span>
@@ -871,33 +885,54 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((item, i) => (
-                    <tr
-                      key={item.id}
-                      className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                    >
-                      <td className='px-2 py-1.5'>
-                        <span className='font-medium'>{item.name}</span>
-                        {item.description && (
-                          <span className='block text-[9px] text-gray-500'>
-                            {item.description}
-                          </span>
-                        )}
-                      </td>
-                      <td className='px-2 py-1.5 text-center'>
-                        {item.quantity}
-                      </td>
-                      <td className='px-2 py-1.5 text-right'>
-                        {formatEuroDecimal(item.unit_price || 0)}
-                      </td>
-                      <td className='px-2 py-1.5 text-center'>
-                        {item.tva_rate}%
-                      </td>
-                      <td className='px-2 py-1.5 text-right'>
-                        {formatEuroDecimal(computeItemHt(item))}
-                      </td>
-                    </tr>
-                  ))}
+                  {data.items.map((item, i) => {
+                    const disc = computeItemDiscount(item)
+                    return (
+                      <tr
+                        key={item.id}
+                        className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                      >
+                        <td className='px-2 py-1.5'>
+                          <span className='font-medium'>{item.name}</span>
+                          {disc.pct > 0 && (
+                            <span className='ml-1.5 inline-block rounded bg-red-100 px-1 py-0.5 text-[8px] font-semibold text-red-600'>
+                              -{disc.pct}%
+                            </span>
+                          )}
+                          {item.description && (
+                            <span className='block text-[9px] text-gray-500'>
+                              {item.description}
+                            </span>
+                          )}
+                          {disc.pct > 0 && (
+                            <span className='block text-[9px] text-red-600'>
+                              {l.discount} -{formatEuroDecimal(disc.amount)} HT
+                            </span>
+                          )}
+                        </td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {item.quantity}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {disc.pct > 0 ? (
+                            <span className='text-gray-400 line-through'>
+                              {formatEuroDecimal(item.unit_price || 0)}
+                            </span>
+                          ) : (
+                            <span>
+                              {formatEuroDecimal(item.unit_price || 0)}
+                            </span>
+                          )}
+                        </td>
+                        <td className='px-2 py-1.5 text-center'>
+                          {item.tva_rate}%
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroDecimal(computeItemHt(item))}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1045,36 +1080,57 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           ` — ${formatDate(data.dateStart)}${data.startTime ? ` à ${data.startTime}` : ''}`}
                       </td>
                     </tr>
-                    {data.items.map((item, i) => (
-                      <tr
-                        key={item.id}
-                        className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                      >
-                        <td className='px-2 py-1.5'>
-                          <span className='font-medium'>{item.name}</span>
-                          {item.description && (
-                            <span className='block text-[9px] text-gray-500'>
-                              {item.description}
-                            </span>
-                          )}
-                        </td>
-                        <td className='px-2 py-1.5 text-center'>
-                          {item.quantity}
-                        </td>
-                        <td className='px-2 py-1.5 text-right'>
-                          {formatEuroDecimal(item.unit_price || 0)}
-                        </td>
-                        <td className='px-2 py-1.5 text-center'>
-                          {item.tva_rate}%
-                        </td>
-                        <td className='px-2 py-1.5 text-right'>
-                          {formatEuroDecimal(computeItemHt(item))}
-                        </td>
-                        <td className='px-2 py-1.5 text-right'>
-                          {formatEuroWhole(computeItemTtc(item))}
-                        </td>
-                      </tr>
-                    ))}
+                    {data.items.map((item, i) => {
+                      const disc = computeItemDiscount(item)
+                      return (
+                        <tr
+                          key={item.id}
+                          className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                        >
+                          <td className='px-2 py-1.5'>
+                            <span className='font-medium'>{item.name}</span>
+                            {disc.pct > 0 && (
+                              <span className='ml-1.5 inline-block rounded bg-red-100 px-1 py-0.5 text-[8px] font-semibold text-red-600'>
+                                -{disc.pct}%
+                              </span>
+                            )}
+                            {item.description && (
+                              <span className='block text-[9px] text-gray-500'>
+                                {item.description}
+                              </span>
+                            )}
+                            {disc.pct > 0 && (
+                              <span className='block text-[9px] text-red-600'>
+                                {l.discount} -{formatEuroDecimal(disc.amount)} HT
+                              </span>
+                            )}
+                          </td>
+                          <td className='px-2 py-1.5 text-center'>
+                            {item.quantity}
+                          </td>
+                          <td className='px-2 py-1.5 text-right'>
+                            {disc.pct > 0 ? (
+                              <span className='text-gray-400 line-through'>
+                                {formatEuroDecimal(item.unit_price || 0)}
+                              </span>
+                            ) : (
+                              <span>
+                                {formatEuroDecimal(item.unit_price || 0)}
+                              </span>
+                            )}
+                          </td>
+                          <td className='px-2 py-1.5 text-center'>
+                            {item.tva_rate}%
+                          </td>
+                          <td className='px-2 py-1.5 text-right'>
+                            {formatEuroDecimal(computeItemHt(item))}
+                          </td>
+                          <td className='px-2 py-1.5 text-right'>
+                            {formatEuroWhole(computeItemTtc(item))}
+                          </td>
+                        </tr>
+                      )
+                    })}
                     {/* Subtotal for prestation */}
                     <tr className='border-t'>
                       <td
@@ -1105,36 +1161,57 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         {l.extras}
                       </td>
                     </tr>
-                    {(data.extras || []).map((extra, i) => (
-                      <tr
-                        key={extra.id}
-                        className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                      >
-                        <td className='px-2 py-1.5'>
-                          <span className='font-medium'>{extra.name}</span>
-                          {extra.description && (
-                            <span className='block text-[9px] text-gray-500'>
-                              {extra.description}
-                            </span>
-                          )}
-                        </td>
-                        <td className='px-2 py-1.5 text-center'>
-                          {extra.quantity}
-                        </td>
-                        <td className='px-2 py-1.5 text-right'>
-                          {formatEuroDecimal(extra.unit_price || 0)}
-                        </td>
-                        <td className='px-2 py-1.5 text-center'>
-                          {extra.tva_rate}%
-                        </td>
-                        <td className='px-2 py-1.5 text-right'>
-                          {formatEuroDecimal(computeItemHt(extra))}
-                        </td>
-                        <td className='px-2 py-1.5 text-right'>
-                          {formatEuroWhole(computeItemTtc(extra))}
-                        </td>
-                      </tr>
-                    ))}
+                    {(data.extras || []).map((extra, i) => {
+                      const disc = computeItemDiscount(extra)
+                      return (
+                        <tr
+                          key={extra.id}
+                          className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                        >
+                          <td className='px-2 py-1.5'>
+                            <span className='font-medium'>{extra.name}</span>
+                            {disc.pct > 0 && (
+                              <span className='ml-1.5 inline-block rounded bg-red-100 px-1 py-0.5 text-[8px] font-semibold text-red-600'>
+                                -{disc.pct}%
+                              </span>
+                            )}
+                            {extra.description && (
+                              <span className='block text-[9px] text-gray-500'>
+                                {extra.description}
+                              </span>
+                            )}
+                            {disc.pct > 0 && (
+                              <span className='block text-[9px] text-red-600'>
+                                {l.discount} -{formatEuroDecimal(disc.amount)} HT
+                              </span>
+                            )}
+                          </td>
+                          <td className='px-2 py-1.5 text-center'>
+                            {extra.quantity}
+                          </td>
+                          <td className='px-2 py-1.5 text-right'>
+                            {disc.pct > 0 ? (
+                              <span className='text-gray-400 line-through'>
+                                {formatEuroDecimal(extra.unit_price || 0)}
+                              </span>
+                            ) : (
+                              <span>
+                                {formatEuroDecimal(extra.unit_price || 0)}
+                              </span>
+                            )}
+                          </td>
+                          <td className='px-2 py-1.5 text-center'>
+                            {extra.tva_rate}%
+                          </td>
+                          <td className='px-2 py-1.5 text-right'>
+                            {formatEuroDecimal(computeItemHt(extra))}
+                          </td>
+                          <td className='px-2 py-1.5 text-right'>
+                            {formatEuroWhole(computeItemTtc(extra))}
+                          </td>
+                        </tr>
+                      )
+                    })}
                     {/* Subtotal for extras */}
                     <tr className='border-t'>
                       <td

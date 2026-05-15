@@ -555,16 +555,31 @@ function buildDocDefinition(
 
       items.forEach((item, i) => {
         const rowColor = i % 2 === 0 ? '#ffffff' : '#f9fafb'
+        const base = (item.quantity || 1) * (item.unit_price || 0)
+        const discountAmt = item.discount_amount || 0
+        const discountPct = discountAmt > 0 && base > 0
+          ? Math.round((discountAmt / base) * 1000) / 10
+          : 0
+        const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
           {
             stack: [
-              { text: item.name, style: 'tableCell', bold: true },
+              discountPct > 0
+                ? { text: [{ text: item.name, bold: true }, { text: `   -${discountPct}%`, color: '#dc2626', bold: true, fontSize: 7 }], style: 'tableCell' }
+                : { text: item.name, style: 'tableCell', bold: true },
               ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#888' }] : []),
+              ...(discountPct > 0 ? [{ text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`, fontSize: 7, color: '#dc2626' as const }] : []),
             ],
             fillColor: rowColor,
           },
           { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
-          { text: formatEuroDecimal(item.unit_price), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
+          {
+            text: formatEuroDecimal(item.unit_price),
+            style: 'tableCell',
+            alignment: 'right' as const,
+            fillColor: rowColor,
+            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+          },
           { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
           { text: formatEuroDecimal(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
           { text: formatEuroWhole(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
@@ -613,10 +628,27 @@ function buildDocDefinition(
         {}, {}, {}, {}, {},
       ])
       items.forEach((item) => {
+        const base = (item.quantity || 1) * (item.unit_price || 0)
+        const discountAmt = item.discount_amount || 0
+        const discountPct = discountAmt > 0 && base > 0
+          ? Math.round((discountAmt / base) * 1000) / 10
+          : 0
+        const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
-          { stack: [{ text: item.name, style: 'tableCell', bold: true }, ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#888' }] : [])] },
+          { stack: [
+            discountPct > 0
+              ? { text: [{ text: item.name, bold: true }, { text: `   -${discountPct}%`, color: '#dc2626', bold: true, fontSize: 7 }], style: 'tableCell' }
+              : { text: item.name, style: 'tableCell', bold: true },
+            ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#888' }] : []),
+            ...(discountPct > 0 ? [{ text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`, fontSize: 7, color: '#dc2626' as const }] : []),
+          ] },
           { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const },
-          { text: formatEuroDecimal(item.unit_price), style: 'tableCell', alignment: 'right' as const },
+          {
+            text: formatEuroDecimal(item.unit_price),
+            style: 'tableCell',
+            alignment: 'right' as const,
+            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+          },
           { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
           { text: formatEuroDecimal(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
           { text: formatEuroWhole(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
@@ -630,10 +662,27 @@ function buildDocDefinition(
         {}, {}, {}, {}, {},
       ])
       extras.forEach((extra) => {
+        const base = (extra.quantity || 1) * (extra.unit_price || 0)
+        const discountAmt = extra.discount_amount || 0
+        const discountPct = discountAmt > 0 && base > 0
+          ? Math.round((discountAmt / base) * 1000) / 10
+          : 0
+        const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
-          { stack: [{ text: extra.name, style: 'tableCell', bold: true }, ...(extra.description ? [{ text: extra.description, style: 'tiny' as const, color: '#888' }] : [])] },
+          { stack: [
+            discountPct > 0
+              ? { text: [{ text: extra.name, bold: true }, { text: `   -${discountPct}%`, color: '#dc2626', bold: true, fontSize: 7 }], style: 'tableCell' }
+              : { text: extra.name, style: 'tableCell', bold: true },
+            ...(extra.description ? [{ text: extra.description, style: 'tiny' as const, color: '#888' }] : []),
+            ...(discountPct > 0 ? [{ text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`, fontSize: 7, color: '#dc2626' as const }] : []),
+          ] },
           { text: String(extra.quantity), style: 'tableCell', alignment: 'center' as const },
-          { text: formatEuroDecimal(extra.unit_price), style: 'tableCell', alignment: 'right' as const },
+          {
+            text: formatEuroDecimal(extra.unit_price),
+            style: 'tableCell',
+            alignment: 'right' as const,
+            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+          },
           { text: `${extra.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
           { text: formatEuroDecimal(extra.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
           { text: formatEuroWhole(extra.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
