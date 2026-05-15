@@ -1,0 +1,5 @@
+process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
+process.env.STRIPE_CLIENT_ID = 'ca_test_dummy'
+process.env.SUPABASE_URL = 'https://dummy.supabase.co'
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'dummy'
+process.env.RESEND_API_KEY = 'dummy'
