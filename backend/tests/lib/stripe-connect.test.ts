@@ -25,7 +25,7 @@ describe('stripeRequestOptions', () => {
 })
 
 describe('resolveStripeMode', () => {
-  it('returns bank_transfer when stripe disabled', () => {
+  it('returns bank_transfer with disabled reason when stripe_enabled=false', () => {
     const result = resolveStripeMode({
       restaurantId: 'r1',
       organizationId: 'o1',
@@ -34,7 +34,7 @@ describe('resolveStripeMode', () => {
       chargesEnabled: false,
       payoutsEnabled: false,
     })
-    expect(result.mode).toBe('bank_transfer')
+    expect(result).toEqual({ mode: 'bank_transfer', reason: 'disabled' })
   })
 
   it('returns connect when account connected and charges enabled', () => {
@@ -49,7 +49,9 @@ describe('resolveStripeMode', () => {
     expect(result).toEqual({ mode: 'connect', acctId: 'acct_123' })
   })
 
-  it('returns error CHARGES_DISABLED when connected but charges not enabled (no legacy mode)', () => {
+  // Connect-only architecture : si charges désactivées, on fallback en virement
+  // (plus de mode 'error' ni 'legacy_platform').
+  it('returns bank_transfer with charges_disabled reason when connected but charges off', () => {
     const result = resolveStripeMode({
       restaurantId: 'r1',
       organizationId: 'o1',
@@ -58,10 +60,10 @@ describe('resolveStripeMode', () => {
       chargesEnabled: false,
       payoutsEnabled: false,
     })
-    expect(result).toEqual({ mode: 'error', code: 'CHARGES_DISABLED' })
+    expect(result).toEqual({ mode: 'bank_transfer', reason: 'charges_disabled' })
   })
 
-  it('returns error NOT_CONNECTED when enabled but no account (no legacy mode)', () => {
+  it('returns bank_transfer with not_connected reason when enabled but no account', () => {
     const result = resolveStripeMode({
       restaurantId: 'r1',
       organizationId: 'o1',
@@ -70,6 +72,6 @@ describe('resolveStripeMode', () => {
       chargesEnabled: false,
       payoutsEnabled: false,
     })
-    expect(result).toEqual({ mode: 'error', code: 'NOT_CONNECTED' })
+    expect(result).toEqual({ mode: 'bank_transfer', reason: 'not_connected' })
   })
 })
