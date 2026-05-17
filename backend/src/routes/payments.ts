@@ -127,23 +127,23 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
     const restaurantBranding = bookingAny.restaurant || { name: 'Restaurant' }
     const contactFromDb = bookingAny.contact as { first_name: string; last_name: string | null; email: string | null } | null
 
-    // Resolve Stripe mode for this restaurant
+    // Resolve Stripe mode for this restaurant (Connect-only architecture).
     const stripeCtx = bookingAny.restaurant_id
       ? await getRestaurantStripeContext(bookingAny.restaurant_id)
       : null
-    const stripeMode = stripeCtx ? resolveStripeMode(stripeCtx) : { mode: 'bank_transfer' as const }
+    const stripeMode = stripeCtx
+      ? resolveStripeMode(stripeCtx)
+      : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
 
     if (stripeMode.mode === 'bank_transfer') {
-      return res.status(412).json({ error: 'BANK_TRANSFER_ONLY', message: 'Ce restaurant utilise le virement bancaire.' })
-    }
-    if (stripeMode.mode === 'error') {
-      return res.status(412).json({ error: stripeMode.code })
-    }
-    if (stripeMode.mode === 'legacy_platform') {
-      console.warn(`[Legacy] Restaurant ${bookingAny.restaurant_id} using platform key for payment link`)
+      return res.status(412).json({
+        error: 'BANK_TRANSFER_ONLY',
+        message: 'Ce restaurant utilise le virement bancaire.',
+        reason: stripeMode.reason,
+      })
     }
 
-    const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
+    const connectAcctId = stripeMode.acctId
     const stripeOpts = stripeRequestOptions(connectAcctId)
 
     // Resolve quote number (if quote_id provided)

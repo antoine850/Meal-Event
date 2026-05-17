@@ -922,13 +922,15 @@ async function autoSendDepositAfterSignature(quoteId: string) {
     const stripeCtx = restaurant?.id
       ? await getRestaurantStripeContext(restaurant.id)
       : null
-    const stripeMode = stripeCtx ? resolveStripeMode(stripeCtx) : { mode: 'bank_transfer' as const }
+    const stripeMode = stripeCtx
+      ? resolveStripeMode(stripeCtx)
+      : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
 
-    if (stripeMode.mode === 'legacy_platform') {
-      console.warn(`[Legacy] Restaurant ${restaurant?.id} using platform key for auto-deposit`)
+    if (stripeMode.mode === 'bank_transfer') {
+      console.log(`[SignNow] Restaurant ${restaurant?.id} sans Connect (raison: ${stripeMode.reason}) — fallback virement pour auto-deposit`)
     }
 
-    const isStripeEnabled = stripeMode.mode !== 'bank_transfer'
+    const isStripeEnabled = stripeMode.mode === 'connect'
     const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
 
     let invoiceUrl = ''

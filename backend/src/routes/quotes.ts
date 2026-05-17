@@ -13,18 +13,16 @@ import {
 } from '../lib/signnow.js'
 import { notifyCommercialSignature } from '../lib/commercial-notifications.js'
 import { formatEuroWhole, computeQuoteTotals } from '../lib/quote-rounding.js'
+import {
+  getRestaurantStripeContext,
+  resolveStripeMode,
+  stripeRequestOptions,
+  getOrCreateStripeCustomerOnAccount,
+} from '../lib/stripe-connect.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 export const quotesRouter = Router()
-
-// Helper: get existing Stripe customer by email, or create one
-async function getOrCreateStripeCustomer(email: string, name?: string | null): Promise<string> {
-  const existing = await stripe.customers.list({ email, limit: 1 })
-  if (existing.data.length > 0) return existing.data[0].id
-  const customer = await stripe.customers.create({ email, ...(name ? { name } : {}) })
-  return customer.id
-}
 
 // Helper: save a generated PDF to Supabase Storage and create a document record
 async function savePdfAsDocument(
@@ -570,34 +568,45 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     const commercialName = commercial.name
     const commercialEmail = commercial.email
 
-    // Check if Stripe is enabled for this restaurant
-    const isStripeEnabled = (restaurant as any)?.stripe_enabled !== false
+    // Connect-only architecture : on encaisse Stripe UNIQUEMENT sur le compte
+    // Connect du restaurant. Si pas encore connecté → fallback virement bancaire
+    // (soft fallback, aucune facture créée sur la plateforme).
+    const restaurantId = (restaurant as any)?.id as string | undefined
+    const stripeCtx = restaurantId ? await getRestaurantStripeContext(restaurantId) : null
+    const stripeMode = stripeCtx
+      ? resolveStripeMode(stripeCtx)
+      : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
+
+    const isStripeEnabled = stripeMode.mode === 'connect'
+    const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
+    const stripeOpts = stripeRequestOptions(connectAcctId)
 
     let invoiceUrl = ''
     let invoiceId = ''
 
-    if (isStripeEnabled) {
-      // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-      console.log(`[send-deposit] Creating Stripe invoice for deposit: ${formatEuroWhole(depositAmount)}`)
+    if (isStripeEnabled && connectAcctId) {
+      console.log(`[send-deposit] Creating Stripe invoice on Connect account ${connectAcctId} for deposit: ${formatEuroWhole(depositAmount)}`)
 
-      const customerId = await getOrCreateStripeCustomer(
+      const customerId = await getOrCreateStripeCustomerOnAccount(
         contact.email,
-        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null,
+        connectAcctId
       )
 
       const invoice = await stripe.invoices.create({
         customer: customerId,
         collection_method: 'send_invoice',
-        days_until_due: 30, // 30-day expiration window
+        days_until_due: 30,
         metadata: {
           booking_id: booking?.id || '',
           quote_id: quoteId,
           link_type: 'deposit',
+          restaurant_id: restaurantId || '',
         },
         description: (quoteData as any).deposit_amount_override != null
           ? `Acompte ${formatEuroWhole(depositAmount)} - ${quoteData.quote_number}`
           : `Acompte ${effectiveDepositPct}% - ${quoteData.quote_number}`,
-      })
+      }, stripeOpts)
 
       // Stripe est appelé en cents : depositAmount est entier, donc × 100 = entier exact.
       await stripe.invoiceItems.create({
@@ -608,14 +617,14 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
         description: (quoteData as any).deposit_amount_override != null
           ? `Acompte ${formatEuroWhole(depositAmount)} pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
           : `Acompte ${effectiveDepositPct}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
-      })
+      }, stripeOpts)
 
-      // Finalize invoice to make it payable
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, undefined, stripeOpts)
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
     } else {
-      console.log(`[send-deposit] Stripe disabled for restaurant — sending bank transfer only deposit for ${formatEuroWhole(depositAmount)}`)
+      const reason = stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
+      console.log(`[send-deposit] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroWhole(depositAmount)}`)
     }
 
     // Generate deposit invoice PDF with error handling
@@ -695,6 +704,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           percentage: quoteData.deposit_percentage,
           url: invoiceUrl,
           stripe_link_id: invoiceId,
+          stripe_account_id: connectAcctId,
         })
 
       // Create pending payment record (will be updated to 'paid' by webhook)
@@ -709,6 +719,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           payment_modality: 'acompte',
           payment_method: 'stripe',
           stripe_payment_id: invoiceId,
+          stripe_account_id: connectAcctId,
           status: 'pending',
           notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
         })
@@ -879,48 +890,56 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     const commercialName = commercial.name
     const commercialEmail = commercial.email
 
-    // Check if Stripe is enabled for this restaurant
-    const isStripeEnabled = (restaurant as any)?.stripe_enabled !== false
+    // Connect-only architecture (cf. send-deposit)
+    const restaurantId = (restaurant as any)?.id as string | undefined
+    const stripeCtx = restaurantId ? await getRestaurantStripeContext(restaurantId) : null
+    const stripeMode = stripeCtx
+      ? resolveStripeMode(stripeCtx)
+      : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
+
+    const isStripeEnabled = stripeMode.mode === 'connect'
+    const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
+    const stripeOpts = stripeRequestOptions(connectAcctId)
 
     let invoiceUrl = ''
     let invoiceId = ''
 
-    if (isStripeEnabled) {
-      // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-      console.log(`[send-balance] Creating Stripe invoice for balance: ${formatEuroWhole(balanceAmount)}`)
+    if (isStripeEnabled && connectAcctId) {
+      console.log(`[send-balance] Creating Stripe invoice on Connect account ${connectAcctId} for balance: ${formatEuroWhole(balanceAmount)}`)
 
-      const customerId = await getOrCreateStripeCustomer(
+      const customerId = await getOrCreateStripeCustomerOnAccount(
         contact.email,
-        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null,
+        connectAcctId
       )
 
       const invoice = await stripe.invoices.create({
         customer: customerId,
         collection_method: 'send_invoice',
-        days_until_due: 30, // 30-day expiration window
+        days_until_due: 30,
         metadata: {
           booking_id: booking?.id || '',
           quote_id: quoteId,
           link_type: 'balance',
+          restaurant_id: restaurantId || '',
         },
         description: `Solde - ${quoteData.quote_number}`,
-      })
+      }, stripeOpts)
 
-      // Add invoice line item
       await stripe.invoiceItems.create({
         invoice: invoice.id,
         customer: customerId,
         amount: Math.round(balanceAmount * 100),
         currency: 'eur',
         description: `Facture de solde pour ${restaurant?.name || 'événement'}`,
-      })
+      }, stripeOpts)
 
-      // Finalize invoice to make it payable
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id)
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, undefined, stripeOpts)
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
     } else {
-      console.log(`[send-balance] Stripe disabled for restaurant — sending bank transfer only balance for ${formatEuroWhole(balanceAmount)}`)
+      const reason = stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
+      console.log(`[send-balance] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroWhole(balanceAmount)}`)
     }
 
     // Generate balance invoice PDF with error handling
@@ -1001,6 +1020,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
           amount: balanceAmount,
           url: invoiceUrl,
           stripe_link_id: invoiceId,
+          stripe_account_id: connectAcctId,
         })
 
       // Create pending payment record (will be updated to 'paid' by webhook)
@@ -1015,6 +1035,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
           payment_modality: 'solde',
           payment_method: 'stripe',
           stripe_payment_id: invoiceId,
+          stripe_account_id: connectAcctId,
           status: 'pending',
           notes: `Solde - ${quoteData.quote_number}`,
         })
