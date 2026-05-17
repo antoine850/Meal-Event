@@ -2,7 +2,6 @@ import Stripe from 'stripe'
 import { supabase } from './supabase.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
-const LEGACY_MODE = process.env.STRIPE_CONNECT_LEGACY_MODE === 'true'
 
 export interface RestaurantStripeContext {
   restaurantId: string
@@ -34,25 +33,24 @@ export async function getRestaurantStripeContext(
   }
 }
 
+// Connect-only architecture : on prend les paiements Stripe UNIQUEMENT sur les
+// comptes Connect des restaurants. Si un restaurant n'a pas (encore) connecté
+// Stripe, on bascule en virement bancaire — jamais sur le compte plateforme.
 export type StripeMode =
   | { mode: 'connect'; acctId: string }
-  | { mode: 'legacy_platform' }
-  | { mode: 'bank_transfer' }
-  | { mode: 'error'; code: 'NOT_CONNECTED' | 'CHARGES_DISABLED' }
+  | { mode: 'bank_transfer'; reason: 'disabled' | 'not_connected' | 'charges_disabled' }
 
 export function resolveStripeMode(ctx: RestaurantStripeContext): StripeMode {
-  if (!ctx.stripeEnabled) return { mode: 'bank_transfer' }
+  if (!ctx.stripeEnabled) {
+    return { mode: 'bank_transfer', reason: 'disabled' }
+  }
   if (ctx.stripeAccountId && ctx.chargesEnabled) {
     return { mode: 'connect', acctId: ctx.stripeAccountId }
   }
   if (ctx.stripeAccountId && !ctx.chargesEnabled) {
-    return LEGACY_MODE
-      ? { mode: 'legacy_platform' }
-      : { mode: 'error', code: 'CHARGES_DISABLED' }
+    return { mode: 'bank_transfer', reason: 'charges_disabled' }
   }
-  return LEGACY_MODE
-    ? { mode: 'legacy_platform' }
-    : { mode: 'error', code: 'NOT_CONNECTED' }
+  return { mode: 'bank_transfer', reason: 'not_connected' }
 }
 
 export function stripeRequestOptions(acctId: string | null): Stripe.RequestOptions | undefined {
