@@ -167,7 +167,7 @@ async function handleCallback(req: Request, res: Response) {
   )
 
   return res.redirect(
-    `${FRONTEND_URL}/settings/restaurants/${stateRow.restaurant_id}?stripe_success=1`
+    `${FRONTEND_URL}/settings/restaurant/${stateRow.restaurant_id}?stripe_success=1`
   )
 }
 
