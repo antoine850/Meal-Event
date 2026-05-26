@@ -19,11 +19,17 @@ import {
   useCurrentUserProfile,
   useEmailTemplates,
 } from '../hooks/use-email-templates'
+import {
+  useBookingStatuses,
+  useUpdateBooking,
+} from '../hooks/use-bookings'
 
 type Props = {
   booking: {
+    id: string
     event_date: string
     guests_count: number | null
+    status_slug: string | null
     contact: {
       first_name: string | null
       last_name: string | null
@@ -42,6 +48,8 @@ const langLabel = (lang: 'fr' | 'en') =>
 export function SendEmailMenuItems({ booking }: Props) {
   const { data: templates = [], isLoading } = useEmailTemplates()
   const { data: profile } = useCurrentUserProfile()
+  const { data: statuses = [] } = useBookingStatuses()
+  const { mutate: updateBooking } = useUpdateBooking()
 
   const hasEmail = !!booking.contact?.email
   const groupedBySlug = templates.reduce<Record<string, EmailTemplate[]>>(
@@ -85,6 +93,26 @@ export function SendEmailMenuItems({ booking }: Props) {
     const { subject, body } = renderTemplate(tpl, vars)
     const url = buildMailtoUrl(booking.contact.email, subject, body)
     window.open(url, '_blank', 'noopener,noreferrer')
+
+    // Auto-promotion : si le lead est encore en "Nouveau", on le passe en "Qualification"
+    if (booking.status_slug === 'nouveau') {
+      const qualification = statuses.find((s) => s.slug === 'qualification')
+      if (qualification) {
+        updateBooking(
+          { id: booking.id, status_id: qualification.id },
+          {
+            onSuccess: () => {
+              toast.success('Statut passé en Qualification')
+            },
+            onError: (e) => {
+              toast.error(
+                `Email envoyé mais maj statut KO : ${(e as Error).message}`
+              )
+            },
+          }
+        )
+      }
+    }
   }
 
   return (

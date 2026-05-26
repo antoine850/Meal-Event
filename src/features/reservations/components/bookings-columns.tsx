@@ -268,8 +268,10 @@ export const buildBookingsColumns = (
           >
             <SendEmailMenuItems
               booking={{
+                id: booking.id,
                 event_date: booking.event_date,
                 guests_count: booking.guests_count,
+                status_slug: booking.status?.slug || null,
                 contact: booking.contact
                   ? {
                       first_name: booking.contact.first_name,
