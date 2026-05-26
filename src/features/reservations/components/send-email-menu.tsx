@@ -92,7 +92,16 @@ export function SendEmailMenuItems({ booking }: Props) {
     const vars = buildTemplateVars(input, tpl.lang)
     const { subject, body } = renderTemplate(tpl, vars)
     const url = buildMailtoUrl(booking.contact.email, subject, body)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    // mailto: déclenché via un <a> cliqué programmatiquement (plus fiable que
+    // window.open pour les protocol handlers — Gmail web restait sur un onglet vide).
+    // target=_blank pour ne pas perdre la page CRM si le handler est Gmail web.
+    const a = document.createElement('a')
+    a.href = url
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
 
     // Auto-promotion : si le lead est encore en "Nouveau", on le passe en "Qualification"
     if (booking.status_slug === 'nouveau') {
