@@ -3,6 +3,12 @@ import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
 import type { EmailTemplate } from '../lib/email-templates'
 
+// La table email_templates n'est pas (encore) dans les types Supabase générés —
+// on by-pass le typage le temps qu'on régénère via `supabase gen types`.
+const db = supabase as unknown as {
+  from: (table: string) => ReturnType<typeof supabase.from>
+}
+
 export function useEmailTemplates() {
   return useQuery({
     queryKey: ['email_templates'],
@@ -10,7 +16,7 @@ export function useEmailTemplates() {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return [] as EmailTemplate[]
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('email_templates')
         .select('*')
         .eq('organization_id', orgId)
@@ -19,7 +25,7 @@ export function useEmailTemplates() {
         .order('label', { ascending: true })
 
       if (error) throw error
-      return (data || []) as EmailTemplate[]
+      return ((data as unknown) || []) as EmailTemplate[]
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -38,7 +44,7 @@ export function useUpdateEmailTemplate() {
   return useMutation({
     mutationFn: async (input: EmailTemplateUpdate) => {
       const { id, ...patch } = input
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('email_templates')
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', id)
