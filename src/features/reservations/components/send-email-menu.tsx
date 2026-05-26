@@ -92,18 +92,9 @@ export function SendEmailMenuItems({ booking }: Props) {
     const vars = buildTemplateVars(input, tpl.lang)
     const { subject, body } = renderTemplate(tpl, vars)
     const url = buildMailtoUrl(booking.contact.email, subject, body)
-    // mailto: déclenché via un <a> cliqué programmatiquement (plus fiable que
-    // window.open pour les protocol handlers — Gmail web restait sur un onglet vide).
-    // target=_blank pour ne pas perdre la page CRM si le handler est Gmail web.
-    const a = document.createElement('a')
-    a.href = url
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
 
-    // Auto-promotion : si le lead est encore en "Nouveau", on le passe en "Qualification"
+    // Auto-promotion : si le lead est en "Nouveau", on le passe en "Qualification"
+    // (lancé d'abord pour que la requête parte avant une éventuelle nav vers Gmail web)
     if (booking.status_slug === 'nouveau') {
       const qualification = statuses.find((s) => s.slug === 'qualification')
       if (qualification) {
@@ -122,6 +113,15 @@ export function SendEmailMenuItems({ booking }: Props) {
         )
       }
     }
+
+    // mailto: doit déclencher le protocol handler dans l'onglet courant.
+    // target=_blank ne marche pas avec Gmail web (onglet about:blank).
+    // Avec handler natif (Mail.app) : l'app s'ouvre, pas de navigation.
+    // Avec Gmail web : le tab bascule vers Gmail compose (back button pour revenir).
+    // Délai de 150ms pour laisser la mutation Supabase partir avant la nav.
+    setTimeout(() => {
+      window.location.href = url
+    }, 150)
   }
 
   return (
