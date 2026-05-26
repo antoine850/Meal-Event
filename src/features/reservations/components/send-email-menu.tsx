@@ -9,7 +9,7 @@ import {
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  buildMailtoUrl,
+  buildGmailComposeUrl,
   buildTemplateVars,
   renderTemplate,
   type EmailTemplate,
@@ -91,25 +91,13 @@ export function SendEmailMenuItems({ booking }: Props) {
     }
     const vars = buildTemplateVars(input, tpl.lang)
     const { subject, body } = renderTemplate(tpl, vars)
-    const url = buildMailtoUrl(booking.contact.email, subject, body)
+    const url = buildGmailComposeUrl(booking.contact.email, subject, body)
 
-    // === DEBUG temporaire ===
-    console.log('[mailto debug] template:', tpl.slug, tpl.lang)
-    console.log('[mailto debug] contact email:', booking.contact.email)
-    console.log('[mailto debug] url length:', url.length)
-    console.log('[mailto debug] url preview:', url.substring(0, 200))
-    toast.info(`Tentative ouverture mail pour ${booking.contact.email}`)
-    // === fin debug ===
-
-    // mailto: doit être déclenché synchroniquement dans le handler de clic
-    // pour préserver la "user gesture" — sinon Chrome bloque le protocol handler.
-    // Pas de setTimeout, pas de Promise.then : tout en flux direct.
-    window.location.href = url
+    // Ouverture de Gmail compose dans un nouvel onglet. URL https donc pas de
+    // problème de protocol handler — l'onglet CRM reste intact.
+    window.open(url, '_blank', 'noopener,noreferrer')
 
     // Auto-promotion : si le lead est en "Nouveau", on le passe en "Qualification"
-    // (enqueué après le mailto ; sur handler natif la requête a tout son temps,
-    // sur Gmail web elle peut être coupée par la nav — l'utilisateur peut alors
-    // changer le statut à la main)
     if (booking.status_slug === 'nouveau') {
       const qualification = statuses.find((s) => s.slug === 'qualification')
       if (qualification) {

@@ -136,3 +136,22 @@ export function buildMailtoUrl(
   // alors qu'iCloud le tolère. Spec mailto: (RFC 6068) : @ et . sont allowed as-is.
   return `mailto:${email.trim()}?${qs}`
 }
+
+/**
+ * URL directe de composition Gmail. Avantage par rapport à mailto: : c'est une
+ * vraie URL https, donc ouverture propre dans un nouvel onglet sans dépendre
+ * d'un protocol handler Chrome.
+ */
+export function buildGmailComposeUrl(
+  email: string,
+  subject: string,
+  body: string
+): string {
+  const params = new URLSearchParams()
+  params.set('view', 'cm')
+  params.set('fs', '1')
+  params.set('to', email.trim())
+  params.set('su', subject)
+  params.set('body', body)
+  return `https://mail.google.com/mail/?${params.toString()}`
+}
