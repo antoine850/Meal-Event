@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -125,6 +125,9 @@ export function SendEmailMenuItems({ booking }: Props) {
   const { mutate: updateBooking } = useUpdateBooking()
 
   const [picked, setPicked] = useState<EmailTemplate | null>(null)
+  // Date d'ouverture du dialog pour ignorer les close events fantômes
+  // déclenchés par les events pointer du dropdown qui propagent encore.
+  const openedAtRef = useRef<number>(0)
 
   const hasEmail = !!booking.contact?.email
 
@@ -228,11 +231,12 @@ export function SendEmailMenuItems({ booking }: Props) {
                     <DropdownMenuItem
                       key={tpl.id}
                       onSelect={() => {
-                        // Différer l'ouverture du dialog après le close du dropdown
-                        // pour éviter que le pointerup (en cours de processing)
-                        // ne déclenche pointerDownOutside sur le dialog.
-                        // 50ms suffit pour passer outre tous les events pointer.
-                        setTimeout(() => setPicked(tpl), 50)
+                        // Différer pour laisser le dropdown se fermer + marquer
+                        // l'instant d'ouverture pour ignorer les false-close (cf onOpenChange).
+                        setTimeout(() => {
+                          openedAtRef.current = Date.now()
+                          setPicked(tpl)
+                        }, 50)
                       }}
                     >
                       {langLabel(lang)}
@@ -245,7 +249,17 @@ export function SendEmailMenuItems({ booking }: Props) {
         </DropdownMenuSubContent>
       </DropdownMenuSub>
 
-      <Dialog open={!!picked} onOpenChange={(open) => !open && setPicked(null)}>
+      <Dialog
+        open={!!picked}
+        onOpenChange={(open) => {
+          if (open) return
+          // Ignorer les close events qui arrivent dans les 300ms suivant
+          // l'ouverture (events pointer fantômes du dropdown qui finissent
+          // de propager — sinon le dialog s'auto-ferme instantanément).
+          if (Date.now() - openedAtRef.current < 300) return
+          setPicked(null)
+        }}
+      >
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
             <DialogTitle>Avec quel service mail ?</DialogTitle>
