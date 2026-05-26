@@ -93,8 +93,15 @@ export function SendEmailMenuItems({ booking }: Props) {
     const { subject, body } = renderTemplate(tpl, vars)
     const url = buildMailtoUrl(booking.contact.email, subject, body)
 
+    // mailto: doit être déclenché synchroniquement dans le handler de clic
+    // pour préserver la "user gesture" — sinon Chrome bloque le protocol handler.
+    // Pas de setTimeout, pas de Promise.then : tout en flux direct.
+    window.location.href = url
+
     // Auto-promotion : si le lead est en "Nouveau", on le passe en "Qualification"
-    // (lancé d'abord pour que la requête parte avant une éventuelle nav vers Gmail web)
+    // (enqueué après le mailto ; sur handler natif la requête a tout son temps,
+    // sur Gmail web elle peut être coupée par la nav — l'utilisateur peut alors
+    // changer le statut à la main)
     if (booking.status_slug === 'nouveau') {
       const qualification = statuses.find((s) => s.slug === 'qualification')
       if (qualification) {
@@ -113,15 +120,6 @@ export function SendEmailMenuItems({ booking }: Props) {
         )
       }
     }
-
-    // mailto: doit déclencher le protocol handler dans l'onglet courant.
-    // target=_blank ne marche pas avec Gmail web (onglet about:blank).
-    // Avec handler natif (Mail.app) : l'app s'ouvre, pas de navigation.
-    // Avec Gmail web : le tab bascule vers Gmail compose (back button pour revenir).
-    // Délai de 150ms pour laisser la mutation Supabase partir avant la nav.
-    setTimeout(() => {
-      window.location.href = url
-    }, 150)
   }
 
   return (
