@@ -58,30 +58,63 @@ const langLabel = (lang: 'fr' | 'en') =>
 
 type Provider = 'gmail' | 'outlook' | 'mailto'
 
-// Logos SVG inline (couleurs officielles)
+// Logos SVG officiels (couleurs brand)
 const GmailIcon = () => (
-  <svg viewBox='0 0 24 24' className='h-6 w-6' xmlns='http://www.w3.org/2000/svg'>
-    <path d='M22 6.5l-10 6.25L2 6.5V18a2 2 0 002 2h16a2 2 0 002-2V6.5z' fill='#EA4335' />
-    <path d='M22 6.5V6a2 2 0 00-2-2H4a2 2 0 00-2 2v.5l10 6.25 10-6.25z' fill='#FBBC04' />
-    <path d='M22 6.5l-10 6.25v7.25h8a2 2 0 002-2V6.5z' fill='#34A853' />
-    <path d='M2 6.5v11.25c0 1.1.9 2 2 2h8V12.75L2 6.5z' fill='#4285F4' />
+  <svg
+    viewBox='0 0 256 193'
+    className='h-7 w-7'
+    xmlns='http://www.w3.org/2000/svg'
+    preserveAspectRatio='xMidYMid'
+  >
+    <path
+      d='M58.182 192.05V93.14L27.507 65.077 0 49.504v125.091c0 9.658 7.825 17.455 17.455 17.455h40.727Z'
+      fill='#4285F4'
+    />
+    <path
+      d='M197.818 192.05h40.727c9.659 0 17.455-7.826 17.455-17.455V49.505l-31.166 17.837-27.016 25.798v98.91Z'
+      fill='#34A853'
+    />
+    <path
+      d='m58.182 93.14-4.174-38.647 4.174-36.989L128 69.868l69.818-52.364 4.67 33.61-4.67 41.025-69.818 52.364z'
+      fill='#EA4335'
+    />
+    <path
+      d='M197.818 17.504V93.14L256 49.504V26.231c0-21.585-24.64-33.89-41.89-20.945l-16.292 12.218Z'
+      fill='#FBBC04'
+    />
+    <path
+      d='m0 49.504 26.759 20.07L58.182 93.14V17.504L41.89 5.286C24.61-7.66 0 4.646 0 26.23v23.273Z'
+      fill='#C5221F'
+    />
   </svg>
 )
 
 const OutlookIcon = () => (
-  <svg viewBox='0 0 24 24' className='h-6 w-6' xmlns='http://www.w3.org/2000/svg'>
-    <rect x='2' y='5' width='20' height='14' rx='2' fill='#0078D4' />
-    <text
-      x='12'
-      y='16'
-      fontFamily='Arial, sans-serif'
-      fontWeight='700'
-      fontSize='12'
-      fill='white'
-      textAnchor='middle'
-    >
-      O
-    </text>
+  <svg
+    viewBox='0 0 32 32'
+    className='h-7 w-7'
+    xmlns='http://www.w3.org/2000/svg'
+  >
+    <path
+      d='M19.484 7.937v5.477L21.4 14.619a.489.489 0 00.518 0L30.378 8.6a1.7 1.7 0 00-1.638-1.541H19.484zm0 7.741l1.749 1.2a.756.756 0 00.713 0c-.246.157 8.443-5.61 8.443-5.61V19.18a1.792 1.792 0 01-1.973 1.846H19.483v-5.348zm-9.722-3.939a2.969 2.969 0 00-2.265.987 4.066 4.066 0 00-.97 2.823 4.144 4.144 0 00.949 2.83 3.077 3.077 0 002.405.978 2.971 2.971 0 002.394-1.022 4.236 4.236 0 00.913-2.866 4.444 4.444 0 00-.879-2.927 2.971 2.971 0 00-2.547-.987zm-.111 5.694a1.265 1.265 0 01-1.063-.531 2.359 2.359 0 01-.391-1.444 2.464 2.464 0 01.4-1.503 1.319 1.319 0 011.116-.535 1.241 1.241 0 011.06.514 2.546 2.546 0 01.379 1.502 2.633 2.633 0 01-.365 1.516 1.182 1.182 0 01-1.142.481zM0 4.969v22.064l18.453 3.892V.971zm9.6 13.5a4.07 4.07 0 01-2.939-1.107 4.05 4.05 0 01-1.157-3 4.452 4.452 0 011.219-3.247 4.288 4.288 0 013.193-1.21 3.953 3.953 0 012.879 1.115 4.07 4.07 0 011.115 3.022 4.434 4.434 0 01-1.205 3.221 4.226 4.226 0 01-3.105 1.221z'
+      fill='#0072C6'
+    />
+  </svg>
+)
+
+const MailIcon = () => (
+  <svg
+    viewBox='0 0 24 24'
+    className='h-7 w-7'
+    fill='none'
+    stroke='currentColor'
+    strokeWidth='1.5'
+    strokeLinecap='round'
+    strokeLinejoin='round'
+    xmlns='http://www.w3.org/2000/svg'
+  >
+    <rect x='2' y='4' width='20' height='16' rx='2' />
+    <path d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7' />
   </svg>
 )
 
@@ -194,7 +227,13 @@ export function SendEmailMenuItems({ booking }: Props) {
                   return (
                     <DropdownMenuItem
                       key={tpl.id}
-                      onClick={() => setPicked(tpl)}
+                      onSelect={() => {
+                        // Différer l'ouverture du dialog après le close du dropdown
+                        // pour éviter que le pointerup (en cours de processing)
+                        // ne déclenche pointerDownOutside sur le dialog.
+                        // 50ms suffit pour passer outre tous les events pointer.
+                        setTimeout(() => setPicked(tpl), 50)
+                      }}
                     >
                       {langLabel(lang)}
                     </DropdownMenuItem>
@@ -238,7 +277,7 @@ export function SendEmailMenuItems({ booking }: Props) {
               className='flex h-24 flex-col gap-2'
               onClick={() => sendVia('mailto')}
             >
-              <Mail className='h-6 w-6' />
+              <MailIcon />
               <span className='text-xs'>Mail par défaut</span>
             </Button>
           </div>
