@@ -398,6 +398,7 @@ export function Reservations() {
               })
             }
             placeholder="Date d'événement"
+            futureAware
           />
           <DateFilter
             value={signDateRange}

@@ -235,6 +235,7 @@ export function Dashboard() {
               value={eventDateRange}
               onChange={setEventDateRange}
               placeholder="Date d'événement"
+              futureAware
             />
             <DateFilter
               value={signDateRange}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   format,
   startOfDay,
@@ -8,6 +8,10 @@ import {
   startOfMonth,
   startOfQuarter,
   startOfYear,
+  endOfWeek,
+  endOfMonth,
+  endOfQuarter,
+  endOfYear,
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
@@ -21,61 +25,84 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 
-const DATE_PRESETS = [
-  {
-    label: "Aujourd'hui",
-    range: () => ({ from: startOfDay(new Date()), to: endOfDay(new Date()) }),
-  },
-  {
-    label: '7 derniers jours',
-    range: () => ({
-      from: startOfDay(subDays(new Date(), 6)),
-      to: endOfDay(new Date()),
-    }),
-  },
-  {
-    label: '30 derniers jours',
-    range: () => ({
-      from: startOfDay(subDays(new Date(), 29)),
-      to: endOfDay(new Date()),
-    }),
-  },
-  {
-    label: 'Cette semaine',
-    range: () => ({
-      from: startOfWeek(new Date(), { locale: fr }),
-      to: endOfDay(new Date()),
-    }),
-  },
-  {
-    label: 'Ce mois',
-    range: () => ({ from: startOfMonth(new Date()), to: endOfDay(new Date()) }),
-  },
-  {
-    label: 'Ce trimestre',
-    range: () => ({
-      from: startOfQuarter(new Date()),
-      to: endOfDay(new Date()),
-    }),
-  },
-  {
-    label: 'Cette année',
-    range: () => ({ from: startOfYear(new Date()), to: endOfDay(new Date()) }),
-  },
-]
+function buildPresets(futureAware: boolean) {
+  const today = new Date()
+  // En mode futureAware, les présets de période (semaine/mois/trimestre/année)
+  // couvrent la période complète (utile pour filtrer des événements futurs).
+  // Sinon, ils s'arrêtent à aujourd'hui (utile pour signature, création, etc.).
+  const periodEnd = (endOfPeriod: Date) =>
+    futureAware ? endOfPeriod : endOfDay(today)
+
+  return [
+    {
+      label: "Aujourd'hui",
+      range: () => ({ from: startOfDay(today), to: endOfDay(today) }),
+    },
+    {
+      label: '7 derniers jours',
+      range: () => ({
+        from: startOfDay(subDays(today, 6)),
+        to: endOfDay(today),
+      }),
+    },
+    {
+      label: '30 derniers jours',
+      range: () => ({
+        from: startOfDay(subDays(today, 29)),
+        to: endOfDay(today),
+      }),
+    },
+    {
+      label: 'Cette semaine',
+      range: () => ({
+        from: startOfWeek(today, { locale: fr }),
+        to: periodEnd(endOfWeek(today, { locale: fr })),
+      }),
+    },
+    {
+      label: 'Ce mois',
+      range: () => ({
+        from: startOfMonth(today),
+        to: periodEnd(endOfMonth(today)),
+      }),
+    },
+    {
+      label: 'Ce trimestre',
+      range: () => ({
+        from: startOfQuarter(today),
+        to: periodEnd(endOfQuarter(today)),
+      }),
+    },
+    {
+      label: 'Cette année',
+      range: () => ({
+        from: startOfYear(today),
+        to: periodEnd(endOfYear(today)),
+      }),
+    },
+  ]
+}
 
 type DateFilterProps = {
   value?: DateRange
   onChange?: (range: DateRange | undefined) => void
   placeholder?: string
+  /**
+   * Si true, les présets "Cette semaine/mois/trimestre/année" couvrent toute
+   * la période (jusqu'à la fin), pas seulement jusqu'à aujourd'hui.
+   * À utiliser pour les filtres sur des dates qui peuvent être futures (ex: date d'événement).
+   */
+  futureAware?: boolean
 }
 
 export function DateFilter({
   value,
   onChange,
   placeholder = 'Filtrer par date',
+  futureAware = false,
 }: DateFilterProps) {
   const [open, setOpen] = useState(false)
+  const presets = useMemo(() => buildPresets(futureAware), [futureAware])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -106,7 +133,7 @@ export function DateFilter({
       <PopoverContent className='w-auto p-0' align='start'>
         <div className='flex'>
           <div className='flex flex-col gap-1 border-r p-2'>
-            {DATE_PRESETS.map((preset) => (
+            {presets.map((preset) => (
               <Button
                 key={preset.label}
                 variant='ghost'
