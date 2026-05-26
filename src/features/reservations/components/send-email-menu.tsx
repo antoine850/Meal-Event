@@ -93,6 +93,14 @@ export function SendEmailMenuItems({ booking }: Props) {
     const { subject, body } = renderTemplate(tpl, vars)
     const url = buildMailtoUrl(booking.contact.email, subject, body)
 
+    // === DEBUG temporaire ===
+    console.log('[mailto debug] template:', tpl.slug, tpl.lang)
+    console.log('[mailto debug] contact email:', booking.contact.email)
+    console.log('[mailto debug] url length:', url.length)
+    console.log('[mailto debug] url preview:', url.substring(0, 200))
+    toast.info(`Tentative ouverture mail pour ${booking.contact.email}`)
+    // === fin debug ===
+
     // mailto: doit être déclenché synchroniquement dans le handler de clic
     // pour préserver la "user gesture" — sinon Chrome bloque le protocol handler.
     // Pas de setTimeout, pas de Promise.then : tout en flux direct.
