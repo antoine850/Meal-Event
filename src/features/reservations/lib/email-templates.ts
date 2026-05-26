@@ -155,3 +155,20 @@ export function buildGmailComposeUrl(
   params.set('body', body)
   return `https://mail.google.com/mail/?${params.toString()}`
 }
+
+/**
+ * URL de composition Outlook web (Microsoft 365 / Office). Si l'utilisateur
+ * est sur Outlook.com perso, il sera redirigé vers outlook.live.com par MS.
+ */
+export function buildOutlookComposeUrl(
+  email: string,
+  subject: string,
+  body: string
+): string {
+  const params = new URLSearchParams()
+  params.set('path', '/mail/action/compose')
+  params.set('to', email.trim())
+  params.set('subject', subject)
+  params.set('body', body)
+  return `https://outlook.office.com/?${params.toString()}`
+}
