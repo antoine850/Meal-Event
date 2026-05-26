@@ -63,12 +63,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  SendEmailDialog,
-  SendEmailMenuItems,
-  useSendEmail,
-  type SendEmailBooking,
-} from './send-email-menu'
+import { SendEmailMenuItems } from './send-email-menu'
 import {
   Form,
   FormControl,
@@ -181,7 +176,6 @@ export const BookingDetail = forwardRef<
   ref
 ) {
   const navigate = useNavigate()
-  const sendEmail = useSendEmail()
   const { mutate: updateBooking } = useUpdateBooking()
   const { mutate: deleteBookingMutation } = useDeleteBooking()
   const { mutate: duplicateBooking } = useDuplicateBooking()
@@ -545,38 +539,8 @@ export const BookingDetail = forwardRef<
     'Guestonline',
   ]
 
-  const emailBooking: SendEmailBooking = {
-    id: booking.id,
-    event_date: booking.event_date,
-    guests_count: booking.guests_count,
-    status_slug: booking.status?.slug || null,
-    contact: booking.contact
-      ? {
-          first_name: booking.contact.first_name,
-          last_name: booking.contact.last_name,
-          email: booking.contact.email,
-        }
-      : null,
-    restaurant: booking.restaurant
-      ? {
-          name: booking.restaurant.name,
-          min_revenue_privatization_eur:
-            (
-              booking.restaurant as {
-                min_revenue_privatization_eur?: number | null
-              }
-            ).min_revenue_privatization_eur ?? null,
-        }
-      : null,
-  }
-
   return (
     <>
-      <SendEmailDialog
-        picked={sendEmail.picked}
-        onClose={sendEmail.close}
-        booking={emailBooking}
-      />
       <Form {...form}>
         <form id='booking-form' onSubmit={form.handleSubmit(onSubmit)}>
           <div className='grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]'>
@@ -620,6 +584,10 @@ export const BookingDetail = forwardRef<
                       <DropdownMenuContent align='end' className='w-56'>
                         <SendEmailMenuItems
                           booking={{
+                            id: booking.id,
+                            event_date: booking.event_date,
+                            guests_count: booking.guests_count,
+                            status_slug: booking.status?.slug || null,
                             contact: booking.contact
                               ? {
                                   first_name: booking.contact.first_name,
@@ -627,8 +595,18 @@ export const BookingDetail = forwardRef<
                                   email: booking.contact.email,
                                 }
                               : null,
+                            restaurant: booking.restaurant
+                              ? {
+                                  name: booking.restaurant.name,
+                                  min_revenue_privatization_eur:
+                                    (
+                                      booking.restaurant as {
+                                        min_revenue_privatization_eur?: number | null
+                                      }
+                                    ).min_revenue_privatization_eur ?? null,
+                                }
+                              : null,
                           }}
-                          onPick={sendEmail.pick}
                         />
                         <DropdownMenuItem
                           onClick={() => {
