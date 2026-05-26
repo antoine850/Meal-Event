@@ -140,9 +140,8 @@ export function CommercialTab({
   const responseTimeLabel = useMemo(() => {
     if (!responseTimeData) return null
     const { avgHours } = responseTimeData
-    if (avgHours < 1) return `${Math.round(avgHours * 60)} min`
-    if (avgHours < 24) return `${avgHours.toFixed(1)}h`
-    return `${(avgHours / 24).toFixed(1)}j`
+    // Toujours en heures ouvrées (Lun-Ven 9-17 Paris)
+    return `${avgHours.toFixed(1)}h`
   }, [responseTimeData])
 
   // Dynamic target: max commercial sales * 1.2 rounded to nearest 10k
@@ -257,7 +256,7 @@ export function CommercialTab({
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <div className='flex items-center gap-1.5'>
-              <KpiTooltip text='Delta moyen entre la création du booking et son premier changement de statut depuis "Nouveau"' />
+              <KpiTooltip text='Delta moyen entre la création du booking et son premier changement de statut depuis "Nouveau", en heures ouvrées (Lun-Ven 9h-17h, Europe/Paris).' />
               <CardTitle className='text-sm font-medium'>
                 Temps de réponse moyen
               </CardTitle>

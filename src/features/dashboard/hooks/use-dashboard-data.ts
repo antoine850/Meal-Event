@@ -27,6 +27,7 @@ import {
   useRestaurants,
   type BookingWithRelations,
 } from '@/features/reservations/hooks/use-bookings'
+import { computeWorkingHoursBetween } from '../lib/working-hours'
 
 export type DashboardDateField = 'event_date' | 'signed_at' | 'created_at'
 
@@ -749,8 +750,8 @@ export function getMonthlyLeadsBySource(contacts: ContactWithRelations[]) {
 }
 
 /**
- * Calcule le temps de réponse moyen : delta entre created_at du booking
- * et le premier changement de statut depuis "Nouveau".
+ * Calcule le temps de réponse moyen en heures ouvrées (Lun-Ven 9-17 Europe/Paris).
+ * Delta entre created_at du booking et le premier changement de statut depuis "Nouveau".
  * Retourne { avgHours, count } ou null si pas de données.
  */
 export function useAvgResponseTime(bookings: BookingWithRelations[]) {
@@ -793,10 +794,10 @@ export function useAvgResponseTime(bookings: BookingWithRelations[]) {
       firstChangeByBooking.forEach((firstChangeAt, bookingId) => {
         const booking = bookingMap.get(bookingId)
         if (!booking?.created_at) return
-        const deltaHours =
-          (new Date(firstChangeAt).getTime() -
-            new Date(booking.created_at).getTime()) /
-          (1000 * 60 * 60)
+        const deltaHours = computeWorkingHoursBetween(
+          new Date(booking.created_at),
+          new Date(firstChangeAt)
+        )
         if (deltaHours >= 0) deltas.push(deltaHours)
       })
 
