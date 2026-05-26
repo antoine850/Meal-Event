@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -35,22 +35,20 @@ import {
   useUpdateBooking,
 } from '../hooks/use-bookings'
 
-type Props = {
-  booking: {
-    id: string
-    event_date: string
-    guests_count: number | null
-    status_slug: string | null
-    contact: {
-      first_name: string | null
-      last_name: string | null
-      email: string | null
-    } | null
-    restaurant: {
-      name: string
-      min_revenue_privatization_eur?: number | null
-    } | null
-  }
+export type SendEmailBooking = {
+  id: string
+  event_date: string
+  guests_count: number | null
+  status_slug: string | null
+  contact: {
+    first_name: string | null
+    last_name: string | null
+    email: string | null
+  } | null
+  restaurant: {
+    name: string
+    min_revenue_privatization_eur?: number | null
+  } | null
 }
 
 const langLabel = (lang: 'fr' | 'en') =>
@@ -58,7 +56,7 @@ const langLabel = (lang: 'fr' | 'en') =>
 
 type Provider = 'gmail' | 'outlook' | 'mailto'
 
-// Logos SVG officiels (couleurs brand)
+// === Logos officiels ===
 const GmailIcon = () => (
   <svg
     viewBox='0 0 256 193'
@@ -118,17 +116,27 @@ const MailIcon = () => (
   </svg>
 )
 
-export function SendEmailMenuItems({ booking }: Props) {
-  const { data: templates = [], isLoading } = useEmailTemplates()
-  const { data: profile } = useCurrentUserProfile()
-  const { data: statuses = [] } = useBookingStatuses()
-  const { mutate: updateBooking } = useUpdateBooking()
-
+// === Hook pour gérer le picker template+service ===
+// La Dialog DOIT être rendue en dehors du DropdownMenu sinon elle unmount
+// avec lui quand on clique un item.
+export function useSendEmail() {
   const [picked, setPicked] = useState<EmailTemplate | null>(null)
-  // Date d'ouverture du dialog pour ignorer les close events fantômes
-  // déclenchés par les events pointer du dropdown qui propagent encore.
-  const openedAtRef = useRef<number>(0)
 
+  return {
+    pick: (tpl: EmailTemplate) => setPicked(tpl),
+    picked,
+    close: () => setPicked(null),
+  }
+}
+
+// === Items de menu (à rendre dans un DropdownMenuContent) ===
+type MenuItemsProps = {
+  booking: Pick<SendEmailBooking, 'contact'>
+  onPick: (tpl: EmailTemplate) => void
+}
+
+export function SendEmailMenuItems({ booking, onPick }: MenuItemsProps) {
+  const { data: templates = [], isLoading } = useEmailTemplates()
   const hasEmail = !!booking.contact?.email
 
   const groupedBySlug = templates.reduce<Record<string, EmailTemplate[]>>(
@@ -148,6 +156,59 @@ export function SendEmailMenuItems({ booking }: Props) {
     }))
     .sort((a, b) => a.sort_order - b.sort_order)
 
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={!hasEmail}>
+        <Mail className='mr-2 h-4 w-4' />
+        Envoyer un email
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className='w-56'>
+        {isLoading && (
+          <DropdownMenuItem disabled>Chargement…</DropdownMenuItem>
+        )}
+        {!isLoading && slugOrder.length === 0 && (
+          <DropdownMenuItem disabled>Aucun modèle</DropdownMenuItem>
+        )}
+        {slugOrder.map(({ slug, label }, idx) => {
+          const list = groupedBySlug[slug]
+          return (
+            <div key={slug}>
+              {idx > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel className='text-xs text-muted-foreground'>
+                {label}
+              </DropdownMenuLabel>
+              {(['fr', 'en'] as const).map((lang) => {
+                const tpl = list.find((t) => t.lang === lang)
+                if (!tpl) return null
+                return (
+                  <DropdownMenuItem
+                    key={tpl.id}
+                    onSelect={() => onPick(tpl)}
+                  >
+                    {langLabel(lang)}
+                  </DropdownMenuItem>
+                )
+              })}
+            </div>
+          )
+        })}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
+}
+
+// === Dialog du choix de service (à rendre en dehors de tout DropdownMenu) ===
+type DialogProps = {
+  picked: EmailTemplate | null
+  onClose: () => void
+  booking: SendEmailBooking
+}
+
+export function SendEmailDialog({ picked, onClose, booking }: DialogProps) {
+  const { data: profile } = useCurrentUserProfile()
+  const { data: statuses = [] } = useBookingStatuses()
+  const { mutate: updateBooking } = useUpdateBooking()
+
   const promoteIfNew = () => {
     if (booking.status_slug !== 'nouveau') return
     const qualification = statuses.find((s) => s.slug === 'qualification')
@@ -157,7 +218,9 @@ export function SendEmailMenuItems({ booking }: Props) {
       {
         onSuccess: () => toast.success('Statut passé en Qualification'),
         onError: (e) =>
-          toast.error(`Email envoyé mais maj statut KO : ${(e as Error).message}`),
+          toast.error(
+            `Email envoyé mais maj statut KO : ${(e as Error).message}`
+          ),
       }
     )
   }
@@ -182,127 +245,75 @@ export function SendEmailMenuItems({ booking }: Props) {
     const { subject, body } = renderTemplate(picked, vars)
     const email = booking.contact.email
 
-    let url: string
     if (provider === 'gmail') {
-      url = buildGmailComposeUrl(email, subject, body)
+      window.open(
+        buildGmailComposeUrl(email, subject, body),
+        '_blank',
+        'noopener,noreferrer'
+      )
     } else if (provider === 'outlook') {
-      url = buildOutlookComposeUrl(email, subject, body)
+      window.open(
+        buildOutlookComposeUrl(email, subject, body),
+        '_blank',
+        'noopener,noreferrer'
+      )
     } else {
-      url = buildMailtoUrl(email, subject, body)
+      window.location.href = buildMailtoUrl(email, subject, body)
     }
 
-    if (provider === 'mailto') {
-      // protocol handler : trigger en synchrone dans le handler de clic
-      window.location.href = url
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer')
-    }
-
-    setPicked(null)
+    onClose()
     promoteIfNew()
   }
 
   return (
-    <>
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger disabled={!hasEmail}>
-          <Mail className='mr-2 h-4 w-4' />
-          Envoyer un email
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className='w-56'>
-          {isLoading && (
-            <DropdownMenuItem disabled>Chargement…</DropdownMenuItem>
-          )}
-          {!isLoading && slugOrder.length === 0 && (
-            <DropdownMenuItem disabled>Aucun modèle</DropdownMenuItem>
-          )}
-          {slugOrder.map(({ slug, label }, idx) => {
-            const list = groupedBySlug[slug]
-            return (
-              <div key={slug}>
-                {idx > 0 && <DropdownMenuSeparator />}
-                <DropdownMenuLabel className='text-xs text-muted-foreground'>
-                  {label}
-                </DropdownMenuLabel>
-                {(['fr', 'en'] as const).map((lang) => {
-                  const tpl = list.find((t) => t.lang === lang)
-                  if (!tpl) return null
-                  return (
-                    <DropdownMenuItem
-                      key={tpl.id}
-                      onSelect={() => {
-                        // Différer pour laisser le dropdown se fermer + marquer
-                        // l'instant d'ouverture pour ignorer les false-close (cf onOpenChange).
-                        setTimeout(() => {
-                          openedAtRef.current = Date.now()
-                          setPicked(tpl)
-                        }, 50)
-                      }}
-                    >
-                      {langLabel(lang)}
-                    </DropdownMenuItem>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
+    <Dialog
+      open={!!picked}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader>
+          <DialogTitle>Avec quel service mail ?</DialogTitle>
+          <DialogDescription>
+            {picked?.label} • destinataire :{' '}
+            <span className='font-mono'>{booking.contact?.email}</span>
+          </DialogDescription>
+        </DialogHeader>
 
-      <Dialog
-        open={!!picked}
-        onOpenChange={(open) => {
-          if (open) return
-          // Ignorer les close events qui arrivent dans les 300ms suivant
-          // l'ouverture (events pointer fantômes du dropdown qui finissent
-          // de propager — sinon le dialog s'auto-ferme instantanément).
-          if (Date.now() - openedAtRef.current < 300) return
-          setPicked(null)
-        }}
-      >
-        <DialogContent className='sm:max-w-md'>
-          <DialogHeader>
-            <DialogTitle>Avec quel service mail ?</DialogTitle>
-            <DialogDescription>
-              {picked?.label} • destinataire :{' '}
-              <span className='font-mono'>{booking.contact?.email}</span>
-            </DialogDescription>
-          </DialogHeader>
+        <div className='grid grid-cols-3 gap-3 pt-2'>
+          <Button
+            variant='outline'
+            className='flex h-24 flex-col gap-2'
+            onClick={() => sendVia('gmail')}
+          >
+            <GmailIcon />
+            <span className='text-xs'>Gmail</span>
+          </Button>
+          <Button
+            variant='outline'
+            className='flex h-24 flex-col gap-2'
+            onClick={() => sendVia('outlook')}
+          >
+            <OutlookIcon />
+            <span className='text-xs'>Outlook</span>
+          </Button>
+          <Button
+            variant='outline'
+            className='flex h-24 flex-col gap-2'
+            onClick={() => sendVia('mailto')}
+          >
+            <MailIcon />
+            <span className='text-xs'>Mail par défaut</span>
+          </Button>
+        </div>
 
-          <div className='grid grid-cols-3 gap-3 pt-2'>
-            <Button
-              variant='outline'
-              className='flex h-24 flex-col gap-2'
-              onClick={() => sendVia('gmail')}
-            >
-              <GmailIcon />
-              <span className='text-xs'>Gmail</span>
-            </Button>
-            <Button
-              variant='outline'
-              className='flex h-24 flex-col gap-2'
-              onClick={() => sendVia('outlook')}
-            >
-              <OutlookIcon />
-              <span className='text-xs'>Outlook</span>
-            </Button>
-            <Button
-              variant='outline'
-              className='flex h-24 flex-col gap-2'
-              onClick={() => sendVia('mailto')}
-            >
-              <MailIcon />
-              <span className='text-xs'>Mail par défaut</span>
-            </Button>
-          </div>
-
-          <p className='pt-2 text-xs text-muted-foreground'>
-            Gmail et Outlook s'ouvrent dans un nouvel onglet. « Mail par
-            défaut » utilise l'application configurée sur ton système
-            (Mail.app, Thunderbird…).
-          </p>
-        </DialogContent>
-      </Dialog>
-    </>
+        <p className='pt-2 text-xs text-muted-foreground'>
+          Gmail et Outlook s'ouvrent dans un nouvel onglet. « Mail par défaut »
+          utilise l'application configurée sur ton système (Mail.app,
+          Thunderbird…).
+        </p>
+      </DialogContent>
+    </Dialog>
   )
 }
