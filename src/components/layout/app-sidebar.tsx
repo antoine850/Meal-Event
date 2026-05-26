@@ -27,6 +27,7 @@ const routePermissions: Record<string, string> = {
   '/settings/statuses': 'settings.view',
   '/settings/products': 'settings.view',
   '/settings/menus': 'settings.view',
+  '/settings/emails': 'settings.view',
   '/settings/members': 'users.view',
 }
 

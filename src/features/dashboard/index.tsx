@@ -62,10 +62,10 @@ export function Dashboard() {
 
   const activeTab = search.tab ?? 'general'
 
-  const toDateRange = (from?: string, to?: string) => {
-    if (!from || !to) return undefined
-    return { from: new Date(from), to: new Date(to) }
-  }
+  const toDateRange = (from?: string, to?: string) =>
+    from
+      ? { from: new Date(from), to: to ? new Date(to) : undefined }
+      : undefined
   const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
 
   const eventDateRange = useMemo(

@@ -63,6 +63,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { SendEmailMenuItems } from './send-email-menu'
 import {
   Form,
   FormControl,
@@ -581,18 +582,27 @@ export const BookingDetail = forwardRef<
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align='end' className='w-56'>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            if (!booking.contact?.email) {
-                              toast.error("Le contact n'a pas d'adresse email")
-                              return
-                            }
-                            window.location.href = `mailto:${booking.contact.email}`
+                        <SendEmailMenuItems
+                          booking={{
+                            event_date: booking.event_date,
+                            guests_count: booking.guests_count,
+                            contact: booking.contact
+                              ? {
+                                  first_name: booking.contact.first_name,
+                                  last_name: booking.contact.last_name,
+                                  email: booking.contact.email,
+                                }
+                              : null,
+                            restaurant: booking.restaurant
+                              ? {
+                                  name: booking.restaurant.name,
+                                  min_revenue_privatization_eur:
+                                    (booking.restaurant as { min_revenue_privatization_eur?: number | null })
+                                      .min_revenue_privatization_eur ?? null,
+                                }
+                              : null,
                           }}
-                        >
-                          <Mail className='mr-2 h-4 w-4' />
-                          Envoyer un email
-                        </DropdownMenuItem>
+                        />
                         <DropdownMenuItem
                           onClick={() => {
                             if (!booking.contact_id) {

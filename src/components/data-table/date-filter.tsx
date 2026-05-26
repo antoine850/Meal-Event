@@ -141,9 +141,6 @@ export function DateFilter({
             selected={value}
             onSelect={(range) => {
               onChange?.(range)
-              if (range?.from && range?.to) {
-                setOpen(false)
-              }
             }}
             numberOfMonths={2}
             locale={fr}

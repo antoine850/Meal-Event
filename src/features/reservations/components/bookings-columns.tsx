@@ -1,13 +1,19 @@
 import { format } from 'date-fns'
 import { type ColumnDef } from '@tanstack/react-table'
 import { fr } from 'date-fns/locale'
-import { ExternalLink } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
 import type { BookingWithRelations } from '../hooks/use-bookings'
+import { SendEmailMenuItems } from './send-email-menu'
 
 type OrgUser = { id: string; first_name: string; last_name: string }
 
@@ -240,11 +246,51 @@ export const buildBookingsColumns = (
   },
   {
     id: 'actions',
-    cell: () => (
-      <Button variant='ghost' size='icon' className='h-8 w-8'>
-        <ExternalLink className='h-4 w-4' />
-      </Button>
-    ),
+    cell: ({ row }) => {
+      const booking = row.original
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant='ghost'
+              size='icon'
+              className='h-8 w-8'
+              onClick={(e) => e.stopPropagation()}
+              aria-label='Ouvrir le menu'
+            >
+              <MoreHorizontal className='h-4 w-4' />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align='end'
+            onClick={(e) => e.stopPropagation()}
+            className='w-56'
+          >
+            <SendEmailMenuItems
+              booking={{
+                event_date: booking.event_date,
+                guests_count: booking.guests_count,
+                contact: booking.contact
+                  ? {
+                      first_name: booking.contact.first_name,
+                      last_name: booking.contact.last_name,
+                      email: booking.contact.email,
+                    }
+                  : null,
+                restaurant: booking.restaurant
+                  ? {
+                      name: booking.restaurant.name,
+                      min_revenue_privatization_eur:
+                        (booking.restaurant as { min_revenue_privatization_eur?: number | null })
+                          .min_revenue_privatization_eur ?? null,
+                    }
+                  : null,
+              }}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
     meta: { className: 'w-12' },
   },
 ]

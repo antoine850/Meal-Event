@@ -16,6 +16,7 @@ import {
   ChefHat,
   UserPlus,
   Code,
+  Mail,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -96,6 +97,11 @@ export const sidebarData: SidebarData = {
               title: 'Menus',
               url: '/settings/menus',
               icon: ChefHat,
+            },
+            {
+              title: "Modèles d'emails",
+              url: '/settings/emails',
+              icon: Mail,
             },
             {
               title: 'Notifications',
