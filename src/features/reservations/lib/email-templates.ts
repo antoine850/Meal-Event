@@ -130,7 +130,9 @@ export function buildMailtoUrl(
   const params = new URLSearchParams()
   params.set('subject', subject)
   params.set('body', body)
-  // URLSearchParams encodes spaces as '+' but mailto: expects '%20'
+  // URLSearchParams encodes spaces as '+' alors que mailto: attend '%20'
   const qs = params.toString().replace(/\+/g, '%20')
-  return `mailto:${encodeURIComponent(email)}?${qs}`
+  // L'email NE DOIT PAS être percent-encodé : Gmail refuse `samuel%40gmail.com`
+  // alors qu'iCloud le tolère. Spec mailto: (RFC 6068) : @ et . sont allowed as-is.
+  return `mailto:${email.trim()}?${qs}`
 }
