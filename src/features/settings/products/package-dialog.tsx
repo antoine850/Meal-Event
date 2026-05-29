@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   type ProductWithRestaurants,
   type PackageWithRelations,
+  deriveHtFromTtc,
   useCreatePackage,
   useUpdatePackage,
 } from '../hooks/use-products'
@@ -46,7 +47,7 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [unitPriceHt, setUnitPriceHt] = useState<number>(0)
+  const [unitPriceTtc, setUnitPriceTtc] = useState<number>(0)
   const [pricePerPerson, setPricePerPerson] = useState(false)
   const [tvaRate, setTvaRate] = useState<number>(20)
   const [isActive, setIsActive] = useState(true)
@@ -58,7 +59,11 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
       if (pkg) {
         setName(pkg.name)
         setDescription(pkg.description || '')
-        setUnitPriceHt(pkg.unit_price_ht || 0)
+        setUnitPriceTtc(
+          Math.round(
+            (pkg.unit_price_ht || 0) * (1 + (pkg.tva_rate || 20) / 100) * 100
+          ) / 100
+        )
         setPricePerPerson(pkg.price_per_person || false)
         setTvaRate(pkg.tva_rate || 20)
         setIsActive(pkg.is_active)
@@ -74,7 +79,7 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
       } else {
         setName('')
         setDescription('')
-        setUnitPriceHt(0)
+        setUnitPriceTtc(0)
         setPricePerPerson(false)
         setTvaRate(20)
         setIsActive(true)
@@ -84,12 +89,14 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
     }
   }, [open, pkg])
 
+  const derivedHt = deriveHtFromTtc(unitPriceTtc, tvaRate)
+
   const handleSubmit = () => {
     if (!name.trim()) {
       toast.error('Le nom est requis')
       return
     }
-    if (unitPriceHt <= 0) {
+    if (unitPriceTtc <= 0) {
       toast.error('Le prix du package est requis')
       return
     }
@@ -97,7 +104,7 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
-      unit_price_ht: unitPriceHt,
+      unit_price_ht: derivedHt,
       price_per_person: pricePerPerson,
       tva_rate: tvaRate,
       is_active: isActive,
@@ -186,16 +193,16 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
           </div>
 
           {/* Pricing */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-3 gap-3'>
             <div>
-              <Label>Prix du package HT *</Label>
+              <Label>Prix du package TTC *</Label>
               <Input
                 type='number'
                 step='0.01'
                 min={0}
-                value={unitPriceHt}
+                value={unitPriceTtc}
                 onChange={(e) =>
-                  setUnitPriceHt(parseFloat(e.target.value) || 0)
+                  setUnitPriceTtc(parseFloat(e.target.value) || 0)
                 }
                 placeholder='0.00'
               />
@@ -209,6 +216,14 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
                 max={100}
                 value={tvaRate}
                 onChange={(e) => setTvaRate(parseFloat(e.target.value) || 20)}
+              />
+            </div>
+            <div>
+              <Label>Prix HT (€)</Label>
+              <Input
+                value={derivedHt.toFixed(2)}
+                disabled
+                className='bg-muted'
               />
             </div>
           </div>
@@ -310,7 +325,7 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
                     Somme des produits: {totalHt.toFixed(2)} €
                   </div>
                   <div className='font-medium'>
-                    Prix du package: {unitPriceHt.toFixed(2)} €
+                    Prix du package: {derivedHt.toFixed(2)} € HT
                   </div>
                 </div>
               )}

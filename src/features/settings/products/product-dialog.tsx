@@ -24,6 +24,7 @@ import {
   type Product,
   type ProductWithRestaurants,
   PRODUCT_TYPES,
+  deriveHtFromTtc,
   useCreateProduct,
   useUpdateProduct,
 } from '../hooks/use-products'
@@ -54,7 +55,7 @@ export function ProductDialog({
   const [description, setDescription] = useState('')
   const [type, setType] = useState<Product['type']>('food')
   const [pricePerPerson, setPricePerPerson] = useState(false)
-  const [unitPriceHt, setUnitPriceHt] = useState('')
+  const [unitPriceTtc, setUnitPriceTtc] = useState('')
   const [tvaRate, setTvaRate] = useState('20')
   const [margin, setMargin] = useState('0')
   const [isActive, setIsActive] = useState(true)
@@ -67,7 +68,7 @@ export function ProductDialog({
         setDescription(source.description || '')
         setType(source.type)
         setPricePerPerson(source.price_per_person)
-        setUnitPriceHt(String(source.unit_price_ht))
+        setUnitPriceTtc(String(source.unit_price_ttc))
         setTvaRate(String(source.tva_rate))
         setMargin(String(source.margin))
         setIsActive(source.is_active)
@@ -79,7 +80,7 @@ export function ProductDialog({
         setDescription('')
         setType('food')
         setPricePerPerson(false)
-        setUnitPriceHt('')
+        setUnitPriceTtc('')
         setTvaRate('20')
         setMargin('0')
         setIsActive(true)
@@ -88,11 +89,14 @@ export function ProductDialog({
     }
   }, [open, source, duplicateFrom])
 
-  const priceTtc = useMemo(() => {
-    const ht = parseFloat(unitPriceHt) || 0
-    const tva = parseFloat(tvaRate) || 0
-    return (ht * (1 + tva / 100)).toFixed(2)
-  }, [unitPriceHt, tvaRate])
+  const priceHt = useMemo(
+    () =>
+      deriveHtFromTtc(
+        parseFloat(unitPriceTtc) || 0,
+        parseFloat(tvaRate) || 0
+      ).toFixed(2),
+    [unitPriceTtc, tvaRate]
+  )
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -105,7 +109,10 @@ export function ProductDialog({
       description: description.trim() || null,
       type,
       price_per_person: pricePerPerson,
-      unit_price_ht: parseFloat(unitPriceHt) || 0,
+      unit_price_ht: deriveHtFromTtc(
+        parseFloat(unitPriceTtc) || 0,
+        parseFloat(tvaRate) || 0
+      ),
       tva_rate: parseFloat(tvaRate) || 20,
       margin: parseFloat(margin) || 0,
       is_active: isActive,
@@ -198,12 +205,12 @@ export function ProductDialog({
 
           <div className='grid grid-cols-3 gap-3'>
             <div>
-              <Label>Prix HT (€)</Label>
+              <Label>Prix TTC (€)</Label>
               <Input
                 type='number'
                 step='0.01'
-                value={unitPriceHt}
-                onChange={(e) => setUnitPriceHt(e.target.value)}
+                value={unitPriceTtc}
+                onChange={(e) => setUnitPriceTtc(e.target.value)}
                 placeholder='0.00'
               />
             </div>
@@ -218,8 +225,8 @@ export function ProductDialog({
               />
             </div>
             <div>
-              <Label>Prix TTC (€)</Label>
-              <Input value={priceTtc} disabled className='bg-muted' />
+              <Label>Prix HT (€)</Label>
+              <Input value={priceHt} disabled className='bg-muted' />
             </div>
           </div>
 
