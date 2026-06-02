@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { deriveHtFromTtc } from '@/lib/price'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,7 +24,6 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   type ProductWithRestaurants,
   type PackageWithRelations,
-  deriveHtFromTtc,
   useCreatePackage,
   useUpdatePackage,
 } from '../hooks/use-products'

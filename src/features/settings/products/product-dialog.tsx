@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { deriveHtFromTtc } from '@/lib/price'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,7 +25,6 @@ import {
   type Product,
   type ProductWithRestaurants,
   PRODUCT_TYPES,
-  deriveHtFromTtc,
   useCreateProduct,
   useUpdateProduct,
 } from '../hooks/use-products'

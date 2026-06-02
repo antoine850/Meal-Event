@@ -32,6 +32,7 @@ import {
   Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { deriveHtFromTtc } from '@/lib/price'
 import { supabase } from '@/lib/supabase'
 import type { QuoteItem } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
@@ -137,10 +138,12 @@ type Props = {
 function SortableItemRow({
   item,
   onUpdateItem,
+  onUpdateItemFields,
   onDeleteItem,
 }: {
   item: QuoteItem
   onUpdateItem: (id: string, field: string, value: any) => void
+  onUpdateItemFields: (id: string, updates: Partial<QuoteItem>) => void
   onDeleteItem: (id: string) => void
 }) {
   const {
@@ -223,17 +226,26 @@ function SortableItemRow({
       </TableCell>
       <TableCell>
         <Input
+          key={`ttc-${item.tva_rate ?? 20}`}
           type='number'
           step='0.01'
-          defaultValue={item.unit_price ?? 0}
+          defaultValue={
+            Math.round(
+              (item.unit_price ?? 0) * (1 + (item.tva_rate ?? 20) / 100) * 100
+            ) / 100
+          }
           onBlur={(e) => {
-            const v = parseFloat(e.target.value) || 0
-            if (v !== (item.unit_price ?? 0)) {
-              onUpdateItem(item.id, 'unit_price', v)
+            const ttc = parseFloat(e.target.value) || 0
+            const ht = deriveHtFromTtc(ttc, item.tva_rate ?? 20)
+            if (ht !== (item.unit_price ?? 0)) {
+              onUpdateItem(item.id, 'unit_price', ht)
             }
           }}
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
         />
+      </TableCell>
+      <TableCell className='text-xs text-muted-foreground'>
+        {(item.unit_price ?? 0).toFixed(2)}
       </TableCell>
       <TableCell>
         <Input
@@ -241,9 +253,14 @@ function SortableItemRow({
           step='0.01'
           defaultValue={item.tva_rate ?? 20}
           onBlur={(e) => {
-            const v = parseFloat(e.target.value) || 20
-            if (v !== (item.tva_rate ?? 20)) {
-              onUpdateItem(item.id, 'tva_rate', v)
+            const newTva = parseFloat(e.target.value) || 20
+            const oldTva = item.tva_rate ?? 20
+            if (newTva !== oldTva) {
+              const ttc = (item.unit_price ?? 0) * (1 + oldTva / 100)
+              onUpdateItemFields(item.id, {
+                tva_rate: newTva,
+                unit_price: deriveHtFromTtc(ttc, newTva),
+              })
             }
           }}
           className='h-7 w-16 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
@@ -695,6 +712,17 @@ export function QuoteEditor({
     (itemId: string, field: string, value: any) => {
       if (!quoteId) return
       updateQuoteItem({ id: itemId, quoteId, [field]: value } as any, {
+        onError: () => toast.error('Erreur lors de la mise à jour'),
+      })
+    },
+    [quoteId, updateQuoteItem]
+  )
+
+  // Maj multi-champs en une mutation (ex: TVA modifiee = on garde le TTC, on recalcule le HT)
+  const handleUpdateItemFields = useCallback(
+    (itemId: string, updates: Partial<QuoteItem>) => {
+      if (!quoteId) return
+      updateQuoteItem({ id: itemId, quoteId, ...updates } as any, {
         onError: () => toast.error('Erreur lors de la mise à jour'),
       })
     },
@@ -2051,6 +2079,9 @@ export function QuoteEditor({
                                     Qté
                                   </TableHead>
                                   <TableHead className='w-24 text-xs'>
+                                    Prix TTC
+                                  </TableHead>
+                                  <TableHead className='w-20 text-xs'>
                                     Prix HT
                                   </TableHead>
                                   <TableHead className='w-20 text-xs'>
@@ -2078,6 +2109,9 @@ export function QuoteEditor({
                                       key={item.id}
                                       item={item}
                                       onUpdateItem={handleUpdateItem}
+                                      onUpdateItemFields={
+                                        handleUpdateItemFields
+                                      }
                                       onDeleteItem={handleDeleteItem}
                                     />
                                   ))}
@@ -2193,7 +2227,7 @@ export function QuoteEditor({
                             </div>
                             <div>
                               <Label className='text-xs'>
-                                Prix unitaire HT
+                                Prix unitaire TTC
                               </Label>
                               <Input
                                 type='number'
@@ -2207,6 +2241,14 @@ export function QuoteEditor({
                                 }
                                 className='mt-1 h-8 text-xs'
                               />
+                              <p className='mt-0.5 text-[10px] text-muted-foreground'>
+                                ={' '}
+                                {deriveHtFromTtc(
+                                  extraUnitPrice,
+                                  extraTvaRate
+                                ).toFixed(2)}{' '}
+                                € HT
+                              </p>
                             </div>
                             <div>
                               <Label className='text-xs'>TVA %</Label>
@@ -2240,7 +2282,10 @@ export function QuoteEditor({
                                         name: extraName,
                                         description: extraDescription || null,
                                         quantity: extraQuantity,
-                                        unit_price: extraUnitPrice,
+                                        unit_price: deriveHtFromTtc(
+                                          extraUnitPrice,
+                                          extraTvaRate
+                                        ),
                                         tva_rate: extraTvaRate,
                                       } as any,
                                       {
@@ -2266,7 +2311,10 @@ export function QuoteEditor({
                                         name: extraName,
                                         description: extraDescription,
                                         quantity: extraQuantity,
-                                        unitPrice: extraUnitPrice,
+                                        unitPrice: deriveHtFromTtc(
+                                          extraUnitPrice,
+                                          extraTvaRate
+                                        ),
                                         tvaRate: extraTvaRate,
                                         position: items.length,
                                         itemType: 'extra',
@@ -2388,7 +2436,13 @@ export function QuoteEditor({
                                           )
                                           setExtraQuantity(extra.quantity ?? 1)
                                           setExtraUnitPrice(
-                                            extra.unit_price ?? 0
+                                            Math.round(
+                                              (extra.unit_price ?? 0) *
+                                                (1 +
+                                                  (extra.tva_rate ?? 20) /
+                                                    100) *
+                                                100
+                                            ) / 100
                                           )
                                           setExtraTvaRate(extra.tva_rate ?? 20)
                                         }}
