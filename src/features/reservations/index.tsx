@@ -24,6 +24,7 @@ import {
 import { BookingsTable } from './components/bookings-table'
 import { CalendarView } from './components/calendar-view'
 import { CreateBookingDialog } from './components/create-booking-dialog'
+import { ExportEventsDialog } from './components/export-events-dialog'
 import { PipelineView } from './components/pipeline-view'
 import {
   useBookings,
@@ -379,6 +380,13 @@ export function Reservations() {
                 <Columns3 className='h-4 w-4' />
               </ToggleGroupItem>
             </ToggleGroup>
+            <ExportEventsDialog
+              initialFrom={dateRange?.from}
+              initialTo={dateRange?.to}
+              initialStatusSlugs={selectedStatuses}
+              initialRestaurantIds={selectedRestaurants}
+              initialCommercialIds={selectedCommercials}
+            />
             <CreateBookingDialog
               open={bookingDialogOpen}
               onOpenChange={setBookingDialogOpen}

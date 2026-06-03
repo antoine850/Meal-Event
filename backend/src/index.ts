@@ -3,7 +3,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
 
-import { requireAuth } from './lib/auth.js'
+import { requireAuth, requireOrgAdmin } from './lib/auth.js'
 import { organizationsRouter } from './routes/organizations.js'
 import { restaurantsRouter } from './routes/restaurants.js'
 import { contactsRouter } from './routes/contacts.js'
@@ -16,6 +16,7 @@ import { publicRouter } from './routes/public.js'
 import { apiV1Router } from './routes/api-v1.js'
 import { googleCalendarRouter, googleCalendarPublicRouter } from './routes/google-calendar.js'
 import { stripeConnectRouter, stripeConnectPublicRouter } from './routes/stripe-connect.js'
+import { exportsRouter } from './routes/exports.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -123,6 +124,7 @@ app.use('/api/bookings', requireAuth, bookingsRouter)
 app.use('/api/quotes', requireAuth, quotesRouter)
 app.use('/api/payments', requireAuth, paymentsRouter)
 app.use('/api/members', requireAuth, membersRouter)
+app.use('/api/exports', requireAuth, requireOrgAdmin, exportsRouter)
 app.use('/api/stripe-connect', stripeConnectRouter)
 
 // Error handler
