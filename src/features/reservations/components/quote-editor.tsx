@@ -226,7 +226,7 @@ function SortableItemRow({
       </TableCell>
       <TableCell>
         <Input
-          key={`ttc-${item.tva_rate ?? 20}`}
+          key={`ttc-${item.tva_rate ?? 20}-${item.unit_price ?? 0}`}
           type='number'
           step='0.01'
           defaultValue={
@@ -244,8 +244,20 @@ function SortableItemRow({
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
         />
       </TableCell>
-      <TableCell className='text-xs text-muted-foreground'>
-        {(item.unit_price ?? 0).toFixed(2)}
+      <TableCell>
+        <Input
+          key={`ht-${item.unit_price ?? 0}`}
+          type='number'
+          step='0.01'
+          defaultValue={item.unit_price ?? 0}
+          onBlur={(e) => {
+            const ht = parseFloat(e.target.value) || 0
+            if (ht !== (item.unit_price ?? 0)) {
+              onUpdateItem(item.id, 'unit_price', ht)
+            }
+          }}
+          className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
+        />
       </TableCell>
       <TableCell>
         <Input

@@ -144,6 +144,7 @@ const labels = {
     comments: 'Commentaires',
     designation: 'Désignation',
     quantity: 'Qté',
+    unitPriceTtc: 'P.U. TTC',
     unitPriceHt: 'P.U. HT',
     tvaRate: 'TVA',
     totalHt: 'Total HT',
@@ -190,6 +191,7 @@ const labels = {
     comments: 'Comments',
     designation: 'Description',
     quantity: 'Qty',
+    unitPriceTtc: 'Price incl. VAT',
     unitPriceHt: 'Unit price',
     tvaRate: 'VAT',
     totalHt: 'Total excl. VAT',
@@ -547,6 +549,7 @@ function buildDocDefinition(
           { text: l.designation, style: 'tableHeader', fillColor: color, color: 'white' },
           { text: l.quantity, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
           { text: l.unitPriceHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+          { text: l.unitPriceTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
           { text: l.tvaRate, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
           { text: l.totalHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
           { text: l.totalTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
@@ -580,6 +583,13 @@ function buildDocDefinition(
             fillColor: rowColor,
             ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
           },
+          {
+            text: formatEuroDecimal((item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)),
+            style: 'tableCell',
+            alignment: 'right' as const,
+            fillColor: rowColor,
+            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+          },
           { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
           { text: formatEuroDecimal(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
           { text: formatEuroWhole(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
@@ -589,7 +599,7 @@ function buildDocDefinition(
       content.push({
         table: {
           headerRows: 1,
-          widths: ['*', 35, 60, 35, 60, 60],
+          widths: ['*', 35, 60, 60, 35, 60, 60],
           body: tableBody,
         },
         layout: {
@@ -616,6 +626,7 @@ function buildDocDefinition(
         { text: l.designation, style: 'tableHeader', fillColor: color, color: 'white' },
         { text: l.quantity, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
         { text: l.unitPriceHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+        { text: l.unitPriceTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
         { text: l.tvaRate, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
         { text: l.totalHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
         { text: l.totalTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
@@ -624,8 +635,8 @@ function buildDocDefinition(
 
     if (items.length > 0) {
       tableBody.push([
-        { text: l.serviceItems, colSpan: 6, style: 'bold' as const, fillColor: '#f3f4f6', color } as TableCell,
-        {}, {}, {}, {}, {},
+        { text: l.serviceItems, colSpan: 7, style: 'bold' as const, fillColor: '#f3f4f6', color } as TableCell,
+        {}, {}, {}, {}, {}, {},
       ])
       items.forEach((item) => {
         const base = (item.quantity || 1) * (item.unit_price || 0)
@@ -649,6 +660,12 @@ function buildDocDefinition(
             alignment: 'right' as const,
             ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
           },
+          {
+            text: formatEuroDecimal((item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)),
+            style: 'tableCell',
+            alignment: 'right' as const,
+            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+          },
           { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
           { text: formatEuroDecimal(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
           { text: formatEuroWhole(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
@@ -658,8 +675,8 @@ function buildDocDefinition(
 
     if (extras.length > 0) {
       tableBody.push([
-        { text: l.extras, colSpan: 6, style: 'bold' as const, fillColor: '#fef3c7', color } as TableCell,
-        {}, {}, {}, {}, {},
+        { text: l.extras, colSpan: 7, style: 'bold' as const, fillColor: '#fef3c7', color } as TableCell,
+        {}, {}, {}, {}, {}, {},
       ])
       extras.forEach((extra) => {
         const base = (extra.quantity || 1) * (extra.unit_price || 0)
@@ -683,6 +700,12 @@ function buildDocDefinition(
             alignment: 'right' as const,
             ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
           },
+          {
+            text: formatEuroDecimal((extra.unit_price || 0) * (1 + (extra.tva_rate || 0) / 100)),
+            style: 'tableCell',
+            alignment: 'right' as const,
+            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+          },
           { text: `${extra.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
           { text: formatEuroDecimal(extra.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
           { text: formatEuroWhole(extra.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
@@ -694,7 +717,7 @@ function buildDocDefinition(
       content.push({
         table: {
           headerRows: 1,
-          widths: ['*', 35, 60, 35, 60, 60],
+          widths: ['*', 35, 60, 60, 35, 60, 60],
           body: tableBody,
         },
         layout: {
