@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import {
   startOfMonth,
   endOfMonth,
@@ -7,8 +6,6 @@ import {
   getDay,
   isAfter,
   isBefore,
-  startOfDay,
-  endOfDay,
   parseISO,
 } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
@@ -17,17 +14,25 @@ import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/use-permissions'
 import {
-  useContacts,
   useOrganizationUsers,
   type ContactWithRelations,
 } from '@/features/contacts/hooks/use-contacts'
 import {
-  useBookings,
   useBookingStatuses,
   useRestaurants,
   type BookingWithRelations,
 } from '@/features/reservations/hooks/use-bookings'
 import { computeWorkingHoursBetween } from '../lib/working-hours'
+import {
+  useDashboardAggregates,
+  useDashboardMarketing,
+  useDashboardActionLists,
+  useDashboardResponseTime,
+  type DashboardAggregates,
+  type DashboardMarketing,
+  type DashboardActionLists,
+  type ResponseTime,
+} from './use-dashboard-rpc'
 
 export type DashboardDateField = 'event_date' | 'signed_at' | 'created_at'
 
@@ -61,16 +66,20 @@ export function getBookingRefDate(
 }
 
 export type DashboardTabProps = {
-  bookings: BookingWithRelations[]
-  contacts: ContactWithRelations[]
+  aggregates?: DashboardAggregates
+  marketing?: DashboardMarketing
+  actionLists?: DashboardActionLists
+  responseTime?: ResponseTime
   restaurants: { id: string; name: string; color: string | null }[]
   users: { id: string; first_name: string; last_name: string }[]
   isLoading: boolean
 }
 
 export function useDashboardData(filters: DashboardFilters) {
-  const { data: allBookings = [], isLoading: bookingsLoading } = useBookings()
-  const { data: allContacts = [], isLoading: contactsLoading } = useContacts()
+  const aggregates = useDashboardAggregates(filters)
+  const marketing = useDashboardMarketing(filters)
+  const actionLists = useDashboardActionLists(filters)
+  const responseTime = useDashboardResponseTime(filters)
   const { data: restaurants = [] } = useRestaurants()
   const { data: users = [] } = useOrganizationUsers()
   const { data: statuses = [] } = useBookingStatuses()
@@ -97,143 +106,17 @@ export function useDashboardData(filters: DashboardFilters) {
     staleTime: 10 * 60 * 1000,
   })
 
-  const filteredBookings = useMemo(() => {
-    let result = allBookings
-
-    // Filtre date d'événement
-    if (filters.eventDateRange?.from) {
-      const from = startOfDay(filters.eventDateRange.from)
-      result = result.filter((b) => {
-        const ref = getBookingRefDate(b, 'event_date')
-        return ref !== null && !isBefore(ref, from)
-      })
-    }
-    if (filters.eventDateRange?.to) {
-      const to = endOfDay(filters.eventDateRange.to)
-      result = result.filter((b) => {
-        const ref = getBookingRefDate(b, 'event_date')
-        return ref !== null && !isAfter(ref, to)
-      })
-    }
-
-    // Filtre date de signature
-    if (filters.signDateRange?.from) {
-      const from = startOfDay(filters.signDateRange.from)
-      result = result.filter((b) => {
-        const ref = getBookingRefDate(b, 'signed_at')
-        return ref !== null && !isBefore(ref, from)
-      })
-    }
-    if (filters.signDateRange?.to) {
-      const to = endOfDay(filters.signDateRange.to)
-      result = result.filter((b) => {
-        const ref = getBookingRefDate(b, 'signed_at')
-        return ref !== null && !isAfter(ref, to)
-      })
-    }
-
-    // Filtre date d'import
-    if (filters.importDateRange?.from) {
-      const from = startOfDay(filters.importDateRange.from)
-      result = result.filter((b) => {
-        const ref = getBookingRefDate(b, 'created_at')
-        return ref !== null && !isBefore(ref, from)
-      })
-    }
-    if (filters.importDateRange?.to) {
-      const to = endOfDay(filters.importDateRange.to)
-      result = result.filter((b) => {
-        const ref = getBookingRefDate(b, 'created_at')
-        return ref !== null && !isAfter(ref, to)
-      })
-    }
-
-    // Restaurant filter
-    if (filters.restaurants.size > 0) {
-      result = result.filter(
-        (b) => b.restaurant_id && filters.restaurants.has(b.restaurant_id)
-      )
-    }
-
-    // Status filter
-    if (filters.statuses.size > 0) {
-      result = result.filter(
-        (b) => b.status_id && filters.statuses.has(b.status_id)
-      )
-    }
-
-    // Commercial filter sur assigned_user_ids (array)
-    if (filters.commercials.size > 0) {
-      result = result.filter((b) =>
-        (b.assigned_user_ids || []).some((id) => filters.commercials.has(id))
-      )
-    }
-
-    // B2B / B2C filter
-    if (filters.clientType.size > 0 && filters.clientType.size < 2) {
-      const wantB2B = filters.clientType.has('b2b')
-      const wantB2C = filters.clientType.has('b2c')
-      result = result.filter((b) => {
-        const hasCompany = !!b.contact?.company
-        if (wantB2B && hasCompany) return true
-        if (wantB2C && !hasCompany) return true
-        return false
-      })
-    }
-
-    return result
-  }, [allBookings, filters])
-
-  const filteredContacts = useMemo(() => {
-    let result = allContacts
-
-    // Filtre date d'import sur les contacts (created_at)
-    if (filters.importDateRange?.from) {
-      const from = startOfDay(filters.importDateRange.from)
-      result = result.filter((c) => {
-        if (!c.created_at) return false
-        return !isBefore(parseISO(c.created_at), from)
-      })
-    }
-    if (filters.importDateRange?.to) {
-      const to = endOfDay(filters.importDateRange.to)
-      result = result.filter((c) => {
-        if (!c.created_at) return false
-        return !isAfter(parseISO(c.created_at), to)
-      })
-    }
-
-    // Commercial filter
-    if (filters.commercials.size > 0) {
-      result = result.filter(
-        (c) => c.assigned_to && filters.commercials.has(c.assigned_to)
-      )
-    }
-
-    // B2B / B2C filter
-    if (filters.clientType.size > 0 && filters.clientType.size < 2) {
-      const wantB2B = filters.clientType.has('b2b')
-      const wantB2C = filters.clientType.has('b2c')
-      result = result.filter((c) => {
-        const hasCompany = !!c.company
-        if (wantB2B && hasCompany) return true
-        if (wantB2C && !hasCompany) return true
-        return false
-      })
-    }
-
-    return result
-  }, [allContacts, filters])
-
   return {
-    bookings: filteredBookings,
-    contacts: filteredContacts,
+    aggregates: aggregates.data,
+    marketing: marketing.data,
+    actionLists: actionLists.data,
+    responseTime: responseTime.data,
     restaurants,
     users,
     statuses,
     isAdmin,
     userName: currentUser?.firstName || '',
-    isLoading: bookingsLoading || contactsLoading,
+    isLoading: aggregates.isLoading,
   }
 }
 

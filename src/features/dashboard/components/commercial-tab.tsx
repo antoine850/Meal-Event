@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { format, parseISO } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import { Link, useSearch } from '@tanstack/react-router'
 import {
   Euro,
@@ -37,17 +39,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import {
-  type DashboardTabProps,
-  calcSignedRevenue,
-  calcSignedCount,
-  calcConversionRate,
-  calcAvgTicket,
-  groupByUser,
-  getMonthlyRevenueByCommercial,
-  getStaleProposals,
-  useAvgResponseTime,
-} from '../hooks/use-dashboard-data'
+import { type DashboardTabProps } from '../hooks/use-dashboard-data'
 import {
   buildEventsSearch,
   signedSearch,
@@ -81,38 +73,38 @@ const COLORS = [
 ]
 
 export function CommercialTab({
-  bookings,
+  aggregates,
+  actionLists,
+  responseTime,
   users,
   isLoading,
 }: DashboardTabProps) {
   const dash = useSearch({ strict: false }) as DashboardSearch
+
+  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users])
+
   const commercialStats = useMemo(() => {
-    const groups = groupByUser(bookings, users)
-    return Object.entries(groups)
-      .filter(([key]) => key !== 'unassigned')
-      .map(([key, data]) => ({
-        id: data.user?.id || key,
-        name: data.user
-          ? `${data.user.first_name} ${data.user.last_name}`
-          : 'Inconnu',
-        initials: data.user
-          ? `${data.user.first_name?.[0] || ''}${data.user.last_name?.[0] || ''}`.toUpperCase() ||
+    const rows = aggregates?.by_commercial ?? []
+    return rows.map((c) => {
+      const u = userMap.get(c.id)
+      return {
+        id: c.id,
+        name: u ? `${u.first_name} ${u.last_name}` : 'Inconnu',
+        initials: u
+          ? `${u.first_name?.[0] || ''}${u.last_name?.[0] || ''}`.toUpperCase() ||
             '??'
           : '??',
-        sales: calcSignedRevenue(data.bookings),
-        bookings: data.bookings.length,
-        signed: calcSignedCount(data.bookings),
-        conversionRate: calcConversionRate(data.bookings),
-        avgTicket: calcAvgTicket(data.bookings),
-      }))
-      .sort((a, b) => b.sales - a.sales)
-  }, [bookings, users])
+        sales: c.sales,
+        bookings: c.bookings,
+        signed: c.signed,
+        conversionRate: c.conversion_rate,
+        avgTicket: c.avg_ticket,
+      }
+    })
+  }, [aggregates, userMap])
 
-  const totalSales = useMemo(() => calcSignedRevenue(bookings), [bookings])
-  const avgConversion = useMemo(
-    () => calcConversionRate(bookings).toFixed(1),
-    [bookings]
-  )
+  const totalSales = aggregates?.signed_revenue ?? 0
+  const avgConversion = (aggregates?.conversion_rate ?? 0).toFixed(1)
 
   const bestPerformer = commercialStats[0]
 
@@ -125,24 +117,36 @@ export function CommercialTab({
     }))
   }, [commercialStats])
 
-  const monthlyData = useMemo(
-    () => getMonthlyRevenueByCommercial(bookings, users),
-    [bookings, users]
-  )
   const commercialNames = useMemo(
     () => commercialStats.map((c) => c.name),
     [commercialStats]
   )
 
-  const staleProposals = useMemo(() => getStaleProposals(bookings), [bookings])
-  const { data: responseTimeData } = useAvgResponseTime(bookings)
+  // Pivot long {month,user_id,revenue} -> wide rows pour le BarChart
+  const monthlyData = useMemo(() => {
+    const rows = aggregates?.monthly_revenue_by_commercial ?? []
+    const byMonth = new Map<string, Record<string, string | number>>()
+    rows.forEach((r) => {
+      const label = format(parseISO(`${r.month}-01`), 'MMM', { locale: fr })
+      let row = byMonth.get(r.month)
+      if (!row) {
+        row = { month: label }
+        byMonth.set(r.month, row)
+      }
+      const u = userMap.get(r.user_id)
+      const name = u ? `${u.first_name} ${u.last_name}` : null
+      if (name) row[name] = ((row[name] as number) || 0) + r.revenue
+    })
+    return [...byMonth.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([, row]) => row)
+  }, [aggregates, userMap])
 
-  const responseTimeLabel = useMemo(() => {
-    if (!responseTimeData) return null
-    const { avgHours } = responseTimeData
-    // Toujours en heures ouvrées (Lun-Ven 9-17 Paris)
-    return `${avgHours.toFixed(1)}h`
-  }, [responseTimeData])
+  const staleProposals = actionLists?.stale_proposals ?? []
+
+  const responseTimeLabel = responseTime
+    ? `${responseTime.avg_hours.toFixed(1)}h`
+    : null
 
   // Dynamic target: max commercial sales * 1.2 rounded to nearest 10k
   const target = useMemo(() => {
@@ -266,8 +270,8 @@ export function CommercialTab({
           <CardContent>
             <div className='text-2xl font-bold'>{responseTimeLabel ?? '—'}</div>
             <p className='text-xs text-muted-foreground'>
-              {responseTimeData
-                ? `Sur ${responseTimeData.count} événement${responseTimeData.count > 1 ? 's' : ''}`
+              {responseTime
+                ? `Sur ${responseTime.count} événement${responseTime.count > 1 ? 's' : ''}`
                 : 'Pas encore de données'}
             </p>
           </CardContent>
@@ -352,18 +356,20 @@ export function CommercialTab({
             <div className='space-y-3'>
               {staleProposals.map((proposal) => (
                 <Link
-                  key={`${proposal.bookingId}-${proposal.quoteNumber}`}
+                  key={`${proposal.booking_id}-${proposal.quote_number}`}
                   to='/evenements/booking/$id'
-                  params={{ id: proposal.bookingId }}
+                  params={{ id: proposal.booking_id }}
                   className='flex items-center justify-between rounded-lg border p-3 transition-all hover:border-primary/50 hover:bg-accent'
                 >
                   <div className='min-w-0 flex-1'>
                     <p className='truncate text-sm font-medium'>
-                      {proposal.contactName}
+                      {proposal.contact_name}
                     </p>
                     <p className='text-xs text-muted-foreground'>
-                      {proposal.restaurantName}
-                      {proposal.quoteNumber ? ` • ${proposal.quoteNumber}` : ''}
+                      {proposal.restaurant_name}
+                      {proposal.quote_number
+                        ? ` • ${proposal.quote_number}`
+                        : ''}
                     </p>
                   </div>
                   <div className='flex items-center gap-3'>
@@ -376,7 +382,7 @@ export function CommercialTab({
                       variant='outline'
                       className='border-yellow-300 text-yellow-600 dark:border-yellow-800'
                     >
-                      {proposal.daysSince}j
+                      {proposal.days_since}j
                     </Badge>
                   </div>
                 </Link>

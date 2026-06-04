@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { format, parseISO, isAfter } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { Link, useSearch } from '@tanstack/react-router'
 import { fr } from 'date-fns/locale'
 import {
@@ -33,12 +33,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import {
-  type DashboardTabProps,
-  getReservationsByDayOfWeek,
-  getReservationsByType,
-  getMonthlyTrend,
-} from '../hooks/use-dashboard-data'
+import { type DashboardTabProps } from '../hooks/use-dashboard-data'
 import {
   buildEventsSearch,
   confirmedSearch,
@@ -61,57 +56,66 @@ function KpiTooltip({ text }: { text: string }) {
   )
 }
 
-export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
-  const dash = useSearch({ strict: false }) as DashboardSearch
-  const stats = useMemo(() => {
-    const confirmed = bookings.filter(
-      (b) =>
-        b.status?.slug === 'confirme_fonctionnaire' ||
-        b.status?.slug === 'fonction_envoyee' ||
-        b.status?.slug === 'a_facturer' ||
-        b.status?.slug === 'cloture'
-    ).length
-    const pending = bookings.filter(
-      (b) =>
-        b.status?.slug === 'nouveau' ||
-        b.status?.slug === 'qualification' ||
-        b.status?.slug === 'proposition' ||
-        b.status?.slug === 'negociation' ||
-        b.status?.slug === 'attente_paiement' ||
-        b.status?.slug === 'relance_paiement'
-    ).length
-    const totalGuests = bookings.reduce(
-      (sum, b) => sum + (b.guests_count || 0),
-      0
-    )
+const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const TYPE_COLORS = [
+  '#f97316',
+  '#ec4899',
+  '#3b82f6',
+  '#22c55e',
+  '#8b5cf6',
+  '#14b8a6',
+  '#f43f5e',
+  '#a855f7',
+]
 
-    return {
-      total: bookings.length,
-      confirmed,
-      pending,
-      totalGuests,
-      avgGuests:
-        bookings.length > 0 ? Math.round(totalGuests / bookings.length) : 0,
-    }
-  }, [bookings])
+export function ReservationsTab({
+  aggregates,
+  actionLists,
+  isLoading,
+}: DashboardTabProps) {
+  const dash = useSearch({ strict: false }) as DashboardSearch
+
+  const stats = {
+    total: aggregates?.total ?? 0,
+    confirmed: aggregates?.confirmed ?? 0,
+    pending: aggregates?.pending ?? 0,
+    totalGuests: aggregates?.total_guests ?? 0,
+    avgGuests: aggregates?.avg_guests ?? 0,
+  }
 
   const byDayOfWeek = useMemo(
-    () => getReservationsByDayOfWeek(bookings),
-    [bookings]
+    () =>
+      (aggregates?.by_day_of_week ?? [])
+        .slice()
+        .sort((a, b) => a.dow - b.dow)
+        .map((d) => ({
+          day: DAY_LABELS[d.dow - 1],
+          reservations: d.reservations,
+          guests: d.guests,
+        })),
+    [aggregates]
   )
-  const byType = useMemo(() => getReservationsByType(bookings), [bookings])
-  const monthlyTrend = useMemo(() => getMonthlyTrend(bookings), [bookings])
 
-  const upcomingBookings = useMemo(() => {
-    const now = new Date()
-    return bookings
-      .filter((b) => isAfter(parseISO(b.event_date), now))
-      .sort(
-        (a, b) =>
-          new Date(a.event_date).getTime() - new Date(b.event_date).getTime()
-      )
-      .slice(0, 5)
-  }, [bookings])
+  const byType = useMemo(
+    () =>
+      (aggregates?.by_type ?? []).map((t, i) => ({
+        ...t,
+        color: TYPE_COLORS[i % TYPE_COLORS.length],
+      })),
+    [aggregates]
+  )
+
+  const monthlyTrend = useMemo(
+    () =>
+      (aggregates?.monthly_trend ?? []).map((m) => ({
+        month: format(parseISO(`${m.month}-01`), 'MMM', { locale: fr }),
+        reservations: m.reservations,
+        revenue: m.revenue,
+      })),
+    [aggregates]
+  )
+
+  const upcomingBookings = actionLists?.upcoming_bookings ?? []
 
   if (isLoading) {
     return (
@@ -411,9 +415,7 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
           <CardContent className='space-y-3'>
             {upcomingBookings.length > 0 ? (
               upcomingBookings.map((booking) => {
-                const contactName = booking.contact
-                  ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`.trim()
-                  : booking.contact_sur_place_societe || 'Sans contact'
+                const contactName = booking.contact_name || 'Sans contact'
                 return (
                   <div
                     key={booking.id}
@@ -435,29 +437,29 @@ export function ReservationsTab({ bookings, isLoading }: DashboardTabProps) {
                             <span>{booking.start_time.slice(0, 5)}</span>
                           </>
                         )}
-                        {booking.guests_count && (
+                        {booking.guests > 0 && (
                           <>
                             <span>•</span>
-                            <span>{booking.guests_count} pers.</span>
+                            <span>{booking.guests} pers.</span>
                           </>
                         )}
                       </div>
                     </div>
                     <div className='flex items-center gap-2'>
-                      {(booking.occasion || booking.event_type) && (
+                      {booking.kind && (
                         <Badge variant='outline' className='text-xs'>
-                          {booking.occasion || booking.event_type}
+                          {booking.kind}
                         </Badge>
                       )}
-                      {booking.status && (
+                      {booking.status_name && (
                         <Badge
                           variant='outline'
                           style={{
-                            borderColor: booking.status.color,
-                            color: booking.status.color,
+                            borderColor: booking.status_color || undefined,
+                            color: booking.status_color || undefined,
                           }}
                         >
-                          {booking.status.name}
+                          {booking.status_name}
                         </Badge>
                       )}
                     </div>

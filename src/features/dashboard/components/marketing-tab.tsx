@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { format, parseISO } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import { Link, useSearch } from '@tanstack/react-router'
 import {
   Instagram,
@@ -35,11 +37,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import {
-  type DashboardTabProps,
-  getContactsBySource,
-  getMonthlyLeadsBySource,
-} from '../hooks/use-dashboard-data'
+import { type DashboardTabProps } from '../hooks/use-dashboard-data'
 import {
   buildEventsSearch,
   signedSearch,
@@ -93,20 +91,39 @@ const DEFAULT_COLORS = [
   '#a855f7',
 ]
 
-export function MarketingTab({
-  bookings,
-  contacts,
-  isLoading,
-}: DashboardTabProps) {
+export function MarketingTab({ marketing, isLoading }: DashboardTabProps) {
   const dash = useSearch({ strict: false }) as DashboardSearch
   const marketingBySource = useMemo(
-    () => getContactsBySource(contacts, bookings),
-    [contacts, bookings]
+    () =>
+      (marketing?.by_source ?? []).map((s) => ({
+        source: s.source,
+        leads: s.leads,
+        bookings: s.bookings,
+        signedCount: s.signed_count,
+        conversionRate: s.conversion_rate,
+        signatureRate: s.signature_rate,
+        revenue: s.revenue,
+      })),
+    [marketing]
   )
-  const monthlyLeads = useMemo(
-    () => getMonthlyLeadsBySource(contacts),
-    [contacts]
-  )
+
+  // Pivot long {month,source,leads} -> wide rows pour le LineChart
+  const monthlyLeads = useMemo(() => {
+    const rows = marketing?.monthly_leads_by_source ?? []
+    const byMonth = new Map<string, Record<string, string | number>>()
+    rows.forEach((r) => {
+      const label = format(parseISO(`${r.month}-01`), 'MMM', { locale: fr })
+      let row = byMonth.get(r.month)
+      if (!row) {
+        row = { month: label }
+        byMonth.set(r.month, row)
+      }
+      row[r.source] = ((row[r.source] as number) || 0) + r.leads
+    })
+    return [...byMonth.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([, row]) => row)
+  }, [marketing])
 
   const totalLeads = useMemo(
     () => marketingBySource.reduce((acc, s) => acc + s.leads, 0),

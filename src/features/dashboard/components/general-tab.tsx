@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { parseISO, differenceInDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import { Link, useSearch } from '@tanstack/react-router'
 import {
   Euro,
@@ -27,18 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import {
-  type DashboardTabProps,
-  calcSignedRevenue,
-  calcSignedCount,
-  calcAvgTicketPerGuest,
-  calcConversionRate,
-  calcPipeline,
-  groupBySignedRestaurant,
-  getStaleProposals,
-  getPaidAmount,
-  SIGNED_SLUGS,
-} from '../hooks/use-dashboard-data'
+import { type DashboardTabProps } from '../hooks/use-dashboard-data'
 import {
   buildEventsSearch,
   signedSearch,
@@ -71,204 +61,42 @@ const COLORS = [
   '#a855f7',
 ]
 
-interface GeneralTabProps extends DashboardTabProps {
-  statuses?: { id: string; name: string; color: string; slug: string }[]
-}
-
 export function GeneralTab({
-  bookings,
+  aggregates,
+  actionLists,
   isLoading,
   restaurants,
-  statuses = [],
-}: GeneralTabProps) {
+}: DashboardTabProps) {
   // Filtres actuels du dashboard, propagés à chaque drill-down vers /evenements
   const dash = useSearch({ strict: false }) as DashboardSearch
-  const signedRevenue = useMemo(() => calcSignedRevenue(bookings), [bookings])
-  const signedCount = useMemo(() => calcSignedCount(bookings), [bookings])
-  const avgTicketPerGuest = useMemo(
-    () => calcAvgTicketPerGuest(bookings),
-    [bookings]
-  )
-  const conversionRate = useMemo(() => calcConversionRate(bookings), [bookings])
 
-  // Carte Événements: ne compter que les événements signés
-  const signedBookings = useMemo(
-    () => bookings.filter((b) => SIGNED_SLUGS.includes(b.status?.slug || '')),
-    [bookings]
-  )
-  const signedGuests = useMemo(
-    () => signedBookings.reduce((sum, b) => sum + (b.guests_count || 0), 0),
-    [signedBookings]
+  const total = aggregates?.total ?? 0
+  const signedRevenue = aggregates?.signed_revenue ?? 0
+  const signedCount = aggregates?.signed_count ?? 0
+  const signedGuests = aggregates?.signed_guests ?? 0
+  const avgTicketPerGuest = aggregates?.avg_ticket_per_guest ?? 0
+  const conversionRate = aggregates?.conversion_rate ?? 0
+
+  const pipeline = aggregates?.pipeline ?? []
+  const restaurantKPIs = useMemo(
+    () => aggregates?.by_restaurant ?? [],
+    [aggregates]
   )
 
-  const pipeline = useMemo(
-    () => calcPipeline(bookings, statuses),
-    [bookings, statuses]
-  )
+  const fmtDate = (d: string | null | undefined) =>
+    d ? format(parseISO(d), 'd MMM yyyy', { locale: fr }) : null
 
-  const restaurantKPIs = useMemo(() => {
-    const groups = groupBySignedRestaurant(bookings)
-    return Object.entries(groups)
-      .map(([name, items]) => {
-        const r = restaurants.find((r) => r.name === name)
-        return {
-          id: r?.id || null,
-          name,
-          revenue: calcSignedRevenue(items),
-          signedCount: items.length,
-          avgTicket:
-            items.length > 0
-              ? Math.round(calcSignedRevenue(items) / items.length)
-              : 0,
-          color: r?.color || null,
-        }
-      })
-      .filter((r) => r.revenue > 0)
-      .sort((a, b) => b.revenue - a.revenue)
-  }, [bookings, restaurants])
-
-  // Actions requises: propositions stale + paiements en retard + relances
-  const actionItems = useMemo(() => {
-    const fmtDate = (d: string | null | undefined) =>
-      d
-        ? new Date(d).toLocaleDateString('fr-FR', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })
-        : null
-
-    const now = new Date()
-
-    const notCancelled = (b: {
-      status?: { slug?: string | null; name?: string | null } | null
-    }) => {
-      const slug = b.status?.slug || ''
-      const name = b.status?.name?.toLowerCase() || ''
-      return !slug.includes('annul') && !name.includes('annul')
-    }
-
-    const stale = getStaleProposals(
-      bookings.filter((b) => notCancelled(b))
-    ).map((s) => {
-      const booking = bookings.find((b) => b.id === s.bookingId)
-      return {
-        type: 'stale' as const,
-        bookingId: s.bookingId,
-        title: s.contactName,
-        detail: `Devis envoyé depuis ${s.daysSince}j sans réponse`,
-        eventDate: fmtDate(booking?.event_date),
-        restaurant: s.restaurantName,
-        statusName: booking?.status?.name || '',
-        statusColor: booking?.status?.color || null,
-        guests: booking?.guests_count || 0,
-        amount: s.amount,
-        severity: 'warning' as const,
-      }
-    })
-
-    const overdue = bookings
-      .filter((b) => notCancelled(b))
-      .filter((b) => SIGNED_SLUGS.includes(b.status?.slug || ''))
-      .filter((b) => {
-        const primary = b.quotes?.find((q) => q.primary_quote)
-        const ht = primary?.total_ht || 0
-        const paid = getPaidAmount(b)
-        return ht > 0 && paid < ht && new Date(b.event_date) < now
-      })
-      .map((b) => ({
-        type: 'overdue' as const,
-        bookingId: b.id,
-        title: b.contact
-          ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim()
-          : 'Sans contact',
-        detail: 'Paiement en retard',
-        eventDate: fmtDate(b.event_date),
-        restaurant: b.restaurant?.name || '',
-        statusName: b.status?.name || '',
-        statusColor: b.status?.color || null,
-        guests: b.guests_count || 0,
-        amount:
-          (b.quotes?.find((q) => q.primary_quote)?.total_ht || 0) -
-          getPaidAmount(b),
-        severity: 'danger' as const,
-      }))
-
-    const relances = bookings
-      .filter((b) => notCancelled(b))
-      .filter((b) => b.status?.slug === 'relance_paiement')
-      .map((b) => ({
-        type: 'relance' as const,
-        bookingId: b.id,
-        title: b.contact
-          ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim()
-          : 'Sans contact',
-        detail: 'Relance de paiement à envoyer',
-        eventDate: fmtDate(b.event_date),
-        restaurant: b.restaurant?.name || '',
-        statusName: b.status?.name || '',
-        statusColor: b.status?.color || null,
-        guests: b.guests_count || 0,
-        amount: b.quotes?.find((q) => q.primary_quote)?.total_ttc || 0,
-        severity: 'warning' as const,
-      }))
-
-    const urgentUpcoming = bookings
-      .filter((b) => {
-        if (!b.event_date) return false
-        const daysUntil = differenceInDays(parseISO(b.event_date), now)
-        return daysUntil >= 0 && daysUntil < 3
-      })
-      .filter((b) => notCancelled(b))
-      .filter((b) => b.status?.slug !== 'nouveau')
-      .filter((b) => {
-        const isSigned = SIGNED_SLUGS.includes(b.status?.slug || '')
-        const hasPaidDeposit = getPaidAmount(b) > 0
-        return !isSigned || !hasPaidDeposit
-      })
-      .map((b) => {
-        const daysUntil = differenceInDays(parseISO(b.event_date), now)
-        const isSigned = SIGNED_SLUGS.includes(b.status?.slug || '')
-        const reason = !isSigned ? 'non signé' : 'acompte non payé'
-        const whenLabel = daysUntil === 0 ? "aujourd'hui" : `dans ${daysUntil}j`
-        return {
-          type: 'urgent_upcoming' as const,
-          bookingId: b.id,
-          title: b.contact
-            ? `${b.contact.first_name} ${b.contact.last_name || ''}`.trim()
-            : 'Sans contact',
-          detail: `Événement ${whenLabel} — ${reason}`,
-          eventDate: fmtDate(b.event_date),
-          restaurant: b.restaurant?.name || '',
-          statusName: b.status?.name || '',
-          statusColor: b.status?.color || null,
-          guests: b.guests_count || 0,
-          amount: b.quotes?.find((q) => q.primary_quote)?.total_ht || 0,
-          severity: 'danger' as const,
-        }
-      })
-
-    return [...urgentUpcoming, ...overdue, ...stale, ...relances]
-  }, [bookings])
+  const actionItems = actionLists?.action_items ?? []
 
   const pieData = useMemo(
     () =>
       restaurantKPIs
         .filter((r) => r.revenue > 0)
-        .map((r) => ({ name: r.name, value: r.revenue })),
+        .map((r) => ({ name: r.name ?? '', value: r.revenue })),
     [restaurantKPIs]
   )
 
-  const recentBookings = useMemo(
-    () =>
-      [...bookings]
-        .sort(
-          (a, b) =>
-            new Date(b.event_date).getTime() - new Date(a.event_date).getTime()
-        )
-        .slice(0, 5),
-    [bookings]
-  )
+  const recentBookings = actionLists?.recent_bookings ?? []
 
   if (isLoading) {
     return (
@@ -358,7 +186,7 @@ export function GeneralTab({
               <Users className='h-4 w-4 text-muted-foreground' />
             </CardHeader>
             <CardContent>
-              <div className='text-2xl font-bold'>{bookings.length}</div>
+              <div className='text-2xl font-bold'>{total}</div>
               <p className='text-xs text-muted-foreground'>
                 Tous statuts confondus
               </p>
@@ -404,7 +232,7 @@ export function GeneralTab({
               <Users className='h-4 w-4 text-muted-foreground' />
             </CardHeader>
             <CardContent>
-              <div className='text-2xl font-bold'>{signedBookings.length}</div>
+              <div className='text-2xl font-bold'>{signedCount}</div>
               <p className='text-xs text-muted-foreground'>
                 {signedGuests.toLocaleString('fr-FR')} convives signés
               </p>
@@ -475,7 +303,7 @@ export function GeneralTab({
                   if (widthPercent === 0) return null
                   return (
                     <div
-                      key={stage.statusId}
+                      key={stage.status_id}
                       className='h-full transition-all'
                       style={{
                         width: `${widthPercent}%`,
@@ -491,7 +319,7 @@ export function GeneralTab({
             <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
               {pipeline.map((stage) => (
                 <Link
-                  key={stage.statusId}
+                  key={stage.status_id}
                   to='/evenements'
                   search={buildEventsSearch(dash, { status: stage.slug })}
                   className='flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent'
@@ -534,7 +362,7 @@ export function GeneralTab({
             <div className='divide-y'>
               {actionItems.map((item) => (
                 <div
-                  key={`${item.type}-${item.bookingId}`}
+                  key={`${item.type}-${item.booking_id}`}
                   className='flex items-center gap-3 py-2.5 first:pt-0 last:pb-0'
                 >
                   <div
@@ -545,24 +373,24 @@ export function GeneralTab({
                     <span className='shrink-0 text-sm font-semibold'>
                       {item.title}
                     </span>
-                    {item.statusName && (
+                    {item.status_name && (
                       <span
                         className='shrink-0 rounded-full border px-1.5 py-0.5 text-xs font-medium'
                         style={{
-                          borderColor: item.statusColor || undefined,
-                          color: item.statusColor || undefined,
-                          backgroundColor: item.statusColor
-                            ? `${item.statusColor}18`
+                          borderColor: item.status_color || undefined,
+                          color: item.status_color || undefined,
+                          backgroundColor: item.status_color
+                            ? `${item.status_color}18`
                             : undefined,
                         }}
                       >
-                        {item.statusName}
+                        {item.status_name}
                       </span>
                     )}
                     <span className='truncate text-xs text-muted-foreground'>
                       {[
                         item.detail,
-                        item.eventDate,
+                        fmtDate(item.event_date),
                         item.restaurant,
                         item.guests > 0 ? `${item.guests} pers.` : null,
                       ]
@@ -579,7 +407,7 @@ export function GeneralTab({
                     )}
                     <Link
                       to='/evenements/booking/$id'
-                      params={{ id: item.bookingId }}
+                      params={{ id: item.booking_id }}
                       className='flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90'
                     >
                       Voir
@@ -657,21 +485,22 @@ export function GeneralTab({
             <div className='space-y-2'>
               {restaurantKPIs.length > 0 ? (
                 restaurantKPIs.map((restaurant) => {
+                  const name = restaurant.name ?? 'Sans restaurant'
                   const row = (
                     <div className='flex items-center gap-4'>
                       <Avatar className='h-9 w-9'>
                         <AvatarFallback className='bg-primary/10 text-primary'>
-                          {restaurant.name.charAt(0)}
+                          {name.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                       <div className='flex flex-1 flex-wrap items-center justify-between gap-2'>
                         <div className='space-y-1'>
                           <p className='text-sm leading-none font-medium'>
-                            {restaurant.name}
+                            {name}
                           </p>
                           <p className='text-xs text-muted-foreground'>
-                            {restaurant.signedCount} événements signés · Ø{' '}
-                            {restaurant.avgTicket.toLocaleString('fr-FR')} €
+                            {restaurant.signed_count} événements signés · Ø{' '}
+                            {restaurant.avg_ticket.toLocaleString('fr-FR')} €
                           </p>
                         </div>
                         <div className='font-medium text-green-600'>
@@ -682,7 +511,7 @@ export function GeneralTab({
                   )
                   return restaurant.id ? (
                     <Link
-                      key={restaurant.name}
+                      key={name}
                       to='/evenements'
                       search={signedSearch({
                         ...dash,
@@ -693,7 +522,7 @@ export function GeneralTab({
                       {row}
                     </Link>
                   ) : (
-                    <div key={restaurant.name}>{row}</div>
+                    <div key={name}>{row}</div>
                   )
                 })
               ) : (
@@ -718,13 +547,8 @@ export function GeneralTab({
           <div className='space-y-4'>
             {recentBookings.length > 0 ? (
               recentBookings.map((booking) => {
-                const contactName = booking.contact
-                  ? `${booking.contact.first_name} ${booking.contact.last_name || ''}`.trim()
-                  : 'Sans contact'
-                const primaryQuote = booking.quotes?.find(
-                  (q) => q.primary_quote
-                )
-                const quoteTtc = primaryQuote?.total_ht || 0
+                const contactName = booking.contact_name || 'Sans contact'
+                const quoteTtc = booking.amount || 0
                 return (
                   <div key={booking.id} className='flex items-center gap-4'>
                     <Avatar className='h-9 w-9'>
@@ -742,20 +566,20 @@ export function GeneralTab({
                           {contactName}
                         </p>
                         <p className='text-xs text-muted-foreground'>
-                          {booking.restaurant?.name || 'Sans restaurant'} •{' '}
-                          {booking.occasion || booking.event_type || ''}
+                          {booking.restaurant_name || 'Sans restaurant'} •{' '}
+                          {booking.kind || ''}
                         </p>
                       </div>
                       <div className='flex items-center gap-2'>
-                        {booking.status && (
+                        {booking.status_name && (
                           <Badge
                             variant='outline'
                             style={{
-                              borderColor: booking.status.color,
-                              color: booking.status.color,
+                              borderColor: booking.status_color || undefined,
+                              color: booking.status_color || undefined,
                             }}
                           >
-                            {booking.status.name}
+                            {booking.status_name}
                           </Badge>
                         )}
                         <span className='font-medium'>

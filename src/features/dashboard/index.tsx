@@ -143,8 +143,10 @@ export function Dashboard() {
   )
 
   const {
-    bookings,
-    contacts,
+    aggregates,
+    marketing,
+    actionLists,
+    responseTime,
     restaurants,
     users,
     statuses,
@@ -190,7 +192,15 @@ export function Dashboard() {
     { label: 'B2C (Particulier)', value: 'b2c' },
   ]
 
-  const tabProps = { bookings, contacts, restaurants, users, isLoading }
+  const tabProps = {
+    aggregates,
+    marketing,
+    actionLists,
+    responseTime,
+    restaurants,
+    users,
+    isLoading,
+  }
 
   return (
     <Tabs
@@ -303,7 +313,7 @@ export function Dashboard() {
           </Select>
         </div>
         <TabsContent value='general' className='mt-0 space-y-4'>
-          <GeneralTab {...tabProps} statuses={statuses} />
+          <GeneralTab {...tabProps} />
         </TabsContent>
         <TabsContent value='commercial' className='mt-0 space-y-4'>
           <CommercialTab {...tabProps} />
