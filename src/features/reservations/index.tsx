@@ -189,6 +189,16 @@ export function Reservations() {
       commercials: selectedCommercials.size
         ? Array.from(selectedCommercials)
         : undefined,
+      fromSign: signDateRange?.from ? toIso(signDateRange.from) : undefined,
+      toSign: signDateRange?.to ? toIso(signDateRange.to) : undefined,
+      fromImport: importDateRange?.from
+        ? importDateRange.from.toISOString()
+        : undefined,
+      toImport: importDateRange?.to
+        ? importDateRange.to.toISOString()
+        : undefined,
+      source: search.source || undefined,
+      stale: search.stale === '1' || undefined,
     }
   }, [
     pageIndex,
@@ -199,6 +209,10 @@ export function Reservations() {
     statusIdsBySlug,
     selectedRestaurants,
     selectedCommercials,
+    signDateRange,
+    importDateRange,
+    search.source,
+    search.stale,
   ])
 
   const listQuery = useBookingsPaged(pagedParams)
@@ -218,6 +232,12 @@ export function Reservations() {
     search.status,
     search.restaurant,
     search.commercial,
+    search.fromSign,
+    search.toSign,
+    search.fromImport,
+    search.toImport,
+    search.source,
+    search.stale,
   ])
 
   // Reset visible uniquement si au moins un filtre est explicitement présent
@@ -307,57 +327,60 @@ export function Reservations() {
           (b) => b.restaurant_id && selectedRestaurants.has(b.restaurant_id)
         )
       }
+
+      // Filtre date de signature
+      if (signDateRange?.from) {
+        const from = new Date(signDateRange.from)
+        from.setHours(0, 0, 0, 0)
+        result = result.filter((b) => {
+          const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
+          return signedAt && new Date(signedAt) >= from
+        })
+      }
+      if (signDateRange?.to) {
+        const to = new Date(signDateRange.to)
+        to.setHours(23, 59, 59, 999)
+        result = result.filter((b) => {
+          const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
+          return signedAt && new Date(signedAt) <= to
+        })
+      }
+
+      // Filtre date d'import (created_at)
+      if (importDateRange?.from) {
+        const from = new Date(importDateRange.from)
+        from.setHours(0, 0, 0, 0)
+        result = result.filter(
+          (b) => b.created_at && new Date(b.created_at) >= from
+        )
+      }
+      if (importDateRange?.to) {
+        const to = new Date(importDateRange.to)
+        to.setHours(23, 59, 59, 999)
+        result = result.filter(
+          (b) => b.created_at && new Date(b.created_at) <= to
+        )
+      }
+
+      // Drill-down dashboard : proposition stale / source contact
+      if (search.stale === '1') {
+        const staleIds = new Set(
+          getStaleProposals(result).map((s) => s.bookingId)
+        )
+        result = result.filter((b) => staleIds.has(b.id))
+      }
+      if (search.source) {
+        const wanted = search.source.toLowerCase()
+        result = result.filter(
+          (b) => (b.contact?.source || 'Autre').toLowerCase() === wanted
+        )
+      }
     }
 
-    // Filtre date de signature
-    if (signDateRange?.from) {
-      const from = new Date(signDateRange.from)
-      from.setHours(0, 0, 0, 0)
-      result = result.filter((b) => {
-        const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
-        return signedAt && new Date(signedAt) >= from
-      })
-    }
-    if (signDateRange?.to) {
-      const to = new Date(signDateRange.to)
-      to.setHours(23, 59, 59, 999)
-      result = result.filter((b) => {
-        const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
-        return signedAt && new Date(signedAt) <= to
-      })
-    }
-
-    // Filtre date d'import (created_at)
-    if (importDateRange?.from) {
-      const from = new Date(importDateRange.from)
-      from.setHours(0, 0, 0, 0)
-      result = result.filter(
-        (b) => b.created_at && new Date(b.created_at) >= from
-      )
-    }
-    if (importDateRange?.to) {
-      const to = new Date(importDateRange.to)
-      to.setHours(23, 59, 59, 999)
-      result = result.filter(
-        (b) => b.created_at && new Date(b.created_at) <= to
-      )
-    }
-
-    // Drill-down depuis le dashboard : signé / proposition stale / source contact
+    // Drill-down "signés uniquement" : non émis par les cartes actuelles, gardé
+    // client-side (n'affecte pas la pagination en pratique).
     if (search.signed === '1') {
       result = result.filter((b) => SIGNED_SLUGS.includes(b.status?.slug || ''))
-    }
-    if (search.stale === '1') {
-      const staleIds = new Set(
-        getStaleProposals(result).map((s) => s.bookingId)
-      )
-      result = result.filter((b) => staleIds.has(b.id))
-    }
-    if (search.source) {
-      const wanted = search.source.toLowerCase()
-      result = result.filter(
-        (b) => (b.contact?.source || 'Autre').toLowerCase() === wanted
-      )
     }
 
     return result

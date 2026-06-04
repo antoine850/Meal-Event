@@ -3,6 +3,8 @@ import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
 import type { Quote, Payment } from '@/lib/supabase/types'
 
+const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+
 export type BookingWithRelations = {
   id: string
   organization_id: string | null
@@ -153,6 +155,12 @@ export type BookingsQueryParams = {
   statuses?: string[]
   restaurants?: string[]
   commercials?: string[]
+  fromSign?: string // quote_signed_at >= (ISO yyyy-mm-dd)
+  toSign?: string // quote_signed_at <= (ISO yyyy-mm-dd)
+  fromImport?: string // created_at >= (ISO)
+  toImport?: string // created_at <= (ISO)
+  source?: string // contact.source
+  stale?: boolean // propositions sans reponse > 3j
 }
 
 export function useBookingsPaged(params: BookingsQueryParams) {
@@ -212,6 +220,74 @@ export function useBookingsPaged(params: BookingsQueryParams) {
         searchOr = parts.join(',')
       }
 
+      // Drill-down dashboard : source → ids de contacts org-scopés.
+      let sourceContactIds: string[] | null = null
+      if (params.source) {
+        const { data } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('source', params.source)
+          .limit(2000)
+        sourceContactIds = (data || []).map((c: { id: string }) => c.id)
+      }
+
+      // Drill-down dashboard : date de signature et propositions stale se
+      // résolvent en ids de bookings via la table quotes. Si les deux sont
+      // demandés, on intersecte avant d'appliquer un seul .in('id', ...).
+      let signBookingIds: string[] | null = null
+      if (params.fromSign || params.toSign) {
+        let q = supabase
+          .from('quotes')
+          .select('booking_id')
+          .eq('organization_id', orgId)
+          .not('quote_signed_at', 'is', null)
+          .limit(5000)
+        if (params.fromSign) q = q.gte('quote_signed_at', params.fromSign)
+        if (params.toSign) q = q.lte('quote_signed_at', `${params.toSign}T23:59:59`)
+        const { data } = await q
+        signBookingIds = Array.from(
+          new Set(
+            (data || [])
+              .map((r: { booking_id: string | null }) => r.booking_id)
+              .filter((id): id is string => !!id)
+          )
+        )
+      }
+
+      let staleBookingIds: string[] | null = null
+      if (params.stale) {
+        const { data } = await supabase
+          .from('quotes')
+          .select('booking_id, status, signature_requested_at, quote_sent_at')
+          .eq('organization_id', orgId)
+          .in('status', ['sent', 'signature_requested'])
+          .limit(5000)
+        const cutoff = new Date()
+        cutoff.setDate(cutoff.getDate() - 3)
+        const ids = new Set<string>()
+        for (const r of (data || []) as {
+          booking_id: string | null
+          signature_requested_at: string | null
+          quote_sent_at: string | null
+        }[]) {
+          const sentDate = r.signature_requested_at || r.quote_sent_at
+          if (r.booking_id && sentDate && new Date(sentDate) < cutoff)
+            ids.add(r.booking_id)
+        }
+        staleBookingIds = Array.from(ids)
+      }
+
+      let bookingIdFilter: string[] | null = null
+      if (signBookingIds !== null && staleBookingIds !== null) {
+        const staleSet = new Set(staleBookingIds)
+        bookingIdFilter = signBookingIds.filter((id) => staleSet.has(id))
+      } else if (signBookingIds !== null) {
+        bookingIdFilter = signBookingIds
+      } else if (staleBookingIds !== null) {
+        bookingIdFilter = staleBookingIds
+      }
+
       let query = supabase
         .from('bookings')
         .select(
@@ -237,6 +313,14 @@ export function useBookingsPaged(params: BookingsQueryParams) {
         query = query.in('restaurant_id', params.restaurants)
       if (params.commercials?.length)
         query = query.overlaps('assigned_user_ids', params.commercials)
+      if (params.fromImport) query = query.gte('created_at', params.fromImport)
+      if (params.toImport) query = query.lte('created_at', params.toImport)
+      if (sourceContactIds !== null)
+        query = sourceContactIds.length
+          ? query.in('contact_id', sourceContactIds)
+          : query.in('contact_id', [NIL_UUID])
+      if (bookingIdFilter !== null)
+        query = query.in('id', bookingIdFilter.length ? bookingIdFilter : [NIL_UUID])
       if (searchOr) query = query.or(searchOr)
 
       query = query.order(params.sort.field, {
