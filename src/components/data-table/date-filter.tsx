@@ -107,6 +107,12 @@ export function DateFilter({
   const [open, setOpen] = useState(false)
   const presets = useMemo(() => buildPresets(futureAware), [futureAware])
 
+  const selectedLabel = value?.from
+    ? value.to
+      ? `Du ${format(value.from, 'dd/MM/yyyy', { locale: fr })} au ${format(value.to, 'dd/MM/yyyy', { locale: fr })}`
+      : `À partir du ${format(value.from, 'dd/MM/yyyy', { locale: fr })}`
+    : 'Toutes les dates'
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -134,6 +140,10 @@ export function DateFilter({
         </Button>
       </PopoverTrigger>
       <PopoverContent className='w-auto p-0' align='start'>
+        <div className='border-b px-3 py-2'>
+          <p className='text-sm font-medium'>{placeholder}</p>
+          <p className='text-xs text-muted-foreground'>{selectedLabel}</p>
+        </div>
         <div className='flex'>
           <div className='flex flex-col gap-1 border-r p-2'>
             {allowAll && (
