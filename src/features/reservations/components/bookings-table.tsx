@@ -32,6 +32,7 @@ type BookingsTableProps = {
   pageCount?: number
   pageIndex?: number
   pageSize?: number
+  totalCount?: number
   onPageChange?: (pageIndex: number) => void
 }
 
@@ -42,6 +43,7 @@ export function BookingsTable({
   pageCount,
   pageIndex,
   pageSize = 50,
+  totalCount,
   onPageChange,
 }: BookingsTableProps) {
   const columns = useMemo(() => buildBookingsColumns(users), [users])
@@ -166,7 +168,11 @@ export function BookingsTable({
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} className='mt-auto' />
+      <DataTablePagination
+        table={table}
+        className='mt-auto'
+        totalCount={totalCount}
+      />
       <BookingsBulkActions table={table} />
     </div>
   )

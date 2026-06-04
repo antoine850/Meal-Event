@@ -182,6 +182,36 @@ export function useBookingsPaged(params: BookingsQueryParams) {
         return { rows: [] as BookingWithRelations[], total: 0 }
       }
 
+      let searchOr: string | null = null
+      if (params.search) {
+        const term = params.search.replace(/[%,()]/g, '') // neutralise les caracteres PostgREST
+        const like = `%${term}%`
+        const [contactRes, restoRes] = await Promise.all([
+          supabase
+            .from('contacts')
+            .select('id')
+            .eq('organization_id', orgId)
+            .or(`first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like}`)
+            .limit(1000),
+          supabase
+            .from('restaurants')
+            .select('id')
+            .eq('organization_id', orgId)
+            .ilike('name', like)
+            .limit(1000),
+        ])
+        const contactIds = (contactRes.data || []).map((c: { id: string }) => c.id)
+        const restoIds = (restoRes.data || []).map((r: { id: string }) => r.id)
+        const parts = [
+          `contact_sur_place_societe.ilike.${like}`,
+          `contact_sur_place_nom.ilike.${like}`,
+          `event_type.ilike.${like}`,
+        ]
+        if (contactIds.length) parts.push(`contact_id.in.(${contactIds.join(',')})`)
+        if (restoIds.length) parts.push(`restaurant_id.in.(${restoIds.join(',')})`)
+        searchOr = parts.join(',')
+      }
+
       let query = supabase
         .from('bookings')
         .select(
@@ -207,12 +237,7 @@ export function useBookingsPaged(params: BookingsQueryParams) {
         query = query.in('restaurant_id', params.restaurants)
       if (params.commercials?.length)
         query = query.overlaps('assigned_user_ids', params.commercials)
-      if (params.search) {
-        const term = `%${params.search}%`
-        query = query.or(
-          `contact_sur_place_societe.ilike.${term},contact_sur_place_nom.ilike.${term}`
-        )
-      }
+      if (searchOr) query = query.or(searchOr)
 
       query = query.order(params.sort.field, {
         ascending: params.sort.dir === 'asc',

@@ -18,15 +18,17 @@ import {
 type DataTablePaginationProps<TData> = {
   table: Table<TData>
   className?: string
+  totalCount?: number
 }
 
 export function DataTablePagination<TData>({
   table,
   className,
+  totalCount,
 }: DataTablePaginationProps<TData>) {
   const currentPage = table.getState().pagination.pageIndex + 1
   const totalPages = table.getPageCount()
-  const totalRows = table.getFilteredRowModel().rows.length
+  const totalRows = totalCount ?? table.getFilteredRowModel().rows.length
   const pageNumbers = getPageNumbers(currentPage, totalPages)
 
   return (
@@ -47,7 +49,12 @@ export function DataTablePagination<TData>({
             Page {currentPage} / {totalPages}
           </div>
         </div>
-        <div className='flex items-center gap-2 @max-2xl/content:flex-row-reverse'>
+        <div
+          className={cn(
+            'flex items-center gap-2 @max-2xl/content:flex-row-reverse',
+            totalCount !== undefined && 'hidden'
+          )}
+        >
           <Select
             value={`${table.getState().pagination.pageSize}`}
             onValueChange={(value) => {

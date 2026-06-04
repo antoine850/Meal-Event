@@ -586,6 +586,7 @@ export function Reservations() {
             pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
             pageIndex={pageIndex}
             pageSize={pageSize}
+            totalCount={totalCount}
             onPageChange={setPageIndex}
           />
         )}
