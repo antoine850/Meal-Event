@@ -1,6 +1,5 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { subDays } from 'date-fns'
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,14 +42,6 @@ function toSet(csv: string | undefined): Set<string> {
 function toCsv(set: Set<string>): string | undefined {
   if (set.size === 0) return undefined
   return [...set].join(',')
-}
-
-function defaultImportRange() {
-  const to = new Date()
-  return {
-    from: subDays(to, 29).toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
-  }
 }
 
 export function Dashboard() {
@@ -111,23 +102,6 @@ export function Dashboard() {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
 
-  // Défaut : 30 derniers jours d'import. Écrit dans l'URL (replace) pour que le
-  // drill-down vers /evenements et les requêtes voient la même fenêtre.
-  useEffect(() => {
-    if (search.fromImport === undefined && search.toImport === undefined) {
-      const range = defaultImportRange()
-      navigate({
-        search: (prev) => ({
-          ...prev,
-          fromImport: range.from,
-          toImport: range.to,
-        }),
-        replace: true,
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const setActiveTab = (tab: string) =>
     setSearch({ tab: tab as typeof search.tab })
 
@@ -179,34 +153,28 @@ export function Dashboard() {
     isLoading,
   } = useDashboardData(filters)
 
-  const importRange = defaultImportRange()
-  const importIsDefault =
-    search.fromImport === importRange.from &&
-    search.toImport === importRange.to
   const hasFilters =
     !!eventDateRange ||
     !!signDateRange ||
-    (!!importDateRange && !importIsDefault) ||
+    !!importDateRange ||
     selectedRestaurants.size > 0 ||
     selectedStatuses.size > 0 ||
     selectedCommercials.size > 0 ||
     selectedClientType.size > 0
 
-  const resetFilters = () => {
-    const range = defaultImportRange()
+  const resetFilters = () =>
     setSearch({
       fromEvent: undefined,
       toEvent: undefined,
       fromSign: undefined,
       toSign: undefined,
-      fromImport: range.from,
-      toImport: range.to,
+      fromImport: undefined,
+      toImport: undefined,
       restaurants: undefined,
       statuses: undefined,
       commercials: undefined,
       clientType: undefined,
     })
-  }
 
   const restaurantOptions = restaurants.map((r) => ({
     label: r.name,
