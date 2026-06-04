@@ -192,14 +192,16 @@ export function useBookingsPaged(params: BookingsQueryParams) {
 
       let searchOr: string | null = null
       if (params.search) {
-        const term = params.search.replace(/[%,()]/g, '') // neutralise les caracteres PostgREST
+        const term = params.search.replace(/["\\]/g, '') // neutralise ce qui casse la valeur entre guillemets
         const like = `%${term}%`
         const [contactRes, restoRes] = await Promise.all([
           supabase
             .from('contacts')
             .select('id')
             .eq('organization_id', orgId)
-            .or(`first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like}`)
+            .or(
+              `first_name.ilike."${like}",last_name.ilike."${like}",email.ilike."${like}"`
+            )
             .limit(1000),
           supabase
             .from('restaurants')
@@ -211,44 +213,64 @@ export function useBookingsPaged(params: BookingsQueryParams) {
         const contactIds = (contactRes.data || []).map((c: { id: string }) => c.id)
         const restoIds = (restoRes.data || []).map((r: { id: string }) => r.id)
         const parts = [
-          `contact_sur_place_societe.ilike.${like}`,
-          `contact_sur_place_nom.ilike.${like}`,
-          `event_type.ilike.${like}`,
+          `contact_sur_place_societe.ilike."${like}"`,
+          `contact_sur_place_nom.ilike."${like}"`,
+          `event_type.ilike."${like}"`,
         ]
         if (contactIds.length) parts.push(`contact_id.in.(${contactIds.join(',')})`)
         if (restoIds.length) parts.push(`restaurant_id.in.(${restoIds.join(',')})`)
         searchOr = parts.join(',')
       }
 
-      // Drill-down dashboard : source → ids de contacts org-scopés.
-      let sourceContactIds: string[] | null = null
-      if (params.source) {
-        const { data } = await supabase
-          .from('contacts')
-          .select('id')
-          .eq('organization_id', orgId)
-          .eq('source', params.source)
-          .limit(2000)
-        sourceContactIds = (data || []).map((c: { id: string }) => c.id)
-      }
+      // Drill-down dashboard : source / date de signature / propositions stale.
+      // Les trois résolutions sont indépendantes ; on les lance en parallèle.
+      const sourceP = params.source
+        ? supabase
+            .from('contacts')
+            .select('id')
+            .eq('organization_id', orgId)
+            .eq('source', params.source)
+            .limit(2000)
+        : null
 
-      // Drill-down dashboard : date de signature et propositions stale se
-      // résolvent en ids de bookings via la table quotes. Si les deux sont
-      // demandés, on intersecte avant d'appliquer un seul .in('id', ...).
+      let signQ = supabase
+        .from('quotes')
+        .select('booking_id')
+        .eq('organization_id', orgId)
+        .not('quote_signed_at', 'is', null)
+        .limit(5000)
+      if (params.fromSign) signQ = signQ.gte('quote_signed_at', params.fromSign)
+      if (params.toSign)
+        signQ = signQ.lte('quote_signed_at', `${params.toSign}T23:59:59`)
+      const signP = params.fromSign || params.toSign ? signQ : null
+
+      const staleP = params.stale
+        ? supabase
+            .from('quotes')
+            .select('booking_id, status, signature_requested_at, quote_sent_at')
+            .eq('organization_id', orgId)
+            .in('status', ['sent', 'signature_requested'])
+            .limit(5000)
+        : null
+
+      const [sourceRes, signRes, staleRes] = await Promise.all([
+        sourceP,
+        signP,
+        staleP,
+      ])
+
+      let sourceContactIds: string[] | null = null
+      if (sourceRes)
+        sourceContactIds = (sourceRes.data || []).map(
+          (c: { id: string }) => c.id
+        )
+
+      // Si signature et stale sont demandés, on intersecte avant un seul .in('id', ...).
       let signBookingIds: string[] | null = null
-      if (params.fromSign || params.toSign) {
-        let q = supabase
-          .from('quotes')
-          .select('booking_id')
-          .eq('organization_id', orgId)
-          .not('quote_signed_at', 'is', null)
-          .limit(5000)
-        if (params.fromSign) q = q.gte('quote_signed_at', params.fromSign)
-        if (params.toSign) q = q.lte('quote_signed_at', `${params.toSign}T23:59:59`)
-        const { data } = await q
+      if (signRes) {
         signBookingIds = Array.from(
           new Set(
-            (data || [])
+            (signRes.data || [])
               .map((r: { booking_id: string | null }) => r.booking_id)
               .filter((id): id is string => !!id)
           )
@@ -256,17 +278,11 @@ export function useBookingsPaged(params: BookingsQueryParams) {
       }
 
       let staleBookingIds: string[] | null = null
-      if (params.stale) {
-        const { data } = await supabase
-          .from('quotes')
-          .select('booking_id, status, signature_requested_at, quote_sent_at')
-          .eq('organization_id', orgId)
-          .in('status', ['sent', 'signature_requested'])
-          .limit(5000)
+      if (staleRes) {
         const cutoff = new Date()
         cutoff.setDate(cutoff.getDate() - 3)
         const ids = new Set<string>()
-        for (const r of (data || []) as {
+        for (const r of (staleRes.data || []) as {
           booking_id: string | null
           signature_requested_at: string | null
           quote_sent_at: string | null

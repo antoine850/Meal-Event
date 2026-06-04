@@ -37,6 +37,8 @@ import { bookingToReservation } from './types'
 type MainView = 'calendar' | 'list' | 'pipeline'
 type CalendarMode = 'month' | 'week' | 'day'
 
+const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+
 export function Reservations() {
   const search = useSearch({ from: '/_authenticated/evenements/' })
   const navigate = useNavigate({ from: '/evenements' })
@@ -163,18 +165,47 @@ export function Reservations() {
 
   // La vue liste sélectionne ses statuts par slug ; la requête serveur filtre
   // par status_id. On traduit slug → id avant de pousser le filtre.
-  const statusIdsBySlug = useMemo(() => {
-    const map = new Map(statuses.map((s) => [s.slug, s.id]))
-    return Array.from(selectedStatuses)
-      .map((slug) => map.get(slug))
-      .filter((id): id is string => !!id)
-  }, [statuses, selectedStatuses])
+  const statusIdsBySlug = useMemo(
+    () => new Map(statuses.map((s) => [s.slug, s.id])),
+    [statuses]
+  )
+  const facetStatusIds = useMemo(
+    () =>
+      Array.from(selectedStatuses)
+        .map((slug) => statusIdsBySlug.get(slug))
+        .filter((id): id is string => !!id),
+    [statusIdsBySlug, selectedStatuses]
+  )
+  const signedStatusIds = useMemo(
+    () =>
+      SIGNED_SLUGS.map((slug) => statusIdsBySlug.get(slug)).filter(
+        (id): id is string => !!id
+      ),
+    [statusIdsBySlug]
+  )
 
   const fromIso = dateRange?.from ? toIso(dateRange.from) : undefined
   const toIsoValue = dateRange?.to ? toIso(dateRange.to) : undefined
 
   const pagedParams = useMemo(() => {
     const parsed = parseSortValue(sortValue)
+    // Drill-down « signés uniquement » poussé côté serveur : on intersecte avec
+    // la facette statut si elle est active, sinon on filtre sur les statuts signés.
+    let statuses: string[] | undefined
+    if (search.signed === '1') {
+      const intersected = facetStatusIds.length
+        ? facetStatusIds.filter((id) => signedStatusIds.includes(id))
+        : signedStatusIds
+      // Une intersection vide doit signifier « aucun résultat », pas « tous » :
+      // on pousse une sentinelle si les statuts signés sont résolus mais
+      // n'intersectent rien. (Si non chargés, on laisse passer pendant le load.)
+      statuses =
+        intersected.length || !signedStatusIds.length
+          ? intersected
+          : [NIL_UUID]
+    } else {
+      statuses = facetStatusIds
+    }
     return {
       page: pageIndex,
       pageSize,
@@ -182,7 +213,7 @@ export function Reservations() {
       search: searchValue || undefined,
       from: fromIso,
       to: toIsoValue,
-      statuses: statusIdsBySlug.length ? statusIdsBySlug : undefined,
+      statuses: statuses.length ? statuses : undefined,
       restaurants: selectedRestaurants.size
         ? Array.from(selectedRestaurants)
         : undefined,
@@ -206,7 +237,9 @@ export function Reservations() {
     searchValue,
     fromIso,
     toIsoValue,
-    statusIdsBySlug,
+    facetStatusIds,
+    signedStatusIds,
+    search.signed,
     selectedRestaurants,
     selectedCommercials,
     signDateRange,
@@ -375,12 +408,14 @@ export function Reservations() {
           (b) => (b.contact?.source || 'Autre').toLowerCase() === wanted
         )
       }
-    }
 
-    // Drill-down "signés uniquement" : non émis par les cartes actuelles, gardé
-    // client-side (n'affecte pas la pagination en pratique).
-    if (search.signed === '1') {
-      result = result.filter((b) => SIGNED_SLUGS.includes(b.status?.slug || ''))
+      // Drill-down "signés uniquement". La vue liste le pousse côté serveur
+      // (via le filtre statut) ; calendrier / pipeline le filtrent ici.
+      if (search.signed === '1') {
+        result = result.filter((b) =>
+          SIGNED_SLUGS.includes(b.status?.slug || '')
+        )
+      }
     }
 
     return result
