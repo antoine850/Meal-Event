@@ -381,8 +381,6 @@ export function Reservations() {
               </ToggleGroupItem>
             </ToggleGroup>
             <ExportEventsDialog
-              initialFrom={dateRange?.from}
-              initialTo={dateRange?.to}
               initialStatusSlugs={selectedStatuses}
               initialRestaurantIds={selectedRestaurants}
               initialCommercialIds={selectedCommercials}

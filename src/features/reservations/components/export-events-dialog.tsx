@@ -23,16 +23,12 @@ const API_BASE_URL = import.meta.env.DEV
   : import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 type Props = {
-  initialFrom?: Date
-  initialTo?: Date
   initialStatusSlugs?: Set<string>
   initialRestaurantIds?: Set<string>
   initialCommercialIds?: Set<string>
 }
 
 export function ExportEventsDialog({
-  initialFrom,
-  initialTo,
   initialStatusSlugs,
   initialRestaurantIds,
   initialCommercialIds,
@@ -49,11 +45,12 @@ export function ExportEventsDialog({
   const [restaurantIds, setRestaurantIds] = useState<Set<string>>(new Set())
   const [commercialIds, setCommercialIds] = useState<Set<string>>(new Set())
 
-  // Pré-remplit avec les filtres actuels de la liste à l'ouverture.
+  // Pré-remplit statut/restaurant/commercial depuis la liste à l'ouverture ;
+  // la période démarre sur "Tout" (toutes les dates) par défaut.
   // La liste filtre les statuts par slug -> on convertit en id pour l'export.
   useEffect(() => {
     if (!open) return
-    setDateRange(initialFrom ? { from: initialFrom, to: initialTo } : undefined)
+    setDateRange(undefined)
     const slugToId = new Map(statuses.map((s) => [s.slug, s.id]))
     setStatusIds(
       new Set(
@@ -133,6 +130,7 @@ export function ExportEventsDialog({
               value={dateRange}
               onChange={setDateRange}
               placeholder='Toutes les dates'
+              allowAll
             />
           </div>
           <div className='flex flex-wrap gap-2'>

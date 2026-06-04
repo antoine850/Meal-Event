@@ -93,6 +93,8 @@ type DateFilterProps = {
    * À utiliser pour les filtres sur des dates qui peuvent être futures (ex: date d'événement).
    */
   futureAware?: boolean
+  /** Ajoute un preset "Tout" qui efface le filtre (toutes les dates). */
+  allowAll?: boolean
 }
 
 export function DateFilter({
@@ -100,6 +102,7 @@ export function DateFilter({
   onChange,
   placeholder = 'Filtrer par date',
   futureAware = false,
+  allowAll = false,
 }: DateFilterProps) {
   const [open, setOpen] = useState(false)
   const presets = useMemo(() => buildPresets(futureAware), [futureAware])
@@ -133,6 +136,19 @@ export function DateFilter({
       <PopoverContent className='w-auto p-0' align='start'>
         <div className='flex'>
           <div className='flex flex-col gap-1 border-r p-2'>
+            {allowAll && (
+              <Button
+                variant='ghost'
+                size='sm'
+                className='h-7 justify-start px-2 text-xs'
+                onClick={() => {
+                  onChange?.(undefined)
+                  setOpen(false)
+                }}
+              >
+                Tout
+              </Button>
+            )}
             {presets.map((preset) => (
               <Button
                 key={preset.label}
