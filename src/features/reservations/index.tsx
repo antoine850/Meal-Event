@@ -28,6 +28,7 @@ import { ExportEventsDialog } from './components/export-events-dialog'
 import { PipelineView } from './components/pipeline-view'
 import {
   useBookings,
+  useBookingsPaged,
   useBookingStatuses,
   useRestaurants,
 } from './hooks/use-bookings'
@@ -153,10 +154,71 @@ export function Reservations() {
     [navigate]
   )
 
-  const { data: bookings = [], isLoading } = useBookings()
   const { data: statuses = [] } = useBookingStatuses()
   const { data: users = [] } = useOrganizationUsers()
   const { data: restaurants = [] } = useRestaurants()
+
+  const [pageIndex, setPageIndex] = useState(0)
+  const pageSize = 50
+
+  // La vue liste sélectionne ses statuts par slug ; la requête serveur filtre
+  // par status_id. On traduit slug → id avant de pousser le filtre.
+  const statusIdsBySlug = useMemo(() => {
+    const map = new Map(statuses.map((s) => [s.slug, s.id]))
+    return Array.from(selectedStatuses)
+      .map((slug) => map.get(slug))
+      .filter((id): id is string => !!id)
+  }, [statuses, selectedStatuses])
+
+  const fromIso = dateRange?.from ? toIso(dateRange.from) : undefined
+  const toIsoValue = dateRange?.to ? toIso(dateRange.to) : undefined
+
+  const pagedParams = useMemo(() => {
+    const parsed = parseSortValue(sortValue)
+    return {
+      page: pageIndex,
+      pageSize,
+      sort: { field: parsed.id, dir: parsed.desc ? 'desc' : 'asc' } as const,
+      search: searchValue || undefined,
+      from: fromIso,
+      to: toIsoValue,
+      statuses: statusIdsBySlug.length ? statusIdsBySlug : undefined,
+      restaurants: selectedRestaurants.size
+        ? Array.from(selectedRestaurants)
+        : undefined,
+      commercials: selectedCommercials.size
+        ? Array.from(selectedCommercials)
+        : undefined,
+    }
+  }, [
+    pageIndex,
+    sortValue,
+    searchValue,
+    fromIso,
+    toIsoValue,
+    statusIdsBySlug,
+    selectedRestaurants,
+    selectedCommercials,
+  ])
+
+  const listQuery = useBookingsPaged(pagedParams)
+  const allQuery = useBookings()
+  const bookings =
+    mainView === 'list' ? (listQuery.data?.rows ?? []) : (allQuery.data ?? [])
+  const totalCount = listQuery.data?.total ?? 0
+  const isLoading = mainView === 'list' ? listQuery.isLoading : allQuery.isLoading
+
+  useEffect(() => {
+    setPageIndex(0)
+  }, [
+    sortValue,
+    searchValue,
+    search.from,
+    search.to,
+    search.status,
+    search.restaurant,
+    search.commercial,
+  ])
 
   // Reset visible uniquement si au moins un filtre est explicitement présent
   // dans l'URL. On ignore le défaut « événements à venir » de la vue liste
@@ -200,46 +262,51 @@ export function Reservations() {
   const filteredBookings = useMemo(() => {
     let result = bookings
 
-    if (searchValue) {
-      const q = searchValue.toLowerCase()
-      result = result.filter(
-        (b) =>
-          (b.contact?.first_name || '').toLowerCase().includes(q) ||
-          (b.contact?.last_name || '').toLowerCase().includes(q) ||
-          (b.contact?.email || '').toLowerCase().includes(q) ||
-          (b.event_type || '').toLowerCase().includes(q) ||
-          (b.restaurant?.name || '').toLowerCase().includes(q)
-      )
-    }
+    // Vue liste : le serveur a déjà appliqué recherche / date d'événement /
+    // commercial / statut / restaurant (useBookingsPaged). On ne les rejoue pas
+    // côté client. Les autres filtres (drill-down dashboard) restent appliqués.
+    if (mainView !== 'list') {
+      if (searchValue) {
+        const q = searchValue.toLowerCase()
+        result = result.filter(
+          (b) =>
+            (b.contact?.first_name || '').toLowerCase().includes(q) ||
+            (b.contact?.last_name || '').toLowerCase().includes(q) ||
+            (b.contact?.email || '').toLowerCase().includes(q) ||
+            (b.event_type || '').toLowerCase().includes(q) ||
+            (b.restaurant?.name || '').toLowerCase().includes(q)
+        )
+      }
 
-    if (dateRange?.from) {
-      const fromDate = new Date(dateRange.from)
-      fromDate.setHours(0, 0, 0, 0)
-      result = result.filter((b) => new Date(b.event_date) >= fromDate)
-    }
+      if (dateRange?.from) {
+        const fromDate = new Date(dateRange.from)
+        fromDate.setHours(0, 0, 0, 0)
+        result = result.filter((b) => new Date(b.event_date) >= fromDate)
+      }
 
-    if (dateRange?.to) {
-      const toDate = new Date(dateRange.to)
-      toDate.setHours(23, 59, 59, 999)
-      result = result.filter((b) => new Date(b.event_date) <= toDate)
-    }
+      if (dateRange?.to) {
+        const toDate = new Date(dateRange.to)
+        toDate.setHours(23, 59, 59, 999)
+        result = result.filter((b) => new Date(b.event_date) <= toDate)
+      }
 
-    if (selectedCommercials.size > 0) {
-      result = result.filter((b) =>
-        (b.assigned_user_ids || []).some((id) => selectedCommercials.has(id))
-      )
-    }
+      if (selectedCommercials.size > 0) {
+        result = result.filter((b) =>
+          (b.assigned_user_ids || []).some((id) => selectedCommercials.has(id))
+        )
+      }
 
-    if (selectedStatuses.size > 0) {
-      result = result.filter(
-        (b) => b.status?.slug && selectedStatuses.has(b.status.slug)
-      )
-    }
+      if (selectedStatuses.size > 0) {
+        result = result.filter(
+          (b) => b.status?.slug && selectedStatuses.has(b.status.slug)
+        )
+      }
 
-    if (selectedRestaurants.size > 0) {
-      result = result.filter(
-        (b) => b.restaurant_id && selectedRestaurants.has(b.restaurant_id)
-      )
+      if (selectedRestaurants.size > 0) {
+        result = result.filter(
+          (b) => b.restaurant_id && selectedRestaurants.has(b.restaurant_id)
+        )
+      }
     }
 
     // Filtre date de signature
@@ -295,6 +362,7 @@ export function Reservations() {
 
     return result
   }, [
+    mainView,
     bookings,
     searchValue,
     dateRange,
@@ -515,6 +583,10 @@ export function Reservations() {
             data={filteredBookings}
             users={users}
             sorting={tableSorting}
+            pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
+            pageIndex={pageIndex}
+            pageSize={pageSize}
+            onPageChange={setPageIndex}
           />
         )}
         {mainView === 'calendar' && (

@@ -143,6 +143,94 @@ export function useBookings() {
   })
 }
 
+export type BookingsQueryParams = {
+  page: number // 0-based
+  pageSize: number
+  sort: { field: string; dir: 'asc' | 'desc' }
+  search?: string
+  from?: string // event_date >= (ISO yyyy-mm-dd)
+  to?: string // event_date <= (ISO yyyy-mm-dd)
+  statuses?: string[]
+  restaurants?: string[]
+  commercials?: string[]
+}
+
+export function useBookingsPaged(params: BookingsQueryParams) {
+  return useQuery({
+    queryKey: ['bookings-paged', params],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      let restaurantScope: string[] | null = null
+      if (user) {
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('role:roles(slug), user_restaurants(restaurant_id)')
+          .eq('id', user.id)
+          .single()
+        const roleSlug = (dbUser as any)?.role?.slug || ''
+        const assigned: string[] = ((dbUser as any)?.user_restaurants || [])
+          .map((ur: any) => ur.restaurant_id)
+          .filter(Boolean)
+        if (roleSlug !== 'admin') restaurantScope = assigned
+      }
+      if (restaurantScope !== null && restaurantScope.length === 0) {
+        return { rows: [] as BookingWithRelations[], total: 0 }
+      }
+
+      let query = supabase
+        .from('bookings')
+        .select(
+          `
+          *,
+          restaurant:restaurants(id, name, color),
+          contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
+          status:statuses(id, name, color, slug),
+          payments(id, amount, status, payment_modality, paid_at),
+          quotes(id, total_ht, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
+        `,
+          { count: 'exact' }
+        )
+        .eq('organization_id', orgId)
+
+      if (restaurantScope !== null)
+        query = query.in('restaurant_id', restaurantScope)
+      if (params.from) query = query.gte('event_date', params.from)
+      if (params.to) query = query.lte('event_date', params.to)
+      if (params.statuses?.length)
+        query = query.in('status_id', params.statuses)
+      if (params.restaurants?.length)
+        query = query.in('restaurant_id', params.restaurants)
+      if (params.commercials?.length)
+        query = query.overlaps('assigned_user_ids', params.commercials)
+      if (params.search) {
+        const term = `%${params.search}%`
+        query = query.or(
+          `contact_sur_place_societe.ilike.${term},contact_sur_place_nom.ilike.${term}`
+        )
+      }
+
+      query = query.order(params.sort.field, {
+        ascending: params.sort.dir === 'asc',
+      })
+      const fromRow = params.page * params.pageSize
+      query = query.range(fromRow, fromRow + params.pageSize - 1)
+
+      const { data, error, count } = await query
+      if (error) throw error
+      return {
+        rows: (data || []) as unknown as BookingWithRelations[],
+        total: count || 0,
+      }
+    },
+    placeholderData: (prev) => prev,
+  })
+}
+
 export function useBooking(id: string) {
   return useQuery({
     queryKey: ['bookings', id],

@@ -29,12 +29,20 @@ type BookingsTableProps = {
   data: BookingWithRelations[]
   users: OrgUser[]
   sorting?: SortingState
+  pageCount?: number
+  pageIndex?: number
+  pageSize?: number
+  onPageChange?: (pageIndex: number) => void
 }
 
 export function BookingsTable({
   data,
   users,
   sorting: externalSorting,
+  pageCount,
+  pageIndex,
+  pageSize = 50,
+  onPageChange,
 }: BookingsTableProps) {
   const columns = useMemo(() => buildBookingsColumns(users), [users])
   const navigate = useNavigate()
@@ -48,25 +56,43 @@ export function BookingsTable({
   }, [externalSorting])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
+  const manualPagination = onPageChange !== undefined
+
   const table = useReactTable({
     data,
     columns,
     // 50 lignes par défaut (au lieu des 10 par défaut de TanStack Table).
     // L'utilisateur peut toujours changer via le sélecteur de pagination.
-    initialState: {
-      pagination: { pageSize: 50, pageIndex: 0 },
-    },
+    initialState: manualPagination
+      ? undefined
+      : { pagination: { pageSize: 50, pageIndex: 0 } },
     state: {
       sorting,
       columnVisibility,
       rowSelection,
+      ...(manualPagination
+        ? { pagination: { pageIndex: pageIndex ?? 0, pageSize } }
+        : {}),
     },
     enableRowSelection: true,
+    manualPagination,
+    ...(manualPagination ? { pageCount } : {}),
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: manualPagination
+      ? (updater) => {
+          const next =
+            typeof updater === 'function'
+              ? updater({ pageIndex: pageIndex ?? 0, pageSize })
+              : updater
+          onPageChange(next.pageIndex)
+        }
+      : undefined,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    getPaginationRowModel: manualPagination
+      ? undefined
+      : getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   })
 
