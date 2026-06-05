@@ -39,6 +39,7 @@ export type DashboardAggregates = {
   signed_revenue: number
   signed_count: number
   signed_guests: number
+  signed_without_quote: number
   avg_ticket_per_guest: number
   conversion_rate: number
   confirmed: number

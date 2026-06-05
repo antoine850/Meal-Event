@@ -74,6 +74,7 @@ export function GeneralTab({
   const signedRevenue = aggregates?.signed_revenue ?? 0
   const signedCount = aggregates?.signed_count ?? 0
   const signedGuests = aggregates?.signed_guests ?? 0
+  const signedWithoutQuote = aggregates?.signed_without_quote ?? 0
   const avgTicketPerGuest = aggregates?.avg_ticket_per_guest ?? 0
   const conversionRate = aggregates?.conversion_rate ?? 0
 
@@ -236,6 +237,11 @@ export function GeneralTab({
               <p className='text-xs text-muted-foreground'>
                 {signedGuests.toLocaleString('fr-FR')} convives signés
               </p>
+              {signedWithoutQuote > 0 && (
+                <p className='text-xs text-orange-600'>
+                  dont {signedWithoutQuote} sans devis
+                </p>
+              )}
             </CardContent>
           </Card>
         </Link>

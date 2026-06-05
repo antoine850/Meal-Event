@@ -189,6 +189,8 @@ begin
       'signed_revenue', (select coalesce(sum(signed_ttc),0) from bk where status_slug = any(signed_slugs)),
       'signed_count',   (select count(*) from bk where status_slug = any(signed_slugs)),
       'signed_guests',  (select coalesce(sum(guests_count),0) from bk where status_slug = any(signed_slugs)),
+      'signed_without_quote', (select count(*) from bk where status_slug = any(signed_slugs)
+        and not exists (select 1 from public.quotes q where q.booking_id = bk.id)),
       'avg_ticket_per_guest', (
         select case when coalesce(sum(guests_count),0) = 0 then 0
                     else round(sum(signed_ttc) / sum(guests_count)) end
