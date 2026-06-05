@@ -193,9 +193,11 @@ begin
         select case when coalesce(sum(guests_count),0) = 0 then 0
                     else round(sum(signed_ttc) / sum(guests_count)) end
         from bk where status_slug = any(signed_slugs)),
+      -- Taux de conversion = evenements passes en statut signe / total (coherent
+      -- avec "Evenements signes" ; base sur le statut du booking, pas le devis).
       'conversion_rate', (
         select case when count(*) = 0 then 0
-                    else round((count(*) filter (where has_signed_quote))::numeric / count(*) * 1000) / 10 end
+                    else round((count(*) filter (where status_slug = any(signed_slugs)))::numeric / count(*) * 1000) / 10 end
         from bk),
 
       'confirmed', (select count(*) from bk where status_slug = any(confirmed_slugs)),
@@ -231,7 +233,7 @@ begin
       'by_commercial', (
         select coalesce(jsonb_agg(jsonb_build_object(
           'id', uid, 'sales', sales, 'bookings', bookings, 'signed', signed,
-          'conversion_rate', case when bookings=0 then 0 else round(signed_with_quote::numeric / bookings * 1000)/10 end,
+          'conversion_rate', case when bookings=0 then 0 else round(signed::numeric / bookings * 1000)/10 end,
           'avg_ticket', case when signed=0 then 0 else round(sales/signed) end) order by sales desc), '[]'::jsonb)
         from (
           select uid,
