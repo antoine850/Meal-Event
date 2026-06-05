@@ -201,6 +201,12 @@ begin
         select case when count(*) = 0 then 0
                     else round((count(*) filter (where status_slug = any(signed_slugs)))::numeric / count(*) * 1000) / 10 end
         from bk),
+      -- Reste a encaisser (AR) sur les signes : total TTC du devis primary - deja paye.
+      'outstanding', (
+        select coalesce(sum(greatest(
+          coalesce((select q.total_ttc from public.quotes q where q.booking_id = bk.id and q.primary_quote order by q.created_at limit 1),0)
+          - coalesce((select sum(p.amount) from public.payments p where p.booking_id = bk.id and p.status in ('paid','completed')),0), 0)),0)
+        from bk where status_slug = any(signed_slugs)),
 
       'confirmed', (select count(*) from bk where status_slug = any(confirmed_slugs)),
       'pending',   (select count(*) from bk where status_slug = any(pending_slugs)),

@@ -77,6 +77,7 @@ export function GeneralTab({
   const signedWithoutQuote = aggregates?.signed_without_quote ?? 0
   const avgTicketPerGuest = aggregates?.avg_ticket_per_guest ?? 0
   const conversionRate = aggregates?.conversion_rate ?? 0
+  const outstanding = aggregates?.outstanding ?? 0
 
   const pipeline = aggregates?.pipeline ?? []
   const restaurantKPIs = useMemo(
@@ -218,6 +219,11 @@ export function GeneralTab({
                   : 0}{' '}
                 € HT / événement
               </p>
+              {outstanding > 0 && (
+                <p className='text-xs text-muted-foreground'>
+                  Reste à encaisser : {outstanding.toLocaleString('fr-FR')} €
+                </p>
+              )}
             </CardContent>
           </Card>
         </Link>
