@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -26,8 +25,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
-  useCompanies,
+  useCompany,
+  useCompanySearch,
   useCreateCompany,
 } from '../../companies/hooks/use-companies'
 
@@ -52,10 +53,13 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
   })
   const [searchValue, setSearchValue] = useState('')
 
-  const { data: companies = [] } = useCompanies()
+  const debouncedSearch = useDebouncedValue(searchValue, 250)
+  const { data: results = [], isFetching } = useCompanySearch(
+    debouncedSearch,
+    open
+  )
+  const { data: selectedCompany } = useCompany(value)
   const { mutate: createCompany, isPending } = useCreateCompany()
-
-  const selectedCompany = companies.find((c) => c.id === value)
 
   const handleCreate = () => {
     if (!newCompany.name.trim()) return
@@ -114,14 +118,23 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className='w-[350px] p-0' align='start'>
-          <Command>
+          <Command shouldFilter={false}>
             <CommandInput
               placeholder='Rechercher une société...'
               value={searchValue}
               onValueChange={setSearchValue}
             />
             <CommandList>
-              <CommandEmpty>Aucune société trouvée.</CommandEmpty>
+              {isFetching && (
+                <div className='py-3 text-center text-xs text-muted-foreground'>
+                  Recherche...
+                </div>
+              )}
+              {!isFetching && results.length === 0 && (
+                <div className='py-3 text-center text-xs text-muted-foreground'>
+                  Aucune société trouvée.
+                </div>
+              )}
               <CommandGroup>
                 {value && (
                   <CommandItem
@@ -136,7 +149,7 @@ export function CompanyCombobox({ value, onChange }: CompanyComboboxProps) {
                     </span>
                   </CommandItem>
                 )}
-                {companies.map((company) => (
+                {results.map((company) => (
                   <CommandItem
                     key={company.id}
                     value={company.name}

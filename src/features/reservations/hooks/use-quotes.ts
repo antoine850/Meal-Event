@@ -529,7 +529,7 @@ export function useContactWithCompany(contactId: string | null) {
         .select(
           `
           id, first_name, last_name, email, phone,
-          company:companies(name, billing_address, billing_city, billing_postal_code, siret, tva_number)
+          company:companies(id, name, billing_address, billing_city, billing_postal_code, siret, tva_number)
         `
         )
         .eq('id', contactId)

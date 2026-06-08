@@ -365,6 +365,7 @@ export function QuoteEditor({
   const [extraTvaRate, setExtraTvaRate] = useState(20)
 
   // B2B billing form state
+  const [billingName, setBillingName] = useState('')
   const [billingAddress, setBillingAddress] = useState('')
   const [billingPostalCode, setBillingPostalCode] = useState('')
   const [billingCity, setBillingCity] = useState('')
@@ -537,6 +538,7 @@ export function QuoteEditor({
   useEffect(() => {
     const company = (resolvedContact as any)?.company
     if (company) {
+      setBillingName(company.name || '')
       setBillingAddress(company.billing_address || '')
       setBillingPostalCode(company.billing_postal_code || '')
       setBillingCity(company.billing_city || '')
@@ -1459,6 +1461,20 @@ export function QuoteEditor({
                                         <div className='space-y-2'>
                                           <div>
                                             <Label className='text-[10px]'>
+                                              Nom de la société
+                                            </Label>
+                                            <Input
+                                              className='h-7 text-xs'
+                                              placeholder='Nom de la société'
+                                              value={billingName}
+                                              onChange={(e) => {
+                                                setBillingName(e.target.value)
+                                                setBillingFormDirty(true)
+                                              }}
+                                            />
+                                          </div>
+                                          <div>
+                                            <Label className='text-[10px]'>
                                               Adresse de facturation
                                             </Label>
                                             <Input
@@ -1551,6 +1567,9 @@ export function QuoteEditor({
                                             updateCompany(
                                               {
                                                 id: company.id,
+                                                name:
+                                                  billingName.trim() ||
+                                                  company.name,
                                                 billing_address:
                                                   billingAddress || null,
                                                 billing_postal_code:

@@ -37,6 +37,49 @@ export function useCompanies() {
   })
 }
 
+// Recherche cote serveur : la table depasse la limite PostgREST de 1000 lignes,
+// donc un select complet + filtre client raterait la plupart des societes.
+export function useCompanySearch(term: string, enabled = true) {
+  return useQuery({
+    queryKey: ['companies', 'search', term],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      let query = (supabase as any)
+        .from('companies')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('name')
+        .limit(50)
+
+      const t = term.trim()
+      if (t) query = query.ilike('name', `%${t}%`)
+
+      const { data, error } = await query
+      if (error) throw error
+      return data as Company[]
+    },
+    enabled,
+  })
+}
+
+export function useCompany(id?: string | null) {
+  return useQuery({
+    queryKey: ['company', id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('companies')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      return data as Company
+    },
+    enabled: !!id,
+  })
+}
+
 export function useCreateCompany() {
   const queryClient = useQueryClient()
 
@@ -80,6 +123,9 @@ export function useUpdateCompany() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] })
+      // les vues facturation lisent la societe via le contact
+      queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      queryClient.invalidateQueries({ queryKey: ['contact-for-quote'] })
     },
   })
 }
