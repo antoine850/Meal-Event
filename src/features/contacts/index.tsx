@@ -14,7 +14,6 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { useCompanies } from '../companies/hooks/use-companies'
 import { ContactsTable } from './components/contacts-table'
 import { CreateContactDialog } from './components/create-contact-dialog'
 import { useContacts, useOrganizationUsers } from './hooks/use-contacts'
@@ -100,7 +99,6 @@ export function Contacts() {
 
   const { data: contacts = [], isLoading: isLoadingContacts } = useContacts()
   const { data: users = [] } = useOrganizationUsers()
-  const { data: companies = [] } = useCompanies()
 
   const sourceOptions = useMemo(() => {
     const sources = new Set(
@@ -109,6 +107,19 @@ export function Contacts() {
     return Array.from(sources)
       .sort()
       .map((s) => ({ label: s, value: s }))
+  }, [contacts])
+
+  // Options de filtre derivees des societes presentes dans les contacts charges :
+  // pertinent (seules les societes ayant un contact) et borne (pas de cap 1000).
+  const companyOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const c of contacts as any[]) {
+      if (c.company?.id && c.company?.name)
+        map.set(c.company.id, c.company.name)
+    }
+    return Array.from(map, ([value, label]) => ({ label, value })).sort(
+      (a, b) => a.label.localeCompare(b.label)
+    )
   }, [contacts])
 
   const hasActiveFilters = !!(
@@ -223,10 +234,7 @@ export function Contacts() {
             />
             <FacetedFilter
               title='Société'
-              options={companies.map((c: any) => ({
-                label: c.name,
-                value: c.id,
-              }))}
+              options={companyOptions}
               selected={selectedCompanies}
               onSelectionChange={setSelectedCompanies}
             />

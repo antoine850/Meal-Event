@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   type SortingState,
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -49,7 +50,7 @@ import { Search as SearchIcon } from '@/components/search'
 import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { CompanyDialog } from './company-dialog'
-import { useCompanies, type Company } from './hooks/use-companies'
+import { useAllCompanies, type Company } from './hooks/use-companies'
 
 const companiesColumns: ColumnDef<Company>[] = [
   {
@@ -188,14 +189,31 @@ function CompaniesBulkActions({
 }
 
 export function CompaniesPage() {
-  const { data: companies = [], isLoading } = useCompanies()
+  const { data: companies = [], isLoading } = useAllCompanies()
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [rowSelection, setRowSelection] = useState({})
+  const [search, setSearch] = useState('')
   const [sortValue, setSortValue] = useState('created_at:desc')
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
+
+  const filteredCompanies = useMemo(() => {
+    const q = search
+      .trim()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+    if (!q) return companies
+    return companies.filter((c) =>
+      c.name
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .includes(q)
+    )
+  }, [companies, search])
 
   const companySortOptions = [
     { label: 'Date de création (récent)', value: 'created_at:desc' },
@@ -210,7 +228,7 @@ export function CompaniesPage() {
   }
 
   const table = useReactTable({
-    data: companies,
+    data: filteredCompanies,
     columns: companiesColumns,
     state: {
       sorting,
@@ -250,16 +268,24 @@ export function CompaniesPage() {
       </Header>
 
       <Main className='flex flex-1 flex-col space-y-4'>
-        <div className='flex justify-end gap-2'>
-          <SortSelect
-            options={companySortOptions}
-            value={sortValue}
-            onChange={handleSortChange}
+        <div className='flex items-center justify-between gap-2'>
+          <Input
+            placeholder='Rechercher une société...'
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className='max-w-xs'
           />
-          <Button onClick={handleCreate}>
-            <Plus className='mr-2 h-4 w-4' />
-            Ajouter une société
-          </Button>
+          <div className='flex gap-2'>
+            <SortSelect
+              options={companySortOptions}
+              value={sortValue}
+              onChange={handleSortChange}
+            />
+            <Button onClick={handleCreate}>
+              <Plus className='mr-2 h-4 w-4' />
+              Ajouter une société
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (

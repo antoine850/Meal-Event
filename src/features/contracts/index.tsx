@@ -55,7 +55,7 @@ import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { useCompanies } from '@/features/companies/hooks/use-companies'
+import { useAllCompanies } from '@/features/companies/hooks/use-companies'
 import { useContacts } from '@/features/contacts/hooks/use-contacts'
 import {
   useBookings,
@@ -159,7 +159,8 @@ export function Contracts() {
   }, [search])
   const { data: bookings = [], isLoading: bookingsLoading } = useBookings()
   const { data: contacts = [], isLoading: contactsLoading } = useContacts()
-  const { data: companies = [], isLoading: companiesLoading } = useCompanies()
+  const { data: companies = [], isLoading: companiesLoading } =
+    useAllCompanies()
   const { data: restaurants = [] } = useRestaurants()
 
   const isLoading = bookingsLoading || contactsLoading || companiesLoading

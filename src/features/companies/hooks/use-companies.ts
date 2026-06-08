@@ -39,12 +39,22 @@ export function useCompanies() {
 
 // Recherche cote serveur : la table depasse la limite PostgREST de 1000 lignes,
 // donc un select complet + filtre client raterait la plupart des societes.
+// On passe par la RPC search_companies (insensible aux accents via unaccent) avec
+// repli sur un ilike simple tant que la migration n'est pas appliquee.
 export function useCompanySearch(term: string, enabled = true) {
   return useQuery({
     queryKey: ['companies', 'search', term],
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
+      const t = term.trim()
+
+      const rpc = await (supabase as any).rpc('search_companies', {
+        search: t,
+        org: orgId,
+        lim: 50,
+      })
+      if (!rpc.error) return rpc.data as Company[]
 
       let query = (supabase as any)
         .from('companies')
@@ -52,8 +62,6 @@ export function useCompanySearch(term: string, enabled = true) {
         .eq('organization_id', orgId)
         .order('name')
         .limit(50)
-
-      const t = term.trim()
       if (t) query = query.ilike('name', `%${t}%`)
 
       const { data, error } = await query
@@ -61,6 +69,33 @@ export function useCompanySearch(term: string, enabled = true) {
       return data as Company[]
     },
     enabled,
+  })
+}
+
+// Charge toutes les societes en paginant au-dela de la limite de 1000 lignes.
+// Pour les pages qui parcourent/exportent l'ensemble (table, CSV).
+export function useAllCompanies() {
+  return useQuery({
+    queryKey: ['companies', 'all'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const all: Company[] = []
+      const pageSize = 1000
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await (supabase as any)
+          .from('companies')
+          .select('*')
+          .eq('organization_id', orgId)
+          .order('name')
+          .range(from, from + pageSize - 1)
+        if (error) throw error
+        all.push(...((data as Company[]) || []))
+        if (!data || data.length < pageSize) break
+      }
+      return all
+    },
   })
 }
 

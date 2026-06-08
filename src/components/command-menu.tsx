@@ -8,9 +8,11 @@ import {
   Sun,
   User,
   Calendar,
+  Building,
 } from 'lucide-react'
 import { useSearch } from '@/context/search-provider'
 import { useTheme } from '@/context/theme-provider'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   CommandDialog,
   CommandEmpty,
@@ -20,7 +22,7 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command'
-import { useCompanies } from '@/features/companies/hooks/use-companies'
+import { useCompanySearch } from '@/features/companies/hooks/use-companies'
 import { useContacts } from '@/features/contacts/hooks/use-contacts'
 import { useBookings } from '@/features/reservations/hooks/use-bookings'
 import { sidebarData } from './layout/data/sidebar-data'
@@ -33,8 +35,12 @@ export function CommandMenu() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const { data: contacts = [] } = useContacts()
-  const { data: companies = [] } = useCompanies()
   const { data: bookings = [] } = useBookings()
+  const debouncedQuery = useDebouncedValue(searchQuery, 250)
+  const { data: companyResults = [] } = useCompanySearch(
+    debouncedQuery,
+    !!debouncedQuery.trim()
+  )
 
   const runCommand = React.useCallback(
     (command: () => unknown) => {
@@ -45,8 +51,7 @@ export function CommandMenu() {
   )
 
   const filteredResults = useMemo(() => {
-    if (!searchQuery.trim())
-      return { contacts: [], companies: [], bookings: [] }
+    if (!searchQuery.trim()) return { contacts: [], bookings: [] }
 
     const query = searchQuery.toLowerCase()
 
@@ -58,9 +63,6 @@ export function CommandMenu() {
             c.email?.toLowerCase().includes(query)
         )
         .slice(0, 5),
-      companies: companies
-        .filter((c) => c.name?.toLowerCase().includes(query))
-        .slice(0, 5),
       bookings: bookings
         .filter(
           (b) =>
@@ -69,7 +71,7 @@ export function CommandMenu() {
         )
         .slice(0, 5),
     }
-  }, [searchQuery, contacts, companies, bookings])
+  }, [searchQuery, contacts, bookings])
 
   return (
     <CommandDialog modal open={open} onOpenChange={setOpen}>
@@ -136,8 +138,24 @@ export function CommandMenu() {
                   ))}
                 </CommandGroup>
               )}
+              {companyResults.length > 0 && (
+                <CommandGroup heading='Sociétés'>
+                  {companyResults.slice(0, 5).map((company) => (
+                    <CommandItem
+                      key={company.id}
+                      value={`${company.name} ${searchQuery}`}
+                      onSelect={() => {
+                        runCommand(() => navigate({ to: '/companies' }))
+                      }}
+                    >
+                      <Building className='mr-2 h-4 w-4' />
+                      <span>{company.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
               {filteredResults.contacts.length === 0 &&
-                filteredResults.companies.length === 0 &&
+                companyResults.length === 0 &&
                 filteredResults.bookings.length === 0 && (
                   <CommandEmpty>No results found.</CommandEmpty>
                 )}
