@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-table'
 import { Loader2, Plus, Trash2, Building } from 'lucide-react'
 import { toast } from 'sonner'
+import { matchesSearch } from '@/lib/search'
 import { supabase } from '@/lib/supabase'
 import {
   AlertDialog,
@@ -200,19 +201,8 @@ export function CompaniesPage() {
   ])
 
   const filteredCompanies = useMemo(() => {
-    const q = search
-      .trim()
-      .normalize('NFD')
-      .replace(/\p{Diacritic}/gu, '')
-      .toLowerCase()
-    if (!q) return companies
-    return companies.filter((c) =>
-      c.name
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .toLowerCase()
-        .includes(q)
-    )
+    if (!search.trim()) return companies
+    return companies.filter((c) => matchesSearch(search, c.name))
   }, [companies, search])
 
   const companySortOptions = [

@@ -22,6 +22,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { RotateCcw } from 'lucide-react'
+import { matchesSearch } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Badge } from '@/components/ui/badge'
@@ -302,15 +303,16 @@ export function Contracts() {
   }, [bookings])
 
   // ─── Filtered data ───
-  const searchLower = search.toLowerCase()
   const filteredQuotes = useMemo(() => {
     return allQuotes.filter((q) => {
       if (search) {
-        const matchSearch =
-          q.contactName.toLowerCase().includes(searchLower) ||
-          q.companyName.toLowerCase().includes(searchLower) ||
-          q.quoteNumber.toLowerCase().includes(searchLower) ||
-          q.restaurantName.toLowerCase().includes(searchLower)
+        const matchSearch = matchesSearch(
+          search,
+          q.contactName,
+          q.companyName,
+          q.quoteNumber,
+          q.restaurantName
+        )
         if (!matchSearch) return false
       }
       if (selectedStatuses.size > 0 && !selectedStatuses.has(q.status))
@@ -327,7 +329,6 @@ export function Contracts() {
   }, [
     allQuotes,
     search,
-    searchLower,
     selectedStatuses,
     selectedSources,
     selectedRestaurants,
@@ -336,14 +337,11 @@ export function Contracts() {
   const filteredClients = useMemo(
     () =>
       search
-        ? clientHistory.filter(
-            (c) =>
-              c.contactName.toLowerCase().includes(searchLower) ||
-              c.companyName.toLowerCase().includes(searchLower) ||
-              c.contactEmail.toLowerCase().includes(searchLower)
+        ? clientHistory.filter((c) =>
+            matchesSearch(search, c.contactName, c.companyName, c.contactEmail)
           )
         : clientHistory,
-    [clientHistory, search, searchLower]
+    [clientHistory, search]
   )
 
   const hasFilters =

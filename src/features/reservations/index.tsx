@@ -4,6 +4,7 @@ import { useSearch, useNavigate } from '@tanstack/react-router'
 import { type SortingState } from '@tanstack/react-table'
 import { Calendar as CalendarIcon, Columns3, List, Loader2 } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
+import { matchesSearch } from '@/lib/search'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -200,9 +201,7 @@ export function Reservations() {
       // on pousse une sentinelle si les statuts signés sont résolus mais
       // n'intersectent rien. (Si non chargés, on laisse passer pendant le load.)
       statuses =
-        intersected.length || !signedStatusIds.length
-          ? intersected
-          : [NIL_UUID]
+        intersected.length || !signedStatusIds.length ? intersected : [NIL_UUID]
     } else {
       statuses = facetStatusIds
     }
@@ -249,11 +248,14 @@ export function Reservations() {
   ])
 
   const listQuery = useBookingsPaged(pagedParams)
-  const allQuery = useBookings()
+  // Jeu complet (lourd : ~15k lignes paginées) seulement pour calendrier /
+  // pipeline ; la vue liste est servie par la requête paginée serveur.
+  const allQuery = useBookings({ enabled: mainView !== 'list' })
   const bookings =
     mainView === 'list' ? (listQuery.data?.rows ?? []) : (allQuery.data ?? [])
   const totalCount = listQuery.data?.total ?? 0
-  const isLoading = mainView === 'list' ? listQuery.isLoading : allQuery.isLoading
+  const isLoading =
+    mainView === 'list' ? listQuery.isLoading : allQuery.isLoading
 
   useEffect(() => {
     setPageIndex(0)
@@ -320,14 +322,15 @@ export function Reservations() {
     // côté client. Les autres filtres (drill-down dashboard) restent appliqués.
     if (mainView !== 'list') {
       if (searchValue) {
-        const q = searchValue.toLowerCase()
-        result = result.filter(
-          (b) =>
-            (b.contact?.first_name || '').toLowerCase().includes(q) ||
-            (b.contact?.last_name || '').toLowerCase().includes(q) ||
-            (b.contact?.email || '').toLowerCase().includes(q) ||
-            (b.event_type || '').toLowerCase().includes(q) ||
-            (b.restaurant?.name || '').toLowerCase().includes(q)
+        result = result.filter((b) =>
+          matchesSearch(
+            searchValue,
+            b.contact?.first_name,
+            b.contact?.last_name,
+            b.contact?.email,
+            b.event_type,
+            b.restaurant?.name
+          )
         )
       }
 
@@ -366,7 +369,9 @@ export function Reservations() {
         const from = new Date(signDateRange.from)
         from.setHours(0, 0, 0, 0)
         result = result.filter((b) => {
-          const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
+          const signedAt = b.quotes?.find(
+            (q) => q.primary_quote
+          )?.quote_signed_at
           return signedAt && new Date(signedAt) >= from
         })
       }
@@ -374,7 +379,9 @@ export function Reservations() {
         const to = new Date(signDateRange.to)
         to.setHours(23, 59, 59, 999)
         result = result.filter((b) => {
-          const signedAt = b.quotes?.find((q) => q.primary_quote)?.quote_signed_at
+          const signedAt = b.quotes?.find(
+            (q) => q.primary_quote
+          )?.quote_signed_at
           return signedAt && new Date(signedAt) <= to
         })
       }

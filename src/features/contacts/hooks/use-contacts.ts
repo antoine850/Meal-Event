@@ -8,6 +8,12 @@ export type ContactWithRelations = Contact & {
   assigned_user?: { id: string; first_name: string; last_name: string } | null
 }
 
+const contactSelect = `
+          *,
+          company:companies(id, name, billing_address, billing_city, billing_postal_code, siret, tva_number),
+          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
+        `
+
 export function useContacts() {
   return useQuery({
     queryKey: ['contacts'],
@@ -17,19 +23,63 @@ export function useContacts() {
 
       const { data, error } = await supabase
         .from('contacts')
-        .select(
-          `
-          *,
-          company:companies(id, name, billing_address, billing_city, billing_postal_code, siret, tva_number),
-          assigned_user:users!contacts_assigned_to_fkey(id, first_name, last_name)
-        `
-        )
+        .select(contactSelect)
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
       return data as ContactWithRelations[]
     },
+  })
+}
+
+// Recherche cote serveur : la table depasse la limite PostgREST de 1000 lignes,
+// donc le filtre client sur useContacts() rate la plupart des fiches.
+// RPC search_contacts (insensible aux accents/espaces via unaccent, cherche aussi
+// le nom de societe) avec repli sur un ilike simple tant que la migration
+// n'est pas appliquee.
+export function useContactSearch(term: string, enabled = true) {
+  return useQuery({
+    queryKey: ['contacts', 'search', term],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+      const t = term.trim()
+
+      const rpc = await (supabase as any).rpc('search_contacts', {
+        search: t,
+        org: orgId,
+        lim: 50,
+      })
+      if (!rpc.error) {
+        const ids = ((rpc.data as { id: string }[]) || []).map((c) => c.id)
+        if (!ids.length) return [] as ContactWithRelations[]
+        const { data, error } = await supabase
+          .from('contacts')
+          .select(contactSelect)
+          .in('id', ids)
+          .order('first_name')
+        if (error) throw error
+        return data as ContactWithRelations[]
+      }
+
+      let query = supabase
+        .from('contacts')
+        .select(contactSelect)
+        .eq('organization_id', orgId)
+        .order('first_name')
+        .limit(50)
+      if (t) {
+        const like = `%${t.replace(/["\\]/g, '')}%`
+        query = query.or(
+          `first_name.ilike."${like}",last_name.ilike."${like}",email.ilike."${like}"`
+        )
+      }
+      const { data, error } = await query
+      if (error) throw error
+      return data as ContactWithRelations[]
+    },
+    enabled,
   })
 }
 

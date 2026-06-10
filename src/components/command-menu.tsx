@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowRight,
@@ -23,8 +23,8 @@ import {
   CommandSeparator,
 } from '@/components/ui/command'
 import { useCompanySearch } from '@/features/companies/hooks/use-companies'
-import { useContacts } from '@/features/contacts/hooks/use-contacts'
-import { useBookings } from '@/features/reservations/hooks/use-bookings'
+import { useContactSearch } from '@/features/contacts/hooks/use-contacts'
+import { useBookingSearch } from '@/features/reservations/hooks/use-bookings'
 import { sidebarData } from './layout/data/sidebar-data'
 import { ScrollArea } from './ui/scroll-area'
 
@@ -34,10 +34,19 @@ export function CommandMenu() {
   const { open, setOpen } = useSearch()
   const [searchQuery, setSearchQuery] = useState('')
 
-  const { data: contacts = [] } = useContacts()
-  const { data: bookings = [] } = useBookings()
   const debouncedQuery = useDebouncedValue(searchQuery, 250)
   const { data: companyResults = [] } = useCompanySearch(
+    debouncedQuery,
+    !!debouncedQuery.trim()
+  )
+  // Recherche serveur : contacts et bookings au-dela du cap PostgREST de
+  // 1000 lignes, insensible aux accents via les RPC search_contacts /
+  // search_booking_ids.
+  const { data: contactResults = [] } = useContactSearch(
+    debouncedQuery,
+    !!debouncedQuery.trim()
+  )
+  const { data: bookingResults = [] } = useBookingSearch(
     debouncedQuery,
     !!debouncedQuery.trim()
   )
@@ -50,29 +59,6 @@ export function CommandMenu() {
     [setOpen]
   )
 
-  const filteredResults = useMemo(() => {
-    if (!searchQuery.trim()) return { contacts: [], bookings: [] }
-
-    const query = searchQuery.toLowerCase()
-
-    return {
-      contacts: contacts
-        .filter(
-          (c) =>
-            `${c.first_name} ${c.last_name}`.toLowerCase().includes(query) ||
-            c.email?.toLowerCase().includes(query)
-        )
-        .slice(0, 5),
-      bookings: bookings
-        .filter(
-          (b) =>
-            b.occasion?.toLowerCase().includes(query) ||
-            b.restaurant?.name?.toLowerCase().includes(query)
-        )
-        .slice(0, 5),
-    }
-  }, [searchQuery, contacts, bookings])
-
   return (
     <CommandDialog modal open={open} onOpenChange={setOpen}>
       <CommandInput
@@ -84,12 +70,12 @@ export function CommandMenu() {
         <ScrollArea type='hover' className='h-72 pe-1'>
           {searchQuery.trim() ? (
             <>
-              {filteredResults.contacts.length > 0 && (
+              {contactResults.length > 0 && (
                 <CommandGroup heading='Contacts'>
-                  {filteredResults.contacts.map((contact) => (
+                  {contactResults.slice(0, 5).map((contact) => (
                     <CommandItem
                       key={contact.id}
-                      value={`${contact.first_name} ${contact.last_name}`}
+                      value={`${contact.first_name} ${contact.last_name} ${searchQuery}`}
                       onSelect={() => {
                         runCommand(() =>
                           navigate({
@@ -112,12 +98,12 @@ export function CommandMenu() {
                   ))}
                 </CommandGroup>
               )}
-              {filteredResults.bookings.length > 0 && (
+              {bookingResults.length > 0 && (
                 <CommandGroup heading='Bookings'>
-                  {filteredResults.bookings.map((booking) => (
+                  {bookingResults.slice(0, 5).map((booking) => (
                     <CommandItem
                       key={booking.id}
-                      value={booking.occasion || booking.id}
+                      value={`${booking.occasion || booking.id} ${searchQuery}`}
                       onSelect={() => {
                         runCommand(() =>
                           navigate({
@@ -154,9 +140,9 @@ export function CommandMenu() {
                   ))}
                 </CommandGroup>
               )}
-              {filteredResults.contacts.length === 0 &&
+              {contactResults.length === 0 &&
                 companyResults.length === 0 &&
-                filteredResults.bookings.length === 0 && (
+                bookingResults.length === 0 && (
                   <CommandEmpty>No results found.</CommandEmpty>
                 )}
               <CommandSeparator />

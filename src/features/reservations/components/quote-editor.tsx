@@ -36,6 +36,7 @@ import { deriveHtFromTtc } from '@/lib/price'
 import { supabase } from '@/lib/supabase'
 import type { QuoteItem } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,7 +86,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { useUpdateCompany } from '@/features/companies/hooks/use-companies'
-import { useContacts } from '@/features/contacts/hooks/use-contacts'
+import {
+  useContact,
+  useContactSearch,
+} from '@/features/contacts/hooks/use-contacts'
 import {
   computeQuoteTotals,
   formatEuroWhole,
@@ -421,13 +425,19 @@ export function QuoteEditor({
     []
   )
 
-  const { data: allContacts = [] } = useContacts()
+  // Recherche serveur (unaccent) : la liste complete depasse le cap PostgREST
+  // de 1000 lignes et rendrait le filtre cmdk inutilisable sur 20k+ contacts.
+  const [contactSearch, setContactSearch] = useState('')
+  const debouncedContactSearch = useDebouncedValue(contactSearch, 250)
+  const { data: contactResults = [] } = useContactSearch(
+    debouncedContactSearch,
+    contactPopoverOpen
+  )
 
   // Resolve contact: use quote's contact_id if available, fallback to booking contact
   const quoteContactId = quoteData?.contact_id || null
-  const resolvedContact = quoteContactId
-    ? allContacts.find((c) => c.id === quoteContactId) || contact
-    : contact
+  const { data: quoteContact } = useContact(quoteContactId || '')
+  const resolvedContact = quoteContactId ? quoteContact || contact : contact
 
   // Get restaurant billing info for CGV generation
   const restaurantBillingInfo: RestaurantBillingInfo = useMemo(
@@ -1642,17 +1652,19 @@ export function QuoteEditor({
                                   className='w-[350px] p-0'
                                   align='start'
                                 >
-                                  <Command>
+                                  <Command shouldFilter={false}>
                                     <CommandInput
                                       placeholder='Rechercher un contact...'
                                       className='text-xs'
+                                      value={contactSearch}
+                                      onValueChange={setContactSearch}
                                     />
                                     <CommandList>
                                       <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
                                         Aucun contact trouvé.
                                       </CommandEmpty>
                                       <CommandGroup>
-                                        {allContacts.map((c) => (
+                                        {contactResults.map((c) => (
                                           <CommandItem
                                             key={c.id}
                                             value={`${c.first_name} ${c.last_name || ''} ${c.email || ''} ${(c as any).company?.name || ''}`}
@@ -1718,17 +1730,19 @@ export function QuoteEditor({
                                 className='w-[350px] p-0'
                                 align='start'
                               >
-                                <Command>
+                                <Command shouldFilter={false}>
                                   <CommandInput
                                     placeholder='Rechercher un contact...'
                                     className='text-xs'
+                                    value={contactSearch}
+                                    onValueChange={setContactSearch}
                                   />
                                   <CommandList>
                                     <CommandEmpty className='py-3 text-center text-xs text-muted-foreground'>
                                       Aucun contact trouvé.
                                     </CommandEmpty>
                                     <CommandGroup>
-                                      {allContacts.map((c) => (
+                                      {contactResults.map((c) => (
                                         <CommandItem
                                           key={c.id}
                                           value={`${c.first_name} ${c.last_name || ''} ${c.email || ''} ${(c as any).company?.name || ''}`}

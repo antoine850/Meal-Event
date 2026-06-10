@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -60,7 +61,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { TimePicker } from '@/components/ui/time-picker'
 import { CompanyCombobox } from '@/features/contacts/components/company-combobox'
 import {
-  useContacts,
+  useContact,
+  useContactSearch,
   useCreateContact,
 } from '@/features/contacts/hooks/use-contacts'
 import {
@@ -118,7 +120,14 @@ export function CreateBookingDialog({
     useCreateBooking()
   const { mutate: createContact, isPending: isContactPending } =
     useCreateContact()
-  const { data: contacts = [] } = useContacts()
+  // Recherche serveur (unaccent) : la liste complete depasse le cap PostgREST
+  // de 1000 lignes et rendrait le filtre cmdk inutilisable sur 20k+ contacts.
+  const [contactSearch, setContactSearch] = useState('')
+  const debouncedContactSearch = useDebouncedValue(contactSearch, 250)
+  const { data: contacts = [] } = useContactSearch(
+    debouncedContactSearch,
+    contactPopoverOpen
+  )
   const { data: statuses = [] } = useBookingStatuses()
   const { data: restaurants = [] } = useRestaurants()
 
@@ -148,6 +157,9 @@ export function CreateBookingDialog({
 
   const contactMode = form.watch('contact_mode')
   const isB2B = form.watch('is_b2b')
+  // Resolu a part : le contact choisi n'est pas forcement dans les resultats de recherche
+  const watchedContactId = form.watch('contact_id')
+  const { data: selectedContact } = useContact(watchedContactId || '')
 
   useEffect(() => {
     if (defaultDate) {
@@ -279,9 +291,6 @@ export function CreateBookingDialog({
                 control={form.control}
                 name='contact_id'
                 render={({ field }) => {
-                  const selectedContact = contacts.find(
-                    (c) => c.id === field.value
-                  )
                   return (
                     <FormItem className='flex flex-col'>
                       <FormLabel>Contact *</FormLabel>
@@ -328,8 +337,12 @@ export function CreateBookingDialog({
                             className='w-[--radix-popover-trigger-width] p-0'
                             align='start'
                           >
-                            <Command>
-                              <CommandInput placeholder='Rechercher par nom, email...' />
+                            <Command shouldFilter={false}>
+                              <CommandInput
+                                placeholder='Rechercher par nom, email...'
+                                value={contactSearch}
+                                onValueChange={setContactSearch}
+                              />
                               <CommandList className='max-h-[200px]'>
                                 <CommandEmpty>
                                   <div className='py-2 text-center'>

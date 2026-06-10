@@ -16,7 +16,11 @@ import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ContactsTable } from './components/contacts-table'
 import { CreateContactDialog } from './components/create-contact-dialog'
-import { useContacts, useOrganizationUsers } from './hooks/use-contacts'
+import {
+  useContacts,
+  useContactSearch,
+  useOrganizationUsers,
+} from './hooks/use-contacts'
 
 export function Contacts() {
   const search = useSearch({ from: '/_authenticated/contacts/' })
@@ -100,6 +104,13 @@ export function Contacts() {
   const { data: contacts = [], isLoading: isLoadingContacts } = useContacts()
   const { data: users = [] } = useOrganizationUsers()
 
+  // La table contient 20k+ contacts mais useContacts() est cappe a 1000 lignes :
+  // des qu'on tape un terme, la liste vient de la recherche serveur (unaccent).
+  const { data: searchResults = [] } = useContactSearch(
+    debouncedSearchValue,
+    !!debouncedSearchValue.trim()
+  )
+
   const sourceOptions = useMemo(() => {
     const sources = new Set(
       contacts.map((c) => c.source).filter(Boolean) as string[]
@@ -131,7 +142,7 @@ export function Contacts() {
   )
 
   const filteredContacts = useMemo(() => {
-    let result = contacts
+    let result = debouncedSearchValue.trim() ? searchResults : contacts
 
     if (dateRange?.from) {
       const fromDate = new Date(dateRange.from)
@@ -146,17 +157,6 @@ export function Contacts() {
       toDate.setHours(23, 59, 59, 999)
       result = result.filter(
         (c) => c.created_at && new Date(c.created_at) <= toDate
-      )
-    }
-
-    if (debouncedSearchValue) {
-      const q = debouncedSearchValue.toLowerCase()
-      result = result.filter(
-        (c: any) =>
-          (c.first_name || '').toLowerCase().includes(q) ||
-          (c.last_name || '').toLowerCase().includes(q) ||
-          (c.email || '').toLowerCase().includes(q) ||
-          (c.company?.name || '').toLowerCase().includes(q)
       )
     }
 
@@ -181,6 +181,7 @@ export function Contacts() {
     return result
   }, [
     contacts,
+    searchResults,
     dateRange,
     debouncedSearchValue,
     selectedCommercials,

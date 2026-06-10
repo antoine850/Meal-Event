@@ -90,58 +90,98 @@ export type BookingWithRelations = {
   }[]
 }
 
-export function useBookings() {
+// Permissions restaurant-scoped : admin = tout (null = pas de filtre),
+// commercial/gérant = ses restaurants assignés uniquement.
+async function getRestaurantScope(): Promise<string[] | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data: dbUser } = await supabase
+    .from('users')
+    .select('role:roles(slug), user_restaurants(restaurant_id)')
+    .eq('id', user.id)
+    .single()
+  const roleSlug = (dbUser as any)?.role?.slug || ''
+  if (roleSlug === 'admin') return null
+  return ((dbUser as any)?.user_restaurants || [])
+    .map((ur: any) => ur.restaurant_id)
+    .filter(Boolean)
+}
+
+const BOOKING_SELECT = `
+  *,
+  restaurant:restaurants(id, name, color),
+  contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
+  status:statuses(id, name, color, slug),
+  payments(id, amount, status, payment_modality, paid_at),
+  quotes(id, total_ht, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
+`
+
+// Charge TOUS les bookings (la table dépasse la limite PostgREST de 1000
+// lignes) : un count puis les tranches de 1000 en parallèle. L'ordre
+// event_date + id rend les bornes de tranches déterministes. Lourd (~15k
+// lignes avec embeds) : réservé aux vues qui agrègent tout (facturation,
+// calendrier, pipeline) ; passer enabled=false tant qu'elles n'en ont pas besoin.
+export function useBookings(opts?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['bookings'],
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
-      // Permissions restaurant-scoped : admin = tout, commercial/gérant = ses restaurants assignés uniquement
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let restaurantFilter: string[] | null = null
-      if (user) {
-        const { data: dbUser } = await supabase
-          .from('users')
-          .select('role:roles(slug), user_restaurants(restaurant_id)')
-          .eq('id', user.id)
-          .single()
-        const roleSlug = (dbUser as any)?.role?.slug || ''
-        const assignedIds: string[] = ((dbUser as any)?.user_restaurants || [])
-          .map((ur: any) => ur.restaurant_id)
-          .filter(Boolean)
-        if (roleSlug !== 'admin') {
-          // Filtrer par restaurants assignés. Si aucun, on renvoie une liste vide.
-          restaurantFilter = assignedIds
+      const restaurantFilter = await getRestaurantScope()
+      if (restaurantFilter !== null && restaurantFilter.length === 0)
+        return [] as BookingWithRelations[]
+
+      const baseQuery = () => {
+        let q = supabase
+          .from('bookings')
+          .select(BOOKING_SELECT)
+          .eq('organization_id', orgId)
+        if (restaurantFilter !== null)
+          q = q.in('restaurant_id', restaurantFilter)
+        return q
+          .order('event_date', { ascending: true })
+          .order('id', { ascending: true })
+      }
+
+      let countQuery = supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+      if (restaurantFilter !== null)
+        countQuery = countQuery.in('restaurant_id', restaurantFilter)
+      const { count, error: countError } = await countQuery
+      if (countError) throw countError
+
+      const pageSize = 1000
+      const offsets: number[] = []
+      for (let from = 0; from < (count ?? 0); from += pageSize)
+        offsets.push(from)
+
+      // Toutes les tranches en simultané font tomber PostgREST (500 observés
+      // à 16 requêtes) : on borne la concurrence à 6.
+      const chunks: BookingWithRelations[][] = new Array(offsets.length)
+      let next = 0
+      const worker = async () => {
+        while (next < offsets.length) {
+          const i = next++
+          const from = offsets[i]
+          const { data, error } = await baseQuery().range(
+            from,
+            from + pageSize - 1
+          )
+          if (error) throw error
+          chunks[i] = (data || []) as unknown as BookingWithRelations[]
         }
       }
-
-      let query = supabase
-        .from('bookings')
-        .select(
-          `
-          *,
-          restaurant:restaurants(id, name, color),
-          contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
-          status:statuses(id, name, color, slug),
-          payments(id, amount, status, payment_modality, paid_at),
-          quotes(id, total_ht, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
-        `
-        )
-        .eq('organization_id', orgId)
-        .order('event_date', { ascending: true })
-
-      if (restaurantFilter !== null) {
-        if (restaurantFilter.length === 0) return [] as BookingWithRelations[]
-        query = query.in('restaurant_id', restaurantFilter)
-      }
-
-      const { data, error } = await query
-      if (error) throw error
-      return data as unknown as BookingWithRelations[]
+      await Promise.all(
+        Array.from({ length: Math.min(6, offsets.length) }, worker)
+      )
+      return chunks.flat()
     },
+    enabled: opts?.enabled ?? true,
   })
 }
 
@@ -170,56 +210,63 @@ export function useBookingsPaged(params: BookingsQueryParams) {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let restaurantScope: string[] | null = null
-      if (user) {
-        const { data: dbUser } = await supabase
-          .from('users')
-          .select('role:roles(slug), user_restaurants(restaurant_id)')
-          .eq('id', user.id)
-          .single()
-        const roleSlug = (dbUser as any)?.role?.slug || ''
-        const assigned: string[] = ((dbUser as any)?.user_restaurants || [])
-          .map((ur: any) => ur.restaurant_id)
-          .filter(Boolean)
-        if (roleSlug !== 'admin') restaurantScope = assigned
-      }
+      const restaurantScope = await getRestaurantScope()
       if (restaurantScope !== null && restaurantScope.length === 0) {
         return { rows: [] as BookingWithRelations[], total: 0 }
       }
 
       let searchOr: string | null = null
       if (params.search) {
-        const term = params.search.replace(/["\\]/g, '') // neutralise ce qui casse la valeur entre guillemets
-        const like = `%${term}%`
-        const [contactRes, restoRes] = await Promise.all([
-          supabase
-            .from('contacts')
-            .select('id')
-            .eq('organization_id', orgId)
-            .or(
-              `first_name.ilike."${like}",last_name.ilike."${like}",email.ilike."${like}"`
-            )
-            .limit(1000),
-          supabase
-            .from('restaurants')
-            .select('id')
-            .eq('organization_id', orgId)
-            .ilike('name', like)
-            .limit(1000),
-        ])
-        const contactIds = (contactRes.data || []).map((c: { id: string }) => c.id)
-        const restoIds = (restoRes.data || []).map((r: { id: string }) => r.id)
-        const parts = [
-          `contact_sur_place_societe.ilike."${like}"`,
-          `contact_sur_place_nom.ilike."${like}"`,
-          `event_type.ilike."${like}"`,
-        ]
-        if (contactIds.length) parts.push(`contact_id.in.(${contactIds.join(',')})`)
-        if (restoIds.length) parts.push(`restaurant_id.in.(${restoIds.join(',')})`)
-        searchOr = parts.join(',')
+        const term = params.search
+          .replace(/["\\]/g, '') // neutralise ce qui casse la valeur entre guillemets
+          .replace(/\s+/g, ' ')
+          .trim()
+
+        // RPC unaccent (insensible aux accents/espaces) avec repli sur le
+        // ilike historique tant que la migration n'est pas appliquee.
+        const rpc = await (supabase as any).rpc('search_booking_ids', {
+          search: term,
+          org: orgId,
+          lim: 1000,
+        })
+        if (!rpc.error) {
+          const ids = ((rpc.data as { id: string }[]) || []).map((r) => r.id)
+          searchOr = `id.in.(${ids.length ? ids.join(',') : NIL_UUID})`
+        } else {
+          const like = `%${term}%`
+          const [contactRes, restoRes] = await Promise.all([
+            supabase
+              .from('contacts')
+              .select('id')
+              .eq('organization_id', orgId)
+              .or(
+                `first_name.ilike."${like}",last_name.ilike."${like}",email.ilike."${like}"`
+              )
+              .limit(1000),
+            supabase
+              .from('restaurants')
+              .select('id')
+              .eq('organization_id', orgId)
+              .ilike('name', like)
+              .limit(1000),
+          ])
+          const contactIds = (contactRes.data || []).map(
+            (c: { id: string }) => c.id
+          )
+          const restoIds = (restoRes.data || []).map(
+            (r: { id: string }) => r.id
+          )
+          const parts = [
+            `contact_sur_place_societe.ilike."${like}"`,
+            `contact_sur_place_nom.ilike."${like}"`,
+            `event_type.ilike."${like}"`,
+          ]
+          if (contactIds.length)
+            parts.push(`contact_id.in.(${contactIds.join(',')})`)
+          if (restoIds.length)
+            parts.push(`restaurant_id.in.(${restoIds.join(',')})`)
+          searchOr = parts.join(',')
+        }
       }
 
       // Drill-down dashboard : source / date de signature / propositions stale.
@@ -306,17 +353,7 @@ export function useBookingsPaged(params: BookingsQueryParams) {
 
       let query = supabase
         .from('bookings')
-        .select(
-          `
-          *,
-          restaurant:restaurants(id, name, color),
-          contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
-          status:statuses(id, name, color, slug),
-          payments(id, amount, status, payment_modality, paid_at),
-          quotes(id, total_ht, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
-        `,
-          { count: 'exact' }
-        )
+        .select(BOOKING_SELECT, { count: 'exact' })
         .eq('organization_id', orgId)
 
       if (restaurantScope !== null)
@@ -336,7 +373,10 @@ export function useBookingsPaged(params: BookingsQueryParams) {
           ? query.in('contact_id', sourceContactIds)
           : query.in('contact_id', [NIL_UUID])
       if (bookingIdFilter !== null)
-        query = query.in('id', bookingIdFilter.length ? bookingIdFilter : [NIL_UUID])
+        query = query.in(
+          'id',
+          bookingIdFilter.length ? bookingIdFilter : [NIL_UUID]
+        )
       if (searchOr) query = query.or(searchOr)
 
       query = query.order(params.sort.field, {
@@ -353,6 +393,68 @@ export function useBookingsPaged(params: BookingsQueryParams) {
       }
     },
     placeholderData: (prev) => prev,
+  })
+}
+
+export type BookingSearchHit = {
+  id: string
+  occasion: string | null
+  event_type: string | null
+  event_date: string
+  restaurant?: { id: string; name: string } | null
+}
+
+// Recherche serveur pour le menu Cmd+K : la table dépasse la limite PostgREST
+// de 1000 lignes, donc un select complet + filtre client raterait la plupart
+// des bookings. RPC search_booking_ids (unaccent, multi-mots) puis fetch des
+// bookings correspondants ; repli ilike sur occasion/event_type tant que la
+// migration n'est pas appliquée.
+export function useBookingSearch(term: string, enabled = true) {
+  return useQuery({
+    queryKey: ['bookings', 'search', term],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+      const t = term.trim()
+
+      const restaurantFilter = await getRestaurantScope()
+      if (restaurantFilter !== null && restaurantFilter.length === 0)
+        return [] as BookingSearchHit[]
+
+      const select =
+        'id, occasion, event_type, event_date, restaurant:restaurants(id, name)'
+
+      const rpc = await (supabase as any).rpc('search_booking_ids', {
+        search: t,
+        org: orgId,
+        lim: 20,
+      })
+      if (!rpc.error) {
+        const ids = ((rpc.data as { id: string }[]) || []).map((r) => r.id)
+        if (!ids.length) return [] as BookingSearchHit[]
+        let q = supabase.from('bookings').select(select).in('id', ids)
+        if (restaurantFilter !== null)
+          q = q.in('restaurant_id', restaurantFilter)
+        const { data, error } = await q
+        if (error) throw error
+        return ((data || []) as unknown as BookingSearchHit[]).sort((a, b) =>
+          b.event_date.localeCompare(a.event_date)
+        )
+      }
+
+      let q = supabase
+        .from('bookings')
+        .select(select)
+        .eq('organization_id', orgId)
+        .or(`occasion.ilike."%${t}%",event_type.ilike."%${t}%"`)
+      if (restaurantFilter !== null) q = q.in('restaurant_id', restaurantFilter)
+      const { data, error } = await q
+        .order('event_date', { ascending: false })
+        .limit(20)
+      if (error) throw error
+      return (data || []) as unknown as BookingSearchHit[]
+    },
+    enabled,
   })
 }
 
