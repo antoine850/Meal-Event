@@ -314,6 +314,77 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
   }
 })
 
+// POST /api/payments/:id/cancel-link - Expire le lien Stripe et supprime la ligne de paiement en attente
+paymentsRouter.post('/:id/cancel-link', async (req: Request, res: Response) => {
+  try {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('id, booking_id, status, payment_method, stripe_payment_id, stripe_account_id, amount, payment_modality, organization_id')
+      .eq('id', req.params.id)
+      .single()
+
+    if (fetchError || !payment) {
+      return res.status(404).json({ error: 'Payment not found' })
+    }
+
+    if (payment.payment_method !== 'stripe') {
+      return res.status(400).json({ error: 'NOT_STRIPE' })
+    }
+    if (payment.status !== 'pending') {
+      return res.status(409).json({ error: 'NOT_PENDING' })
+    }
+
+    const sessionId = payment.stripe_payment_id
+    const stripeOpts = stripeRequestOptions(payment.stripe_account_id || null)
+
+    if (sessionId) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId, stripeOpts)
+        if (session.payment_status === 'paid') {
+          return res.status(409).json({ error: 'ALREADY_PAID' })
+        }
+        if (session.status !== 'expired') {
+          await stripe.checkout.sessions.expire(sessionId, stripeOpts)
+        }
+      } catch (err: any) {
+        const code = err?.code || err?.raw?.code
+        // session introuvable côté Stripe : on continue la suppression locale
+        if (code !== 'resource_missing') {
+          console.error('[cancel-link] Stripe expire error:', err)
+          return res.status(502).json({ error: 'STRIPE_EXPIRE_FAILED' })
+        }
+      }
+
+      await supabase
+        .from('payment_links')
+        .update({ is_active: false })
+        .eq('stripe_link_id', sessionId)
+    }
+
+    const { error: deleteError } = await supabase
+      .from('payments')
+      .delete()
+      .eq('id', payment.id)
+
+    if (deleteError) throw deleteError
+
+    await supabase.from('activity_logs').insert({
+      organization_id: payment.organization_id,
+      booking_id: payment.booking_id,
+      action_type: 'payment.link_cancelled',
+      action_label: `Lien de paiement ${payment.payment_modality || ''} de ${payment.amount} € annulé`,
+      actor_type: 'user',
+      entity_type: 'payment',
+      metadata: { amount: payment.amount, modality: payment.payment_modality },
+    })
+
+    res.json({ ok: true })
+  } catch (error) {
+    console.error('Error cancelling payment link:', error)
+    res.status(500).json({ error: 'Failed to cancel payment link' })
+  }
+})
+
 // POST /api/payments/:id/remind - Send payment reminder
 paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
   try {

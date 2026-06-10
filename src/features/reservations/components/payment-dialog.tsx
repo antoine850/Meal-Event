@@ -104,8 +104,12 @@ export function PaymentDialog({
 
   const isEditing = !!payment
   const isStripePayment = isEditing && payment?.payment_method === 'stripe'
+  const isStripePendingLink =
+    isStripePayment && payment?.status === 'pending'
   const isStripeCreate = !isEditing && paymentType === 'stripe'
-  const isPending = isCreating || isUpdating || isDeleting || isCreatingLink
+  const [isCancellingLink, setIsCancellingLink] = useState(false)
+  const isPending =
+    isCreating || isUpdating || isDeleting || isCreatingLink || isCancellingLink
 
   // Reset form when dialog opens or payment changes
   useEffect(() => {
@@ -302,6 +306,34 @@ export function PaymentDialog({
     )
   }
 
+  const handleCancelStripeLink = async () => {
+    if (!payment) return
+    setIsCancellingLink(true)
+    try {
+      await apiClient(`/api/payments/${payment.id}/cancel-link`, {
+        method: 'POST',
+      })
+      toast.success('Lien Stripe annulé et paiement supprimé')
+      queryClient.invalidateQueries({ queryKey: ['payments', bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['bookings'] })
+      onOpenChange(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur lors de l\'annulation'
+      if (msg === 'ALREADY_PAID') {
+        toast.error(
+          'Ce lien vient d\'être payé par le client. Le paiement va apparaître comme payé dans un instant.'
+        )
+        queryClient.invalidateQueries({ queryKey: ['payments', bookingId] })
+      } else if (msg === 'STRIPE_EXPIRE_FAILED') {
+        toast.error('Impossible d\'expirer le lien côté Stripe. Réessayez dans quelques instants.')
+      } else {
+        toast.error(msg)
+      }
+    } finally {
+      setIsCancellingLink(false)
+    }
+  }
+
   // Stripe "link" mode: show a simpler form
   const showStripeLinkForm = isStripeCreate && stripeMode === 'link'
   // Stripe "collected" mode: show full form with payment_method='stripe' forced
@@ -328,8 +360,9 @@ export function PaymentDialog({
 
         {isStripePayment && (
           <p className='rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground'>
-            Ce paiement a été créé automatiquement via Stripe et ne peut pas
-            être modifié.
+            {isStripePendingLink
+              ? "Ce lien de paiement Stripe n'a pas encore été réglé. Vous pouvez l'annuler — le lien sera désactivé côté Stripe et cette ligne supprimée."
+              : 'Ce paiement a été créé automatiquement via Stripe et ne peut pas être modifié.'}
           </p>
         )}
 
@@ -648,11 +681,27 @@ export function PaymentDialog({
           <div className='flex justify-between pt-4'>
             {isStripePayment ? (
               <>
-                <div />
+                {isStripePendingLink ? (
+                  <Button
+                    type='button'
+                    variant='destructive'
+                    onClick={handleCancelStripeLink}
+                    disabled={isPending}
+                  >
+                    {isCancellingLink ? (
+                      <Loader2 className='h-4 w-4 animate-spin' />
+                    ) : (
+                      'Annuler le lien'
+                    )}
+                  </Button>
+                ) : (
+                  <div />
+                )}
                 <Button
                   type='button'
                   variant='outline'
                   onClick={() => onOpenChange(false)}
+                  disabled={isPending}
                 >
                   Fermer
                 </Button>
