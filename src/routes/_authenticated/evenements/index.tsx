@@ -17,6 +17,7 @@ const reservationsSearchSchema = z.object({
   signed: z.enum(['1']).optional().catch(undefined), // n'afficher que les événements signés
   stale: z.enum(['1']).optional().catch(undefined), // propositions sans réponse >3j
   source: z.string().optional().catch(undefined), // source du contact (Instagram, Site web…)
+  allDates: z.enum(['1']).optional().catch(undefined), // drill-down dashboard : ignore le défaut "à venir"
   view: z.enum(['calendar', 'list', 'pipeline']).optional().catch('list'),
   calendarMode: z.enum(['month', 'week', 'day']).optional().catch('week'),
 })

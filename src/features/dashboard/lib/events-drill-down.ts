@@ -82,6 +82,12 @@ export function buildEventsSearch(
     if (search[k] === undefined) delete search[k]
   })
 
+  // La vue liste filtre par défaut sur les événements à venir. Le dashboard,
+  // lui, compte toutes les dates : sans ce drapeau, un drill-down "nouveau = 11"
+  // n'afficherait que les 6 à venir. On neutralise donc le défaut quand le
+  // dashboard ne propage pas son propre filtre de date (auquel cas `from` fait foi).
+  if (!search.from) search.allDates = '1'
+
   return search
 }
 

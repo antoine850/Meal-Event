@@ -62,7 +62,9 @@ export function Reservations() {
         from: new Date(search.from),
         to: search.to ? new Date(search.to) : undefined,
       }
-    : mainView === 'list' && search.from === undefined
+    : mainView === 'list' &&
+        search.from === undefined &&
+        search.allDates !== '1'
       ? { from: defaultFrom, to: undefined }
       : undefined
   const selectedCommercials = useMemo(
@@ -311,6 +313,7 @@ export function Reservations() {
       signed: undefined,
       stale: undefined,
       source: undefined,
+      allDates: undefined,
     })
   }, [setSearch])
 
