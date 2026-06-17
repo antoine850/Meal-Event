@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import { Link, useSearch } from '@tanstack/react-router'
+import { fr } from 'date-fns/locale'
 import {
   Euro,
   TrendingUp,
@@ -10,10 +10,13 @@ import {
   Info,
   AlertCircle,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from 'recharts'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -89,6 +92,14 @@ export function GeneralTab({
     d ? format(parseISO(d), 'd MMM yyyy', { locale: fr }) : null
 
   const actionItems = actionLists?.action_items ?? []
+  const ACTIONS_PER_PAGE = 20
+  const [actionsPage, setActionsPage] = useState(0)
+  const actionsPageCount = Math.ceil(actionItems.length / ACTIONS_PER_PAGE)
+  const page = Math.min(actionsPage, Math.max(0, actionsPageCount - 1))
+  const pagedActions = actionItems.slice(
+    page * ACTIONS_PER_PAGE,
+    page * ACTIONS_PER_PAGE + ACTIONS_PER_PAGE
+  )
 
   const pieData = useMemo(
     () =>
@@ -372,7 +383,7 @@ export function GeneralTab({
           </CardHeader>
           <CardContent>
             <div className='divide-y'>
-              {actionItems.map((item) => (
+              {pagedActions.map((item) => (
                 <div
                   key={`${item.type}-${item.booking_id}`}
                   className='flex items-center gap-3 py-2.5 first:pt-0 last:pb-0'
@@ -429,6 +440,32 @@ export function GeneralTab({
                 </div>
               ))}
             </div>
+            {actionsPageCount > 1 && (
+              <div className='flex items-center justify-end gap-2 pt-3'>
+                <span className='text-sm text-muted-foreground'>
+                  {actionItems.length} actions · page {page + 1}/
+                  {actionsPageCount}
+                </span>
+                <Button
+                  variant='outline'
+                  size='icon'
+                  className='h-8 w-8'
+                  onClick={() => setActionsPage(page - 1)}
+                  disabled={page === 0}
+                >
+                  <ChevronLeft className='h-4 w-4' />
+                </Button>
+                <Button
+                  variant='outline'
+                  size='icon'
+                  className='h-8 w-8'
+                  onClick={() => setActionsPage(page + 1)}
+                  disabled={page >= actionsPageCount - 1}
+                >
+                  <ChevronRight className='h-4 w-4' />
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
