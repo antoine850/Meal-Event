@@ -52,6 +52,7 @@ export function ContactsTable({
       rowSelection,
     },
     enableRowSelection: true,
+    enableSorting: false,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,

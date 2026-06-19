@@ -225,6 +225,7 @@ export function CompaniesPage() {
       rowSelection,
     },
     enableRowSelection: true,
+    enableSorting: false,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),

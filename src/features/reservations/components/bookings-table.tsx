@@ -77,6 +77,7 @@ export function BookingsTable({
         : {}),
     },
     enableRowSelection: true,
+    enableSorting: false,
     manualPagination,
     ...(manualPagination ? { pageCount } : {}),
     onRowSelectionChange: setRowSelection,
