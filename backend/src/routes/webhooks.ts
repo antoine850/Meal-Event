@@ -206,7 +206,7 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
       .eq('stripe_payment_id', session.id)
       .single()
 
-    console.log(`[Stripe] Found payment:`, existingPayment, 'Error:', findError?.message)
+    console.log(`[Stripe] Found payment:`, existingPayment, findError ? `Error: ${findError.message}` : '')
 
     if (existingPayment) {
       // Update existing payment (regardless of current status)
