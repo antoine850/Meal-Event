@@ -810,13 +810,14 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
 
   // ── ACOMPTE ──
   if (documentType === 'acompte') {
-    const depositHt = data.totalHt * (data.depositPercentage / 100)
     const avgTvaRate =
       data.totalHt > 0
         ? ((data.totalTtc - data.totalHt) / data.totalHt) * 100
         : 20
-    const depositTva = depositHt * (avgTvaRate / 100)
-    const depositTtc = Math.ceil(depositHt + depositTva)
+    // Utiliser le montant d'acompte deja calcule (gere les modes % et montant fixe),
+    // puis remonter le HT a partir du TTC.
+    const depositTtc = data.depositAmount
+    const depositHt = depositTtc / (1 + avgTvaRate / 100)
 
     return (
       <div
