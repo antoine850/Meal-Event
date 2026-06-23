@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
+  BookmarkPlus,
   ChevronDown,
   FileText,
   GripVertical,
@@ -112,6 +113,7 @@ import {
   type RestaurantBillingInfo,
 } from '../hooks/use-quotes'
 import { QuotePreview, type DocumentType } from './quote-preview'
+import { SaveToCatalogDialog } from './save-to-catalog-dialog'
 
 const API_BASE_URL = import.meta.env.DEV
   ? ''
@@ -144,11 +146,13 @@ function SortableItemRow({
   onUpdateItem,
   onUpdateItemFields,
   onDeleteItem,
+  onSaveToCatalog,
 }: {
   item: QuoteItem
   onUpdateItem: (id: string, field: string, value: any) => void
   onUpdateItemFields: (id: string, updates: Partial<QuoteItem>) => void
   onDeleteItem: (id: string) => void
+  onSaveToCatalog: (item: QuoteItem) => void
 }) {
   const {
     attributes,
@@ -323,14 +327,25 @@ function SortableItemRow({
         {formatEuroWhole((item.total_ttc as number) || 0)}
       </TableCell>
       <TableCell>
-        <Button
-          size='icon'
-          variant='ghost'
-          className='h-6 w-6 text-destructive hover:text-destructive'
-          onClick={() => onDeleteItem(item.id)}
-        >
-          <Trash2 className='h-3 w-3' />
-        </Button>
+        <div className='flex items-center gap-0.5'>
+          <Button
+            size='icon'
+            variant='ghost'
+            className='h-6 w-6 text-green-600 hover:text-green-700'
+            title='Enregistrer au catalogue'
+            onClick={() => onSaveToCatalog(item)}
+          >
+            <BookmarkPlus className='h-3 w-3' />
+          </Button>
+          <Button
+            size='icon'
+            variant='ghost'
+            className='h-6 w-6 text-destructive hover:text-destructive'
+            onClick={() => onDeleteItem(item.id)}
+          >
+            <Trash2 className='h-3 w-3' />
+          </Button>
+        </div>
       </TableCell>
     </TableRow>
   )
@@ -384,6 +399,7 @@ export function QuoteEditor({
   const [orderNumber, setOrderNumber] = useState('')
   const [discountPercentage, setDiscountPercentage] = useState(0)
   const [depositPercentage, setDepositPercentage] = useState(80)
+  const [catalogLine, setCatalogLine] = useState<QuoteItem | null>(null)
   const [depositMode, setDepositMode] = useState<'percentage' | 'amount'>(
     'percentage'
   )
@@ -2141,7 +2157,7 @@ export function QuoteEditor({
                                   <TableHead className='w-24 text-right text-xs'>
                                     Total TTC
                                   </TableHead>
-                                  <TableHead className='w-10' />
+                                  <TableHead className='w-16' />
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -2158,6 +2174,7 @@ export function QuoteEditor({
                                         handleUpdateItemFields
                                       }
                                       onDeleteItem={handleDeleteItem}
+                                      onSaveToCatalog={setCatalogLine}
                                     />
                                   ))}
                                 </SortableContext>
@@ -2684,6 +2701,14 @@ export function QuoteEditor({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SaveToCatalogDialog
+        open={!!catalogLine}
+        onOpenChange={(o) => !o && setCatalogLine(null)}
+        line={catalogLine}
+        restaurantId={restaurant?.id ?? null}
+        restaurantName={restaurant?.name ?? null}
+      />
     </>
   )
 }
