@@ -905,6 +905,9 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                     <th className='w-20 px-2 py-1.5 text-right font-medium'>
                       {l.totalHt}
                     </th>
+                    <th className='w-20 px-2 py-1.5 text-right font-medium'>
+                      {l.totalTtc}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -963,6 +966,9 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         </td>
                         <td className='px-2 py-1.5 text-right'>
                           {formatEuroDecimal(computeItemHt(item))}
+                        </td>
+                        <td className='px-2 py-1.5 text-right'>
+                          {formatEuroWhole(computeItemTtc(item))}
                         </td>
                       </tr>
                     )
