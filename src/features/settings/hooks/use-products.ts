@@ -98,6 +98,62 @@ export function useProducts() {
   })
 }
 
+export type ProductsQueryParams = {
+  page: number
+  pageSize: number
+  search?: string
+  types?: string[]
+  restaurantIds?: string[]
+  active?: boolean
+}
+
+export function useProductsPaged(params: ProductsQueryParams) {
+  return useQuery({
+    queryKey: ['products-paged', params],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return { rows: [] as ProductWithRestaurants[], total: 0 }
+
+      const restoJoin = params.restaurantIds?.length
+        ? 'product_restaurants!inner(restaurant_id, restaurant:restaurants(id, name, color))'
+        : 'product_restaurants(restaurant_id, restaurant:restaurants(id, name, color))'
+
+      let query = supabase
+        .from('products')
+        .select(`*, ${restoJoin}`, { count: 'exact' })
+        .eq('organization_id', orgId)
+
+      if (params.types?.length) query = query.in('type', params.types)
+      if (params.restaurantIds?.length)
+        query = query.in(
+          'product_restaurants.restaurant_id',
+          params.restaurantIds
+        )
+      if (params.active !== undefined)
+        query = query.eq('is_active', params.active)
+      if (params.search) {
+        const term = params.search.replace(/[,()]/g, ' ').trim()
+        if (term)
+          query = query.or(
+            `name.ilike.%${term}%,description.ilike.%${term}%,tag.ilike.%${term}%`
+          )
+      }
+
+      query = query.order('name', { ascending: true })
+      const from = params.page * params.pageSize
+      query = query.range(from, from + params.pageSize - 1)
+
+      const { data, error, count } = await query
+      if (error) throw error
+      return {
+        rows: (data ?? []) as unknown as ProductWithRestaurants[],
+        total: count ?? 0,
+      }
+    },
+    placeholderData: (prev) => prev,
+  })
+}
+
 export function useCreateProduct() {
   const queryClient = useQueryClient()
 
@@ -226,6 +282,65 @@ export function usePackages() {
       if (error) throw error
       return data as PackageWithRelations[]
     },
+  })
+}
+
+export type PackagesQueryParams = {
+  page: number
+  pageSize: number
+  search?: string
+  restaurantIds?: string[]
+  active?: boolean
+}
+
+export function usePackagesPaged(params: PackagesQueryParams) {
+  return useQuery({
+    queryKey: ['packages-paged', params],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return { rows: [] as PackageWithRelations[], total: 0 }
+
+      const restoJoin = params.restaurantIds?.length
+        ? 'package_restaurants!inner(restaurant_id, restaurant:restaurants(id, name, color))'
+        : 'package_restaurants(restaurant_id, restaurant:restaurants(id, name, color))'
+
+      let query = supabase
+        .from('packages')
+        .select(
+          `
+          *,
+          package_products(product_id, quantity, product:products(*)),
+          ${restoJoin}
+        `,
+          { count: 'exact' }
+        )
+        .eq('organization_id', orgId)
+
+      if (params.restaurantIds?.length)
+        query = query.in(
+          'package_restaurants.restaurant_id',
+          params.restaurantIds
+        )
+      if (params.active !== undefined)
+        query = query.eq('is_active', params.active)
+      if (params.search) {
+        const term = params.search.replace(/[,()]/g, ' ').trim()
+        if (term)
+          query = query.or(`name.ilike.%${term}%,description.ilike.%${term}%`)
+      }
+
+      query = query.order('name', { ascending: true })
+      const from = params.page * params.pageSize
+      query = query.range(from, from + params.pageSize - 1)
+
+      const { data, error, count } = await query
+      if (error) throw error
+      return {
+        rows: (data ?? []) as unknown as PackageWithRelations[],
+        total: count ?? 0,
+      }
+    },
+    placeholderData: (prev) => prev,
   })
 }
 

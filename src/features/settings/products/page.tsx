@@ -18,7 +18,6 @@ import {
   type PackageWithRelations,
   useProducts,
   useDeleteProduct,
-  usePackages,
   useDeletePackage,
 } from '../hooks/use-products'
 import { useRestaurants } from '../hooks/use-settings'
@@ -29,8 +28,9 @@ import { ProductsTable } from './products-table'
 
 export function ProductsPage() {
   const { data: products = [], isLoading: isLoadingProducts } = useProducts()
-  const { data: packages = [], isLoading: isLoadingPackages } = usePackages()
   const { data: restaurants = [] } = useRestaurants()
+  const [productsTotal, setProductsTotal] = useState(0)
+  const [packagesTotal, setPackagesTotal] = useState(0)
   const { mutate: deleteProduct } = useDeleteProduct()
   const { mutate: deletePackage } = useDeletePackage()
 
@@ -108,7 +108,7 @@ export function ProductsPage() {
     setDeleteTarget(null)
   }
 
-  const isLoading = isLoadingProducts || isLoadingPackages
+  const isLoading = isLoadingProducts
 
   if (isLoading) {
     return (
@@ -125,11 +125,11 @@ export function ProductsPage() {
           <TabsList>
             <TabsTrigger value='products' className='gap-1.5'>
               <ShoppingCart className='h-4 w-4' />
-              Produits ({products.length})
+              Produits ({productsTotal})
             </TabsTrigger>
             <TabsTrigger value='packages' className='gap-1.5'>
               <Package className='h-4 w-4' />
-              Packages ({packages.length})
+              Packages ({packagesTotal})
             </TabsTrigger>
           </TabsList>
         </div>
@@ -137,11 +137,11 @@ export function ProductsPage() {
         {/* ── Products Tab ── */}
         <TabsContent value='products'>
           <ProductsTable
-            data={products}
             restaurants={restaurants}
             onEdit={handleEditProduct}
             onDuplicate={handleDuplicateProduct}
             onDelete={handleDeleteProduct}
+            onTotalChange={setProductsTotal}
             actionButton={
               <Button size='sm' onClick={handleNewProduct} className='gap-1.5'>
                 <Plus className='h-4 w-4' />
@@ -154,10 +154,10 @@ export function ProductsPage() {
         {/* ── Packages Tab ── */}
         <TabsContent value='packages'>
           <PackagesTable
-            data={packages}
             restaurants={restaurants}
             onEdit={handleEditPackage}
             onDelete={handleDeletePackage}
+            onTotalChange={setPackagesTotal}
             actionButton={
               <Button size='sm' onClick={handleNewPackage} className='gap-1.5'>
                 <Plus className='h-4 w-4' />

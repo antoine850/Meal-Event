@@ -1,18 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
 import { cn } from '@/lib/utils'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   Table,
   TableBody,
@@ -22,7 +19,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import type { PackageWithRelations } from '../hooks/use-products'
+import {
+  type PackageWithRelations,
+  usePackagesPaged,
+} from '../hooks/use-products'
 import { getPackagesColumns } from './packages-columns'
 
 type Restaurant = {
@@ -32,18 +32,20 @@ type Restaurant = {
 }
 
 type PackagesTableProps = {
-  data: PackageWithRelations[]
   restaurants: Restaurant[]
   onEdit: (pkg: PackageWithRelations) => void
   onDelete: (pkg: PackageWithRelations) => void
+  onTotalChange?: (total: number) => void
   actionButton?: React.ReactNode
 }
 
+const PAGE_SIZE = 50
+
 export function PackagesTable({
-  data,
   restaurants,
   onEdit,
   onDelete,
+  onTotalChange,
   actionButton,
 }: PackagesTableProps) {
   const [rowSelection, setRowSelection] = useState({})
@@ -52,6 +54,37 @@ export function PackagesTable({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     is_active: false,
   })
+  const [globalFilter, setGlobalFilter] = useState('')
+  const [pageIndex, setPageIndex] = useState(0)
+
+  const debouncedSearch = useDebouncedValue(globalFilter, 300)
+
+  const restoFilter = columnFilters.find((f) => f.id === 'restaurants')
+    ?.value as string[] | undefined
+  const activeFilter = columnFilters.find((f) => f.id === 'is_active')
+    ?.value as string[] | undefined
+  const active =
+    activeFilter?.length === 1 ? activeFilter[0] === 'true' : undefined
+
+  const query = usePackagesPaged({
+    page: pageIndex,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    restaurantIds: restoFilter?.length ? restoFilter : undefined,
+    active,
+  })
+
+  const data = query.data?.rows ?? []
+  const total = query.data?.total ?? 0
+
+  useEffect(() => {
+    onTotalChange?.(total)
+  }, [total, onTotalChange])
+
+  const filterKey = JSON.stringify(columnFilters)
+  useEffect(() => {
+    setPageIndex(0)
+  }, [debouncedSearch, filterKey])
 
   const columns = useMemo(
     () => getPackagesColumns({ onEdit, onDelete }),
@@ -61,31 +94,32 @@ export function PackagesTable({
   const table = useReactTable({
     data,
     columns,
+    pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     state: {
       sorting,
       columnVisibility,
       rowSelection,
       columnFilters,
+      globalFilter,
+      pagination: { pageIndex, pageSize: PAGE_SIZE },
     },
     enableRowSelection: true,
+    manualPagination: true,
+    manualFiltering: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const search = (filterValue as string).toLowerCase()
-      const pkg = row.original
-      return (
-        pkg.name.toLowerCase().includes(search) ||
-        (pkg.description || '').toLowerCase().includes(search)
-      )
+    onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: (updater) => {
+      const next =
+        typeof updater === 'function'
+          ? updater({ pageIndex, pageSize: PAGE_SIZE })
+          : updater
+      setPageIndex(next.pageIndex)
     },
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   })
 
   const restaurantFilterOptions = restaurants.map((r) => ({
@@ -175,14 +209,18 @@ export function PackagesTable({
                   colSpan={columns.length}
                   className='h-24 text-center'
                 >
-                  Aucun package trouvé.
+                  {query.isLoading ? 'Chargement...' : 'Aucun package trouvé.'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} className='mt-auto' />
+      <DataTablePagination
+        table={table}
+        className='mt-auto'
+        totalCount={total}
+      />
     </div>
   )
 }

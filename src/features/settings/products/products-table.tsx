@@ -1,18 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
 import { cn } from '@/lib/utils'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   Table,
   TableBody,
@@ -22,8 +19,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import type { ProductWithRestaurants } from '../hooks/use-products'
-import { PRODUCT_TYPES } from '../hooks/use-products'
+import {
+  type ProductWithRestaurants,
+  PRODUCT_TYPES,
+  useProductsPaged,
+} from '../hooks/use-products'
 import { getProductsColumns } from './products-columns'
 
 type Restaurant = {
@@ -33,20 +33,22 @@ type Restaurant = {
 }
 
 type ProductsTableProps = {
-  data: ProductWithRestaurants[]
   restaurants: Restaurant[]
   onEdit: (product: ProductWithRestaurants) => void
   onDuplicate: (product: ProductWithRestaurants) => void
   onDelete: (product: ProductWithRestaurants) => void
+  onTotalChange?: (total: number) => void
   actionButton?: React.ReactNode
 }
 
+const PAGE_SIZE = 50
+
 export function ProductsTable({
-  data,
   restaurants,
   onEdit,
   onDuplicate,
   onDelete,
+  onTotalChange,
   actionButton,
 }: ProductsTableProps) {
   const [rowSelection, setRowSelection] = useState({})
@@ -55,6 +57,41 @@ export function ProductsTable({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     is_active: false,
   })
+  const [globalFilter, setGlobalFilter] = useState('')
+  const [pageIndex, setPageIndex] = useState(0)
+
+  const debouncedSearch = useDebouncedValue(globalFilter, 300)
+
+  const typeFilter = columnFilters.find((f) => f.id === 'type')?.value as
+    | string[]
+    | undefined
+  const restoFilter = columnFilters.find((f) => f.id === 'restaurants')
+    ?.value as string[] | undefined
+  const activeFilter = columnFilters.find((f) => f.id === 'is_active')
+    ?.value as string[] | undefined
+  const active =
+    activeFilter?.length === 1 ? activeFilter[0] === 'true' : undefined
+
+  const query = useProductsPaged({
+    page: pageIndex,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    types: typeFilter?.length ? typeFilter : undefined,
+    restaurantIds: restoFilter?.length ? restoFilter : undefined,
+    active,
+  })
+
+  const data = query.data?.rows ?? []
+  const total = query.data?.total ?? 0
+
+  useEffect(() => {
+    onTotalChange?.(total)
+  }, [total, onTotalChange])
+
+  const filterKey = JSON.stringify(columnFilters)
+  useEffect(() => {
+    setPageIndex(0)
+  }, [debouncedSearch, filterKey])
 
   const columns = useMemo(
     () => getProductsColumns({ onEdit, onDuplicate, onDelete }),
@@ -64,32 +101,32 @@ export function ProductsTable({
   const table = useReactTable({
     data,
     columns,
+    pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     state: {
       sorting,
       columnVisibility,
       rowSelection,
       columnFilters,
+      globalFilter,
+      pagination: { pageIndex, pageSize: PAGE_SIZE },
     },
     enableRowSelection: true,
+    manualPagination: true,
+    manualFiltering: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const search = (filterValue as string).toLowerCase()
-      const product = row.original
-      return (
-        product.name.toLowerCase().includes(search) ||
-        (product.description || '').toLowerCase().includes(search) ||
-        (product.tag || '').toLowerCase().includes(search)
-      )
+    onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: (updater) => {
+      const next =
+        typeof updater === 'function'
+          ? updater({ pageIndex, pageSize: PAGE_SIZE })
+          : updater
+      setPageIndex(next.pageIndex)
     },
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   })
 
   const typeFilterOptions = PRODUCT_TYPES.map((t) => ({
@@ -185,14 +222,18 @@ export function ProductsTable({
                   colSpan={columns.length}
                   className='h-24 text-center'
                 >
-                  Aucun produit trouvé.
+                  {query.isLoading ? 'Chargement...' : 'Aucun produit trouvé.'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} className='mt-auto' />
+      <DataTablePagination
+        table={table}
+        className='mt-auto'
+        totalCount={total}
+      />
     </div>
   )
 }
