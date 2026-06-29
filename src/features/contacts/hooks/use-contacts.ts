@@ -83,6 +83,122 @@ export function useContactSearch(term: string, enabled = true) {
   })
 }
 
+export type ContactsQueryParams = {
+  page: number
+  pageSize: number
+  search?: string
+  commercialIds?: string[]
+  companyIds?: string[]
+  sources?: string[]
+  from?: string // created_at >= ISO
+  to?: string // created_at <= ISO
+  sort?: { field: string; dir: 'asc' | 'desc' }
+}
+
+// Liste paginee cote serveur : la table depasse 1000 lignes, on ne charge donc
+// qu'une page a la fois. La recherche passe par le RPC unaccent (ids) puis on
+// pagine/compte dans ces ids ; tous les filtres sont appliques en base.
+export function useContactsPaged(params: ContactsQueryParams) {
+  return useQuery({
+    queryKey: ['contacts-paged', params],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) return { rows: [] as ContactWithRelations[], total: 0 }
+
+      const term = params.search?.trim()
+      let searchIds: string[] | null = null
+      if (term) {
+        const rpc = await (supabase as any).rpc('search_contacts', {
+          search: term,
+          org: orgId,
+          lim: 1000,
+        })
+        if (!rpc.error) {
+          searchIds = ((rpc.data as { id: string }[]) || []).map((c) => c.id)
+          if (!searchIds.length) return { rows: [], total: 0 }
+        }
+      }
+
+      let query = supabase
+        .from('contacts')
+        .select(contactSelect, { count: 'exact' })
+        .eq('organization_id', orgId)
+
+      if (searchIds) {
+        query = query.in('id', searchIds)
+      } else if (term) {
+        // repli ilike si la migration RPC n'est pas appliquee
+        const like = `%${term.replace(/["\\]/g, '')}%`
+        query = query.or(
+          `first_name.ilike."${like}",last_name.ilike."${like}",email.ilike."${like}"`
+        )
+      }
+      if (params.commercialIds?.length)
+        query = query.in('assigned_to', params.commercialIds)
+      if (params.companyIds?.length)
+        query = query.in('company_id', params.companyIds)
+      if (params.sources?.length) query = query.in('source', params.sources)
+      if (params.from) query = query.gte('created_at', params.from)
+      if (params.to) query = query.lte('created_at', params.to)
+
+      query = query.order(params.sort?.field ?? 'created_at', {
+        ascending: params.sort?.dir === 'asc',
+      })
+      const from = params.page * params.pageSize
+      query = query.range(from, from + params.pageSize - 1)
+
+      const { data, error, count } = await query
+      if (error) throw error
+      return {
+        rows: (data ?? []) as unknown as ContactWithRelations[],
+        total: count ?? 0,
+      }
+    },
+    placeholderData: (prev) => prev,
+  })
+}
+
+// Options des filtres (source / societe). Echantillon borne : suffisant pour
+// surfacer les valeurs courantes sans charger toute la table.
+export function useContactFacetOptions() {
+  return useQuery({
+    queryKey: ['contact-facet-options'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId)
+        return {
+          sources: [] as string[],
+          companies: [] as { id: string; name: string }[],
+        }
+
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('source, company:companies(id, name)')
+        .eq('organization_id', orgId)
+        .limit(1000)
+      if (error) throw error
+
+      type FacetRow = {
+        source: string | null
+        company: { id: string; name: string } | null
+      }
+      const sources = new Set<string>()
+      const companies = new Map<string, string>()
+      for (const c of (data ?? []) as unknown as FacetRow[]) {
+        if (c.source) sources.add(c.source)
+        if (c.company?.id && c.company?.name)
+          companies.set(c.company.id, c.company.name)
+      }
+      return {
+        sources: Array.from(sources).sort((a, b) => a.localeCompare(b)),
+        companies: Array.from(companies, ([id, name]) => ({ id, name })).sort(
+          (a, b) => a.name.localeCompare(b.name)
+        ),
+      }
+    },
+  })
+}
+
 export function useRestaurantsList() {
   return useQuery({
     queryKey: ['restaurants-list'],

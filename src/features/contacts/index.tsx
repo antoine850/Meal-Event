@@ -2,7 +2,6 @@ import { useEffect, useMemo, useCallback, useState } from 'react'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { type SortingState } from '@tanstack/react-table'
-import { Loader2 } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Button } from '@/components/ui/button'
@@ -17,10 +16,12 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { ContactsTable } from './components/contacts-table'
 import { CreateContactDialog } from './components/create-contact-dialog'
 import {
-  useContacts,
-  useContactSearch,
+  useContactsPaged,
+  useContactFacetOptions,
   useOrganizationUsers,
 } from './hooks/use-contacts'
+
+const PAGE_SIZE = 50
 
 export function Contacts() {
   const search = useSearch({ from: '/_authenticated/contacts/' })
@@ -64,6 +65,7 @@ export function Contacts() {
     setSelectedCommercials(new Set())
     setSelectedCompanies(new Set())
     setSelectedSources(new Set())
+    setPageIndex(0)
     navigate({
       search: () => ({}) as Record<string, unknown>,
       replace: true,
@@ -101,103 +103,75 @@ export function Contacts() {
     { label: 'Source', value: 'source:asc' },
   ]
 
-  const { data: contacts = [], isLoading: isLoadingContacts } = useContacts()
   const { data: users = [] } = useOrganizationUsers()
+  const { data: facets } = useContactFacetOptions()
 
-  // La table contient 20k+ contacts mais useContacts() est cappe a 1000 lignes :
-  // des qu'on tape un terme, la liste vient de la recherche serveur (unaccent).
-  const { data: searchResults = [] } = useContactSearch(
+  const [pageIndex, setPageIndex] = useState(0)
+
+  const fromIso = useMemo(() => {
+    if (!dateRange?.from) return undefined
+    const d = new Date(dateRange.from)
+    d.setHours(0, 0, 0, 0)
+    return d.toISOString()
+  }, [dateRange?.from])
+  const toIso = useMemo(() => {
+    if (!dateRange?.to) return undefined
+    const d = new Date(dateRange.to)
+    d.setHours(23, 59, 59, 999)
+    return d.toISOString()
+  }, [dateRange?.to])
+
+  const [sortField, sortDir] = sortValue.split(':') as [string, 'asc' | 'desc']
+
+  const { data: paged, isFetching } = useContactsPaged({
+    page: pageIndex,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearchValue.trim() || undefined,
+    commercialIds: selectedCommercials.size
+      ? Array.from(selectedCommercials)
+      : undefined,
+    companyIds: selectedCompanies.size
+      ? Array.from(selectedCompanies)
+      : undefined,
+    sources: selectedSources.size ? Array.from(selectedSources) : undefined,
+    from: fromIso,
+    to: toIso,
+    sort: { field: sortField, dir: sortDir },
+  })
+  const rows = paged?.rows ?? []
+  const total = paged?.total ?? 0
+
+  // Toute modif de filtre / recherche / tri renvoie a la premiere page.
+  useEffect(() => {
+    setPageIndex(0)
+  }, [
     debouncedSearchValue,
-    !!debouncedSearchValue.trim()
+    selectedCommercials,
+    selectedCompanies,
+    selectedSources,
+    fromIso,
+    toIso,
+    sortValue,
+  ])
+
+  const sourceOptions = useMemo(
+    () => (facets?.sources ?? []).map((s) => ({ label: s, value: s })),
+    [facets]
   )
-
-  const sourceOptions = useMemo(() => {
-    const sources = new Set(
-      contacts.map((c) => c.source).filter(Boolean) as string[]
-    )
-    return Array.from(sources)
-      .sort()
-      .map((s) => ({ label: s, value: s }))
-  }, [contacts])
-
-  // Options de filtre derivees des societes presentes dans les contacts charges :
-  // pertinent (seules les societes ayant un contact) et borne (pas de cap 1000).
-  const companyOptions = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const c of contacts as any[]) {
-      if (c.company?.id && c.company?.name)
-        map.set(c.company.id, c.company.name)
-    }
-    return Array.from(map, ([value, label]) => ({ label, value })).sort(
-      (a, b) => a.label.localeCompare(b.label)
-    )
-  }, [contacts])
+  const companyOptions = useMemo(
+    () =>
+      (facets?.companies ?? []).map((c) => ({ label: c.name, value: c.id })),
+    [facets]
+  )
 
   const hasActiveFilters = !!(
     search.q ||
     search.from ||
     search.to ||
     selectedCommercials.size ||
+    selectedCompanies.size ||
     selectedSources.size
   )
-
-  const filteredContacts = useMemo(() => {
-    let result = debouncedSearchValue.trim() ? searchResults : contacts
-
-    if (dateRange?.from) {
-      const fromDate = new Date(dateRange.from)
-      fromDate.setHours(0, 0, 0, 0)
-      result = result.filter(
-        (c) => c.created_at && new Date(c.created_at) >= fromDate
-      )
-    }
-
-    if (dateRange?.to) {
-      const toDate = new Date(dateRange.to)
-      toDate.setHours(23, 59, 59, 999)
-      result = result.filter(
-        (c) => c.created_at && new Date(c.created_at) <= toDate
-      )
-    }
-
-    if (selectedCommercials.size > 0) {
-      result = result.filter(
-        (c: any) => c.assigned_to && selectedCommercials.has(c.assigned_to)
-      )
-    }
-
-    if (selectedCompanies.size > 0) {
-      result = result.filter(
-        (c: any) => c.company_id && selectedCompanies.has(c.company_id)
-      )
-    }
-
-    if (selectedSources.size > 0) {
-      result = result.filter(
-        (c: any) => c.source && selectedSources.has(c.source)
-      )
-    }
-
-    return result
-  }, [
-    contacts,
-    searchResults,
-    dateRange,
-    debouncedSearchValue,
-    selectedCommercials,
-    selectedCompanies,
-    selectedSources,
-  ])
-
-  const isLoading = isLoadingContacts
-
-  if (isLoading) {
-    return (
-      <div className='flex h-full items-center justify-center'>
-        <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
-      </div>
-    )
-  }
 
   return (
     <>
@@ -266,7 +240,15 @@ export function Contacts() {
           </div>
         </div>
 
-        <ContactsTable data={filteredContacts} sorting={tableSorting} />
+        <ContactsTable
+          data={rows}
+          total={total}
+          pageIndex={pageIndex}
+          onPageChange={setPageIndex}
+          pageSize={PAGE_SIZE}
+          isLoading={isFetching}
+          sorting={tableSorting}
+        />
       </Main>
     </>
   )

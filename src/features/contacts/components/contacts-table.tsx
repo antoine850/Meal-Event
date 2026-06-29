@@ -5,8 +5,6 @@ import {
   type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
 import { cn } from '@/lib/utils'
@@ -26,11 +24,21 @@ import { contactsColumns as columns } from './contacts-columns'
 type ContactsTableProps = {
   data: ContactWithRelations[]
   sorting?: SortingState
+  total: number
+  pageIndex: number
+  onPageChange: (page: number) => void
+  pageSize: number
+  isLoading?: boolean
 }
 
 export function ContactsTable({
   data,
   sorting: externalSorting,
+  total,
+  pageIndex,
+  onPageChange,
+  pageSize,
+  isLoading,
 }: ContactsTableProps) {
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>(
@@ -46,19 +54,28 @@ export function ContactsTable({
   const table = useReactTable({
     data,
     columns,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
     state: {
       sorting,
       columnVisibility,
       rowSelection,
+      pagination: { pageIndex, pageSize },
     },
     enableRowSelection: true,
     enableSorting: false,
+    manualPagination: true,
+    manualSorting: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange: (updater) => {
+      const next =
+        typeof updater === 'function'
+          ? updater({ pageIndex, pageSize })
+          : updater
+      onPageChange(next.pageIndex)
+    },
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   })
 
   return (
@@ -135,14 +152,18 @@ export function ContactsTable({
                   colSpan={columns.length}
                   className='h-24 text-center'
                 >
-                  Aucun résultat.
+                  {isLoading ? 'Chargement...' : 'Aucun résultat.'}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} className='mt-auto' />
+      <DataTablePagination
+        table={table}
+        className='mt-auto'
+        totalCount={total}
+      />
       <ContactsBulkActions table={table} />
     </div>
   )
