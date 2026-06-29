@@ -51,22 +51,15 @@ export function Reservations() {
   const searchValue = search.q || ''
 
   // Date par défaut : aujourd'hui (pour afficher les événements à venir sur la vue liste)
-  const defaultFrom = useMemo(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
-
+  // Par défaut : toutes les dates (aucun plancher). On veut pouvoir chercher un
+  // événement n'importe quand, passé compris. Une date n'est filtrée que si
+  // l'utilisateur la choisit explicitement.
   const dateRange: DateRange | undefined = search.from
     ? {
         from: new Date(search.from),
         to: search.to ? new Date(search.to) : undefined,
       }
-    : mainView === 'list' &&
-        search.from === undefined &&
-        search.allDates !== '1'
-      ? { from: defaultFrom, to: undefined }
-      : undefined
+    : undefined
   const selectedCommercials = useMemo(
     () => new Set(search.commercial ? search.commercial.split(',') : []),
     [search.commercial]
@@ -91,7 +84,7 @@ export function Reservations() {
 
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false)
   const [bookingDialogDate, setBookingDialogDate] = useState<Date | undefined>()
-  const [sortValue, setSortValue] = useState('event_date:asc')
+  const [sortValue, setSortValue] = useState('created_at:desc')
   const tableSorting: SortingState = useMemo(
     () => [parseSortValue(sortValue)],
     [sortValue]
@@ -541,6 +534,7 @@ export function Reservations() {
             }
             placeholder="Date d'événement"
             futureAware
+            allowAll
           />
           <DateFilter
             value={signDateRange}
