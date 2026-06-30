@@ -1,5 +1,6 @@
 """Outils partages pour l'import Booking Shake -> MealEvent. Lecture seule sauf upsert() explicite."""
-import csv, json, os, sys, urllib.request, urllib.error
+import csv, json, os, sys, time, urllib.request, urllib.error
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -156,6 +157,23 @@ def clock(v):
     return None
 
 
+def unit_price_ht(item):
+    """P.U. HT au centime depuis total_ht/quantite. L'app traite unit_price comme du HT et
+    re-applique la TVA (roundLineTtc) ; stocker le P.U. TTC du PDF BS doublerait la TVA a la
+    re-edition. total_ht=0 -> 0 (ligne offerte/incluse) ; total_ht absent -> derive du TTC."""
+    qty = item.get("quantity") or 0
+    if not qty:
+        return item.get("unit_price")
+    ht = item.get("total_ht")
+    if ht is None:
+        ttc, rate = item.get("total_ttc") or 0, item.get("tva_rate") or 0
+        if not ttc:
+            return item.get("unit_price")
+        ht = ttc / (1 + rate / 100)
+    # arrondi au centime half-away-from-zero, comme le type numeric Postgres de la colonne.
+    return float((Decimal(str(ht)) / Decimal(qty)).quantize(Decimal("0.01"), ROUND_HALF_UP))
+
+
 def load_csv(path):
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f, delimiter=";"))
@@ -178,12 +196,19 @@ class Supa:
         if extra:
             headers.update(extra)
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(self.url + path, data=data, headers=headers, method=method)
-        try:
-            with urllib.request.urlopen(req) as r:
-                return r.status, r.read().decode()
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"{method} {path.split('?')[0]} -> {e.code}: {e.read().decode()[:400]}")
+        for attempt in range(4):
+            req = urllib.request.Request(self.url + path, data=data, headers=headers, method=method)
+            try:
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    return r.status, r.read().decode()
+            except urllib.error.HTTPError as e:
+                if e.code in (429, 502, 503, 504, 520, 522, 524) and attempt < 3:
+                    time.sleep(1.5 * (attempt + 1)); continue
+                raise RuntimeError(f"{method} {path.split('?')[0]} -> {e.code}: {e.read().decode()[:400]}")
+            except OSError:  # URLError, ConnectionResetError, timeouts, socket errors
+                if attempt < 3:
+                    time.sleep(1.5 * (attempt + 1)); continue
+                raise
 
     def get_all(self, table, select="*", query=""):
         out, offset, page = [], 0, 1000
@@ -197,6 +222,10 @@ class Supa:
             if len(chunk) < page:
                 return out
             offset += page
+
+    def patch(self, table, flt, body):
+        self._req("PATCH", f"/rest/v1/{table}?{flt}", body=body,
+                  extra={"Prefer": "return=minimal"})
 
     def upsert(self, table, rows, on_conflict, batch=500):
         limits = MAXLEN.get(table, {})
