@@ -33,7 +33,6 @@ import {
   Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { deriveHtFromTtc } from '@/lib/price'
 import { supabase } from '@/lib/supabase'
 import type { QuoteItem } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
@@ -380,6 +379,7 @@ export function QuoteEditor({
   const [extraName, setExtraName] = useState('')
   const [extraDescription, setExtraDescription] = useState('')
   const [extraQuantity, setExtraQuantity] = useState(1)
+  const [extraUnitPriceHt, setExtraUnitPriceHt] = useState(0)
   const [extraUnitPrice, setExtraUnitPrice] = useState(0)
   const [extraTvaRate, setExtraTvaRate] = useState(20)
 
@@ -2291,6 +2291,23 @@ export function QuoteEditor({
                             </div>
                             <div>
                               <Label className='text-xs'>
+                                Prix unitaire HT
+                              </Label>
+                              <Input
+                                type='number'
+                                min={0}
+                                step={0.01}
+                                value={extraUnitPriceHt}
+                                onChange={(e) =>
+                                  setExtraUnitPriceHt(
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                className='mt-1 h-8 text-xs'
+                              />
+                            </div>
+                            <div>
+                              <Label className='text-xs'>
                                 Prix unitaire TTC
                               </Label>
                               <Input
@@ -2305,14 +2322,6 @@ export function QuoteEditor({
                                 }
                                 className='mt-1 h-8 text-xs'
                               />
-                              <p className='mt-0.5 text-[10px] text-muted-foreground'>
-                                ={' '}
-                                {deriveHtFromTtc(
-                                  extraUnitPrice,
-                                  extraTvaRate
-                                ).toFixed(2)}{' '}
-                                € HT
-                              </p>
                             </div>
                             <div>
                               <Label className='text-xs'>TVA %</Label>
@@ -2346,10 +2355,9 @@ export function QuoteEditor({
                                         name: extraName,
                                         description: extraDescription || null,
                                         quantity: extraQuantity,
-                                        unit_price: deriveHtFromTtc(
-                                          extraUnitPrice,
-                                          extraTvaRate
-                                        ),
+                                        unit_price: extraUnitPriceHt,
+                                        unit_price_ttc: extraUnitPrice,
+                                        price_entry_mode: 'ttc',
                                         tva_rate: extraTvaRate,
                                       } as any,
                                       {
@@ -2359,6 +2367,7 @@ export function QuoteEditor({
                                           setExtraName('')
                                           setExtraDescription('')
                                           setExtraQuantity(1)
+                                          setExtraUnitPriceHt(0)
                                           setExtraUnitPrice(0)
                                           setExtraTvaRate(20)
                                         },
@@ -2375,10 +2384,9 @@ export function QuoteEditor({
                                         name: extraName,
                                         description: extraDescription,
                                         quantity: extraQuantity,
-                                        unitPrice: deriveHtFromTtc(
-                                          extraUnitPrice,
-                                          extraTvaRate
-                                        ),
+                                        unitPrice: extraUnitPriceHt,
+                                        unitPriceTtc: extraUnitPrice,
+                                        priceEntryMode: 'ttc',
                                         tvaRate: extraTvaRate,
                                         position: items.length,
                                         itemType: 'extra',
@@ -2389,6 +2397,7 @@ export function QuoteEditor({
                                           setExtraName('')
                                           setExtraDescription('')
                                           setExtraQuantity(1)
+                                          setExtraUnitPriceHt(0)
                                           setExtraUnitPrice(0)
                                           setExtraTvaRate(20)
                                         },
@@ -2418,6 +2427,7 @@ export function QuoteEditor({
                                 setExtraName('')
                                 setExtraDescription('')
                                 setExtraQuantity(1)
+                                setExtraUnitPriceHt(0)
                                 setExtraUnitPrice(0)
                                 setExtraTvaRate(20)
                               }}
@@ -2499,14 +2509,18 @@ export function QuoteEditor({
                                             extra.description || ''
                                           )
                                           setExtraQuantity(extra.quantity ?? 1)
+                                          setExtraUnitPriceHt(
+                                            extra.unit_price ?? 0
+                                          )
                                           setExtraUnitPrice(
-                                            Math.round(
-                                              (extra.unit_price ?? 0) *
-                                                (1 +
-                                                  (extra.tva_rate ?? 20) /
-                                                    100) *
-                                                100
-                                            ) / 100
+                                            (extra as any).unit_price_ttc ??
+                                              Math.round(
+                                                (extra.unit_price ?? 0) *
+                                                  (1 +
+                                                    (extra.tva_rate ?? 20) /
+                                                      100) *
+                                                  100
+                                              ) / 100
                                           )
                                           setExtraTvaRate(extra.tva_rate ?? 20)
                                         }}
