@@ -4,9 +4,9 @@ import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
 import type { Quote, QuoteItem } from '@/lib/supabase/types'
 import {
-  roundLineTtc,
-  deriveLineHt,
-  computeQuoteTotals,
+  computeLineAmounts,
+  computeQuoteAmounts,
+  type PriceEntryMode,
 } from '@/features/reservations/lib/quote-rounding'
 import type { ProductWithRestaurants } from '@/features/settings/hooks/use-products'
 
@@ -983,6 +983,8 @@ export function useAddQuoteItem() {
       description,
       quantity,
       unitPrice,
+      unitPriceTtc,
+      priceEntryMode,
       tvaRate,
       discountAmount,
       position,
@@ -993,18 +995,21 @@ export function useAddQuoteItem() {
       description?: string
       quantity: number
       unitPrice: number
+      unitPriceTtc?: number
+      priceEntryMode?: PriceEntryMode
       tvaRate: number
       discountAmount?: number
       position?: number
       itemType?: string
     }) => {
-      const totalTtc = roundLineTtc({
+      const line = computeLineAmounts({
         quantity,
         unit_price: unitPrice,
+        unit_price_ttc: unitPriceTtc,
+        price_entry_mode: priceEntryMode,
         discount_amount: discountAmount,
         tva_rate: tvaRate,
       })
-      const totalHt = deriveLineHt(totalTtc, tvaRate)
 
       const { data, error } = await supabase
         .from('quote_items')
@@ -1014,10 +1019,12 @@ export function useAddQuoteItem() {
           description: description || null,
           quantity,
           unit_price: unitPrice,
+          unit_price_ttc: unitPriceTtc ?? null,
+          price_entry_mode: priceEntryMode ?? 'ht',
           tva_rate: tvaRate,
           discount_amount: discountAmount || 0,
-          total_ht: totalHt,
-          total_ttc: totalTtc,
+          total_ht: line.totalHt,
+          total_ttc: line.totalTtc,
           position: position || 0,
           item_type: itemType || 'product',
         } as never)
@@ -1054,12 +1061,18 @@ export function useUpdateQuoteItem() {
       // Recalculate totals if quantity/price changed
       const quantity = updates.quantity as number | undefined
       const unitPrice = updates.unit_price as number | undefined
+      const unitPriceTtc = (updates as any).unit_price_ttc as number | undefined
+      const priceEntryMode = (updates as any).price_entry_mode as
+        | PriceEntryMode
+        | undefined
       const tvaRate = updates.tva_rate as number | undefined
       const discountAmount = updates.discount_amount as number | undefined
 
       if (
         quantity !== undefined ||
         unitPrice !== undefined ||
+        unitPriceTtc !== undefined ||
+        priceEntryMode !== undefined ||
         discountAmount !== undefined ||
         tvaRate !== undefined
       ) {
@@ -1070,20 +1083,22 @@ export function useUpdateQuoteItem() {
           .eq('id', id)
           .single()
 
-        const q = quantity ?? (current as any)?.quantity ?? 1
-        const p = unitPrice ?? (current as any)?.unit_price ?? 0
-        const t = tvaRate ?? (current as any)?.tva_rate ?? 20
-        const d = discountAmount ?? (current as any)?.discount_amount ?? 0
-
-        const totalTtc = roundLineTtc({
-          quantity: q,
-          unit_price: p,
-          discount_amount: d,
-          tva_rate: t,
+        const line = computeLineAmounts({
+          quantity: quantity ?? (current as any)?.quantity ?? 1,
+          unit_price: unitPrice ?? (current as any)?.unit_price ?? 0,
+          unit_price_ttc: unitPriceTtc ?? (current as any)?.unit_price_ttc,
+          price_entry_mode:
+            priceEntryMode ?? (current as any)?.price_entry_mode,
+          discount_amount:
+            discountAmount ?? (current as any)?.discount_amount ?? 0,
+          tva_rate: tvaRate ?? (current as any)?.tva_rate ?? 20,
         })
-        const totalHt = deriveLineHt(totalTtc, t)
 
-        updates = { ...updates, total_ht: totalHt, total_ttc: totalTtc } as any
+        updates = {
+          ...updates,
+          total_ht: line.totalHt,
+          total_ttc: line.totalTtc,
+        } as any
       }
 
       const { data, error } = await supabase
@@ -1172,7 +1187,7 @@ async function recalculateQuoteTotals(quoteId: string) {
     .eq('id', quoteId)
     .single()
 
-  const totals = computeQuoteTotals(
+  const totals = computeQuoteAmounts(
     productItems,
     (quote as any)?.discount_percentage
   )

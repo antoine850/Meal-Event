@@ -1,24 +1,29 @@
 import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
-import { supabase } from '../lib/supabase.js'
+import { notifyCommercialSignature } from '../lib/commercial-notifications.js'
+import {
+  buildQuoteEmailHtml,
+  buildQuoteEmailSubject,
+  buildDepositEmailHtml,
+  buildDepositEmailSubject,
+  buildBalanceEmailHtml,
+  buildBalanceEmailSubject,
+} from '../lib/email-templates.js'
 import { generateQuotePdf, fetchQuoteFullData } from '../lib/pdf-generator.js'
+import { formatEuroWhole, computeQuoteAmounts } from '../lib/quote-rounding.js'
 import { sendEmail } from '../lib/resend.js'
 import {
-  buildQuoteEmailHtml, buildQuoteEmailSubject,
-  buildDepositEmailHtml, buildDepositEmailSubject,
-  buildBalanceEmailHtml, buildBalanceEmailSubject,
-} from '../lib/email-templates.js'
-import {
-  uploadDocument, addSignatureField, createSigningInvite,
+  uploadDocument,
+  addSignatureField,
+  createSigningInvite,
 } from '../lib/signnow.js'
-import { notifyCommercialSignature } from '../lib/commercial-notifications.js'
-import { formatEuroWhole, computeQuoteTotals } from '../lib/quote-rounding.js'
 import {
   getRestaurantStripeContext,
   resolveStripeMode,
   stripeRequestOptions,
   getOrCreateStripeCustomerOnAccount,
 } from '../lib/stripe-connect.js'
+import { supabase } from '../lib/supabase.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -43,7 +48,10 @@ async function savePdfAsDocument(
       })
 
     if (uploadError) {
-      console.error(`[PDF Save] Storage upload error for ${fileName}:`, uploadError)
+      console.error(
+        `[PDF Save] Storage upload error for ${fileName}:`,
+        uploadError
+      )
       return
     }
 
@@ -55,20 +63,21 @@ async function savePdfAsDocument(
     const fileUrl = urlData?.publicUrl || ''
 
     // Create document record
-    const { error: docError } = await supabase
-      .from('documents')
-      .insert({
-        organization_id: organizationId,
-        booking_id: bookingId,
-        name: docName,
-        file_type: 'pdf',
-        file_size: pdfBuffer.length,
-        file_path: storagePath,
-        file_url: fileUrl,
-      })
+    const { error: docError } = await supabase.from('documents').insert({
+      organization_id: organizationId,
+      booking_id: bookingId,
+      name: docName,
+      file_type: 'pdf',
+      file_size: pdfBuffer.length,
+      file_path: storagePath,
+      file_url: fileUrl,
+    })
 
     if (docError) {
-      console.error(`[PDF Save] Document record error for ${fileName}:`, docError)
+      console.error(
+        `[PDF Save] Document record error for ${fileName}:`,
+        docError
+      )
     } else {
       console.log(`[PDF Save] ✅ Saved ${docName} for booking ${bookingId}`)
     }
@@ -78,7 +87,11 @@ async function savePdfAsDocument(
 }
 
 // Helper: update booking status by slug
-async function updateBookingStatusBySlug(bookingId: string | undefined | null, organizationId: string | undefined | null, slug: string) {
+async function updateBookingStatusBySlug(
+  bookingId: string | undefined | null,
+  organizationId: string | undefined | null,
+  slug: string
+) {
   if (!bookingId || !organizationId) return
   const { data: statusData } = await supabase
     .from('statuses')
@@ -89,7 +102,10 @@ async function updateBookingStatusBySlug(bookingId: string | undefined | null, o
     .single()
 
   if (statusData) {
-    await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', bookingId)
+    await supabase
+      .from('bookings')
+      .update({ status_id: statusData.id })
+      .eq('id', bookingId)
     console.log(`[Status] ✅ Booking ${bookingId} → ${slug}`)
   } else {
     console.warn(`[Status] Slug '${slug}' not found for org ${organizationId}`)
@@ -97,7 +113,9 @@ async function updateBookingStatusBySlug(bookingId: string | undefined | null, o
 }
 
 // Shared helper to get organization facturation email (used as reply-to)
-async function getOrgFacturationEmail(organizationId: string | null): Promise<string | null> {
+async function getOrgFacturationEmail(
+  organizationId: string | null
+): Promise<string | null> {
   if (!organizationId) return null
   const { data } = await supabase
     .from('organizations')
@@ -108,18 +126,21 @@ async function getOrgFacturationEmail(organizationId: string | null): Promise<st
 }
 
 // Shared helper to get commercial info from a booking
-async function getCommercialInfo(bookingId: string): Promise<{ name: string | null; email: string | null }> {
+async function getCommercialInfo(
+  bookingId: string
+): Promise<{ name: string | null; email: string | null }> {
   const { data: bookingFull } = await supabase
     .from('bookings')
-    .select('assigned_to')
+    .select('assigned_user_ids')
     .eq('id', bookingId)
     .single()
 
-  if (bookingFull?.assigned_to) {
+  const commercialId = (bookingFull as any)?.assigned_user_ids?.[0]
+  if (commercialId) {
     const { data: user } = await supabase
       .from('users')
       .select('first_name, last_name, email')
-      .eq('id', bookingFull.assigned_to)
+      .eq('id', commercialId)
       .single()
     if (user) {
       return { name: `${user.first_name} ${user.last_name}`, email: user.email }
@@ -137,14 +158,16 @@ quotesRouter.get('/', async (req: Request, res: Response) => {
 
     let query = supabase
       .from('quotes')
-      .select(`
+      .select(
+        `
         *,
         booking:bookings (
           id, event_type, event_date,
           contact:contacts (id, first_name, last_name, email),
           restaurant:restaurants (id, name)
         )
-      `)
+      `
+      )
       .order('created_at', { ascending: false })
 
     if (organizationId) query = query.eq('organization_id', organizationId)
@@ -166,7 +189,8 @@ quotesRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('quotes')
-      .select(`
+      .select(
+        `
         *,
         booking:bookings (
           *,
@@ -175,7 +199,8 @@ quotesRouter.get('/:id', async (req: Request, res: Response) => {
         ),
         quote_items (*),
         payments (*)
-      `)
+      `
+      )
       .eq('id', req.params.id)
       .order('position', { referencedTable: 'quote_items', ascending: true })
       .single()
@@ -271,16 +296,20 @@ quotesRouter.post('/:id/notify-signed', async (req: Request, res: Response) => {
 quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
   const quoteId = req.params.id
   console.log(`[send-email] Starting for quote: ${quoteId}`)
-  
+
   try {
     const quoteData = await fetchQuoteFullData(quoteId)
-    console.log(`[send-email] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}`)
+    console.log(
+      `[send-email] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}`
+    )
     const booking = quoteData.booking
     const restaurant = booking?.restaurant
     const contact = booking?.contact
 
     if (!contact?.email) {
-      return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
+      return res
+        .status(400)
+        .json({ error: "Le contact n'a pas d'adresse email" })
     }
 
     // B2B Validation: Check if contact has a company and if required fields are filled
@@ -294,17 +323,19 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       if (!company.siret) missingFields.push('SIRET')
 
       if (missingFields.length > 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: `Informations société manquantes pour un devis B2B : ${missingFields.join(', ')}. Veuillez compléter les informations de la société avant d'envoyer le devis.`,
-          missingFields 
+          missingFields,
         })
       }
     }
 
     // Allow resending quote from any status (no restriction)
 
-    // Get commercial (assigned_to) email for reply-to
-    const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+    // Get commercial email for reply-to (premier de assigned_user_ids)
+    const commercial = booking
+      ? await getCommercialInfo(booking.id)
+      : { name: null, email: null }
     const commercialName = commercial.name
     const commercialEmail = commercial.email
 
@@ -314,13 +345,19 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       pdfBuffer = await generateQuotePdf(quoteId, 'devis', quoteData)
     } catch (pdfError) {
       console.error('Error generating PDF:', pdfError)
-      return res.status(500).json({ error: 'Erreur lors de la génération du PDF' })
+      return res
+        .status(500)
+        .json({ error: 'Erreur lors de la génération du PDF' })
     }
 
     // Build email
     const html = buildQuoteEmailHtml({
       restaurant: restaurant as any,
-      contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
+      contact: {
+        first_name: contact.first_name,
+        last_name: contact.last_name,
+        email: contact.email,
+      },
       quoteNumber: quoteData.quote_number,
       totalTtc: quoteData.total_ttc,
       eventDate: quoteData.date_start || booking?.event_date || null,
@@ -329,10 +366,15 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       orderNumber: quoteData.order_number,
     })
 
-    const subject = buildQuoteEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
+    const subject = buildQuoteEmailSubject(
+      quoteData.quote_number,
+      restaurant?.name || 'Restaurant'
+    )
 
     // Get org-level facturation email for reply-to
-    const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+    const facturationEmail = await getOrgFacturationEmail(
+      quoteData.organization_id
+    )
 
     // Send via Resend
     const emailResult = await sendEmail({
@@ -341,10 +383,12 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       html,
       replyTo: commercialEmail || restaurant?.email || undefined,
       facturationEmail: facturationEmail || undefined,
-      attachments: [{
-        filename: `${quoteData.quote_number}.pdf`,
-        content: pdfBuffer,
-      }],
+      attachments: [
+        {
+          filename: `${quoteData.quote_number}.pdf`,
+          content: pdfBuffer,
+        },
+      ],
     })
 
     // Save devis PDF to storage and documents table
@@ -367,24 +411,28 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       .eq('id', quoteId)
 
     // Auto-update booking status → Proposition
-    await updateBookingStatusBySlug(booking?.id, quoteData.organization_id, 'proposition')
+    await updateBookingStatusBySlug(
+      booking?.id,
+      quoteData.organization_id,
+      'proposition'
+    )
 
     // Log email
-    await supabase
-      .from('email_logs')
-      .insert({
-        organization_id: quoteData.organization_id,
-        quote_id: quoteId,
-        booking_id: booking?.id,
-        email_type: 'quote_sent',
-        recipient_email: contact.email,
-        reply_to_email: commercialEmail || restaurant?.email,
-        subject,
-        resend_message_id: emailResult.id,
-        status: 'sent',
-      })
+    await supabase.from('email_logs').insert({
+      organization_id: quoteData.organization_id,
+      quote_id: quoteId,
+      booking_id: booking?.id,
+      email_type: 'quote_sent',
+      recipient_email: contact.email,
+      reply_to_email: commercialEmail || restaurant?.email,
+      subject,
+      resend_message_id: emailResult.id,
+      status: 'sent',
+    })
 
-    console.log(`[send-email] ✅ Quote ${quoteData.quote_number} sent to ${contact.email}`)
+    console.log(
+      `[send-email] ✅ Quote ${quoteData.quote_number} sent to ${contact.email}`
+    )
     res.json({ success: true, emailId: emailResult.id })
   } catch (error) {
     console.error('Error sending quote email:', error)
@@ -395,78 +443,91 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
 // ═══════════════════════════════════════════════════════════════
 // POST /api/quotes/:id/send-signature — Upload to SignNow + send invite
 // ═══════════════════════════════════════════════════════════════
-quotesRouter.post('/:id/send-signature', async (req: Request, res: Response) => {
-  const quoteId = req.params.id
-  console.log(`[send-signature] Starting for quote: ${quoteId}`)
-  
-  try {
-    const quoteData = await fetchQuoteFullData(quoteId)
-    console.log(`[send-signature] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}`)
-    const booking = quoteData.booking
-    const contact = booking?.contact
+quotesRouter.post(
+  '/:id/send-signature',
+  async (req: Request, res: Response) => {
+    const quoteId = req.params.id
+    console.log(`[send-signature] Starting for quote: ${quoteId}`)
 
-    if (!contact?.email) {
-      return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
-    }
-
-    // Allow resending signature from any status (no restriction)
-
-    // Generate PDF with error handling
-    let pdfBuffer: Buffer
     try {
-      pdfBuffer = await generateQuotePdf(quoteId, 'devis')
-    } catch (pdfError) {
-      console.error('Error generating PDF:', pdfError)
-      return res.status(500).json({ error: 'Erreur lors de la génération du PDF' })
-    }
-    const fileName = `${quoteData.quote_number}.pdf`
+      const quoteData = await fetchQuoteFullData(quoteId)
+      console.log(
+        `[send-signature] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}`
+      )
+      const booking = quoteData.booking
+      const contact = booking?.contact
 
-    // Upload to SignNow
-    const { id: documentId, pageCount } = await uploadDocument(pdfBuffer, fileName)
+      if (!contact?.email) {
+        return res
+          .status(400)
+          .json({ error: "Le contact n'a pas d'adresse email" })
+      }
 
-    // Add signature field above the footer on the LAST page
-    // SignNow coordinates: y=0 is at the TOP of the page
-    // A4 page is ~842 points tall
-    // Footer takes ~80 points at bottom, so place signature above it
-    // y = 842 - 80 (footer) - 50 (signature height) - 20 (margin) = 692
-    // x=350 places it on the right side
-    // pageNumber is 0-indexed, so last page = pageCount - 1
-    await addSignatureField(documentId, {
-      pageNumber: pageCount - 1,
-      x: 350,
-      y: 692,
-      width: 200,
-      height: 50,
-    })
+      // Allow resending signature from any status (no restriction)
 
-    // Create signing invite (SignNow sends its own email)
-    const signerName = `${contact.first_name} ${contact.last_name || ''}`.trim()
-    const { inviteId } = await createSigningInvite(
-      documentId,
-      contact.email,
-      signerName,
-      `Devis ${quoteData.quote_number} à signer`,
-      `Bonjour ${signerName},\n\nVeuillez signer le devis n°${quoteData.quote_number} ci-joint.\n\nCordialement,\n${booking?.restaurant?.name || 'L\'équipe'}`
-    )
+      // Generate PDF with error handling
+      let pdfBuffer: Buffer
+      try {
+        pdfBuffer = await generateQuotePdf(quoteId, 'devis')
+      } catch (pdfError) {
+        console.error('Error generating PDF:', pdfError)
+        return res
+          .status(500)
+          .json({ error: 'Erreur lors de la génération du PDF' })
+      }
+      const fileName = `${quoteData.quote_number}.pdf`
 
-    // Update quote
-    await supabase
-      .from('quotes')
-      .update({
-        signnow_document_id: documentId,
-        signnow_invite_id: inviteId,
-        signature_requested_at: new Date().toISOString(),
-        signer_email: contact.email,
-        signer_name: signerName,
+      // Upload to SignNow
+      const { id: documentId, pageCount } = await uploadDocument(
+        pdfBuffer,
+        fileName
+      )
+
+      // Add signature field above the footer on the LAST page
+      // SignNow coordinates: y=0 is at the TOP of the page
+      // A4 page is ~842 points tall
+      // Footer takes ~80 points at bottom, so place signature above it
+      // y = 842 - 80 (footer) - 50 (signature height) - 20 (margin) = 692
+      // x=350 places it on the right side
+      // pageNumber is 0-indexed, so last page = pageCount - 1
+      await addSignatureField(documentId, {
+        pageNumber: pageCount - 1,
+        x: 350,
+        y: 692,
+        width: 200,
+        height: 50,
       })
-      .eq('id', quoteId)
 
-    res.json({ success: true, documentId, inviteId })
-  } catch (error) {
-    console.error('Error sending signature request:', error)
-    res.status(500).json({ error: 'Failed to send signature request' })
+      // Create signing invite (SignNow sends its own email)
+      const signerName =
+        `${contact.first_name} ${contact.last_name || ''}`.trim()
+      const { inviteId } = await createSigningInvite(
+        documentId,
+        contact.email,
+        signerName,
+        `Devis ${quoteData.quote_number} à signer`,
+        `Bonjour ${signerName},\n\nVeuillez signer le devis n°${quoteData.quote_number} ci-joint.\n\nCordialement,\n${booking?.restaurant?.name || "L'équipe"}`
+      )
+
+      // Update quote
+      await supabase
+        .from('quotes')
+        .update({
+          signnow_document_id: documentId,
+          signnow_invite_id: inviteId,
+          signature_requested_at: new Date().toISOString(),
+          signer_email: contact.email,
+          signer_name: signerName,
+        })
+        .eq('id', quoteId)
+
+      res.json({ success: true, documentId, inviteId })
+    } catch (error) {
+      console.error('Error sending signature request:', error)
+      res.status(500).json({ error: 'Failed to send signature request' })
+    }
   }
-})
+)
 
 // ═══════════════════════════════════════════════════════════════
 // POST /api/quotes/:id/send-deposit — Create Stripe link + send deposit invoice email
@@ -476,14 +537,18 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     const quoteId = req.params.id
     console.log(`[send-deposit] Starting for quote: ${quoteId}`)
     const quoteData = await fetchQuoteFullData(quoteId)
-    console.log(`[send-deposit] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}, total_ttc: ${quoteData.total_ttc}`)
+    console.log(
+      `[send-deposit] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}, total_ttc: ${quoteData.total_ttc}`
+    )
     const booking = quoteData.booking
     const restaurant = booking?.restaurant
     const contact = booking?.contact
 
     if (!contact?.email) {
       console.warn(`[send-deposit] No contact email for quote ${quoteId}`)
-      return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
+      return res
+        .status(400)
+        .json({ error: "Le contact n'a pas d'adresse email" })
     }
 
     // Check if a pending deposit payment already exists with a valid Stripe invoice
@@ -502,69 +567,100 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
 
       if (daysOld >= 30) {
         // Expire the old payment — a new Stripe invoice will be created below
-        await supabase.from('payments').update({ status: 'expired' }).eq('id', existingDeposit.id)
+        await supabase
+          .from('payments')
+          .update({ status: 'expired' })
+          .eq('id', existingDeposit.id)
       } else {
-      // Reuse the existing Stripe invoice URL — resend the email with the same link
-      const { data: existingQuote } = await supabase
-        .from('quotes')
-        .select('stripe_deposit_url')
-        .eq('id', quoteId)
-        .single()
+        // Reuse the existing Stripe invoice URL — resend the email with the same link
+        const { data: existingQuote } = await supabase
+          .from('quotes')
+          .select('stripe_deposit_url')
+          .eq('id', quoteId)
+          .single()
 
-      if (existingQuote?.stripe_deposit_url) {
-        console.log(`[send-deposit] Reusing existing Stripe deposit invoice for quote ${quoteId}`)
-        // Just resend the email with existing invoice link — no new Stripe invoice
-        // Acompte toujours arrondi au supérieur à l'euro entier
-        const depositAmount = (quoteData as any).deposit_amount_override != null
-          ? Math.ceil((quoteData as any).deposit_amount_override as number)
-          : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
-        const effectiveDepositPctResend = (quoteData as any).deposit_amount_override != null
-          ? Math.round((depositAmount / quoteData.total_ttc) * 100)
-          : quoteData.deposit_percentage
-        const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+        if (existingQuote?.stripe_deposit_url) {
+          console.log(
+            `[send-deposit] Reusing existing Stripe deposit invoice for quote ${quoteId}`
+          )
+          // Just resend the email with existing invoice link — no new Stripe invoice
+          // Acompte toujours arrondi au supérieur à l'euro entier
+          const depositAmount =
+            (quoteData as any).deposit_amount_override != null
+              ? Math.ceil((quoteData as any).deposit_amount_override as number)
+              : Math.ceil(
+                  quoteData.total_ttc * (quoteData.deposit_percentage / 100)
+                )
+          const effectiveDepositPctResend =
+            (quoteData as any).deposit_amount_override != null
+              ? Math.round((depositAmount / quoteData.total_ttc) * 100)
+              : quoteData.deposit_percentage
+          const commercial = booking
+            ? await getCommercialInfo(booking.id)
+            : { name: null, email: null }
 
-        const html = buildDepositEmailHtml({
-          restaurant: restaurant as any,
-          contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
-          quoteNumber: quoteData.quote_number,
-          depositPercentage: effectiveDepositPctResend,
-          depositAmount,
-          totalTtc: quoteData.total_ttc,
-          stripePaymentUrl: existingQuote.stripe_deposit_url,
-          eventDate: quoteData.date_start || booking?.event_date || null,
-          commercialName: commercial.name,
-          stripeEnabled: (restaurant as any)?.stripe_enabled !== false,
-          orderNumber: quoteData.order_number,
-        })
+          const html = buildDepositEmailHtml({
+            restaurant: restaurant as any,
+            contact: {
+              first_name: contact.first_name,
+              last_name: contact.last_name,
+              email: contact.email,
+            },
+            quoteNumber: quoteData.quote_number,
+            depositPercentage: effectiveDepositPctResend,
+            depositAmount,
+            totalTtc: quoteData.total_ttc,
+            stripePaymentUrl: existingQuote.stripe_deposit_url,
+            eventDate: quoteData.date_start || booking?.event_date || null,
+            commercialName: commercial.name,
+            stripeEnabled: (restaurant as any)?.stripe_enabled !== false,
+            orderNumber: quoteData.order_number,
+          })
 
-        const subject = buildDepositEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
-        const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+          const subject = buildDepositEmailSubject(
+            quoteData.quote_number,
+            restaurant?.name || 'Restaurant'
+          )
+          const facturationEmail = await getOrgFacturationEmail(
+            quoteData.organization_id
+          )
 
-        await sendEmail({
-          to: contact.email,
-          subject,
-          html,
-          replyTo: commercial.email || restaurant?.email || undefined,
-          facturationEmail: facturationEmail || undefined,
-        })
+          await sendEmail({
+            to: contact.email,
+            subject,
+            html,
+            replyTo: commercial.email || restaurant?.email || undefined,
+            facturationEmail: facturationEmail || undefined,
+          })
 
-        console.log(`[send-deposit] ✅ Resent deposit invoice to ${contact.email}`)
-        return res.json({ success: true, sessionId: existingDeposit.stripe_payment_id, paymentUrl: existingQuote.stripe_deposit_url, resent: true })
-      }
+          console.log(
+            `[send-deposit] ✅ Resent deposit invoice to ${contact.email}`
+          )
+          return res.json({
+            success: true,
+            sessionId: existingDeposit.stripe_payment_id,
+            paymentUrl: existingQuote.stripe_deposit_url,
+            resent: true,
+          })
+        }
       }
     }
 
     // Calculate deposit amount — montant fixe en priorité, sinon % du TTC.
     // Toujours arrondi au supérieur à l'euro entier.
-    const depositAmount = (quoteData as any).deposit_amount_override != null
-      ? Math.ceil((quoteData as any).deposit_amount_override as number)
-      : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
-    const effectiveDepositPct = (quoteData as any).deposit_amount_override != null
-      ? Math.round((depositAmount / quoteData.total_ttc) * 100)
-      : quoteData.deposit_percentage
+    const depositAmount =
+      (quoteData as any).deposit_amount_override != null
+        ? Math.ceil((quoteData as any).deposit_amount_override as number)
+        : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+    const effectiveDepositPct =
+      (quoteData as any).deposit_amount_override != null
+        ? Math.round((depositAmount / quoteData.total_ttc) * 100)
+        : quoteData.deposit_percentage
 
     // Get commercial info
-    const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+    const commercial = booking
+      ? await getCommercialInfo(booking.id)
+      : { name: null, email: null }
     const commercialName = commercial.name
     const commercialEmail = commercial.email
 
@@ -572,20 +668,25 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
     // Connect du restaurant. Si pas encore connecté → fallback virement bancaire
     // (soft fallback, aucune facture créée sur la plateforme).
     const restaurantId = (restaurant as any)?.id as string | undefined
-    const stripeCtx = restaurantId ? await getRestaurantStripeContext(restaurantId) : null
+    const stripeCtx = restaurantId
+      ? await getRestaurantStripeContext(restaurantId)
+      : null
     const stripeMode = stripeCtx
       ? resolveStripeMode(stripeCtx)
       : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
 
     const isStripeEnabled = stripeMode.mode === 'connect'
-    const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
+    const connectAcctId =
+      stripeMode.mode === 'connect' ? stripeMode.acctId : null
     const stripeOpts = stripeRequestOptions(connectAcctId)
 
     let invoiceUrl = ''
     let invoiceId = ''
 
     if (isStripeEnabled && connectAcctId) {
-      console.log(`[send-deposit] Creating Stripe invoice on Connect account ${connectAcctId} for deposit: ${formatEuroWhole(depositAmount)}`)
+      console.log(
+        `[send-deposit] Creating Stripe invoice on Connect account ${connectAcctId} for deposit: ${formatEuroWhole(depositAmount)}`
+      )
 
       const customerId = await getOrCreateStripeCustomerOnAccount(
         contact.email,
@@ -593,38 +694,53 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
         connectAcctId
       )
 
-      const invoice = await stripe.invoices.create({
-        customer: customerId,
-        collection_method: 'send_invoice',
-        days_until_due: 30,
-        metadata: {
-          booking_id: booking?.id || '',
-          quote_id: quoteId,
-          link_type: 'deposit',
-          restaurant_id: restaurantId || '',
+      const invoice = await stripe.invoices.create(
+        {
+          customer: customerId,
+          collection_method: 'send_invoice',
+          days_until_due: 30,
+          metadata: {
+            booking_id: booking?.id || '',
+            quote_id: quoteId,
+            link_type: 'deposit',
+            restaurant_id: restaurantId || '',
+          },
+          description:
+            (quoteData as any).deposit_amount_override != null
+              ? `Acompte ${formatEuroWhole(depositAmount)} - ${quoteData.quote_number}`
+              : `Acompte ${effectiveDepositPct}% - ${quoteData.quote_number}`,
         },
-        description: (quoteData as any).deposit_amount_override != null
-          ? `Acompte ${formatEuroWhole(depositAmount)} - ${quoteData.quote_number}`
-          : `Acompte ${effectiveDepositPct}% - ${quoteData.quote_number}`,
-      }, stripeOpts)
+        stripeOpts
+      )
 
       // Stripe est appelé en cents : depositAmount est entier, donc × 100 = entier exact.
-      await stripe.invoiceItems.create({
-        invoice: invoice.id,
-        customer: customerId,
-        amount: Math.round(depositAmount * 100),
-        currency: 'eur',
-        description: (quoteData as any).deposit_amount_override != null
-          ? `Acompte ${formatEuroWhole(depositAmount)} pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
-          : `Acompte ${effectiveDepositPct}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
-      }, stripeOpts)
+      await stripe.invoiceItems.create(
+        {
+          invoice: invoice.id,
+          customer: customerId,
+          amount: Math.round(depositAmount * 100),
+          currency: 'eur',
+          description:
+            (quoteData as any).deposit_amount_override != null
+              ? `Acompte ${formatEuroWhole(depositAmount)} pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
+              : `Acompte ${effectiveDepositPct}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
+        },
+        stripeOpts
+      )
 
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, undefined, stripeOpts)
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(
+        invoice.id,
+        undefined,
+        stripeOpts
+      )
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
     } else {
-      const reason = stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
-      console.log(`[send-deposit] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroWhole(depositAmount)}`)
+      const reason =
+        stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
+      console.log(
+        `[send-deposit] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroWhole(depositAmount)}`
+      )
     }
 
     // Generate deposit invoice PDF with error handling
@@ -633,13 +749,19 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       pdfBuffer = await generateQuotePdf(quoteId, 'acompte', quoteData)
     } catch (pdfError) {
       console.error('Error generating deposit PDF:', pdfError)
-      return res.status(500).json({ error: 'Erreur lors de la génération du PDF d\'acompte' })
+      return res
+        .status(500)
+        .json({ error: "Erreur lors de la génération du PDF d'acompte" })
     }
 
     // Build email
     const html = buildDepositEmailHtml({
       restaurant: restaurant as any,
-      contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
+      contact: {
+        first_name: contact.first_name,
+        last_name: contact.last_name,
+        email: contact.email,
+      },
       quoteNumber: quoteData.quote_number,
       depositPercentage: effectiveDepositPct,
       depositAmount,
@@ -651,10 +773,15 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       orderNumber: quoteData.order_number,
     })
 
-    const subject = buildDepositEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
+    const subject = buildDepositEmailSubject(
+      quoteData.quote_number,
+      restaurant?.name || 'Restaurant'
+    )
 
     // Get org-level facturation email for reply-to
-    const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+    const facturationEmail = await getOrgFacturationEmail(
+      quoteData.organization_id
+    )
 
     // Send email
     const emailResult = await sendEmail({
@@ -663,10 +790,12 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       html,
       replyTo: commercialEmail || restaurant?.email || undefined,
       facturationEmail: facturationEmail || undefined,
-      attachments: [{
-        filename: `facture-acompte-${quoteData.quote_number}.pdf`,
-        content: pdfBuffer,
-      }],
+      attachments: [
+        {
+          filename: `facture-acompte-${quoteData.quote_number}.pdf`,
+          content: pdfBuffer,
+        },
+      ],
     })
 
     // Save acompte PDF to storage and documents table
@@ -685,75 +814,69 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       .update({
         status: 'deposit_sent',
         deposit_sent_at: new Date().toISOString(),
-        ...(isStripeEnabled ? {
-          stripe_deposit_session_id: invoiceId,
-          stripe_deposit_url: invoiceUrl,
-        } : {}),
+        ...(isStripeEnabled
+          ? {
+              stripe_deposit_session_id: invoiceId,
+              stripe_deposit_url: invoiceUrl,
+            }
+          : {}),
       })
       .eq('id', quoteId)
 
     if (isStripeEnabled) {
       // Save payment link (Stripe)
-      await supabase
-        .from('payment_links')
-        .insert({
-          booking_id: booking?.id,
-          quote_id: quoteId,
-          link_type: 'deposit',
-          amount: depositAmount,
-          percentage: quoteData.deposit_percentage,
-          url: invoiceUrl,
-          stripe_link_id: invoiceId,
-          stripe_account_id: connectAcctId,
-        })
+      await supabase.from('payment_links').insert({
+        booking_id: booking?.id,
+        quote_id: quoteId,
+        link_type: 'deposit',
+        amount: depositAmount,
+        percentage: quoteData.deposit_percentage,
+        url: invoiceUrl,
+        stripe_link_id: invoiceId,
+        stripe_account_id: connectAcctId,
+      })
 
       // Create pending payment record (will be updated to 'paid' by webhook)
-      await supabase
-        .from('payments')
-        .insert({
-          organization_id: quoteData.organization_id,
-          booking_id: booking?.id,
-          quote_id: quoteId,
-          amount: depositAmount,
-          payment_type: 'deposit',
-          payment_modality: 'acompte',
-          payment_method: 'stripe',
-          stripe_payment_id: invoiceId,
-          stripe_account_id: connectAcctId,
-          status: 'pending',
-          notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
-        })
+      await supabase.from('payments').insert({
+        organization_id: quoteData.organization_id,
+        booking_id: booking?.id,
+        quote_id: quoteId,
+        amount: depositAmount,
+        payment_type: 'deposit',
+        payment_modality: 'acompte',
+        payment_method: 'stripe',
+        stripe_payment_id: invoiceId,
+        stripe_account_id: connectAcctId,
+        status: 'pending',
+        notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
+      })
     } else {
       // Create pending bank transfer payment record (will be manually marked as paid)
-      await supabase
-        .from('payments')
-        .insert({
-          organization_id: quoteData.organization_id,
-          booking_id: booking?.id,
-          quote_id: quoteId,
-          amount: depositAmount,
-          payment_type: 'deposit',
-          payment_modality: 'acompte',
-          payment_method: 'virement',
-          status: 'pending',
-          notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number} (virement bancaire)`,
-        })
+      await supabase.from('payments').insert({
+        organization_id: quoteData.organization_id,
+        booking_id: booking?.id,
+        quote_id: quoteId,
+        amount: depositAmount,
+        payment_type: 'deposit',
+        payment_modality: 'acompte',
+        payment_method: 'virement',
+        status: 'pending',
+        notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number} (virement bancaire)`,
+      })
     }
 
     // Log email
-    await supabase
-      .from('email_logs')
-      .insert({
-        organization_id: quoteData.organization_id,
-        quote_id: quoteId,
-        booking_id: booking?.id,
-        email_type: 'deposit_invoice',
-        recipient_email: contact.email,
-        reply_to_email: commercialEmail || restaurant?.email,
-        subject,
-        resend_message_id: emailResult.id,
-        status: 'sent',
-      })
+    await supabase.from('email_logs').insert({
+      organization_id: quoteData.organization_id,
+      quote_id: quoteId,
+      booking_id: booking?.id,
+      email_type: 'deposit_invoice',
+      recipient_email: contact.email,
+      reply_to_email: commercialEmail || restaurant?.email,
+      subject,
+      resend_message_id: emailResult.id,
+      status: 'sent',
+    })
 
     // Log activity
     await supabase.from('activity_logs').insert({
@@ -765,11 +888,20 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       actor_id: req.body.userId || null,
       entity_type: 'quote',
       entity_id: quoteId,
-      metadata: { amount: depositAmount, method: isStripeEnabled ? 'stripe' : 'virement' },
+      metadata: {
+        amount: depositAmount,
+        method: isStripeEnabled ? 'stripe' : 'virement',
+      },
     })
 
-    console.log(`[send-deposit] ✅ Deposit for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${depositAmount}€${isStripeEnabled ? `, Stripe invoice: ${invoiceId}` : ', bank transfer only'}`)
-    res.json({ success: true, sessionId: invoiceId || null, paymentUrl: invoiceUrl || null })
+    console.log(
+      `[send-deposit] ✅ Deposit for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${depositAmount}€${isStripeEnabled ? `, Stripe invoice: ${invoiceId}` : ', bank transfer only'}`
+    )
+    res.json({
+      success: true,
+      sessionId: invoiceId || null,
+      paymentUrl: invoiceUrl || null,
+    })
   } catch (error) {
     console.error('[send-deposit] ❌ Error:', error)
     res.status(500).json({ error: 'Failed to send deposit invoice' })
@@ -784,14 +916,18 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     const quoteId = req.params.id
     console.log(`[send-balance] Starting for quote: ${quoteId}`)
     const quoteData = await fetchQuoteFullData(quoteId)
-    console.log(`[send-balance] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}, total_ttc: ${quoteData.total_ttc}`)
+    console.log(
+      `[send-balance] Quote data fetched: ${quoteData.quote_number}, status: ${quoteData.status}, total_ttc: ${quoteData.total_ttc}`
+    )
     const booking = quoteData.booking
     const restaurant = booking?.restaurant
     const contact = booking?.contact
 
     if (!contact?.email) {
       console.warn(`[send-balance] No contact email for quote ${quoteId}`)
-      return res.status(400).json({ error: 'Le contact n\'a pas d\'adresse email' })
+      return res
+        .status(400)
+        .json({ error: "Le contact n'a pas d'adresse email" })
     }
 
     // Verify deposit has been paid before sending balance
@@ -804,7 +940,10 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       .maybeSingle()
 
     if (!depositPayment) {
-      return res.status(400).json({ error: 'L\'acompte n\'a pas encore été payé. Veuillez attendre le paiement de l\'acompte avant d\'envoyer le solde.' })
+      return res.status(400).json({
+        error:
+          "L'acompte n'a pas encore été payé. Veuillez attendre le paiement de l'acompte avant d'envoyer le solde.",
+      })
     }
 
     // Check if a pending balance payment already exists with a valid Stripe invoice
@@ -822,90 +961,134 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
 
       if (daysOld >= 30) {
         // Expire the old payment — a new Stripe invoice will be created below
-        await supabase.from('payments').update({ status: 'expired' }).eq('id', existingBalance.id)
+        await supabase
+          .from('payments')
+          .update({ status: 'expired' })
+          .eq('id', existingBalance.id)
       } else {
-      const { data: existingQuote } = await supabase
-        .from('quotes')
-        .select('stripe_balance_url')
-        .eq('id', quoteId)
-        .single()
+        const { data: existingQuote } = await supabase
+          .from('quotes')
+          .select('stripe_balance_url')
+          .eq('id', quoteId)
+          .single()
 
-      if (existingQuote?.stripe_balance_url) {
-        console.log(`[send-balance] Reusing existing Stripe balance invoice for quote ${quoteId}`)
-        const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
-        const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
-        // total_ttc et extras.total_ttc sont des entiers, leur somme est entière
-        const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
-        const depositTtc = (quoteData as any).deposit_amount_override != null
-          ? Math.ceil((quoteData as any).deposit_amount_override as number)
-          : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
-        const balanceAmount = totalWithExtrasTtc - depositTtc
+        if (existingQuote?.stripe_balance_url) {
+          console.log(
+            `[send-balance] Reusing existing Stripe balance invoice for quote ${quoteId}`
+          )
+          const extras = (quoteData.quote_items || []).filter(
+            (i: any) => i.item_type === 'extra'
+          )
+          const extrasTtc = extras.reduce(
+            (sum: number, e: any) => sum + (e.total_ttc || 0),
+            0
+          )
+          // total_ttc et extras.total_ttc sont des entiers, leur somme est entière
+          const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
+          const depositTtc =
+            (quoteData as any).deposit_amount_override != null
+              ? Math.ceil((quoteData as any).deposit_amount_override as number)
+              : Math.ceil(
+                  quoteData.total_ttc * (quoteData.deposit_percentage / 100)
+                )
+          const balanceAmount = totalWithExtrasTtc - depositTtc
 
-        const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+          const commercial = booking
+            ? await getCommercialInfo(booking.id)
+            : { name: null, email: null }
 
-        const html = buildBalanceEmailHtml({
-          restaurant: restaurant as any,
-          contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
-          quoteNumber: quoteData.quote_number,
-          balanceAmount,
-          totalTtc: totalWithExtrasTtc,
-          stripePaymentUrl: existingQuote.stripe_balance_url,
-          eventDate: quoteData.date_start || booking?.event_date || null,
-          commercialName: commercial.name,
-          stripeEnabled: (restaurant as any)?.stripe_enabled !== false,
-          orderNumber: quoteData.order_number,
-        })
+          const html = buildBalanceEmailHtml({
+            restaurant: restaurant as any,
+            contact: {
+              first_name: contact.first_name,
+              last_name: contact.last_name,
+              email: contact.email,
+            },
+            quoteNumber: quoteData.quote_number,
+            balanceAmount,
+            totalTtc: totalWithExtrasTtc,
+            stripePaymentUrl: existingQuote.stripe_balance_url,
+            eventDate: quoteData.date_start || booking?.event_date || null,
+            commercialName: commercial.name,
+            stripeEnabled: (restaurant as any)?.stripe_enabled !== false,
+            orderNumber: quoteData.order_number,
+          })
 
-        const subject = buildBalanceEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
-        const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+          const subject = buildBalanceEmailSubject(
+            quoteData.quote_number,
+            restaurant?.name || 'Restaurant'
+          )
+          const facturationEmail = await getOrgFacturationEmail(
+            quoteData.organization_id
+          )
 
-        await sendEmail({
-          to: contact.email,
-          subject,
-          html,
-          replyTo: commercial.email || restaurant?.email || undefined,
-          facturationEmail: facturationEmail || undefined,
-        })
+          await sendEmail({
+            to: contact.email,
+            subject,
+            html,
+            replyTo: commercial.email || restaurant?.email || undefined,
+            facturationEmail: facturationEmail || undefined,
+          })
 
-        console.log(`[send-balance] ✅ Resent balance invoice to ${contact.email}`)
-        return res.json({ success: true, sessionId: existingBalance.stripe_payment_id, paymentUrl: existingQuote.stripe_balance_url, resent: true })
-      }
+          console.log(
+            `[send-balance] ✅ Resent balance invoice to ${contact.email}`
+          )
+          return res.json({
+            success: true,
+            sessionId: existingBalance.stripe_payment_id,
+            paymentUrl: existingQuote.stripe_balance_url,
+            resent: true,
+          })
+        }
       }
     }
 
     // Calculate balance: total_ttc (products only, discount already applied) + extras - deposit
     // Tous les montants sont des entiers (post-helper), donc pas besoin de Math.round.
-    const extras = (quoteData.quote_items || []).filter((i: any) => i.item_type === 'extra')
-    const extrasTtc = extras.reduce((sum: number, e: any) => sum + (e.total_ttc || 0), 0)
+    const extras = (quoteData.quote_items || []).filter(
+      (i: any) => i.item_type === 'extra'
+    )
+    const extrasTtc = extras.reduce(
+      (sum: number, e: any) => sum + (e.total_ttc || 0),
+      0
+    )
     const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
     // MUST mirror send-deposit exactly so the balance subtracts the *actual*
     // amount that was invoiced as deposit (otherwise the customer over/under-pays).
-    const depositTtc = (quoteData as any).deposit_amount_override != null
-      ? Math.ceil((quoteData as any).deposit_amount_override as number)
-      : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+    const depositTtc =
+      (quoteData as any).deposit_amount_override != null
+        ? Math.ceil((quoteData as any).deposit_amount_override as number)
+        : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
     const balanceAmount = totalWithExtrasTtc - depositTtc
 
     // Get commercial info
-    const commercial = booking ? await getCommercialInfo(booking.id) : { name: null, email: null }
+    const commercial = booking
+      ? await getCommercialInfo(booking.id)
+      : { name: null, email: null }
     const commercialName = commercial.name
     const commercialEmail = commercial.email
 
     // Connect-only architecture (cf. send-deposit)
     const restaurantId = (restaurant as any)?.id as string | undefined
-    const stripeCtx = restaurantId ? await getRestaurantStripeContext(restaurantId) : null
+    const stripeCtx = restaurantId
+      ? await getRestaurantStripeContext(restaurantId)
+      : null
     const stripeMode = stripeCtx
       ? resolveStripeMode(stripeCtx)
       : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
 
     const isStripeEnabled = stripeMode.mode === 'connect'
-    const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
+    const connectAcctId =
+      stripeMode.mode === 'connect' ? stripeMode.acctId : null
     const stripeOpts = stripeRequestOptions(connectAcctId)
 
     let invoiceUrl = ''
     let invoiceId = ''
 
     if (isStripeEnabled && connectAcctId) {
-      console.log(`[send-balance] Creating Stripe invoice on Connect account ${connectAcctId} for balance: ${formatEuroWhole(balanceAmount)}`)
+      console.log(
+        `[send-balance] Creating Stripe invoice on Connect account ${connectAcctId} for balance: ${formatEuroWhole(balanceAmount)}`
+      )
 
       const customerId = await getOrCreateStripeCustomerOnAccount(
         contact.email,
@@ -913,33 +1096,46 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         connectAcctId
       )
 
-      const invoice = await stripe.invoices.create({
-        customer: customerId,
-        collection_method: 'send_invoice',
-        days_until_due: 30,
-        metadata: {
-          booking_id: booking?.id || '',
-          quote_id: quoteId,
-          link_type: 'balance',
-          restaurant_id: restaurantId || '',
+      const invoice = await stripe.invoices.create(
+        {
+          customer: customerId,
+          collection_method: 'send_invoice',
+          days_until_due: 30,
+          metadata: {
+            booking_id: booking?.id || '',
+            quote_id: quoteId,
+            link_type: 'balance',
+            restaurant_id: restaurantId || '',
+          },
+          description: `Solde - ${quoteData.quote_number}`,
         },
-        description: `Solde - ${quoteData.quote_number}`,
-      }, stripeOpts)
+        stripeOpts
+      )
 
-      await stripe.invoiceItems.create({
-        invoice: invoice.id,
-        customer: customerId,
-        amount: Math.round(balanceAmount * 100),
-        currency: 'eur',
-        description: `Facture de solde pour ${restaurant?.name || 'événement'}`,
-      }, stripeOpts)
+      await stripe.invoiceItems.create(
+        {
+          invoice: invoice.id,
+          customer: customerId,
+          amount: Math.round(balanceAmount * 100),
+          currency: 'eur',
+          description: `Facture de solde pour ${restaurant?.name || 'événement'}`,
+        },
+        stripeOpts
+      )
 
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, undefined, stripeOpts)
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(
+        invoice.id,
+        undefined,
+        stripeOpts
+      )
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
     } else {
-      const reason = stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
-      console.log(`[send-balance] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroWhole(balanceAmount)}`)
+      const reason =
+        stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
+      console.log(
+        `[send-balance] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroWhole(balanceAmount)}`
+      )
     }
 
     // Generate balance invoice PDF with error handling
@@ -948,13 +1144,19 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       pdfBuffer = await generateQuotePdf(quoteId, 'solde', quoteData)
     } catch (pdfError) {
       console.error('Error generating balance PDF:', pdfError)
-      return res.status(500).json({ error: 'Erreur lors de la génération du PDF de solde' })
+      return res
+        .status(500)
+        .json({ error: 'Erreur lors de la génération du PDF de solde' })
     }
 
     // Build email
     const html = buildBalanceEmailHtml({
       restaurant: restaurant as any,
-      contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
+      contact: {
+        first_name: contact.first_name,
+        last_name: contact.last_name,
+        email: contact.email,
+      },
       quoteNumber: quoteData.quote_number,
       balanceAmount,
       totalTtc: totalWithExtrasTtc,
@@ -965,10 +1167,15 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       orderNumber: quoteData.order_number,
     })
 
-    const subject = buildBalanceEmailSubject(quoteData.quote_number, restaurant?.name || 'Restaurant')
+    const subject = buildBalanceEmailSubject(
+      quoteData.quote_number,
+      restaurant?.name || 'Restaurant'
+    )
 
     // Get org-level facturation email for reply-to
-    const facturationEmail = await getOrgFacturationEmail(quoteData.organization_id)
+    const facturationEmail = await getOrgFacturationEmail(
+      quoteData.organization_id
+    )
 
     // Send email
     const emailResult = await sendEmail({
@@ -977,10 +1184,12 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       html,
       replyTo: commercialEmail || restaurant?.email || undefined,
       facturationEmail: facturationEmail || undefined,
-      attachments: [{
-        filename: `facture-solde-${quoteData.quote_number}.pdf`,
-        content: pdfBuffer,
-      }],
+      attachments: [
+        {
+          filename: `facture-solde-${quoteData.quote_number}.pdf`,
+          content: pdfBuffer,
+        },
+      ],
     })
 
     // Save solde PDF to storage and documents table
@@ -999,77 +1208,75 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       .update({
         status: 'balance_sent',
         balance_sent_at: new Date().toISOString(),
-        ...(isStripeEnabled ? {
-          stripe_balance_session_id: invoiceId,
-          stripe_balance_url: invoiceUrl,
-        } : {}),
+        ...(isStripeEnabled
+          ? {
+              stripe_balance_session_id: invoiceId,
+              stripe_balance_url: invoiceUrl,
+            }
+          : {}),
       })
       .eq('id', quoteId)
 
     // Auto-update booking status → Attente paiement
-    await updateBookingStatusBySlug(booking?.id, quoteData.organization_id, 'attente_paiement')
+    await updateBookingStatusBySlug(
+      booking?.id,
+      quoteData.organization_id,
+      'attente_paiement'
+    )
 
     if (isStripeEnabled) {
       // Save payment link (Stripe)
-      await supabase
-        .from('payment_links')
-        .insert({
-          booking_id: booking?.id,
-          quote_id: quoteId,
-          link_type: 'balance',
-          amount: balanceAmount,
-          url: invoiceUrl,
-          stripe_link_id: invoiceId,
-          stripe_account_id: connectAcctId,
-        })
+      await supabase.from('payment_links').insert({
+        booking_id: booking?.id,
+        quote_id: quoteId,
+        link_type: 'balance',
+        amount: balanceAmount,
+        url: invoiceUrl,
+        stripe_link_id: invoiceId,
+        stripe_account_id: connectAcctId,
+      })
 
       // Create pending payment record (will be updated to 'paid' by webhook)
-      await supabase
-        .from('payments')
-        .insert({
-          organization_id: quoteData.organization_id,
-          booking_id: booking?.id,
-          quote_id: quoteId,
-          amount: balanceAmount,
-          payment_type: 'balance',
-          payment_modality: 'solde',
-          payment_method: 'stripe',
-          stripe_payment_id: invoiceId,
-          stripe_account_id: connectAcctId,
-          status: 'pending',
-          notes: `Solde - ${quoteData.quote_number}`,
-        })
+      await supabase.from('payments').insert({
+        organization_id: quoteData.organization_id,
+        booking_id: booking?.id,
+        quote_id: quoteId,
+        amount: balanceAmount,
+        payment_type: 'balance',
+        payment_modality: 'solde',
+        payment_method: 'stripe',
+        stripe_payment_id: invoiceId,
+        stripe_account_id: connectAcctId,
+        status: 'pending',
+        notes: `Solde - ${quoteData.quote_number}`,
+      })
     } else {
       // Create pending bank transfer payment record (will be manually marked as paid)
-      await supabase
-        .from('payments')
-        .insert({
-          organization_id: quoteData.organization_id,
-          booking_id: booking?.id,
-          quote_id: quoteId,
-          amount: balanceAmount,
-          payment_type: 'balance',
-          payment_modality: 'solde',
-          payment_method: 'virement',
-          status: 'pending',
-          notes: `Solde - ${quoteData.quote_number} (virement bancaire)`,
-        })
+      await supabase.from('payments').insert({
+        organization_id: quoteData.organization_id,
+        booking_id: booking?.id,
+        quote_id: quoteId,
+        amount: balanceAmount,
+        payment_type: 'balance',
+        payment_modality: 'solde',
+        payment_method: 'virement',
+        status: 'pending',
+        notes: `Solde - ${quoteData.quote_number} (virement bancaire)`,
+      })
     }
 
     // Log email
-    await supabase
-      .from('email_logs')
-      .insert({
-        organization_id: quoteData.organization_id,
-        quote_id: quoteId,
-        booking_id: booking?.id,
-        email_type: 'balance_invoice',
-        recipient_email: contact.email,
-        reply_to_email: commercialEmail || restaurant?.email,
-        subject,
-        resend_message_id: emailResult.id,
-        status: 'sent',
-      })
+    await supabase.from('email_logs').insert({
+      organization_id: quoteData.organization_id,
+      quote_id: quoteId,
+      booking_id: booking?.id,
+      email_type: 'balance_invoice',
+      recipient_email: contact.email,
+      reply_to_email: commercialEmail || restaurant?.email,
+      subject,
+      resend_message_id: emailResult.id,
+      status: 'sent',
+    })
 
     // Log activity
     await supabase.from('activity_logs').insert({
@@ -1081,11 +1288,20 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       actor_id: req.body.userId || null,
       entity_type: 'quote',
       entity_id: quoteId,
-      metadata: { amount: balanceAmount, method: isStripeEnabled ? 'stripe' : 'virement' },
+      metadata: {
+        amount: balanceAmount,
+        method: isStripeEnabled ? 'stripe' : 'virement',
+      },
     })
 
-    console.log(`[send-balance] ✅ Balance for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${balanceAmount}€${isStripeEnabled ? `, Stripe invoice: ${invoiceId}` : ', bank transfer only'}`)
-    res.json({ success: true, sessionId: invoiceId || null, paymentUrl: invoiceUrl || null })
+    console.log(
+      `[send-balance] ✅ Balance for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${balanceAmount}€${isStripeEnabled ? `, Stripe invoice: ${invoiceId}` : ', bank transfer only'}`
+    )
+    res.json({
+      success: true,
+      sessionId: invoiceId || null,
+      paymentUrl: invoiceUrl || null,
+    })
   } catch (error) {
     console.error('[send-balance] ❌ Error:', error)
     res.status(500).json({ error: 'Failed to send balance invoice' })
@@ -1133,48 +1349,54 @@ quotesRouter.post('/:id/items', async (req: Request, res: Response) => {
 })
 
 // PATCH /api/quotes/:id/items/:itemId - Update a quote item
-quotesRouter.patch('/:id/items/:itemId', async (req: Request, res: Response) => {
-  try {
-    const { data, error } = await supabase
-      .from('quote_items')
-      .update(req.body)
-      .eq('id', req.params.itemId)
-      .eq('quote_id', req.params.id)
-      .select()
-      .single()
+quotesRouter.patch(
+  '/:id/items/:itemId',
+  async (req: Request, res: Response) => {
+    try {
+      const { data, error } = await supabase
+        .from('quote_items')
+        .update(req.body)
+        .eq('id', req.params.itemId)
+        .eq('quote_id', req.params.id)
+        .select()
+        .single()
 
-    if (error) throw error
+      if (error) throw error
 
-    await recalculateQuoteTotals(req.params.id)
+      await recalculateQuoteTotals(req.params.id)
 
-    res.json(data)
-  } catch (error) {
-    console.error('Error updating quote item:', error)
-    res.status(500).json({ error: 'Failed to update quote item' })
+      res.json(data)
+    } catch (error) {
+      console.error('Error updating quote item:', error)
+      res.status(500).json({ error: 'Failed to update quote item' })
+    }
   }
-})
+)
 
 // DELETE /api/quotes/:id/items/:itemId - Remove a quote item
-quotesRouter.delete('/:id/items/:itemId', async (req: Request, res: Response) => {
-  try {
-    const { error } = await supabase
-      .from('quote_items')
-      .delete()
-      .eq('id', req.params.itemId)
-      .eq('quote_id', req.params.id)
+quotesRouter.delete(
+  '/:id/items/:itemId',
+  async (req: Request, res: Response) => {
+    try {
+      const { error } = await supabase
+        .from('quote_items')
+        .delete()
+        .eq('id', req.params.itemId)
+        .eq('quote_id', req.params.id)
 
-    if (error) throw error
+      if (error) throw error
 
-    await recalculateQuoteTotals(req.params.id)
+      await recalculateQuoteTotals(req.params.id)
 
-    res.status(204).send()
-  } catch (error) {
-    console.error('Error deleting quote item:', error)
-    res.status(500).json({ error: 'Failed to delete quote item' })
+      res.status(204).send()
+    } catch (error) {
+      console.error('Error deleting quote item:', error)
+      res.status(500).json({ error: 'Failed to delete quote item' })
+    }
   }
-})
+)
 
-// Recalcule les totaux d'un devis via l'helper unifié (TTC entier au supérieur).
+// Recalcule les totaux d'un devis (arrondi au centime, somme des lignes, remise en pied).
 // Symétrique à recalculateQuoteTotals dans src/features/reservations/hooks/use-quotes.ts.
 async function recalculateQuoteTotals(quoteId: string) {
   const { data: items } = await supabase
@@ -1193,7 +1415,10 @@ async function recalculateQuoteTotals(quoteId: string) {
     .eq('id', quoteId)
     .single()
 
-  const totals = computeQuoteTotals(productItems, (quote as any)?.discount_percentage)
+  const totals = computeQuoteAmounts(
+    productItems,
+    (quote as any)?.discount_percentage
+  )
 
   await supabase
     .from('quotes')
