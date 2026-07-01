@@ -115,6 +115,7 @@ import {
   generateCGV,
   type RestaurantBillingInfo,
 } from '../hooks/use-quotes'
+import { CreditNoteDialog } from './credit-note-dialog'
 import { QuotePreview, type DocumentType } from './quote-preview'
 import { SaveToCatalogDialog } from './save-to-catalog-dialog'
 
@@ -437,6 +438,7 @@ export function QuoteEditor({
   const [activeTab, setActiveTab] = useState('general')
   const [activeCondition, setActiveCondition] = useState('devis')
   const [documentType, setDocumentType] = useState<DocumentType>('devis')
+  const [creditNoteOpen, setCreditNoteOpen] = useState(false)
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
   const [productSearch, setProductSearch] = useState('')
   const [packagePopoverOpen, setPackagePopoverOpen] = useState(false)
@@ -2659,6 +2661,21 @@ export function QuoteEditor({
                   variant='outline'
                   size='sm'
                   className='h-7 gap-1.5 text-xs'
+                  onClick={() => {
+                    if (!quoteData?.id) {
+                      toast.error('Devis non disponible')
+                      return
+                    }
+                    setCreditNoteOpen(true)
+                  }}
+                >
+                  <ReceiptText className='h-3 w-3' />
+                  {"Générer une facture d'avoir"}
+                </Button>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='h-7 gap-1.5 text-xs'
                   onClick={async () => {
                     if (!quoteData?.id) {
                       toast.error('Devis non disponible')
@@ -2699,6 +2716,14 @@ export function QuoteEditor({
                   Télécharger PDF
                 </Button>
               </div>
+              {quoteData && (
+                <CreditNoteDialog
+                  quote={quoteData as any}
+                  payments={bookingPayments}
+                  open={creditNoteOpen}
+                  onOpenChange={setCreditNoteOpen}
+                />
+              )}
               <div className='flex-1 overflow-auto'>
                 <div className='p-4'>
                   <QuotePreview
