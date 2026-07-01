@@ -124,6 +124,14 @@ export function computeLineAmounts(input: LineAmountsInput): QuoteTotals {
   const discount = input.discount_amount ?? 0
   const mult = 1 + rate / 100
 
+  // Verbatim : les deux PU saisis -> aucune derivation, on somme tel quel.
+  // round2 ici = normalisation centime (anti-bruit flottant), pas un arrondi metier.
+  if (input.unit_price != null && input.unit_price_ttc != null) {
+    const totalHt = round2(qty * input.unit_price - discount)
+    const totalTtc = round2(qty * input.unit_price_ttc - discount)
+    return { totalHt, totalTva: round2(totalTtc - totalHt), totalTtc }
+  }
+
   if (input.price_entry_mode === 'ttc') {
     const unitTtc = input.unit_price_ttc ?? (input.unit_price ?? 0) * mult
     const totalTtc = round2(qty * unitTtc - discount)

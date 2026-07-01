@@ -118,3 +118,38 @@ describe('Test 5 : coherence comptable HT/TVA cumulee (tolerance 0,01)', () => {
   it('somme TVA (acompte + solde) = TVA devis +/- 0,01', () =>
     expect(Math.abs(dep.tva + soldeTva - t.totalTva)).toBeLessThanOrEqual(0.01))
 })
+
+describe('Verbatim : les deux PU saisis, aucune derivation', () => {
+  it('HT et TTC pris tels quels (TTC != HT*(1+tva))', () => {
+    const l = computeLineAmounts({
+      quantity: 2,
+      unit_price: 10,
+      unit_price_ttc: 12.5,
+      tva_rate: 20,
+    })
+    expect(l.totalHt).toBe(20)
+    expect(l.totalTtc).toBe(25) // 2*12.5, PAS 2*10*1.2=24
+    expect(l.totalTva).toBe(5)
+  })
+  it('remise soustraite des deux cotes', () => {
+    const l = computeLineAmounts({
+      quantity: 1,
+      unit_price: 100,
+      unit_price_ttc: 120,
+      discount_amount: 20,
+      tva_rate: 20,
+    })
+    expect(l.totalHt).toBe(80)
+    expect(l.totalTtc).toBe(100)
+  })
+  it('legacy HT seul (unit_price_ttc absent) -> derive comme avant', () => {
+    const l = computeLineAmounts({
+      quantity: 3,
+      unit_price: 28.5,
+      price_entry_mode: 'ht',
+      tva_rate: 20,
+    })
+    expect(l.totalHt).toBe(85.5)
+    expect(l.totalTtc).toBe(102.6)
+  })
+})
