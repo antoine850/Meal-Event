@@ -37,7 +37,7 @@ const fonts = {
 
 const printer = new PdfPrinter(fonts)
 
-export type DocumentType = 'devis' | 'acompte' | 'solde'
+export type DocumentType = 'devis' | 'acompte' | 'solde' | 'avoir'
 
 interface QuoteData {
   id: string
@@ -134,6 +134,11 @@ const labels = {
     quote: 'DEVIS',
     depositInvoice: "FACTURE D'ACOMPTE",
     balanceInvoice: 'FACTURE DE SOLDE',
+    creditNote: "FACTURE D'AVOIR",
+    originalInvoiceRef: "Réf. facture d'origine",
+    creditReason: 'Motif',
+    totalCredited: 'TOTAL AVOIR TTC',
+    overpaid: 'Trop-perçu',
     dateOf: 'Date du',
     dueDateLabel: 'Échéance',
     issuer: 'ÉMETTEUR',
@@ -181,6 +186,11 @@ const labels = {
     quote: 'QUOTE',
     depositInvoice: 'DEPOSIT INVOICE',
     balanceInvoice: 'BALANCE INVOICE',
+    creditNote: 'CREDIT NOTE',
+    originalInvoiceRef: 'Original invoice ref.',
+    creditReason: 'Reason',
+    totalCredited: 'TOTAL CREDIT INCL. VAT',
+    overpaid: 'Overpaid',
     dateOf: 'Date of',
     dueDateLabel: 'Due date',
     issuer: 'ISSUER',
@@ -450,6 +460,7 @@ function buildDocDefinition(
     devis: l.quote,
     acompte: l.depositInvoice,
     solde: l.balanceInvoice,
+    avoir: l.creditNote,
   }
 
   const dueDays =
@@ -1815,6 +1826,578 @@ function buildDocDefinition(
   // ══════════════════════════════════════════════════════════════════
   // FOOTER
   // ══════════════════════════════════════════════════════════════════
+  const footerLine1Parts: string[] = []
+  if (restaurant?.legal_name || restaurant?.name)
+    footerLine1Parts.push(restaurant.legal_name || restaurant.name || '')
+  if (restaurant?.legal_form) footerLine1Parts.push(restaurant.legal_form)
+  if (restaurant?.share_capital)
+    footerLine1Parts.push(`${l.shareCapital} ${restaurant.share_capital}`)
+
+  const footerLine2Parts: string[] = []
+  if (restaurant?.siren) footerLine2Parts.push(`SIREN: ${restaurant.siren}`)
+  if (restaurant?.rcs) footerLine2Parts.push(`RCS: ${restaurant.rcs}`)
+  if (restaurant?.siret) footerLine2Parts.push(`SIRET: ${restaurant.siret}`)
+  if (restaurant?.tva_number)
+    footerLine2Parts.push(`${l.vatNumber}: ${restaurant.tva_number}`)
+
+  const footerLine3Parts: string[] = []
+  if (restaurant?.email) footerLine3Parts.push(restaurant.email)
+  if (restaurant?.phone) footerLine3Parts.push(restaurant.phone)
+
+  return {
+    content,
+    footer: {
+      stack: [
+        {
+          canvas: [
+            {
+              type: 'line' as const,
+              x1: 30,
+              y1: 0,
+              x2: 565,
+              y2: 0,
+              lineWidth: 0.5,
+              lineColor: '#e5e7eb',
+            },
+          ],
+        },
+        {
+          text: footerLine1Parts.join(' — '),
+          style: 'footer',
+          alignment: 'center' as const,
+          margin: [0, 4, 0, 0] as [number, number, number, number],
+        },
+        {
+          text: footerLine2Parts.join(' — '),
+          style: 'footer',
+          alignment: 'center' as const,
+        },
+        ...(footerLine3Parts.length > 0
+          ? [
+              {
+                text: footerLine3Parts.join(' — '),
+                style: 'footer',
+                alignment: 'center' as const,
+              },
+            ]
+          : []),
+      ],
+      margin: [30, 0, 30, 10] as [number, number, number, number],
+    },
+    defaultStyle: {
+      font: 'Roboto',
+      fontSize: 9,
+      lineHeight: 1.35,
+    },
+    styles: {
+      headerTitle: { fontSize: 14, bold: true },
+      headerDocTitle: { fontSize: 10, bold: true },
+      headerSmall: { fontSize: 8 },
+      sectionLabel: {
+        fontSize: 8,
+        bold: true,
+        color: '#9ca3af',
+        margin: [0, 0, 0, 6] as [number, number, number, number],
+      },
+      bold: { bold: true, fontSize: 9 },
+      small: { fontSize: 8 },
+      tiny: { fontSize: 7 },
+      normal: { fontSize: 9 },
+      tableHeader: { fontSize: 8, bold: true },
+      tableCell: { fontSize: 8 },
+      conditions: { fontSize: 7, lineHeight: 1.3 },
+      footer: { fontSize: 7, color: '#9ca3af' },
+    },
+    pageMargins: [30, 30, 30, 50] as [number, number, number, number],
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FACTURE D'AVOIR
+// ══════════════════════════════════════════════════════════════════
+
+interface CreditNoteData {
+  id: string
+  avoir_number: string
+  reason: string | null
+  issued_at: string | null
+  total_ht: number
+  total_tva: number
+  total_ttc: number
+  overpaid_ttc: number
+  quote_id: string | null
+  credit_note_items: Array<{
+    name: string
+    description: string | null
+    quantity: number
+    unit_price: number
+    tva_rate: number
+    item_type: string
+    total_ht: number
+    total_ttc: number
+    credited_ttc: number
+  }>
+}
+
+export async function generateCreditNotePdf(
+  creditNoteId: string
+): Promise<Buffer> {
+  const { data, error } = await supabase
+    .from('credit_notes')
+    .select('*, credit_note_items(*)')
+    .eq('id', creditNoteId)
+    .single()
+  if (error || !data)
+    throw new Error(
+      `Failed to fetch credit note: ${error?.message || 'not found'}`
+    )
+  const cn = data as unknown as CreditNoteData
+
+  // Reuse the parent quote for issuer (restaurant legal) + client blocks + origin number.
+  const quote = cn.quote_id ? await fetchQuoteFullData(cn.quote_id) : null
+  const restaurant = quote?.booking?.restaurant ?? null
+  const contact = quote?.booking?.contact ?? null
+  const color = restaurant?.color || '#0d7377'
+  const lang = (quote?.language === 'en' ? 'en' : 'fr') as 'fr' | 'en'
+
+  const docDefinition = buildCreditNoteDocDefinition(
+    cn,
+    quote,
+    restaurant,
+    contact,
+    color,
+    lang
+  )
+
+  return new Promise<Buffer>((resolve, reject) => {
+    const pdfDoc = printer.createPdfKitDocument(docDefinition)
+    const chunks: Uint8Array[] = []
+    pdfDoc.on('data', (chunk: Uint8Array) => chunks.push(chunk))
+    pdfDoc.on('end', () => resolve(Buffer.concat(chunks)))
+    pdfDoc.on('error', reject)
+    pdfDoc.end()
+  })
+}
+
+function buildCreditNoteDocDefinition(
+  cn: CreditNoteData,
+  quote: QuoteData | null,
+  restaurant: BookingData['restaurant'],
+  contact: BookingData['contact'],
+  color: string,
+  lang: 'fr' | 'en'
+): TDocumentDefinitions {
+  const content: Content[] = []
+  const l = labels[lang]
+  const docTitle = l.creditNote
+
+  // ── HEADER ──
+  content.push({
+    table: {
+      widths: ['*', 'auto'],
+      body: [
+        [
+          {
+            stack: [
+              {
+                text: restaurant?.name || 'Restaurant',
+                style: 'headerTitle',
+                color: 'white',
+              },
+            ],
+            fillColor: color,
+            margin: [12, 10, 12, 10] as [number, number, number, number],
+          },
+          {
+            stack: [
+              {
+                text: `${docTitle} n°${cn.avoir_number}`,
+                style: 'headerDocTitle',
+                color: 'white',
+                alignment: 'right' as const,
+              },
+              {
+                text: `${l.dateOf} ${docTitle.toLowerCase()} – ${formatDate(cn.issued_at)}`,
+                style: 'headerSmall',
+                color: 'white',
+                alignment: 'right' as const,
+              },
+              ...(quote?.quote_number
+                ? [
+                    {
+                      text: `${l.originalInvoiceRef} – ${quote.quote_number}`,
+                      style: 'headerSmall' as const,
+                      color: 'white',
+                      alignment: 'right' as const,
+                    },
+                  ]
+                : []),
+            ],
+            fillColor: color,
+            margin: [12, 10, 12, 10] as [number, number, number, number],
+          },
+        ],
+      ],
+    },
+    layout: 'noBorders',
+    margin: [0, 0, 0, 15] as [number, number, number, number],
+  })
+
+  // ── ISSUER / CLIENT BLOCK ──
+  content.push({
+    columns: [
+      {
+        width: '50%',
+        stack: [
+          { text: l.issuer, style: 'sectionLabel' },
+          ...(restaurant?.legal_name
+            ? [
+                {
+                  text: `${l.companyName} – ${restaurant.legal_name}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          { text: `${l.name} – ${restaurant?.name || ''}`, style: 'bold' },
+          ...(restaurant?.address
+            ? [
+                {
+                  text: `${l.address} – ${restaurant.address}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(restaurant?.postal_code || restaurant?.city
+            ? [
+                {
+                  text: `${restaurant?.postal_code || ''} ${restaurant?.city || ''}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(restaurant?.siret
+            ? [
+                {
+                  text: `${l.siretSiren} – ${restaurant.siret}`,
+                  style: 'tiny' as const,
+                  color: '#888',
+                },
+              ]
+            : []),
+          ...(restaurant?.tva_number
+            ? [
+                {
+                  text: `${l.vatNumber} – ${restaurant.tva_number}`,
+                  style: 'tiny' as const,
+                  color: '#888',
+                },
+              ]
+            : []),
+          ...(restaurant?.email
+            ? [
+                {
+                  text: `${l.email} – ${restaurant.email}`,
+                  style: 'tiny' as const,
+                  color: '#888',
+                },
+              ]
+            : []),
+        ],
+      },
+      {
+        width: '50%',
+        stack: [
+          { text: l.client, style: 'sectionLabel' },
+          ...(contact?.company
+            ? [{ text: contact.company.name, style: 'bold' as const }]
+            : []),
+          {
+            text: `${l.name} – ${contact?.first_name || ''} ${contact?.last_name || ''}`,
+            style: contact?.company ? ('small' as const) : ('bold' as const),
+            color: contact?.company ? '#666' : undefined,
+          },
+          ...(contact?.email
+            ? [
+                {
+                  text: `${l.email} – ${contact.email}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(contact?.company?.billing_address
+            ? [
+                {
+                  text: `${l.billingAddress} – ${contact.company.billing_address}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+        ],
+      },
+    ],
+    margin: [0, 0, 0, 15] as [number, number, number, number],
+  })
+
+  // ── MOTIF ──
+  if (cn.reason) {
+    content.push({
+      table: {
+        widths: ['*'],
+        body: [
+          [
+            {
+              stack: [
+                {
+                  text: l.creditReason,
+                  style: 'tiny' as const,
+                  bold: true,
+                  color: '#9ca3af',
+                },
+                { text: cn.reason, style: 'small' as const, color: '#666' },
+              ],
+              margin: [8, 6, 8, 6] as [number, number, number, number],
+            },
+          ],
+        ],
+      },
+      layout: {
+        hLineWidth: () => 1,
+        vLineWidth: () => 1,
+        hLineColor: () => '#e5e7eb',
+        vLineColor: () => '#e5e7eb',
+      },
+      margin: [0, 0, 0, 10] as [number, number, number, number],
+    })
+  }
+
+  // ── CREDITED LINES TABLE (montants en négatif) ──
+  const items = cn.credit_note_items || []
+  const tableBody: TableCell[][] = [
+    [
+      {
+        text: l.designation,
+        style: 'tableHeader',
+        fillColor: color,
+        color: 'white',
+      },
+      {
+        text: l.quantity,
+        style: 'tableHeader',
+        fillColor: color,
+        color: 'white',
+        alignment: 'center' as const,
+      },
+      {
+        text: l.tvaRate,
+        style: 'tableHeader',
+        fillColor: color,
+        color: 'white',
+        alignment: 'center' as const,
+      },
+      {
+        text: l.totalHt,
+        style: 'tableHeader',
+        fillColor: color,
+        color: 'white',
+        alignment: 'right' as const,
+      },
+      {
+        text: l.totalTtc,
+        style: 'tableHeader',
+        fillColor: color,
+        color: 'white',
+        alignment: 'right' as const,
+      },
+    ],
+  ]
+
+  // HT crédité par ligne, dérivé du credited_ttc (couvre le crédit partiel où total_ht
+  // reste le montant plein de la ligne d'origine).
+  const creditedHt = (item: CreditNoteData['credit_note_items'][number]) =>
+    item.tva_rate <= -100 ? 0 : item.credited_ttc / (1 + item.tva_rate / 100)
+
+  items.forEach((item, i) => {
+    const rowColor = i % 2 === 0 ? '#ffffff' : '#f9fafb'
+    tableBody.push([
+      {
+        stack: [
+          { text: item.name, style: 'tableCell', bold: true },
+          ...(item.description
+            ? [
+                {
+                  text: item.description,
+                  style: 'tiny' as const,
+                  color: '#888',
+                },
+              ]
+            : []),
+        ],
+        fillColor: rowColor,
+      },
+      {
+        text: String(item.quantity),
+        style: 'tableCell',
+        alignment: 'center' as const,
+        fillColor: rowColor,
+      },
+      {
+        text: `${item.tva_rate}%`,
+        style: 'tableCell',
+        alignment: 'center' as const,
+        fillColor: rowColor,
+      },
+      {
+        text: `- ${formatEuroDecimal(creditedHt(item))}`,
+        style: 'tableCell',
+        alignment: 'right' as const,
+        fillColor: rowColor,
+        color: '#dc2626' as const,
+      },
+      {
+        text: `- ${formatEuroWhole(item.credited_ttc)}`,
+        style: 'tableCell',
+        alignment: 'right' as const,
+        fillColor: rowColor,
+        color: '#dc2626' as const,
+      },
+    ])
+  })
+
+  if (tableBody.length > 1) {
+    content.push({
+      table: {
+        headerRows: 1,
+        widths: ['*', 35, 35, 70, 70],
+        body: tableBody,
+      },
+      layout: {
+        hLineWidth: (i: number, node: any) =>
+          i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
+        vLineWidth: () => 0.5,
+        hLineColor: (i: number) => (i === 0 || i === 1 ? color : '#e5e7eb'),
+        vLineColor: () => '#e5e7eb',
+        paddingLeft: () => 6,
+        paddingRight: () => 6,
+        paddingTop: () => 4,
+        paddingBottom: () => 4,
+      },
+      margin: [0, 0, 0, 10] as [number, number, number, number],
+    })
+  }
+
+  // ── TOTALS BOX (crédité, en négatif) ──
+  // Regroupement TVA par taux : TVA = crédité TTC - crédité HT par ligne (verbatim),
+  // pas ht*taux. Le taux ne sert qu'au regroupement.
+  const tvaByRate: Record<number, number> = {}
+  for (const item of items) {
+    const rate = item.tva_rate || 20
+    const tva = item.credited_ttc - creditedHt(item)
+    tvaByRate[rate] = (tvaByRate[rate] || 0) + tva
+  }
+
+  const totalsStack: Content[] = []
+  totalsStack.push({
+    columns: [
+      { text: l.subtotalHt, style: 'small', color: '#666' },
+      {
+        text: `- ${formatEuroDecimal(cn.total_ht)}`,
+        alignment: 'right' as const,
+        style: 'bold',
+        color: '#dc2626',
+      },
+    ],
+    margin: [0, 0, 0, 2] as [number, number, number, number],
+  })
+  Object.entries(tvaByRate).forEach(([rate, tva]) => {
+    totalsStack.push({
+      columns: [
+        { text: `TVA ${rate}%`, style: 'small', color: '#666' },
+        {
+          text: `- ${formatEuroDecimal(tva)}`,
+          alignment: 'right' as const,
+          style: 'small',
+          color: '#dc2626',
+        },
+      ],
+      margin: [0, 0, 0, 2] as [number, number, number, number],
+    })
+  })
+  totalsStack.push(
+    {
+      columns: [
+        { text: l.totalTvaLabel, style: 'small', color: '#666' },
+        {
+          text: `- ${formatEuroDecimal(cn.total_tva)}`,
+          alignment: 'right' as const,
+          style: 'bold',
+          color: '#dc2626',
+        },
+      ],
+      margin: [0, 0, 0, 4] as [number, number, number, number],
+    },
+    {
+      canvas: [
+        {
+          type: 'line' as const,
+          x1: 0,
+          y1: 0,
+          x2: 200,
+          y2: 0,
+          lineWidth: 1,
+          lineColor: '#d1d5db',
+        },
+      ],
+      margin: [0, 0, 0, 4] as [number, number, number, number],
+    },
+    {
+      table: {
+        widths: ['*', 'auto'],
+        body: [
+          [
+            { text: l.totalCredited, style: 'bold', color: 'white' },
+            {
+              text: `- ${formatEuroWhole(cn.total_ttc)}`,
+              style: 'bold',
+              color: 'white',
+              alignment: 'right' as const,
+            },
+          ],
+        ],
+      },
+      layout: 'noBorders',
+      fillColor: color,
+    } as Content
+  )
+
+  if (cn.overpaid_ttc > 0) {
+    totalsStack.push({
+      columns: [
+        { text: l.overpaid, style: 'small', bold: true, color: '#dc2626' },
+        {
+          text: formatEuroWhole(cn.overpaid_ttc),
+          alignment: 'right' as const,
+          bold: true,
+          color: '#dc2626',
+        },
+      ],
+      margin: [0, 6, 0, 0] as [number, number, number, number],
+    })
+  }
+
+  content.push({
+    columns: [
+      { width: '*', text: '' },
+      { width: 200, stack: totalsStack },
+    ],
+    margin: [0, 0, 0, 15] as [number, number, number, number],
+  })
+
+  // ── FOOTER (légal émetteur, identique aux autres documents) ──
   const footerLine1Parts: string[] = []
   if (restaurant?.legal_name || restaurant?.name)
     footerLine1Parts.push(restaurant.legal_name || restaurant.name || '')
