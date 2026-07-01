@@ -1,7 +1,15 @@
-import type { TDocumentDefinitions, Content, TableCell } from 'pdfmake/interfaces'
 import { readFileSync } from 'fs'
+import type {
+  TDocumentDefinitions,
+  Content,
+  TableCell,
+} from 'pdfmake/interfaces'
+import {
+  formatEuroWhole,
+  formatEuroDecimal,
+  computeDepositAmounts,
+} from './quote-rounding.js'
 import { supabase } from './supabase.js'
-import { formatEuroWhole, formatEuroDecimal } from './quote-rounding.js'
 
 // pdfmake uses a CJS default export — use require
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -20,9 +28,9 @@ function robotoFile(name: string): Buffer {
 
 const fonts = {
   Roboto: {
-    normal:      robotoFile('roboto-latin-400-normal.woff'),
-    bold:        robotoFile('roboto-latin-700-normal.woff'),
-    italics:     robotoFile('roboto-latin-400-italic.woff'),
+    normal: robotoFile('roboto-latin-400-normal.woff'),
+    bold: robotoFile('roboto-latin-700-normal.woff'),
+    italics: robotoFile('roboto-latin-400-italic.woff'),
     bolditalics: robotoFile('roboto-latin-700-italic.woff'),
   },
 }
@@ -159,7 +167,7 @@ const labels = {
     iban: 'IBAN',
     bic: 'BIC',
     shareCapital: 'au capital de',
-    depositFor: "Acompte pour devis n°",
+    depositFor: 'Acompte pour devis n°',
     relatedQuote: 'Réf. devis',
     depositPercent: 'Acompte',
     balancePercent: 'Solde',
@@ -222,7 +230,11 @@ function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—'
   try {
     const d = new Date(dateStr)
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
   } catch {
     return dateStr
   }
@@ -233,36 +245,61 @@ function addDays(dateStr: string | null | undefined, days: number): string {
   try {
     const d = new Date(dateStr)
     d.setDate(d.getDate() + days)
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
   } catch {
     return '—'
   }
 }
 
-// Résout le montant TTC de l'acompte : montant fixe si défini, sinon % du TTC.
-// Toujours arrondi au supérieur à l'euro entier (Math.ceil).
-function resolveDepositTtc(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>): number {
-  if (quote.deposit_amount_override != null) return Math.ceil(quote.deposit_amount_override)
-  return Math.ceil(quote.total_ttc * (quote.deposit_percentage / 100))
+// Résout le montant TTC de l'acompte : montant fixe si défini, sinon % du TTC (au centime).
+function resolveDepositTtc(
+  quote: Pick<
+    QuoteData,
+    'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'
+  >
+): number {
+  return computeDepositAmounts(quote.total_ttc, 0, {
+    overrideTtc: quote.deposit_amount_override ?? null,
+    percentage: quote.deposit_percentage,
+  }).ttc
 }
 
-// Résout le montant HT de l'acompte proportionnellement (décimal, dérivé du TTC).
-function resolveDepositHt(quote: Pick<QuoteData, 'total_ttc' | 'total_ht' | 'deposit_percentage' | 'deposit_amount_override'>): number {
-  if (quote.deposit_amount_override != null) {
-    if (quote.total_ttc === 0) return 0
-    return quote.deposit_amount_override * (quote.total_ht / quote.total_ttc)
-  }
-  return quote.total_ht * (quote.deposit_percentage / 100)
+// Résout le montant HT de l'acompte, ventilé au prorata du HT global (au centime).
+function resolveDepositHt(
+  quote: Pick<
+    QuoteData,
+    'total_ttc' | 'total_ht' | 'deposit_percentage' | 'deposit_amount_override'
+  >
+): number {
+  return computeDepositAmounts(quote.total_ttc, quote.total_ht, {
+    overrideTtc: quote.deposit_amount_override ?? null,
+    percentage: quote.deposit_percentage,
+  }).ht
 }
 
 // Libellé du % affiché sur la facture acompte / planning de paiement
-function resolveDepositLabel(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>, prefix: string): string {
-  if (quote.deposit_amount_override != null) return prefix  // "Acompte" sans %
+function resolveDepositLabel(
+  quote: Pick<
+    QuoteData,
+    'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'
+  >,
+  prefix: string
+): string {
+  if (quote.deposit_amount_override != null) return prefix // "Acompte" sans %
   return `${prefix} ${quote.deposit_percentage}%`
 }
 
 // % effectif pour le tableau du planning (devis)
-function resolveDepositPctDisplay(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>): string {
+function resolveDepositPctDisplay(
+  quote: Pick<
+    QuoteData,
+    'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'
+  >
+): string {
   if (quote.deposit_amount_override != null) {
     if (quote.total_ttc === 0) return '—'
     return `${Math.round((quote.deposit_amount_override / quote.total_ttc) * 100)}%`
@@ -270,7 +307,12 @@ function resolveDepositPctDisplay(quote: Pick<QuoteData, 'total_ttc' | 'deposit_
   return `${quote.deposit_percentage}%`
 }
 
-function resolveBalancePctDisplay(quote: Pick<QuoteData, 'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'>): string {
+function resolveBalancePctDisplay(
+  quote: Pick<
+    QuoteData,
+    'total_ttc' | 'deposit_percentage' | 'deposit_amount_override'
+  >
+): string {
   if (quote.deposit_amount_override != null) {
     if (quote.total_ttc === 0) return '—'
     return `${Math.round(((quote.total_ttc - quote.deposit_amount_override) / quote.total_ttc) * 100)}%`
@@ -298,7 +340,8 @@ function lightenColor(hex: string, percent: number): string {
 export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
   const { data, error } = await supabase
     .from('quotes')
-    .select(`
+    .select(
+      `
       *,
       quote_items(*),
       booking:bookings(
@@ -315,7 +358,8 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
           stripe_enabled
         )
       )
-    `)
+    `
+    )
     .eq('id', quoteId)
     .order('position', { referencedTable: 'quote_items', ascending: true })
     .single()
@@ -324,18 +368,31 @@ export async function fetchQuoteFullData(quoteId: string): Promise<QuoteData> {
   return data as unknown as QuoteData
 }
 
-export async function generateQuotePdf(quoteId: string, documentType: DocumentType, prefetchedData?: QuoteData): Promise<Buffer> {
-  const quote = prefetchedData || await fetchQuoteFullData(quoteId)
+export async function generateQuotePdf(
+  quoteId: string,
+  documentType: DocumentType,
+  prefetchedData?: QuoteData
+): Promise<Buffer> {
+  const quote = prefetchedData || (await fetchQuoteFullData(quoteId))
   const booking = quote.booking
   const restaurant = booking?.restaurant ?? null
   const contact = booking?.contact ?? null
   const color = restaurant?.color || '#0d7377'
-  const items = (quote.quote_items || []).filter(i => i.item_type === 'product')
-  const extras = (quote.quote_items || []).filter(i => i.item_type === 'extra')
+  const items = (quote.quote_items || []).filter(
+    (i) => i.item_type === 'product'
+  )
+  const extras = (quote.quote_items || []).filter(
+    (i) => i.item_type === 'extra'
+  )
   const lang = (quote.language === 'en' ? 'en' : 'fr') as 'fr' | 'en'
 
   // Fetch paid payments for solde invoice
-  let paidPayments: { amount: number; payment_modality: string | null; payment_type: string | null; paid_at: string | null }[] = []
+  let paidPayments: {
+    amount: number
+    payment_modality: string | null
+    payment_type: string | null
+    paid_at: string | null
+  }[] = []
   if (documentType === 'solde' && booking?.id) {
     const { data } = await supabase
       .from('payments')
@@ -345,7 +402,17 @@ export async function generateQuotePdf(quoteId: string, documentType: DocumentTy
     paidPayments = (data || []) as any[]
   }
 
-  const docDefinition = buildDocDefinition(quote, restaurant, contact, items, extras, documentType, color, lang, paidPayments)
+  const docDefinition = buildDocDefinition(
+    quote,
+    restaurant,
+    contact,
+    items,
+    extras,
+    documentType,
+    color,
+    lang,
+    paidPayments
+  )
 
   return new Promise<Buffer>((resolve, reject) => {
     const pdfDoc = printer.createPdfKitDocument(docDefinition)
@@ -368,7 +435,12 @@ function buildDocDefinition(
   documentType: DocumentType,
   color: string,
   lang: 'fr' | 'en',
-  paidPayments: { amount: number; payment_modality: string | null; payment_type: string | null; paid_at: string | null }[] = []
+  paidPayments: {
+    amount: number
+    payment_modality: string | null
+    payment_type: string | null
+    paid_at: string | null
+  }[] = []
 ): TDocumentDefinitions {
   const content: Content[] = []
   const l = labels[lang]
@@ -380,7 +452,8 @@ function buildDocDefinition(
     solde: l.balanceInvoice,
   }
 
-  const dueDays = documentType === 'devis' ? quote.quote_due_days : quote.invoice_due_days
+  const dueDays =
+    documentType === 'devis' ? quote.quote_due_days : quote.invoice_due_days
   const docTitle = docTitles[documentType]
 
   // ══════════════════════════════════════════════════════════════════
@@ -393,16 +466,35 @@ function buildDocDefinition(
         [
           {
             stack: [
-              { text: restaurant?.name || 'Restaurant', style: 'headerTitle', color: 'white' },
+              {
+                text: restaurant?.name || 'Restaurant',
+                style: 'headerTitle',
+                color: 'white',
+              },
             ],
             fillColor: color,
             margin: [12, 10, 12, 10] as [number, number, number, number],
           },
           {
             stack: [
-              { text: `${docTitle} n°${quote.quote_number}`, style: 'headerDocTitle', color: 'white', alignment: 'right' as const },
-              { text: `${l.dateOf} ${docTitle.toLowerCase()} – ${formatDate(quote.quote_date)}`, style: 'headerSmall', color: 'white', alignment: 'right' as const },
-              { text: `${l.dueDateLabel} – ${addDays(quote.quote_date, dueDays)}`, style: 'headerSmall', color: 'white', alignment: 'right' as const },
+              {
+                text: `${docTitle} n°${quote.quote_number}`,
+                style: 'headerDocTitle',
+                color: 'white',
+                alignment: 'right' as const,
+              },
+              {
+                text: `${l.dateOf} ${docTitle.toLowerCase()} – ${formatDate(quote.quote_date)}`,
+                style: 'headerSmall',
+                color: 'white',
+                alignment: 'right' as const,
+              },
+              {
+                text: `${l.dueDateLabel} – ${addDays(quote.quote_date, dueDays)}`,
+                style: 'headerSmall',
+                color: 'white',
+                alignment: 'right' as const,
+              },
             ],
             fillColor: color,
             margin: [12, 10, 12, 10] as [number, number, number, number],
@@ -423,28 +515,111 @@ function buildDocDefinition(
         width: '50%',
         stack: [
           { text: l.issuer, style: 'sectionLabel' },
-          ...(restaurant?.legal_name ? [{ text: `${l.companyName} – ${restaurant.legal_name}`, style: 'small' as const, color: '#666' }] : []),
-          { text: `${l.name} – ${restaurant?.name || ''}`, style: 'bold' },
-          ...(restaurant?.address ? [{ text: `${l.address} – ${restaurant.address}`, style: 'small' as const, color: '#666' }] : []),
-          ...(restaurant?.postal_code || restaurant?.city
-            ? [{ text: `${restaurant?.postal_code || ''} ${restaurant?.city || ''}`, style: 'small' as const, color: '#666' }]
+          ...(restaurant?.legal_name
+            ? [
+                {
+                  text: `${l.companyName} – ${restaurant.legal_name}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
             : []),
-          ...(restaurant?.siret ? [{ text: `${l.siretSiren} – ${restaurant.siret}`, style: 'tiny' as const, color: '#888' }] : []),
-          ...(restaurant?.tva_number ? [{ text: `${l.vatNumber} – ${restaurant.tva_number}`, style: 'tiny' as const, color: '#888' }] : []),
-          ...(restaurant?.email ? [{ text: `${l.email} – ${restaurant.email}`, style: 'tiny' as const, color: '#888' }] : []),
+          { text: `${l.name} – ${restaurant?.name || ''}`, style: 'bold' },
+          ...(restaurant?.address
+            ? [
+                {
+                  text: `${l.address} – ${restaurant.address}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(restaurant?.postal_code || restaurant?.city
+            ? [
+                {
+                  text: `${restaurant?.postal_code || ''} ${restaurant?.city || ''}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(restaurant?.siret
+            ? [
+                {
+                  text: `${l.siretSiren} – ${restaurant.siret}`,
+                  style: 'tiny' as const,
+                  color: '#888',
+                },
+              ]
+            : []),
+          ...(restaurant?.tva_number
+            ? [
+                {
+                  text: `${l.vatNumber} – ${restaurant.tva_number}`,
+                  style: 'tiny' as const,
+                  color: '#888',
+                },
+              ]
+            : []),
+          ...(restaurant?.email
+            ? [
+                {
+                  text: `${l.email} – ${restaurant.email}`,
+                  style: 'tiny' as const,
+                  color: '#888',
+                },
+              ]
+            : []),
         ],
       },
       {
         width: '50%',
         stack: [
           { text: l.client, style: 'sectionLabel' },
-          ...(contact?.company ? [{ text: contact.company.name, style: 'bold' as const }] : []),
-          { text: `${l.name} – ${contact?.first_name || ''} ${contact?.last_name || ''}`, style: contact?.company ? 'small' as const : 'bold' as const, color: contact?.company ? '#666' : undefined },
-          ...(contact?.email ? [{ text: `${l.email} – ${contact.email}`, style: 'small' as const, color: '#666' }] : []),
-          ...(contact?.phone ? [{ text: `${l.phone} – ${contact.phone}`, style: 'small' as const, color: '#666' }] : []),
-          ...(contact?.company?.billing_address ? [{ text: `${l.billingAddress} – ${contact.company.billing_address}`, style: 'small' as const, color: '#666' }] : []),
-          ...(contact?.company?.billing_postal_code || contact?.company?.billing_city
-            ? [{ text: `${contact?.company?.billing_postal_code || ''} ${contact?.company?.billing_city || ''}`, style: 'small' as const, color: '#666' }]
+          ...(contact?.company
+            ? [{ text: contact.company.name, style: 'bold' as const }]
+            : []),
+          {
+            text: `${l.name} – ${contact?.first_name || ''} ${contact?.last_name || ''}`,
+            style: contact?.company ? ('small' as const) : ('bold' as const),
+            color: contact?.company ? '#666' : undefined,
+          },
+          ...(contact?.email
+            ? [
+                {
+                  text: `${l.email} – ${contact.email}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(contact?.phone
+            ? [
+                {
+                  text: `${l.phone} – ${contact.phone}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(contact?.company?.billing_address
+            ? [
+                {
+                  text: `${l.billingAddress} – ${contact.company.billing_address}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(contact?.company?.billing_postal_code ||
+          contact?.company?.billing_city
+            ? [
+                {
+                  text: `${contact?.company?.billing_postal_code || ''} ${contact?.company?.billing_city || ''}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
             : []),
         ],
       },
@@ -464,9 +639,27 @@ function buildDocDefinition(
             { text: '', fillColor: color },
             {
               stack: [
-                ...(quote.title ? [{ text: quote.title, style: 'bold' as const }] : []),
-                ...(quote.date_start ? [{ text: `${l.serviceDate}: ${formatDate(quote.date_start)}${quote.booking?.start_time ? ` à ${quote.booking.start_time}` : ''}${quote.booking?.end_time ? ` — ${quote.booking.end_time}` : ''}${quote.date_end && quote.date_end !== quote.date_start ? ` | ${formatDate(quote.date_end)}` : ''}`, style: 'small' as const, color: '#666' }] : []),
-                ...(quote.order_number ? [{ text: `${l.orderNumber}: ${quote.order_number}`, style: 'small' as const, color: '#666' }] : []),
+                ...(quote.title
+                  ? [{ text: quote.title, style: 'bold' as const }]
+                  : []),
+                ...(quote.date_start
+                  ? [
+                      {
+                        text: `${l.serviceDate}: ${formatDate(quote.date_start)}${quote.booking?.start_time ? ` à ${quote.booking.start_time}` : ''}${quote.booking?.end_time ? ` — ${quote.booking.end_time}` : ''}${quote.date_end && quote.date_end !== quote.date_start ? ` | ${formatDate(quote.date_end)}` : ''}`,
+                        style: 'small' as const,
+                        color: '#666',
+                      },
+                    ]
+                  : []),
+                ...(quote.order_number
+                  ? [
+                      {
+                        text: `${l.orderNumber}: ${quote.order_number}`,
+                        style: 'small' as const,
+                        color: '#666',
+                      },
+                    ]
+                  : []),
               ],
               fillColor: '#faf5f0',
               margin: [8, 6, 8, 6] as [number, number, number, number],
@@ -490,8 +683,17 @@ function buildDocDefinition(
           [
             {
               stack: [
-                { text: l.schedule, style: 'tiny' as const, bold: true, color: '#9ca3af' },
-                { text: quote.booking.deroulement, style: 'small' as const, color: '#666' },
+                {
+                  text: l.schedule,
+                  style: 'tiny' as const,
+                  bold: true,
+                  color: '#9ca3af',
+                },
+                {
+                  text: quote.booking.deroulement,
+                  style: 'small' as const,
+                  color: '#666',
+                },
               ],
               margin: [8, 6, 8, 6] as [number, number, number, number],
             },
@@ -520,7 +722,12 @@ function buildDocDefinition(
           [
             {
               stack: [
-                { text: l.comments, style: 'tiny' as const, bold: true, color: '#92400e' },
+                {
+                  text: l.comments,
+                  style: 'tiny' as const,
+                  bold: true,
+                  color: '#92400e',
+                },
                 { text: comments, style: 'small' as const, color: '#666' },
               ],
               fillColor: '#fef3c7',
@@ -546,13 +753,54 @@ function buildDocDefinition(
     if (items.length > 0) {
       const tableBody: TableCell[][] = [
         [
-          { text: l.designation, style: 'tableHeader', fillColor: color, color: 'white' },
-          { text: l.quantity, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
-          { text: l.unitPriceHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-          { text: l.unitPriceTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-          { text: l.tvaRate, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
-          { text: l.totalHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-          { text: l.totalTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+          {
+            text: l.designation,
+            style: 'tableHeader',
+            fillColor: color,
+            color: 'white',
+          },
+          {
+            text: l.quantity,
+            style: 'tableHeader',
+            fillColor: color,
+            color: 'white',
+            alignment: 'center' as const,
+          },
+          {
+            text: l.unitPriceHt,
+            style: 'tableHeader',
+            fillColor: color,
+            color: 'white',
+            alignment: 'right' as const,
+          },
+          {
+            text: l.unitPriceTtc,
+            style: 'tableHeader',
+            fillColor: color,
+            color: 'white',
+            alignment: 'right' as const,
+          },
+          {
+            text: l.tvaRate,
+            style: 'tableHeader',
+            fillColor: color,
+            color: 'white',
+            alignment: 'center' as const,
+          },
+          {
+            text: l.totalHt,
+            style: 'tableHeader',
+            fillColor: color,
+            color: 'white',
+            alignment: 'right' as const,
+          },
+          {
+            text: l.totalTtc,
+            style: 'tableHeader',
+            fillColor: color,
+            color: 'white',
+            alignment: 'right' as const,
+          },
         ],
       ]
 
@@ -560,39 +808,93 @@ function buildDocDefinition(
         const rowColor = i % 2 === 0 ? '#ffffff' : '#f9fafb'
         const base = (item.quantity || 1) * (item.unit_price || 0)
         const discountAmt = item.discount_amount || 0
-        const discountPct = discountAmt > 0 && base > 0
-          ? Math.round((discountAmt / base) * 1000) / 10
-          : 0
+        const discountPct =
+          discountAmt > 0 && base > 0
+            ? Math.round((discountAmt / base) * 1000) / 10
+            : 0
         const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
           {
             stack: [
               discountPct > 0
-                ? { text: [{ text: item.name, bold: true }, { text: `   -${discountPct}%`, color: '#dc2626', bold: true, fontSize: 7 }], style: 'tableCell' }
+                ? {
+                    text: [
+                      { text: item.name, bold: true },
+                      {
+                        text: `   -${discountPct}%`,
+                        color: '#dc2626',
+                        bold: true,
+                        fontSize: 7,
+                      },
+                    ],
+                    style: 'tableCell',
+                  }
                 : { text: item.name, style: 'tableCell', bold: true },
-              ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#888' }] : []),
-              ...(discountPct > 0 ? [{ text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`, fontSize: 7, color: '#dc2626' as const }] : []),
+              ...(item.description
+                ? [
+                    {
+                      text: item.description,
+                      style: 'tiny' as const,
+                      color: '#888',
+                    },
+                  ]
+                : []),
+              ...(discountPct > 0
+                ? [
+                    {
+                      text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`,
+                      fontSize: 7,
+                      color: '#dc2626' as const,
+                    },
+                  ]
+                : []),
             ],
             fillColor: rowColor,
           },
-          { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
+          {
+            text: String(item.quantity),
+            style: 'tableCell',
+            alignment: 'center' as const,
+            fillColor: rowColor,
+          },
           {
             text: formatEuroDecimal(item.unit_price),
             style: 'tableCell',
             alignment: 'right' as const,
             fillColor: rowColor,
-            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+            ...(discountPct > 0
+              ? { decoration: 'lineThrough' as const, color: '#9ca3af' }
+              : {}),
           },
           {
-            text: formatEuroDecimal((item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)),
+            text: formatEuroDecimal(
+              (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
+            ),
             style: 'tableCell',
             alignment: 'right' as const,
             fillColor: rowColor,
-            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+            ...(discountPct > 0
+              ? { decoration: 'lineThrough' as const, color: '#9ca3af' }
+              : {}),
           },
-          { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const, fillColor: rowColor },
-          { text: formatEuroDecimal(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
-          { text: formatEuroWhole(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const, fillColor: rowColor },
+          {
+            text: `${item.tva_rate}%`,
+            style: 'tableCell',
+            alignment: 'center' as const,
+            fillColor: rowColor,
+          },
+          {
+            text: formatEuroDecimal(item.total_ht || 0),
+            style: 'tableCell',
+            alignment: 'right' as const,
+            fillColor: rowColor,
+          },
+          {
+            text: formatEuroWhole(item.total_ttc || 0),
+            style: 'tableCell',
+            alignment: 'right' as const,
+            fillColor: rowColor,
+          },
         ])
       })
 
@@ -603,9 +905,10 @@ function buildDocDefinition(
           body: tableBody,
         },
         layout: {
-          hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
+          hLineWidth: (i: number, node: any) =>
+            i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
           vLineWidth: () => 0.5,
-          hLineColor: (i: number) => (i === 0 || i === 1) ? color : '#e5e7eb',
+          hLineColor: (i: number) => (i === 0 || i === 1 ? color : '#e5e7eb'),
           vLineColor: () => '#e5e7eb',
           paddingLeft: () => 6,
           paddingRight: () => 6,
@@ -623,92 +926,259 @@ function buildDocDefinition(
   if (documentType === 'solde') {
     const tableBody: TableCell[][] = [
       [
-        { text: l.designation, style: 'tableHeader', fillColor: color, color: 'white' },
-        { text: l.quantity, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
-        { text: l.unitPriceHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-        { text: l.unitPriceTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-        { text: l.tvaRate, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'center' as const },
-        { text: l.totalHt, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
-        { text: l.totalTtc, style: 'tableHeader', fillColor: color, color: 'white', alignment: 'right' as const },
+        {
+          text: l.designation,
+          style: 'tableHeader',
+          fillColor: color,
+          color: 'white',
+        },
+        {
+          text: l.quantity,
+          style: 'tableHeader',
+          fillColor: color,
+          color: 'white',
+          alignment: 'center' as const,
+        },
+        {
+          text: l.unitPriceHt,
+          style: 'tableHeader',
+          fillColor: color,
+          color: 'white',
+          alignment: 'right' as const,
+        },
+        {
+          text: l.unitPriceTtc,
+          style: 'tableHeader',
+          fillColor: color,
+          color: 'white',
+          alignment: 'right' as const,
+        },
+        {
+          text: l.tvaRate,
+          style: 'tableHeader',
+          fillColor: color,
+          color: 'white',
+          alignment: 'center' as const,
+        },
+        {
+          text: l.totalHt,
+          style: 'tableHeader',
+          fillColor: color,
+          color: 'white',
+          alignment: 'right' as const,
+        },
+        {
+          text: l.totalTtc,
+          style: 'tableHeader',
+          fillColor: color,
+          color: 'white',
+          alignment: 'right' as const,
+        },
       ],
     ]
 
     if (items.length > 0) {
       tableBody.push([
-        { text: l.serviceItems, colSpan: 7, style: 'bold' as const, fillColor: '#f3f4f6', color } as TableCell,
-        {}, {}, {}, {}, {}, {},
+        {
+          text: l.serviceItems,
+          colSpan: 7,
+          style: 'bold' as const,
+          fillColor: '#f3f4f6',
+          color,
+        } as TableCell,
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
       ])
       items.forEach((item) => {
         const base = (item.quantity || 1) * (item.unit_price || 0)
         const discountAmt = item.discount_amount || 0
-        const discountPct = discountAmt > 0 && base > 0
-          ? Math.round((discountAmt / base) * 1000) / 10
-          : 0
+        const discountPct =
+          discountAmt > 0 && base > 0
+            ? Math.round((discountAmt / base) * 1000) / 10
+            : 0
         const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
-          { stack: [
-            discountPct > 0
-              ? { text: [{ text: item.name, bold: true }, { text: `   -${discountPct}%`, color: '#dc2626', bold: true, fontSize: 7 }], style: 'tableCell' }
-              : { text: item.name, style: 'tableCell', bold: true },
-            ...(item.description ? [{ text: item.description, style: 'tiny' as const, color: '#888' }] : []),
-            ...(discountPct > 0 ? [{ text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`, fontSize: 7, color: '#dc2626' as const }] : []),
-          ] },
-          { text: String(item.quantity), style: 'tableCell', alignment: 'center' as const },
+          {
+            stack: [
+              discountPct > 0
+                ? {
+                    text: [
+                      { text: item.name, bold: true },
+                      {
+                        text: `   -${discountPct}%`,
+                        color: '#dc2626',
+                        bold: true,
+                        fontSize: 7,
+                      },
+                    ],
+                    style: 'tableCell',
+                  }
+                : { text: item.name, style: 'tableCell', bold: true },
+              ...(item.description
+                ? [
+                    {
+                      text: item.description,
+                      style: 'tiny' as const,
+                      color: '#888',
+                    },
+                  ]
+                : []),
+              ...(discountPct > 0
+                ? [
+                    {
+                      text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`,
+                      fontSize: 7,
+                      color: '#dc2626' as const,
+                    },
+                  ]
+                : []),
+            ],
+          },
+          {
+            text: String(item.quantity),
+            style: 'tableCell',
+            alignment: 'center' as const,
+          },
           {
             text: formatEuroDecimal(item.unit_price),
             style: 'tableCell',
             alignment: 'right' as const,
-            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+            ...(discountPct > 0
+              ? { decoration: 'lineThrough' as const, color: '#9ca3af' }
+              : {}),
           },
           {
-            text: formatEuroDecimal((item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)),
+            text: formatEuroDecimal(
+              (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
+            ),
             style: 'tableCell',
             alignment: 'right' as const,
-            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+            ...(discountPct > 0
+              ? { decoration: 'lineThrough' as const, color: '#9ca3af' }
+              : {}),
           },
-          { text: `${item.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
-          { text: formatEuroDecimal(item.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
-          { text: formatEuroWhole(item.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
+          {
+            text: `${item.tva_rate}%`,
+            style: 'tableCell',
+            alignment: 'center' as const,
+          },
+          {
+            text: formatEuroDecimal(item.total_ht || 0),
+            style: 'tableCell',
+            alignment: 'right' as const,
+          },
+          {
+            text: formatEuroWhole(item.total_ttc || 0),
+            style: 'tableCell',
+            alignment: 'right' as const,
+          },
         ])
       })
     }
 
     if (extras.length > 0) {
       tableBody.push([
-        { text: l.extras, colSpan: 7, style: 'bold' as const, fillColor: '#fef3c7', color } as TableCell,
-        {}, {}, {}, {}, {}, {},
+        {
+          text: l.extras,
+          colSpan: 7,
+          style: 'bold' as const,
+          fillColor: '#fef3c7',
+          color,
+        } as TableCell,
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
       ])
       extras.forEach((extra) => {
         const base = (extra.quantity || 1) * (extra.unit_price || 0)
         const discountAmt = extra.discount_amount || 0
-        const discountPct = discountAmt > 0 && base > 0
-          ? Math.round((discountAmt / base) * 1000) / 10
-          : 0
+        const discountPct =
+          discountAmt > 0 && base > 0
+            ? Math.round((discountAmt / base) * 1000) / 10
+            : 0
         const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
-          { stack: [
-            discountPct > 0
-              ? { text: [{ text: extra.name, bold: true }, { text: `   -${discountPct}%`, color: '#dc2626', bold: true, fontSize: 7 }], style: 'tableCell' }
-              : { text: extra.name, style: 'tableCell', bold: true },
-            ...(extra.description ? [{ text: extra.description, style: 'tiny' as const, color: '#888' }] : []),
-            ...(discountPct > 0 ? [{ text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`, fontSize: 7, color: '#dc2626' as const }] : []),
-          ] },
-          { text: String(extra.quantity), style: 'tableCell', alignment: 'center' as const },
+          {
+            stack: [
+              discountPct > 0
+                ? {
+                    text: [
+                      { text: extra.name, bold: true },
+                      {
+                        text: `   -${discountPct}%`,
+                        color: '#dc2626',
+                        bold: true,
+                        fontSize: 7,
+                      },
+                    ],
+                    style: 'tableCell',
+                  }
+                : { text: extra.name, style: 'tableCell', bold: true },
+              ...(extra.description
+                ? [
+                    {
+                      text: extra.description,
+                      style: 'tiny' as const,
+                      color: '#888',
+                    },
+                  ]
+                : []),
+              ...(discountPct > 0
+                ? [
+                    {
+                      text: `${discountWord} -${formatEuroDecimal(discountAmt)} HT`,
+                      fontSize: 7,
+                      color: '#dc2626' as const,
+                    },
+                  ]
+                : []),
+            ],
+          },
+          {
+            text: String(extra.quantity),
+            style: 'tableCell',
+            alignment: 'center' as const,
+          },
           {
             text: formatEuroDecimal(extra.unit_price),
             style: 'tableCell',
             alignment: 'right' as const,
-            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+            ...(discountPct > 0
+              ? { decoration: 'lineThrough' as const, color: '#9ca3af' }
+              : {}),
           },
           {
-            text: formatEuroDecimal((extra.unit_price || 0) * (1 + (extra.tva_rate || 0) / 100)),
+            text: formatEuroDecimal(
+              (extra.unit_price || 0) * (1 + (extra.tva_rate || 0) / 100)
+            ),
             style: 'tableCell',
             alignment: 'right' as const,
-            ...(discountPct > 0 ? { decoration: 'lineThrough' as const, color: '#9ca3af' } : {}),
+            ...(discountPct > 0
+              ? { decoration: 'lineThrough' as const, color: '#9ca3af' }
+              : {}),
           },
-          { text: `${extra.tva_rate}%`, style: 'tableCell', alignment: 'center' as const },
-          { text: formatEuroDecimal(extra.total_ht || 0), style: 'tableCell', alignment: 'right' as const },
-          { text: formatEuroWhole(extra.total_ttc || 0), style: 'tableCell', alignment: 'right' as const },
+          {
+            text: `${extra.tva_rate}%`,
+            style: 'tableCell',
+            alignment: 'center' as const,
+          },
+          {
+            text: formatEuroDecimal(extra.total_ht || 0),
+            style: 'tableCell',
+            alignment: 'right' as const,
+          },
+          {
+            text: formatEuroWhole(extra.total_ttc || 0),
+            style: 'tableCell',
+            alignment: 'right' as const,
+          },
         ])
       })
     }
@@ -721,9 +1191,10 @@ function buildDocDefinition(
           body: tableBody,
         },
         layout: {
-          hLineWidth: (i: number, node: any) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
+          hLineWidth: (i: number, node: any) =>
+            i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
           vLineWidth: () => 0.5,
-          hLineColor: (i: number) => (i === 0 || i === 1) ? color : '#e5e7eb',
+          hLineColor: (i: number) => (i === 0 || i === 1 ? color : '#e5e7eb'),
           vLineColor: () => '#e5e7eb',
           paddingLeft: () => 6,
           paddingRight: () => 6,
@@ -738,7 +1209,7 @@ function buildDocDefinition(
   // ══════════════════════════════════════════════════════════════════
   // TOTALS SECTION with TVA breakdown
   // ══════════════════════════════════════════════════════════════════
-  
+
   // Regroupement TVA par taux à partir des HT décimaux des items.
   const tvaByRate: Record<number, { ht: number; tva: number }> = {}
   for (const item of items) {
@@ -759,39 +1230,121 @@ function buildDocDefinition(
       const rawHt = quote.total_ht / (1 - discountPct / 100)
       const discountAmount = rawHt - quote.total_ht
       totalsStack.push(
-        { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatEuroDecimal(rawHt), alignment: 'right' as const, style: 'small', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatEuroDecimal(discountAmount)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `${l.subtotalHt} ${lang === 'fr' ? 'après remise' : 'after discount'}`, style: 'small', color: '#666' }, { text: formatEuroDecimal(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
+        {
+          columns: [
+            { text: l.subtotalHt, style: 'small', color: '#666' },
+            {
+              text: formatEuroDecimal(rawHt),
+              alignment: 'right' as const,
+              style: 'small',
+              decoration: 'lineThrough' as const,
+            },
+          ],
+          margin: [0, 0, 0, 2] as [number, number, number, number],
+        },
+        {
+          columns: [
+            {
+              text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`,
+              style: 'small',
+              color: '#dc2626',
+            },
+            {
+              text: `- ${formatEuroDecimal(discountAmount)}`,
+              alignment: 'right' as const,
+              style: 'small',
+              color: '#dc2626',
+            },
+          ],
+          margin: [0, 0, 0, 2] as [number, number, number, number],
+        },
+        {
+          columns: [
+            {
+              text: `${l.subtotalHt} ${lang === 'fr' ? 'après remise' : 'after discount'}`,
+              style: 'small',
+              color: '#666',
+            },
+            {
+              text: formatEuroDecimal(quote.total_ht),
+              alignment: 'right' as const,
+              style: 'bold',
+            },
+          ],
+          margin: [0, 0, 0, 2] as [number, number, number, number],
+        }
       )
     } else {
-      totalsStack.push(
-        { columns: [{ text: l.subtotalHt, style: 'small', color: '#666' }, { text: formatEuroDecimal(quote.total_ht), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-      )
+      totalsStack.push({
+        columns: [
+          { text: l.subtotalHt, style: 'small', color: '#666' },
+          {
+            text: formatEuroDecimal(quote.total_ht),
+            alignment: 'right' as const,
+            style: 'bold',
+          },
+        ],
+        margin: [0, 0, 0, 2] as [number, number, number, number],
+      })
     }
 
     // TVA par taux après application de la remise globale
     Object.entries(tvaByRate).forEach(([rate, val]) => {
-      const discountMult = discountPct > 0 ? (1 - discountPct / 100) : 1
+      const discountMult = discountPct > 0 ? 1 - discountPct / 100 : 1
       const tvaAmount = val.tva * discountMult
       totalsStack.push({
         columns: [
           { text: `TVA ${rate}%`, style: 'small', color: '#666' },
-          { text: formatEuroDecimal(tvaAmount), alignment: 'right' as const, style: 'small' },
+          {
+            text: formatEuroDecimal(tvaAmount),
+            alignment: 'right' as const,
+            style: 'small',
+          },
         ],
         margin: [0, 0, 0, 2] as [number, number, number, number],
       })
     })
 
     totalsStack.push(
-      { columns: [{ text: l.totalTvaLabel, style: 'small', color: '#666' }, { text: formatEuroDecimal(quote.total_tva), alignment: 'right' as const, style: 'bold' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
-      { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 180, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      {
+        columns: [
+          { text: l.totalTvaLabel, style: 'small', color: '#666' },
+          {
+            text: formatEuroDecimal(quote.total_tva),
+            alignment: 'right' as const,
+            style: 'bold',
+          },
+        ],
+        margin: [0, 0, 0, 4] as [number, number, number, number],
+      },
+      {
+        canvas: [
+          {
+            type: 'line' as const,
+            x1: 0,
+            y1: 0,
+            x2: 180,
+            y2: 0,
+            lineWidth: 1,
+            lineColor: '#d1d5db',
+          },
+        ],
+        margin: [0, 0, 0, 4] as [number, number, number, number],
+      },
       {
         table: {
           widths: ['*', 'auto'],
-          body: [[
-            { text: l.totalTtc, style: 'bold', color: 'white' },
-            { text: formatEuroWhole(quote.total_ttc), style: 'bold', color: 'white', alignment: 'right' as const },
-          ]],
+          body: [
+            [
+              { text: l.totalTtc, style: 'bold', color: 'white' },
+              {
+                text: formatEuroWhole(quote.total_ttc),
+                style: 'bold',
+                color: 'white',
+                alignment: 'right' as const,
+              },
+            ],
+          ],
         },
         layout: 'noBorders',
         fillColor: color,
@@ -819,28 +1372,112 @@ function buildDocDefinition(
     if (discountPct > 0) {
       const rawTtc = quote.total_ttc / (1 - discountPct / 100)
       acompteStack.push(
-        { columns: [{ text: `Total ${lang === 'fr' ? 'avant remise' : 'before discount'}`, style: 'small', color: '#999' }, { text: formatEuroDecimal(rawTtc), alignment: 'right' as const, style: 'small', color: '#999', decoration: 'lineThrough' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`, style: 'small', color: '#dc2626' }, { text: `- ${formatEuroDecimal(rawTtc - quote.total_ttc)}`, alignment: 'right' as const, style: 'small', color: '#dc2626' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        { columns: [{ text: `Total TTC ${lang === 'fr' ? 'après remise' : 'after discount'}`, style: 'small' }, { text: formatEuroWhole(quote.total_ttc), alignment: 'right' as const, style: 'small' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+        {
+          columns: [
+            {
+              text: `Total ${lang === 'fr' ? 'avant remise' : 'before discount'}`,
+              style: 'small',
+              color: '#999',
+            },
+            {
+              text: formatEuroDecimal(rawTtc),
+              alignment: 'right' as const,
+              style: 'small',
+              color: '#999',
+              decoration: 'lineThrough' as const,
+            },
+          ],
+          margin: [0, 0, 0, 2] as [number, number, number, number],
+        },
+        {
+          columns: [
+            {
+              text: `${lang === 'fr' ? 'Remise' : 'Discount'} ${discountPct}%`,
+              style: 'small',
+              color: '#dc2626',
+            },
+            {
+              text: `- ${formatEuroDecimal(rawTtc - quote.total_ttc)}`,
+              alignment: 'right' as const,
+              style: 'small',
+              color: '#dc2626',
+            },
+          ],
+          margin: [0, 0, 0, 2] as [number, number, number, number],
+        },
+        {
+          columns: [
+            {
+              text: `Total TTC ${lang === 'fr' ? 'après remise' : 'after discount'}`,
+              style: 'small',
+            },
+            {
+              text: formatEuroWhole(quote.total_ttc),
+              alignment: 'right' as const,
+              style: 'small',
+            },
+          ],
+          margin: [0, 0, 0, 4] as [number, number, number, number],
+        }
       )
     }
 
     acompteStack.push(
-      { columns: [{ text: resolveDepositLabel(quote, l.depositPercent), style: 'small' }, { text: formatEuroDecimal(depositHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-      { columns: [{ text: 'TVA', style: 'small' }, { text: formatEuroDecimal(depositTva), alignment: 'right' as const }], margin: [0, 0, 0, 4] as [number, number, number, number] },
-      { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 0, 0, 4] as [number, number, number, number] },
+      {
+        columns: [
+          {
+            text: resolveDepositLabel(quote, l.depositPercent),
+            style: 'small',
+          },
+          { text: formatEuroDecimal(depositHt), alignment: 'right' as const },
+        ],
+        margin: [0, 0, 0, 2] as [number, number, number, number],
+      },
+      {
+        columns: [
+          { text: 'TVA', style: 'small' },
+          { text: formatEuroDecimal(depositTva), alignment: 'right' as const },
+        ],
+        margin: [0, 0, 0, 4] as [number, number, number, number],
+      },
+      {
+        canvas: [
+          {
+            type: 'line' as const,
+            x1: 0,
+            y1: 0,
+            x2: 200,
+            y2: 0,
+            lineWidth: 1,
+            lineColor: '#d1d5db',
+          },
+        ],
+        margin: [0, 0, 0, 4] as [number, number, number, number],
+      },
       {
         table: {
           widths: ['*', 'auto'],
-          body: [[
-            { text: l.totalTtc, style: 'bold', color: 'white' },
-            { text: formatEuroWhole(depositTtc), style: 'bold', color: 'white', alignment: 'right' as const },
-          ]],
+          body: [
+            [
+              { text: l.totalTtc, style: 'bold', color: 'white' },
+              {
+                text: formatEuroWhole(depositTtc),
+                style: 'bold',
+                color: 'white',
+                alignment: 'right' as const,
+              },
+            ],
+          ],
         },
         layout: 'noBorders',
         fillColor: color,
       } as Content,
-      { text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatEuroWhole(quote.total_ttc)}`, style: 'tiny', color: '#888', margin: [0, 6, 0, 0] as [number, number, number, number] },
+      {
+        text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatEuroWhole(quote.total_ttc)}`,
+        style: 'tiny',
+        color: '#888',
+        margin: [0, 6, 0, 0] as [number, number, number, number],
+      }
     )
 
     content.push({
@@ -865,42 +1502,99 @@ function buildDocDefinition(
     const soldeStack: Content[] = []
 
     // Total HT (décimal — dérivé du TTC arrondi)
-    soldeStack.push(
-      { columns: [{ text: 'Total HT', style: 'small' }, { text: formatEuroDecimal(totalHt), alignment: 'right' as const }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-    )
+    soldeStack.push({
+      columns: [
+        { text: 'Total HT', style: 'small' },
+        { text: formatEuroDecimal(totalHt), alignment: 'right' as const },
+      ],
+      margin: [0, 0, 0, 2] as [number, number, number, number],
+    })
 
     // Total TTC (entier)
-    soldeStack.push(
-      { columns: [{ text: 'Total TTC', style: 'small', bold: true }, { text: formatEuroWhole(totalTtc), alignment: 'right' as const, bold: true }], margin: [0, 0, 0, 4] as [number, number, number, number] },
-    )
+    soldeStack.push({
+      columns: [
+        { text: 'Total TTC', style: 'small', bold: true },
+        {
+          text: formatEuroWhole(totalTtc),
+          alignment: 'right' as const,
+          bold: true,
+        },
+      ],
+      margin: [0, 0, 0, 4] as [number, number, number, number],
+    })
 
     // List each paid payment (les anciens paiements peuvent avoir des centimes)
     if (paidPayments.length > 0) {
       for (const p of paidPayments) {
-        const label = p.payment_modality === 'acompte' ? (lang === 'fr' ? 'Acompte versé' : 'Deposit paid')
-          : p.payment_modality === 'solde' ? (lang === 'fr' ? 'Solde versé' : 'Balance paid')
-          : (lang === 'fr' ? 'Paiement reçu' : 'Payment received')
-        const dateStr = p.paid_at ? new Date(p.paid_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US') : ''
-        soldeStack.push(
-          { columns: [{ text: `${label}${dateStr ? ` (${dateStr})` : ''}`, style: 'small', color: '#16a34a' }, { text: `- ${formatEuroDecimal(p.amount)}`, alignment: 'right' as const, color: '#16a34a' }], margin: [0, 0, 0, 2] as [number, number, number, number] },
-        )
+        const label =
+          p.payment_modality === 'acompte'
+            ? lang === 'fr'
+              ? 'Acompte versé'
+              : 'Deposit paid'
+            : p.payment_modality === 'solde'
+              ? lang === 'fr'
+                ? 'Solde versé'
+                : 'Balance paid'
+              : lang === 'fr'
+                ? 'Paiement reçu'
+                : 'Payment received'
+        const dateStr = p.paid_at
+          ? new Date(p.paid_at).toLocaleDateString(
+              lang === 'fr' ? 'fr-FR' : 'en-US'
+            )
+          : ''
+        soldeStack.push({
+          columns: [
+            {
+              text: `${label}${dateStr ? ` (${dateStr})` : ''}`,
+              style: 'small',
+              color: '#16a34a',
+            },
+            {
+              text: `- ${formatEuroDecimal(p.amount)}`,
+              alignment: 'right' as const,
+              color: '#16a34a',
+            },
+          ],
+          margin: [0, 0, 0, 2] as [number, number, number, number],
+        })
       }
     }
 
     // Separator + remaining balance (entier)
     soldeStack.push(
-      { canvas: [{ type: 'line' as const, x1: 0, y1: 0, x2: 240, y2: 0, lineWidth: 1, lineColor: '#d1d5db' }], margin: [0, 4, 0, 4] as [number, number, number, number] },
+      {
+        canvas: [
+          {
+            type: 'line' as const,
+            x1: 0,
+            y1: 0,
+            x2: 240,
+            y2: 0,
+            lineWidth: 1,
+            lineColor: '#d1d5db',
+          },
+        ],
+        margin: [0, 4, 0, 4] as [number, number, number, number],
+      },
       {
         table: {
           widths: ['*', 'auto'],
-          body: [[
-            { text: l.remainingBalance, style: 'bold', color: 'white' },
-            { text: formatEuroWhole(balanceTtc), style: 'bold', color: 'white', alignment: 'right' as const },
-          ]],
+          body: [
+            [
+              { text: l.remainingBalance, style: 'bold', color: 'white' },
+              {
+                text: formatEuroWhole(balanceTtc),
+                style: 'bold',
+                color: 'white',
+                alignment: 'right' as const,
+              },
+            ],
+          ],
         },
         layout: 'noBorders',
         fillColor: color,
-      } as Content,
+      } as Content
     )
 
     content.push({
@@ -930,16 +1624,49 @@ function buildDocDefinition(
             widths: ['*', 50, 40, 80],
             body: [
               [
-                { text: quote.deposit_label || 'Acompte à signature', style: 'tableCell', fillColor: '#f9fafb' },
-                { text: resolveDepositPctDisplay(quote), style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
-                { text: `J-${quote.deposit_days}`, style: 'tableCell', alignment: 'center' as const, fillColor: '#f9fafb' },
-                { text: formatEuroWhole(depositAmount), style: 'tableCell', alignment: 'right' as const, bold: true, fillColor: '#f9fafb' },
+                {
+                  text: quote.deposit_label || 'Acompte à signature',
+                  style: 'tableCell',
+                  fillColor: '#f9fafb',
+                },
+                {
+                  text: resolveDepositPctDisplay(quote),
+                  style: 'tableCell',
+                  alignment: 'center' as const,
+                  fillColor: '#f9fafb',
+                },
+                {
+                  text: `J-${quote.deposit_days}`,
+                  style: 'tableCell',
+                  alignment: 'center' as const,
+                  fillColor: '#f9fafb',
+                },
+                {
+                  text: formatEuroWhole(depositAmount),
+                  style: 'tableCell',
+                  alignment: 'right' as const,
+                  bold: true,
+                  fillColor: '#f9fafb',
+                },
               ],
               [
                 { text: quote.balance_label || 'Solde', style: 'tableCell' },
-                { text: resolveBalancePctDisplay(quote), style: 'tableCell', alignment: 'center' as const },
-                { text: `J-${quote.balance_days}`, style: 'tableCell', alignment: 'center' as const },
-                { text: formatEuroWhole(balanceAmount), style: 'tableCell', alignment: 'right' as const, bold: true },
+                {
+                  text: resolveBalancePctDisplay(quote),
+                  style: 'tableCell',
+                  alignment: 'center' as const,
+                },
+                {
+                  text: `J-${quote.balance_days}`,
+                  style: 'tableCell',
+                  alignment: 'center' as const,
+                },
+                {
+                  text: formatEuroWhole(balanceAmount),
+                  style: 'tableCell',
+                  alignment: 'right' as const,
+                  bold: true,
+                },
               ],
             ],
           },
@@ -969,17 +1696,41 @@ function buildDocDefinition(
         {
           table: {
             widths: ['*'],
-            body: [[
-              {
-                stack: [
-                  ...(restaurant.bank_name ? [{ text: `${l.bankName} : ${restaurant.bank_name}`, style: 'small' as const, bold: true }] : []),
-                  ...(restaurant.iban ? [{ text: `${l.iban} : ${restaurant.iban}`, style: 'small' as const }] : []),
-                  ...(restaurant.bic ? [{ text: `${l.bic} : ${restaurant.bic}`, style: 'small' as const }] : []),
-                ],
-                fillColor: '#f9fafb',
-                margin: [8, 6, 8, 6] as [number, number, number, number],
-              },
-            ]],
+            body: [
+              [
+                {
+                  stack: [
+                    ...(restaurant.bank_name
+                      ? [
+                          {
+                            text: `${l.bankName} : ${restaurant.bank_name}`,
+                            style: 'small' as const,
+                            bold: true,
+                          },
+                        ]
+                      : []),
+                    ...(restaurant.iban
+                      ? [
+                          {
+                            text: `${l.iban} : ${restaurant.iban}`,
+                            style: 'small' as const,
+                          },
+                        ]
+                      : []),
+                    ...(restaurant.bic
+                      ? [
+                          {
+                            text: `${l.bic} : ${restaurant.bic}`,
+                            style: 'small' as const,
+                          },
+                        ]
+                      : []),
+                  ],
+                  fillColor: '#f9fafb',
+                  margin: [8, 6, 8, 6] as [number, number, number, number],
+                },
+              ],
+            ],
           },
           layout: {
             hLineWidth: () => 0.5,
@@ -1009,16 +1760,31 @@ function buildDocDefinition(
   if (conditions.includes('{{')) {
     const r = quote.booking?.restaurant
     conditions = conditions
-      .replace(/\{\{company_name\}\}/g, (r as any)?.company_name || (r as any)?.legal_name || r?.name || '')
+      .replace(
+        /\{\{company_name\}\}/g,
+        (r as any)?.company_name || (r as any)?.legal_name || r?.name || ''
+      )
       .replace(/\{\{legal_form\}\}/g, r?.legal_form || '')
-      .replace(/\{\{billing_address\}\}/g, (r as any)?.billing_address || r?.address || '')
-      .replace(/\{\{billing_postal_code\}\}/g, (r as any)?.billing_postal_code || r?.postal_code || '')
-      .replace(/\{\{billing_city\}\}/g, (r as any)?.billing_city || r?.city || '')
+      .replace(
+        /\{\{billing_address\}\}/g,
+        (r as any)?.billing_address || r?.address || ''
+      )
+      .replace(
+        /\{\{billing_postal_code\}\}/g,
+        (r as any)?.billing_postal_code || r?.postal_code || ''
+      )
+      .replace(
+        /\{\{billing_city\}\}/g,
+        (r as any)?.billing_city || r?.city || ''
+      )
       .replace(/\{\{rcs\}\}/g, r?.rcs || '')
       .replace(/\{\{siren\}\}/g, r?.siren || '')
       .replace(/\{\{siret\}\}/g, r?.siret || '')
       .replace(/\{\{share_capital\}\}/g, r?.share_capital || '')
-      .replace(/\{\{billing_email\}\}/g, (r as any)?.billing_email || r?.email || '')
+      .replace(
+        /\{\{billing_email\}\}/g,
+        (r as any)?.billing_email || r?.email || ''
+      )
   }
 
   if (conditions) {
@@ -1035,7 +1801,11 @@ function buildDocDefinition(
     content.push({
       stack: [
         { text: l.additionalConditions, style: 'sectionLabel', color },
-        { text: quote.additional_conditions, style: 'conditions', color: '#666' },
+        {
+          text: quote.additional_conditions,
+          style: 'conditions',
+          color: '#666',
+        },
       ],
       margin: [0, 10, 0, 0] as [number, number, number, number],
     })
@@ -1045,15 +1815,18 @@ function buildDocDefinition(
   // FOOTER
   // ══════════════════════════════════════════════════════════════════
   const footerLine1Parts: string[] = []
-  if (restaurant?.legal_name || restaurant?.name) footerLine1Parts.push(restaurant.legal_name || restaurant.name || '')
+  if (restaurant?.legal_name || restaurant?.name)
+    footerLine1Parts.push(restaurant.legal_name || restaurant.name || '')
   if (restaurant?.legal_form) footerLine1Parts.push(restaurant.legal_form)
-  if (restaurant?.share_capital) footerLine1Parts.push(`${l.shareCapital} ${restaurant.share_capital}`)
+  if (restaurant?.share_capital)
+    footerLine1Parts.push(`${l.shareCapital} ${restaurant.share_capital}`)
 
   const footerLine2Parts: string[] = []
   if (restaurant?.siren) footerLine2Parts.push(`SIREN: ${restaurant.siren}`)
   if (restaurant?.rcs) footerLine2Parts.push(`RCS: ${restaurant.rcs}`)
   if (restaurant?.siret) footerLine2Parts.push(`SIRET: ${restaurant.siret}`)
-  if (restaurant?.tva_number) footerLine2Parts.push(`${l.vatNumber}: ${restaurant.tva_number}`)
+  if (restaurant?.tva_number)
+    footerLine2Parts.push(`${l.vatNumber}: ${restaurant.tva_number}`)
 
   const footerLine3Parts: string[] = []
   if (restaurant?.email) footerLine3Parts.push(restaurant.email)
@@ -1063,10 +1836,39 @@ function buildDocDefinition(
     content,
     footer: {
       stack: [
-        { canvas: [{ type: 'line' as const, x1: 30, y1: 0, x2: 565, y2: 0, lineWidth: 0.5, lineColor: '#e5e7eb' }] },
-        { text: footerLine1Parts.join(' — '), style: 'footer', alignment: 'center' as const, margin: [0, 4, 0, 0] as [number, number, number, number] },
-        { text: footerLine2Parts.join(' — '), style: 'footer', alignment: 'center' as const },
-        ...(footerLine3Parts.length > 0 ? [{ text: footerLine3Parts.join(' — '), style: 'footer', alignment: 'center' as const }] : []),
+        {
+          canvas: [
+            {
+              type: 'line' as const,
+              x1: 30,
+              y1: 0,
+              x2: 565,
+              y2: 0,
+              lineWidth: 0.5,
+              lineColor: '#e5e7eb',
+            },
+          ],
+        },
+        {
+          text: footerLine1Parts.join(' — '),
+          style: 'footer',
+          alignment: 'center' as const,
+          margin: [0, 4, 0, 0] as [number, number, number, number],
+        },
+        {
+          text: footerLine2Parts.join(' — '),
+          style: 'footer',
+          alignment: 'center' as const,
+        },
+        ...(footerLine3Parts.length > 0
+          ? [
+              {
+                text: footerLine3Parts.join(' — '),
+                style: 'footer',
+                alignment: 'center' as const,
+              },
+            ]
+          : []),
       ],
       margin: [30, 0, 30, 10] as [number, number, number, number],
     },
@@ -1079,7 +1881,12 @@ function buildDocDefinition(
       headerTitle: { fontSize: 14, bold: true },
       headerDocTitle: { fontSize: 10, bold: true },
       headerSmall: { fontSize: 8 },
-      sectionLabel: { fontSize: 8, bold: true, color: '#9ca3af', margin: [0, 0, 0, 6] as [number, number, number, number] },
+      sectionLabel: {
+        fontSize: 8,
+        bold: true,
+        color: '#9ca3af',
+        margin: [0, 0, 0, 6] as [number, number, number, number],
+      },
       bold: { bold: true, fontSize: 9 },
       small: { fontSize: 8 },
       tiny: { fontSize: 7 },

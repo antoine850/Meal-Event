@@ -10,7 +10,25 @@ import {
   buildBalanceEmailSubject,
 } from '../lib/email-templates.js'
 import { generateQuotePdf, fetchQuoteFullData } from '../lib/pdf-generator.js'
-import { formatEuroWhole, computeQuoteAmounts } from '../lib/quote-rounding.js'
+import {
+  formatEuroWhole,
+  computeQuoteAmounts,
+  computeDepositAmounts,
+} from '../lib/quote-rounding.js'
+
+// Montant d'acompte TTC : montant fixe saisi (override) sinon pourcentage, au centime.
+// Acompte et solde DOIVENT passer par cet helper pour que acompte + solde = total exactement.
+function quoteDepositTtc(q: {
+  total_ttc: number
+  total_ht?: number | null
+  deposit_amount_override?: number | null
+  deposit_percentage?: number | null
+}): number {
+  return computeDepositAmounts(q.total_ttc, q.total_ht ?? 0, {
+    overrideTtc: q.deposit_amount_override ?? null,
+    percentage: q.deposit_percentage ?? null,
+  }).ttc
+}
 import { sendEmail } from '../lib/resend.js'
 import {
   uploadDocument,
@@ -585,12 +603,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           )
           // Just resend the email with existing invoice link — no new Stripe invoice
           // Acompte toujours arrondi au supérieur à l'euro entier
-          const depositAmount =
-            (quoteData as any).deposit_amount_override != null
-              ? Math.ceil((quoteData as any).deposit_amount_override as number)
-              : Math.ceil(
-                  quoteData.total_ttc * (quoteData.deposit_percentage / 100)
-                )
+          const depositAmount = quoteDepositTtc(quoteData as any)
           const effectiveDepositPctResend =
             (quoteData as any).deposit_amount_override != null
               ? Math.round((depositAmount / quoteData.total_ttc) * 100)
@@ -648,10 +661,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
 
     // Calculate deposit amount — montant fixe en priorité, sinon % du TTC.
     // Toujours arrondi au supérieur à l'euro entier.
-    const depositAmount =
-      (quoteData as any).deposit_amount_override != null
-        ? Math.ceil((quoteData as any).deposit_amount_override as number)
-        : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+    const depositAmount = quoteDepositTtc(quoteData as any)
     const effectiveDepositPct =
       (quoteData as any).deposit_amount_override != null
         ? Math.round((depositAmount / quoteData.total_ttc) * 100)
@@ -985,12 +995,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
           )
           // total_ttc et extras.total_ttc sont des entiers, leur somme est entière
           const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
-          const depositTtc =
-            (quoteData as any).deposit_amount_override != null
-              ? Math.ceil((quoteData as any).deposit_amount_override as number)
-              : Math.ceil(
-                  quoteData.total_ttc * (quoteData.deposit_percentage / 100)
-                )
+          const depositTtc = quoteDepositTtc(quoteData as any)
           const balanceAmount = totalWithExtrasTtc - depositTtc
 
           const commercial = booking
@@ -1055,10 +1060,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
     // MUST mirror send-deposit exactly so the balance subtracts the *actual*
     // amount that was invoiced as deposit (otherwise the customer over/under-pays).
-    const depositTtc =
-      (quoteData as any).deposit_amount_override != null
-        ? Math.ceil((quoteData as any).deposit_amount_override as number)
-        : Math.ceil(quoteData.total_ttc * (quoteData.deposit_percentage / 100))
+    const depositTtc = quoteDepositTtc(quoteData as any)
     const balanceAmount = totalWithExtrasTtc - depositTtc
 
     // Get commercial info

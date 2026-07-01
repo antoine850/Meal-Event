@@ -1,8 +1,8 @@
 import type { QuoteItem, Payment } from '@/lib/supabase/types'
 import { Separator } from '@/components/ui/separator'
 import {
-  roundLineTtc,
-  deriveLineHt,
+  computeLineAmounts,
+  deriveUnitTtc,
   formatEuroWhole,
   formatEuroDecimal,
 } from '@/features/reservations/lib/quote-rounding'
@@ -461,34 +461,39 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
   const restaurant = data.restaurant as any
   const color = restaurant?.color || '#0d7377'
 
-  // TTC ligne arrondi au supérieur via l'helper unifié, HT dérivé.
+  // Totaux ligne au centime (ancrés sur la saisie HT/TTC), identiques au stocké et au PDF.
   function computeItemTtc(item: {
     quantity?: number | null
     unit_price?: number | null
+    unit_price_ttc?: number | null
+    price_entry_mode?: string | null
     discount_amount?: number | null
     tva_rate?: number | null
   }) {
-    return roundLineTtc({
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      discount_amount: item.discount_amount,
-      tva_rate: item.tva_rate ?? 20,
-    })
+    return computeLineAmounts({ ...item, tva_rate: item.tva_rate ?? 20 })
+      .totalTtc
   }
   function computeItemHt(item: {
     quantity?: number | null
     unit_price?: number | null
+    unit_price_ttc?: number | null
+    price_entry_mode?: string | null
     discount_amount?: number | null
     tva_rate?: number | null
   }) {
-    return deriveLineHt(computeItemTtc(item), item.tva_rate ?? 20)
+    return computeLineAmounts({ ...item, tva_rate: item.tva_rate ?? 20 })
+      .totalHt
   }
-  // Prix unitaire TTC = HT * (1 + TVA/100), affiché au centime.
+  // Prix unitaire TTC : valeur saisie si ligne en TTC, sinon dérivée du HT (au centime).
   function computeItemUnitTtc(item: {
     unit_price?: number | null
+    unit_price_ttc?: number | null
     tva_rate?: number | null
   }) {
-    return (item.unit_price || 0) * (1 + (item.tva_rate ?? 20) / 100)
+    return (
+      item.unit_price_ttc ??
+      deriveUnitTtc(item.unit_price || 0, item.tva_rate ?? 20)
+    )
   }
   function computeItemDiscount(item: {
     quantity?: number | null

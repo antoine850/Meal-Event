@@ -1,22 +1,43 @@
 import { Router, type Request, type Response } from 'express'
 import Stripe from 'stripe'
-import { supabase } from '../lib/supabase.js'
-import { verifyWebhookSignature, downloadSignedDocument } from '../lib/signnow.js'
+import {
+  notifyCommercialSignature,
+  notifyCommercialPayment,
+} from '../lib/commercial-notifications.js'
+import {
+  buildDepositEmailHtml,
+  buildDepositEmailSubject,
+} from '../lib/email-templates.js'
 import { generateQuotePdf } from '../lib/pdf-generator.js'
+import { computeDepositAmounts } from '../lib/quote-rounding.js'
 import { sendEmail } from '../lib/resend.js'
-import { buildDepositEmailHtml, buildDepositEmailSubject } from '../lib/email-templates.js'
-import { notifyCommercialSignature, notifyCommercialPayment } from '../lib/commercial-notifications.js'
-import { getRestaurantStripeContext, resolveStripeMode, stripeRequestOptions, getOrCreateStripeCustomerOnAccount } from '../lib/stripe-connect.js'
+import {
+  verifyWebhookSignature,
+  downloadSignedDocument,
+} from '../lib/signnow.js'
+import {
+  getRestaurantStripeContext,
+  resolveStripeMode,
+  stripeRequestOptions,
+  getOrCreateStripeCustomerOnAccount,
+} from '../lib/stripe-connect.js'
+import { supabase } from '../lib/supabase.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
 
 // Helper: get existing Stripe customer by email, or create one
-async function getOrCreateStripeCustomer(email: string, name?: string | null): Promise<string> {
+async function getOrCreateStripeCustomer(
+  email: string,
+  name?: string | null
+): Promise<string> {
   const existing = await stripe.customers.list({ email, limit: 1 })
   if (existing.data.length > 0) return existing.data[0].id
-  const customer = await stripe.customers.create({ email, ...(name ? { name } : {}) })
+  const customer = await stripe.customers.create({
+    email,
+    ...(name ? { name } : {}),
+  })
   return customer.id
 }
 
@@ -40,11 +61,16 @@ webhooksRouter.post('/stripe', async (req: Request, res: Response) => {
     }
   } else {
     // No webhook secret configured - parse raw body manually (dev mode)
-    console.warn('⚠️ STRIPE_WEBHOOK_SECRET not configured - accepting webhook without verification')
+    console.warn(
+      '⚠️ STRIPE_WEBHOOK_SECRET not configured - accepting webhook without verification'
+    )
     try {
       // req.body is a Buffer when using express.raw()
-      const bodyString = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : req.body
-      event = typeof bodyString === 'string' ? JSON.parse(bodyString) : bodyString
+      const bodyString = Buffer.isBuffer(req.body)
+        ? req.body.toString('utf8')
+        : req.body
+      event =
+        typeof bodyString === 'string' ? JSON.parse(bodyString) : bodyString
       console.log(`[Stripe Webhook] Event type: ${event.type}`)
     } catch (parseErr) {
       console.error('Failed to parse Stripe webhook body:', parseErr)
@@ -84,15 +110,24 @@ webhooksRouter.post('/stripe', async (req: Request, res: Response) => {
     }
     // Nouveaux business events
     case 'charge.refunded': {
-      await handleChargeRefunded(event.data.object as Stripe.Charge, event.account)
+      await handleChargeRefunded(
+        event.data.object as Stripe.Charge,
+        event.account
+      )
       break
     }
     case 'charge.dispute.created': {
-      await handleDisputeOpened(event.data.object as Stripe.Dispute, event.account)
+      await handleDisputeOpened(
+        event.data.object as Stripe.Dispute,
+        event.account
+      )
       break
     }
     case 'charge.dispute.closed': {
-      await handleDisputeClosed(event.data.object as Stripe.Dispute, event.account)
+      await handleDisputeClosed(
+        event.data.object as Stripe.Dispute,
+        event.account
+      )
       break
     }
     case 'payout.paid': {
@@ -113,48 +148,86 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
   try {
     // Log all headers for debugging SignNow webhook signature
     const allSignHeaders = Object.entries(req.headers)
-      .filter(([k]) => k.includes('sign') || k.includes('hmac') || k.includes('signature') || k.includes('x-'))
+      .filter(
+        ([k]) =>
+          k.includes('sign') ||
+          k.includes('hmac') ||
+          k.includes('signature') ||
+          k.includes('x-')
+      )
       .map(([k, v]) => `${k}: ${v}`)
     console.log(`[SignNow Webhook] Relevant headers:`, allSignHeaders)
 
     // Verify webhook signature if secret is configured
-    const signature = req.headers['x-signnow-signature'] as string
-      || req.headers['x-sn-signature'] as string
-      || req.headers['signature'] as string
-      || ''
-    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
+    const signature =
+      (req.headers['x-signnow-signature'] as string) ||
+      (req.headers['x-sn-signature'] as string) ||
+      (req.headers['signature'] as string) ||
+      ''
+    const rawBody =
+      typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
 
     if (process.env.SIGNNOW_WEBHOOK_SECRET && signature) {
       const isValid = verifyWebhookSignature(rawBody, signature)
       if (!isValid) {
-        console.warn('[SignNow] Webhook signature verification failed — processing anyway for now')
+        console.warn(
+          '[SignNow] Webhook signature verification failed — processing anyway for now'
+        )
         // Don't block — log warning but continue processing
       }
     }
 
-    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
-    
-    // SignNow webhook payload structure can vary - try multiple paths
-    const eventType = payload.event || payload.action || payload.meta?.event || payload.content?.event || ''
-    const documentId = payload.document_id || payload.data?.document_id || payload.content?.document_id || payload.content?.documentId || payload.meta?.document_id || ''
+    const payload =
+      typeof req.body === 'string' ? JSON.parse(req.body) : req.body
 
-    console.log(`[SignNow Webhook] Event: ${eventType}, Document: ${documentId}`)
+    // SignNow webhook payload structure can vary - try multiple paths
+    const eventType =
+      payload.event ||
+      payload.action ||
+      payload.meta?.event ||
+      payload.content?.event ||
+      ''
+    const documentId =
+      payload.document_id ||
+      payload.data?.document_id ||
+      payload.content?.document_id ||
+      payload.content?.documentId ||
+      payload.meta?.document_id ||
+      ''
+
+    console.log(
+      `[SignNow Webhook] Event: ${eventType}, Document: ${documentId}`
+    )
 
     // SignNow events that indicate document is signed:
     // - user.document.complete - when a user completes signing
     // - document.complete - alternative event name
     // - document.update with status change
     // - invite.update when signer completes
-    if (eventType === 'user.document.complete' || eventType === 'document.complete' || eventType === 'document_complete') {
-      console.log(`[SignNow Webhook] Processing document complete event for: ${documentId}`)
+    if (
+      eventType === 'user.document.complete' ||
+      eventType === 'document.complete' ||
+      eventType === 'document_complete'
+    ) {
+      console.log(
+        `[SignNow Webhook] Processing document complete event for: ${documentId}`
+      )
       await handleSignNowDocumentComplete(documentId)
-    } else if (eventType === 'document.update' || eventType === 'invite.update') {
+    } else if (
+      eventType === 'document.update' ||
+      eventType === 'invite.update'
+    ) {
       // Check if the document is fully signed
-      const status = payload.data?.status || payload.content?.status || payload.status || ''
+      const status =
+        payload.data?.status || payload.content?.status || payload.status || ''
       console.log(`[SignNow Webhook] Document status: ${status}`)
-      
+
       // SignNow uses "completed" or "signed" status when all signatures are done
-      if (status === 'completed' || status === 'signed' || status === 'document-signed') {
+      if (
+        status === 'completed' ||
+        status === 'signed' ||
+        status === 'document-signed'
+      ) {
         await handleSignNowDocumentComplete(documentId)
       }
     } else {
@@ -171,10 +244,15 @@ webhooksRouter.post('/signnow', async (req: Request, res: Response) => {
 // ═══════════════════════════════════════════════════════════════
 // Stripe: Handle successful payment
 // ═══════════════════════════════════════════════════════════════
-async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccount?: string) {
+async function handlePaymentSuccess(
+  session: Stripe.Checkout.Session,
+  eventAccount?: string
+) {
   const { booking_id, quote_id, link_type } = session.metadata || {}
 
-  console.log(`[Stripe] Payment success - booking: ${booking_id}, quote: ${quote_id}, type: ${link_type}`)
+  console.log(
+    `[Stripe] Payment success - booking: ${booking_id}, quote: ${quote_id}, type: ${link_type}`
+  )
 
   if (!booking_id) {
     console.error('No booking_id in session metadata')
@@ -186,10 +264,16 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
     let receiptUrl: string | null = null
     if (session.payment_intent) {
       try {
-        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, stripeRequestOptions(eventAccount ?? null))
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          session.payment_intent as string,
+          stripeRequestOptions(eventAccount ?? null)
+        )
         // Get the latest charge to find receipt URL
         if (paymentIntent.latest_charge) {
-          const charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string, stripeRequestOptions(eventAccount ?? null))
+          const charge = await stripe.charges.retrieve(
+            paymentIntent.latest_charge as string,
+            stripeRequestOptions(eventAccount ?? null)
+          )
           receiptUrl = charge.receipt_url || null
           console.log(`[Stripe] Receipt URL: ${receiptUrl}`)
         }
@@ -199,14 +283,20 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
     }
 
     // Update existing pending payment to paid (created when link was sent)
-    console.log(`[Stripe] Looking for pending payment with stripe_payment_id: ${session.id}`)
+    console.log(
+      `[Stripe] Looking for pending payment with stripe_payment_id: ${session.id}`
+    )
     const { data: existingPayment, error: findError } = await supabase
       .from('payments')
       .select('id, status, stripe_payment_id')
       .eq('stripe_payment_id', session.id)
       .single()
 
-    console.log(`[Stripe] Found payment:`, existingPayment, findError ? `Error: ${findError.message}` : '')
+    console.log(
+      `[Stripe] Found payment:`,
+      existingPayment,
+      findError ? `Error: ${findError.message}` : ''
+    )
 
     if (existingPayment) {
       // Update existing payment (regardless of current status)
@@ -223,7 +313,9 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
       if (updateError) {
         console.error('Error updating payment:', updateError)
       } else {
-        console.log(`[Stripe] Updated payment ${existingPayment.id} from ${existingPayment.status} to paid`)
+        console.log(
+          `[Stripe] Updated payment ${existingPayment.id} from ${existingPayment.status} to paid`
+        )
       }
     } else {
       // Fallback: Create new payment if not found
@@ -235,20 +327,18 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
         .eq('id', booking_id)
         .single()
 
-      const { error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-          organization_id: bookingForOrg?.organization_id || null,
-          booking_id,
-          quote_id: quote_id || null,
-          amount: (session.amount_total || 0) / 100,
-          payment_type: link_type || 'full',
-          payment_method: 'stripe',
-          stripe_payment_id: session.payment_intent as string,
-          status: 'paid',
-          paid_at: new Date().toISOString(),
-          receipt_url: receiptUrl || null,
-        })
+      const { error: paymentError } = await supabase.from('payments').insert({
+        organization_id: bookingForOrg?.organization_id || null,
+        booking_id,
+        quote_id: quote_id || null,
+        amount: (session.amount_total || 0) / 100,
+        payment_type: link_type || 'full',
+        payment_method: 'stripe',
+        stripe_payment_id: session.payment_intent as string,
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+        receipt_url: receiptUrl || null,
+      })
 
       if (paymentError) throw paymentError
     }
@@ -262,21 +352,26 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
 
     // Store receipt as document if URL available
     if (receiptUrl && booking_id) {
-      const docName = link_type === 'deposit' ? 'Reçu Stripe - Acompte' : link_type === 'balance' ? 'Reçu Stripe - Solde' : 'Reçu Stripe'
-      const { error: docError } = await supabase
-        .from('documents')
-        .insert({
-          organization_id: booking?.organization_id || null,
-          booking_id,
-          name: docName,
-          file_type: 'receipt',
-          file_path: receiptUrl,
-          file_url: receiptUrl,
-        })
+      const docName =
+        link_type === 'deposit'
+          ? 'Reçu Stripe - Acompte'
+          : link_type === 'balance'
+            ? 'Reçu Stripe - Solde'
+            : 'Reçu Stripe'
+      const { error: docError } = await supabase.from('documents').insert({
+        organization_id: booking?.organization_id || null,
+        booking_id,
+        name: docName,
+        file_type: 'receipt',
+        file_path: receiptUrl,
+        file_url: receiptUrl,
+      })
       if (docError) {
         console.error(`[Stripe] Failed to store receipt document:`, docError)
       } else {
-        console.log(`[Stripe] ✅ Stored receipt document for booking ${booking_id}`)
+        console.log(
+          `[Stripe] ✅ Stored receipt document for booking ${booking_id}`
+        )
       }
     }
 
@@ -313,7 +408,9 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
       newStatusSlug = null // No booking status change for balance — "Fonction envoyée" is manual
     }
     if (newStatusSlug && booking) {
-      console.log(`[Stripe] Looking for status slug '${newStatusSlug}' for org ${booking.organization_id}`)
+      console.log(
+        `[Stripe] Looking for status slug '${newStatusSlug}' for org ${booking.organization_id}`
+      )
 
       const { data: status } = await supabase
         .from('statuses')
@@ -328,9 +425,13 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
           .from('bookings')
           .update({ status_id: status.id })
           .eq('id', booking_id)
-        console.log(`[Stripe] ✅ Booking ${booking_id} status updated to '${newStatusSlug}'`)
+        console.log(
+          `[Stripe] ✅ Booking ${booking_id} status updated to '${newStatusSlug}'`
+        )
       } else {
-        console.warn(`[Stripe] Status slug '${newStatusSlug}' not found for org ${booking.organization_id} — booking status not updated`)
+        console.warn(
+          `[Stripe] Status slug '${newStatusSlug}' not found for org ${booking.organization_id} — booking status not updated`
+        )
       }
     }
 
@@ -341,7 +442,9 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
         .update({ status: 'completed' })
         .eq('id', quote_id)
         .eq('status', 'balance_paid')
-      console.log(`[Stripe] Quote ${quote_id} marked as completed after balance payment`)
+      console.log(
+        `[Stripe] Quote ${quote_id} marked as completed after balance payment`
+      )
     }
 
     // Log activity
@@ -354,7 +457,11 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
       actor_name: 'Stripe',
       entity_type: 'payment',
       entity_id: existingPayment?.id || null,
-      metadata: { amount: (session.amount_total || 0) / 100, method: 'stripe', payment_type: link_type },
+      metadata: {
+        amount: (session.amount_total || 0) / 100,
+        method: 'stripe',
+        payment_type: link_type,
+      },
     })
 
     // ── Notify commercial(s) ──
@@ -364,9 +471,13 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
       paymentType: link_type || 'full',
       paymentMethod: 'stripe',
       quoteNumber: quote_id ? undefined : null,
-    }).catch(err => console.error('[Stripe] Commercial notification error:', err))
+    }).catch((err) =>
+      console.error('[Stripe] Commercial notification error:', err)
+    )
 
-    console.log(`Payment successful for booking ${booking_id}, type: ${link_type}`)
+    console.log(
+      `Payment successful for booking ${booking_id}, type: ${link_type}`
+    )
   } catch (error) {
     console.error('Error handling payment success:', error)
   }
@@ -375,10 +486,15 @@ async function handlePaymentSuccess(session: Stripe.Checkout.Session, eventAccou
 // ═══════════════════════════════════════════════════════════════
 // Stripe: Handle Invoice paid (Stripe Invoice flow)
 // ═══════════════════════════════════════════════════════════════
-async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount?: string) {
+async function handleInvoicePaymentSuccess(
+  invoice: Stripe.Invoice,
+  eventAccount?: string
+) {
   const { booking_id, quote_id, link_type } = invoice.metadata || {}
 
-  console.log(`[Stripe Invoice] Payment success - booking: ${booking_id}, quote: ${quote_id}, type: ${link_type}, invoice: ${invoice.id}`)
+  console.log(
+    `[Stripe Invoice] Payment success - booking: ${booking_id}, quote: ${quote_id}, type: ${link_type}, invoice: ${invoice.id}`
+  )
 
   if (!booking_id) {
     console.error('[Stripe Invoice] No booking_id in invoice metadata')
@@ -390,7 +506,10 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
     let receiptUrl: string | null = null
     if (invoice.charge) {
       try {
-        const charge = await stripe.charges.retrieve(invoice.charge as string, stripeRequestOptions(eventAccount ?? null))
+        const charge = await stripe.charges.retrieve(
+          invoice.charge as string,
+          stripeRequestOptions(eventAccount ?? null)
+        )
         receiptUrl = charge.receipt_url || null
         console.log(`[Stripe Invoice] Receipt URL: ${receiptUrl}`)
       } catch (err) {
@@ -399,7 +518,9 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
     }
 
     // Update existing pending payment to paid (matched by invoice ID)
-    console.log(`[Stripe Invoice] Looking for pending payment with stripe_payment_id: ${invoice.id}`)
+    console.log(
+      `[Stripe Invoice] Looking for pending payment with stripe_payment_id: ${invoice.id}`
+    )
     const { data: existingPayment } = await supabase
       .from('payments')
       .select('id, status')
@@ -415,7 +536,9 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
           receipt_url: receiptUrl || null,
         })
         .eq('id', existingPayment.id)
-      console.log(`[Stripe Invoice] ✅ Updated payment ${existingPayment.id} to paid`)
+      console.log(
+        `[Stripe Invoice] ✅ Updated payment ${existingPayment.id} to paid`
+      )
     } else {
       // Fallback: create payment if missing
       const { data: bookingForOrg } = await supabase
@@ -437,7 +560,9 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
         paid_at: new Date().toISOString(),
         receipt_url: receiptUrl || null,
       })
-      console.log(`[Stripe Invoice] ✅ Created new payment for booking ${booking_id}`)
+      console.log(
+        `[Stripe Invoice] ✅ Created new payment for booking ${booking_id}`
+      )
     }
 
     // Fetch booking org
@@ -449,7 +574,10 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
 
     // Store receipt as document
     if (receiptUrl && booking_id) {
-      const docName = link_type === 'deposit' ? 'Reçu Stripe - Acompte' : 'Reçu Stripe - Solde'
+      const docName =
+        link_type === 'deposit'
+          ? 'Reçu Stripe - Acompte'
+          : 'Reçu Stripe - Solde'
       await supabase.from('documents').insert({
         organization_id: booking?.organization_id || null,
         booking_id,
@@ -472,12 +600,18 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
     if (quote_id && link_type === 'deposit') {
       await supabase
         .from('quotes')
-        .update({ status: 'deposit_paid', deposit_paid_at: new Date().toISOString() })
+        .update({
+          status: 'deposit_paid',
+          deposit_paid_at: new Date().toISOString(),
+        })
         .eq('id', quote_id)
     } else if (quote_id && link_type === 'balance') {
       await supabase
         .from('quotes')
-        .update({ status: 'balance_paid', balance_paid_at: new Date().toISOString() })
+        .update({
+          status: 'balance_paid',
+          balance_paid_at: new Date().toISOString(),
+        })
         .eq('id', quote_id)
     }
 
@@ -497,7 +631,9 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
           .from('bookings')
           .update({ status_id: status.id })
           .eq('id', booking_id)
-        console.log(`[Stripe Invoice] ✅ Booking ${booking_id} status updated to '${newStatusSlug}'`)
+        console.log(
+          `[Stripe Invoice] ✅ Booking ${booking_id} status updated to '${newStatusSlug}'`
+        )
       }
     }
 
@@ -520,7 +656,11 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
       actor_name: 'Stripe',
       entity_type: 'payment',
       entity_id: existingPayment?.id || null,
-      metadata: { amount: (invoice.amount_paid || 0) / 100, method: 'stripe', payment_type: link_type },
+      metadata: {
+        amount: (invoice.amount_paid || 0) / 100,
+        method: 'stripe',
+        payment_type: link_type,
+      },
     })
 
     // ── Notify commercial(s) ──
@@ -530,18 +670,28 @@ async function handleInvoicePaymentSuccess(invoice: Stripe.Invoice, eventAccount
       paymentType: link_type || 'full',
       paymentMethod: 'stripe',
       quoteNumber: quote_id ? undefined : null,
-    }).catch(err => console.error('[Stripe Invoice] Commercial notification error:', err))
+    }).catch((err) =>
+      console.error('[Stripe Invoice] Commercial notification error:', err)
+    )
 
-    console.log(`[Stripe Invoice] ✅ Payment flow complete for booking ${booking_id}, type: ${link_type}`)
+    console.log(
+      `[Stripe Invoice] ✅ Payment flow complete for booking ${booking_id}, type: ${link_type}`
+    )
   } catch (error) {
-    console.error('[Stripe Invoice] Error handling invoice payment success:', error)
+    console.error(
+      '[Stripe Invoice] Error handling invoice payment success:',
+      error
+    )
   }
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Stripe: Handle failed payment
 // ═══════════════════════════════════════════════════════════════
-async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent, eventAccount?: string) {
+async function handlePaymentFailed(
+  paymentIntent: Stripe.PaymentIntent,
+  eventAccount?: string
+) {
   let bookingId = paymentIntent.metadata?.booking_id
   let quoteId = paymentIntent.metadata?.quote_id
   let linkType = paymentIntent.metadata?.link_type
@@ -549,10 +699,13 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent, eventAcc
   // PaymentIntent metadata may be empty — look up the checkout session that created it
   if (!bookingId) {
     try {
-      const sessions = await stripe.checkout.sessions.list({
-        payment_intent: paymentIntent.id,
-        limit: 1,
-      }, stripeRequestOptions(eventAccount ?? null))
+      const sessions = await stripe.checkout.sessions.list(
+        {
+          payment_intent: paymentIntent.id,
+          limit: 1,
+        },
+        stripeRequestOptions(eventAccount ?? null)
+      )
       const session = sessions.data[0]
       if (session?.metadata) {
         bookingId = session.metadata.booking_id
@@ -560,27 +713,30 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent, eventAcc
         linkType = session.metadata.link_type
       }
     } catch (err) {
-      console.error('Error looking up checkout session for failed payment:', err)
+      console.error(
+        'Error looking up checkout session for failed payment:',
+        err
+      )
     }
   }
 
   if (!bookingId) {
-    console.warn(`[Stripe] Payment failed but no booking_id found for PaymentIntent ${paymentIntent.id}`)
+    console.warn(
+      `[Stripe] Payment failed but no booking_id found for PaymentIntent ${paymentIntent.id}`
+    )
     return
   }
 
   try {
-    await supabase
-      .from('payments')
-      .insert({
-        booking_id: bookingId,
-        quote_id: quoteId || null,
-        amount: paymentIntent.amount / 100,
-        payment_type: linkType || 'full',
-        payment_method: 'stripe',
-        stripe_payment_intent_id: paymentIntent.id,
-        status: 'failed',
-      })
+    await supabase.from('payments').insert({
+      booking_id: bookingId,
+      quote_id: quoteId || null,
+      amount: paymentIntent.amount / 100,
+      payment_type: linkType || 'full',
+      payment_method: 'stripe',
+      stripe_payment_intent_id: paymentIntent.id,
+      status: 'failed',
+    })
 
     console.log(`Payment failed for booking ${bookingId}`)
   } catch (error) {
@@ -597,15 +753,19 @@ async function handleAccountUpdated(account: Stripe.Account) {
     .update({
       stripe_charges_enabled: account.charges_enabled,
       stripe_payouts_enabled: account.payouts_enabled,
-      stripe_disabled_reason: (account.requirements as any)?.disabled_reason || null,
+      stripe_disabled_reason:
+        (account.requirements as any)?.disabled_reason || null,
     })
     .eq('stripe_account_id', account.id)
-  console.log('[stripe-connect.metric]', JSON.stringify({
-    event: 'webhook_account_updated',
-    acct_id: account.id,
-    charges_enabled: account.charges_enabled,
-    payouts_enabled: account.payouts_enabled,
-  }))
+  console.log(
+    '[stripe-connect.metric]',
+    JSON.stringify({
+      event: 'webhook_account_updated',
+      acct_id: account.id,
+      charges_enabled: account.charges_enabled,
+      payouts_enabled: account.payouts_enabled,
+    })
+  )
 }
 
 async function handleAccountDeauthorized(acctId?: string) {
@@ -623,7 +783,10 @@ async function handleAccountDeauthorized(acctId?: string) {
       stripe_disabled_reason: null,
     })
     .eq('stripe_account_id', acctId)
-  console.log('[stripe-connect.metric]', JSON.stringify({ event: 'webhook_account_deauthorized', acct_id: acctId }))
+  console.log(
+    '[stripe-connect.metric]',
+    JSON.stringify({ event: 'webhook_account_deauthorized', acct_id: acctId })
+  )
 }
 
 async function handleChargeRefunded(charge: Stripe.Charge, acctId?: string) {
@@ -634,7 +797,10 @@ async function handleChargeRefunded(charge: Stripe.Charge, acctId?: string) {
     .eq('stripe_payment_intent_id', charge.payment_intent as string)
     .maybeSingle()
   if (!payment) return
-  await supabase.from('payments').update({ status: 'refunded' }).eq('id', payment.id)
+  await supabase
+    .from('payments')
+    .update({ status: 'refunded' })
+    .eq('id', payment.id)
   await supabase.from('activity_logs').insert({
     organization_id: payment.organization_id,
     booking_id: payment.booking_id,
@@ -646,7 +812,10 @@ async function handleChargeRefunded(charge: Stripe.Charge, acctId?: string) {
     entity_id: payment.id,
     metadata: { acct_id: acctId, charge_id: charge.id },
   })
-  console.log('[stripe-connect.metric]', JSON.stringify({ event: 'refund', acct_id: acctId, payment_id: payment.id }))
+  console.log(
+    '[stripe-connect.metric]',
+    JSON.stringify({ event: 'refund', acct_id: acctId, payment_id: payment.id })
+  )
 }
 
 async function handleDisputeOpened(dispute: Stripe.Dispute, acctId?: string) {
@@ -657,7 +826,10 @@ async function handleDisputeOpened(dispute: Stripe.Dispute, acctId?: string) {
     .eq('stripe_payment_intent_id', dispute.payment_intent as string)
     .maybeSingle()
   if (!payment) return
-  await supabase.from('payments').update({ status: 'disputed' }).eq('id', payment.id)
+  await supabase
+    .from('payments')
+    .update({ status: 'disputed' })
+    .eq('id', payment.id)
   await supabase.from('activity_logs').insert({
     organization_id: payment.organization_id,
     booking_id: payment.booking_id,
@@ -667,9 +839,20 @@ async function handleDisputeOpened(dispute: Stripe.Dispute, acctId?: string) {
     actor_name: 'Stripe',
     entity_type: 'payment',
     entity_id: payment.id,
-    metadata: { acct_id: acctId, dispute_id: dispute.id, reason: dispute.reason },
+    metadata: {
+      acct_id: acctId,
+      dispute_id: dispute.id,
+      reason: dispute.reason,
+    },
   })
-  console.log('[stripe-connect.metric]', JSON.stringify({ event: 'dispute_opened', acct_id: acctId, payment_id: payment.id }))
+  console.log(
+    '[stripe-connect.metric]',
+    JSON.stringify({
+      event: 'dispute_opened',
+      acct_id: acctId,
+      payment_id: payment.id,
+    })
+  )
 }
 
 async function handleDisputeClosed(dispute: Stripe.Dispute, acctId?: string) {
@@ -681,7 +864,10 @@ async function handleDisputeClosed(dispute: Stripe.Dispute, acctId?: string) {
     .maybeSingle()
   if (!payment) return
   const newStatus = dispute.status === 'won' ? 'paid' : 'dispute_lost'
-  await supabase.from('payments').update({ status: newStatus }).eq('id', payment.id)
+  await supabase
+    .from('payments')
+    .update({ status: newStatus })
+    .eq('id', payment.id)
   await supabase.from('activity_logs').insert({
     organization_id: payment.organization_id,
     booking_id: payment.booking_id,
@@ -691,7 +877,11 @@ async function handleDisputeClosed(dispute: Stripe.Dispute, acctId?: string) {
     actor_name: 'Stripe',
     entity_type: 'payment',
     entity_id: payment.id,
-    metadata: { acct_id: acctId, dispute_id: dispute.id, status: dispute.status },
+    metadata: {
+      acct_id: acctId,
+      dispute_id: dispute.id,
+      status: dispute.status,
+    },
   })
 }
 
@@ -723,7 +913,9 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
     // Find quote by signnow_document_id
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')
-      .select('id, booking_id, organization_id, quote_number, total_ttc, deposit_percentage, title, date_start')
+      .select(
+        'id, booking_id, organization_id, quote_number, total_ttc, deposit_percentage, title, date_start'
+      )
       .eq('signnow_document_id', signnowDocumentId)
       .single()
 
@@ -737,7 +929,7 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
     try {
       console.log(`[SignNow] Downloading signed document: ${signnowDocumentId}`)
       const signedPdf = await downloadSignedDocument(signnowDocumentId)
-      
+
       // Upload to Supabase Storage
       const fileName = `signed-${quote.quote_number}.pdf`
       const storageDirPath = `${quote.organization_id}/quotes/${quote.id}`
@@ -757,10 +949,15 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
           .from('documents')
           .getPublicUrl(uploadData.path)
         signedPdfUrl = urlData?.publicUrl || null
-        console.log(`[Storage] Signed PDF uploaded successfully: ${signedPdfUrl}`)
+        console.log(
+          `[Storage] Signed PDF uploaded successfully: ${signedPdfUrl}`
+        )
       }
     } catch (downloadErr: any) {
-      console.error('⚠️ Failed to download/store signed PDF (continuing workflow):', downloadErr?.message || downloadErr)
+      console.error(
+        '⚠️ Failed to download/store signed PDF (continuing workflow):',
+        downloadErr?.message || downloadErr
+      )
     }
 
     // Store signed PDF as document
@@ -775,9 +972,14 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
         file_url: signedPdfUrl,
       })
       if (docError) {
-        console.error(`[SignNow] Failed to store signed PDF document:`, docError)
+        console.error(
+          `[SignNow] Failed to store signed PDF document:`,
+          docError
+        )
       } else {
-        console.log(`[SignNow] ✅ Stored signed PDF document for booking ${quote.booking_id}`)
+        console.log(
+          `[SignNow] ✅ Stored signed PDF document for booking ${quote.booking_id}`
+        )
       }
     }
 
@@ -801,8 +1003,13 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
         .eq('type', 'booking')
         .single()
       if (statusData) {
-        await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', quote.booking_id)
-        console.log(`[SignNow] ✅ Booking ${quote.booking_id} status → attente_paiement`)
+        await supabase
+          .from('bookings')
+          .update({ status_id: statusData.id })
+          .eq('id', quote.booking_id)
+        console.log(
+          `[SignNow] ✅ Booking ${quote.booking_id} status → attente_paiement`
+        )
       }
     }
 
@@ -827,15 +1034,22 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
       totalTtc: quote.total_ttc,
       eventTitle: quote.title,
       eventDate: quote.date_start,
-    }).catch(err => console.error('[SignNow] Commercial notification error:', err))
+    }).catch((err) =>
+      console.error('[SignNow] Commercial notification error:', err)
+    )
 
     // ── AUTO-TRIGGER: Send deposit invoice + Stripe payment link ──
     try {
       await autoSendDepositAfterSignature(quote.id)
     } catch (autoSendError) {
-      console.error('⚠️ CRITICAL: Failed to auto-send deposit after signature:', autoSendError)
+      console.error(
+        '⚠️ CRITICAL: Failed to auto-send deposit after signature:',
+        autoSendError
+      )
       // Quote is already marked as signed, so deposit can be sent manually
-      console.warn(`Quote ${quote.quote_number} is signed but deposit email failed - manual send required`)
+      console.warn(
+        `Quote ${quote.quote_number} is signed but deposit email failed - manual send required`
+      )
     }
   } catch (error) {
     console.error('Error handling SignNow document complete:', error)
@@ -847,10 +1061,11 @@ async function autoSendDepositAfterSignature(quoteId: string) {
     // Fetch full quote data for PDF generation and email
     const { data: quote } = await supabase
       .from('quotes')
-      .select(`
+      .select(
+        `
         *,
         booking:bookings(
-          id, event_date, assigned_to,
+          id, event_date, assigned_user_ids,
           contact:contacts(id, first_name, last_name, email, phone),
           restaurant:restaurants(
             id, name, address, city, postal_code, phone, email,
@@ -859,7 +1074,8 @@ async function autoSendDepositAfterSignature(quoteId: string) {
             stripe_enabled, stripe_account_id
           )
         )
-      `)
+      `
+      )
       .eq('id', quoteId)
       .single()
 
@@ -867,7 +1083,9 @@ async function autoSendDepositAfterSignature(quoteId: string) {
 
     // Idempotency: skip if deposit was already sent or a pending deposit payment exists
     if (quote.status === 'deposit_sent' || quote.status === 'deposit_paid') {
-      console.log(`[SignNow] Quote ${quote.quote_number} already has status ${quote.status} — skipping auto-deposit`)
+      console.log(
+        `[SignNow] Quote ${quote.quote_number} already has status ${quote.status} — skipping auto-deposit`
+      )
       return
     }
 
@@ -880,7 +1098,9 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       .maybeSingle()
 
     if (existingDeposit) {
-      console.log(`[SignNow] Deposit payment already exists for quote ${quoteId} — skipping auto-deposit`)
+      console.log(
+        `[SignNow] Deposit payment already exists for quote ${quoteId} — skipping auto-deposit`
+      )
       return
     }
 
@@ -893,21 +1113,25 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       return
     }
 
-    // Mirror send-deposit logic: respect deposit_amount_override or ceil to next euro.
-    // Math.ceil sur l'override aussi, pour rester cohérent avec quotes.ts/send-deposit
-    // (sinon le solde subtrait Math.ceil(override) → le client sous-paie).
-    const depositAmount = (quote as any).deposit_amount_override != null
-      ? Math.ceil((quote as any).deposit_amount_override as number)
-      : Math.ceil(quote.total_ttc * (quote.deposit_percentage / 100))
+    // Meme helper que quotes.ts/send-deposit (au centime) pour que acompte + solde = total.
+    const depositAmount = computeDepositAmounts(
+      quote.total_ttc,
+      (quote as any).total_ht ?? 0,
+      {
+        overrideTtc: (quote as any).deposit_amount_override ?? null,
+        percentage: quote.deposit_percentage,
+      }
+    ).ttc
 
     // Get commercial info
     let commercialName: string | null = null
     let commercialEmail: string | null = null
-    if (booking?.assigned_to) {
+    const commercialId = booking?.assigned_user_ids?.[0]
+    if (commercialId) {
       const { data: user } = await supabase
         .from('users')
         .select('first_name, last_name, email')
-        .eq('id', booking.assigned_to)
+        .eq('id', commercialId)
         .single()
       if (user) {
         commercialName = `${user.first_name} ${user.last_name}`
@@ -927,60 +1151,79 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
 
     if (stripeMode.mode === 'bank_transfer') {
-      console.log(`[SignNow] Restaurant ${restaurant?.id} sans Connect (raison: ${stripeMode.reason}) — fallback virement pour auto-deposit`)
+      console.log(
+        `[SignNow] Restaurant ${restaurant?.id} sans Connect (raison: ${stripeMode.reason}) — fallback virement pour auto-deposit`
+      )
     }
 
     const isStripeEnabled = stripeMode.mode === 'connect'
-    const connectAcctId = stripeMode.mode === 'connect' ? stripeMode.acctId : null
+    const connectAcctId =
+      stripeMode.mode === 'connect' ? stripeMode.acctId : null
 
     let invoiceUrl = ''
     let invoiceId = ''
 
     if (isStripeEnabled) {
       // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-      console.log(`[Stripe] Creating deposit invoice for quote ${quote.quote_number}`)
+      console.log(
+        `[Stripe] Creating deposit invoice for quote ${quote.quote_number}`
+      )
 
       const customerId = connectAcctId
         ? await getOrCreateStripeCustomerOnAccount(
             contact.email,
-            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null,
+            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
+              null,
             connectAcctId
           )
         : await getOrCreateStripeCustomer(
             contact.email,
-            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null
+            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
+              null
           )
 
       const stripeOpts = stripeRequestOptions(connectAcctId)
 
-      const invoice = await stripe.invoices.create({
-        customer: customerId,
-        collection_method: 'send_invoice',
-        days_until_due: 30,
-        metadata: {
-          booking_id: booking.id,
-          quote_id: quoteId,
-          link_type: 'deposit',
-          restaurant_id: restaurant?.id || '',
+      const invoice = await stripe.invoices.create(
+        {
+          customer: customerId,
+          collection_method: 'send_invoice',
+          days_until_due: 30,
+          metadata: {
+            booking_id: booking.id,
+            quote_id: quoteId,
+            link_type: 'deposit',
+            restaurant_id: restaurant?.id || '',
+          },
+          description: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
         },
-        description: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
-      }, stripeOpts)
+        stripeOpts
+      )
 
-      await stripe.invoiceItems.create({
-        invoice: invoice.id,
-        customer: customerId,
-        amount: Math.round(depositAmount * 100),
-        currency: 'eur',
-        description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
-      }, stripeOpts)
+      await stripe.invoiceItems.create(
+        {
+          invoice: invoice.id,
+          customer: customerId,
+          amount: Math.round(depositAmount * 100),
+          currency: 'eur',
+          description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
+        },
+        stripeOpts
+      )
 
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id, undefined, stripeOpts)
+      const finalizedInvoice = await stripe.invoices.finalizeInvoice(
+        invoice.id,
+        undefined,
+        stripeOpts
+      )
       invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
       invoiceId = invoice.id
 
       console.log(`[Stripe] Invoice created: ${invoice.id}, URL: ${invoiceUrl}`)
     } else {
-      console.log(`[SignNow] Stripe disabled — sending bank transfer only deposit for quote ${quote.quote_number}`)
+      console.log(
+        `[SignNow] Stripe disabled — sending bank transfer only deposit for quote ${quote.quote_number}`
+      )
     }
 
     // Generate deposit PDF with error handling
@@ -995,7 +1238,11 @@ async function autoSendDepositAfterSignature(quoteId: string) {
     // Build & send email
     const html = buildDepositEmailHtml({
       restaurant: restaurant as any,
-      contact: { first_name: contact.first_name, last_name: contact.last_name, email: contact.email },
+      contact: {
+        first_name: contact.first_name,
+        last_name: contact.last_name,
+        email: contact.email,
+      },
       quoteNumber: quote.quote_number,
       depositPercentage: quote.deposit_percentage,
       depositAmount,
@@ -1006,7 +1253,10 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       stripeEnabled: isStripeEnabled,
     })
 
-    const subject = buildDepositEmailSubject(quote.quote_number, restaurant?.name || 'Restaurant')
+    const subject = buildDepositEmailSubject(
+      quote.quote_number,
+      restaurant?.name || 'Restaurant'
+    )
 
     // Get org-level facturation email for reply-to
     let facturationEmail: string | null = null
@@ -1025,10 +1275,12 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       html,
       replyTo: commercialEmail || restaurant?.email || undefined,
       facturationEmail: facturationEmail || undefined,
-      attachments: [{
-        filename: `facture-acompte-${quote.quote_number}.pdf`,
-        content: pdfBuffer,
-      }],
+      attachments: [
+        {
+          filename: `facture-acompte-${quote.quote_number}.pdf`,
+          content: pdfBuffer,
+        },
+      ],
     })
 
     // Save acompte PDF to storage and documents table
@@ -1036,11 +1288,19 @@ async function autoSendDepositAfterSignature(quoteId: string) {
     try {
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('documents')
-        .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: true })
+        .upload(storagePath, pdfBuffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        })
       if (uploadError) {
-        console.error('[PDF Save] Auto-deposit storage upload error:', uploadError)
+        console.error(
+          '[PDF Save] Auto-deposit storage upload error:',
+          uploadError
+        )
       } else {
-        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(uploadData?.path || storagePath)
+        const { data: urlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(uploadData?.path || storagePath)
         await supabase.from('documents').insert({
           organization_id: quote.organization_id,
           booking_id: booking.id,
@@ -1062,75 +1322,69 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       .update({
         status: 'deposit_sent',
         deposit_sent_at: new Date().toISOString(),
-        ...(isStripeEnabled ? {
-          stripe_deposit_session_id: invoiceId,
-          stripe_deposit_url: invoiceUrl,
-        } : {}),
+        ...(isStripeEnabled
+          ? {
+              stripe_deposit_session_id: invoiceId,
+              stripe_deposit_url: invoiceUrl,
+            }
+          : {}),
       })
       .eq('id', quoteId)
 
     if (isStripeEnabled) {
       // Save payment link (Stripe)
-      await supabase
-        .from('payment_links')
-        .insert({
-          booking_id: booking.id,
-          quote_id: quoteId,
-          link_type: 'deposit',
-          amount: depositAmount,
-          percentage: quote.deposit_percentage,
-          url: invoiceUrl,
-          stripe_link_id: invoiceId,
-          stripe_account_id: connectAcctId,
-        })
+      await supabase.from('payment_links').insert({
+        booking_id: booking.id,
+        quote_id: quoteId,
+        link_type: 'deposit',
+        amount: depositAmount,
+        percentage: quote.deposit_percentage,
+        url: invoiceUrl,
+        stripe_link_id: invoiceId,
+        stripe_account_id: connectAcctId,
+      })
 
       // Create pending payment record (will be updated to 'paid' by webhook)
-      await supabase
-        .from('payments')
-        .insert({
-          organization_id: quote.organization_id,
-          booking_id: booking.id,
-          quote_id: quoteId,
-          amount: depositAmount,
-          payment_type: 'deposit',
-          payment_modality: 'acompte',
-          payment_method: 'stripe',
-          stripe_payment_id: invoiceId,
-          stripe_account_id: connectAcctId,
-          status: 'pending',
-          notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
-        })
+      await supabase.from('payments').insert({
+        organization_id: quote.organization_id,
+        booking_id: booking.id,
+        quote_id: quoteId,
+        amount: depositAmount,
+        payment_type: 'deposit',
+        payment_modality: 'acompte',
+        payment_method: 'stripe',
+        stripe_payment_id: invoiceId,
+        stripe_account_id: connectAcctId,
+        status: 'pending',
+        notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
+      })
     } else {
       // Create pending bank transfer payment record
-      await supabase
-        .from('payments')
-        .insert({
-          organization_id: quote.organization_id,
-          booking_id: booking.id,
-          quote_id: quoteId,
-          amount: depositAmount,
-          payment_type: 'deposit',
-          payment_modality: 'acompte',
-          payment_method: 'virement',
-          status: 'pending',
-          notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number} (virement bancaire)`,
-        })
+      await supabase.from('payments').insert({
+        organization_id: quote.organization_id,
+        booking_id: booking.id,
+        quote_id: quoteId,
+        amount: depositAmount,
+        payment_type: 'deposit',
+        payment_modality: 'acompte',
+        payment_method: 'virement',
+        status: 'pending',
+        notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number} (virement bancaire)`,
+      })
     }
 
     // Log email
-    await supabase
-      .from('email_logs')
-      .insert({
-        organization_id: quote.organization_id,
-        quote_id: quoteId,
-        booking_id: booking.id,
-        email_type: 'deposit_invoice',
-        recipient_email: contact.email,
-        reply_to_email: commercialEmail || restaurant?.email,
-        subject,
-        resend_message_id: emailResult.id,
-        status: 'sent',
-      })
+    await supabase.from('email_logs').insert({
+      organization_id: quote.organization_id,
+      quote_id: quoteId,
+      booking_id: booking.id,
+      email_type: 'deposit_invoice',
+      recipient_email: contact.email,
+      reply_to_email: commercialEmail || restaurant?.email,
+      subject,
+      resend_message_id: emailResult.id,
+      status: 'sent',
+    })
 
     // Log activity
     await supabase.from('activity_logs').insert({
@@ -1142,12 +1396,21 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       actor_name: 'Système',
       entity_type: 'quote',
       entity_id: quoteId,
-      metadata: { amount: depositAmount, auto: true, method: isStripeEnabled ? 'stripe' : 'virement' },
+      metadata: {
+        amount: depositAmount,
+        auto: true,
+        method: isStripeEnabled ? 'stripe' : 'virement',
+      },
     })
 
-    console.log(`✅ Auto-sent deposit email for quote ${quote.quote_number} after signature${isStripeEnabled ? '' : ' (bank transfer only)'}`)
+    console.log(
+      `✅ Auto-sent deposit email for quote ${quote.quote_number} after signature${isStripeEnabled ? '' : ' (bank transfer only)'}`
+    )
   } catch (error: any) {
-    console.error('❌ Error auto-sending deposit after signature:', error?.message || error)
+    console.error(
+      '❌ Error auto-sending deposit after signature:',
+      error?.message || error
+    )
     throw error
   }
 }

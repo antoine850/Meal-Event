@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import { computeDepositAmounts } from '../lib/quote-rounding.js'
 import { supabase } from '../lib/supabase.js'
 
 export const exportsRouter = Router()
@@ -32,7 +33,9 @@ function depositAmount(q: any): number | null {
   if (!q) return null
   if (q.deposit_amount_override != null) return q.deposit_amount_override
   if (q.total_ttc != null && q.deposit_percentage)
-    return Math.ceil((q.total_ttc * q.deposit_percentage) / 100)
+    return computeDepositAmounts(q.total_ttc, q.total_ht ?? 0, {
+      percentage: q.deposit_percentage,
+    }).ttc
   return null
 }
 
@@ -42,13 +45,20 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
     const organizationId = (req as any).organizationId as string
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
-    const statusIds = (req.query.status as string | undefined)?.split(',').filter(Boolean)
-    const restaurantIds = (req.query.restaurant as string | undefined)?.split(',').filter(Boolean)
-    const commercialIds = (req.query.commercial as string | undefined)?.split(',').filter(Boolean)
+    const statusIds = (req.query.status as string | undefined)
+      ?.split(',')
+      .filter(Boolean)
+    const restaurantIds = (req.query.restaurant as string | undefined)
+      ?.split(',')
+      .filter(Boolean)
+    const commercialIds = (req.query.commercial as string | undefined)
+      ?.split(',')
+      .filter(Boolean)
 
     let query = supabase
       .from('bookings')
-      .select(`
+      .select(
+        `
         event_date, start_time, end_time, event_type, occasion, guests_count,
         internal_notes, assigned_user_ids, status_id, restaurant_id,
         contact:contacts (first_name, last_name, email, phone,
@@ -58,7 +68,8 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
         space:spaces (name),
         quotes (quote_number, status, total_ht, total_ttc, discount_percentage,
           deposit_amount_override, deposit_percentage, quote_sent_at, quote_signed_at, primary_quote)
-      `)
+      `
+      )
       .eq('organization_id', organizationId)
       .order('event_date', { ascending: true })
 
@@ -66,7 +77,8 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
     if (to) query = query.lte('event_date', to)
     if (statusIds?.length) query = query.in('status_id', statusIds)
     if (restaurantIds?.length) query = query.in('restaurant_id', restaurantIds)
-    if (commercialIds?.length) query = query.overlaps('assigned_user_ids', commercialIds)
+    if (commercialIds?.length)
+      query = query.overlaps('assigned_user_ids', commercialIds)
 
     const { data: bookings, error } = await query
     if (error) throw error
@@ -77,7 +89,10 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
       .select('id, first_name, last_name')
       .eq('organization_id', organizationId)
     const userName = new Map(
-      (users || []).map((u: any) => [u.id, `${u.first_name || ''} ${u.last_name || ''}`.trim()])
+      (users || []).map((u: any) => [
+        u.id,
+        `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+      ])
     )
 
     const columns: Array<[string, (b: any) => string]> = [
@@ -86,7 +101,10 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
       ['Heure fin', (b) => b.end_time || ''],
       ['Type', (b) => b.event_type || ''],
       ['Occasion', (b) => b.occasion || ''],
-      ['Convives', (b) => (b.guests_count != null ? String(b.guests_count) : '')],
+      [
+        'Convives',
+        (b) => (b.guests_count != null ? String(b.guests_count) : ''),
+      ],
       ['Espace', (b) => b.space?.name || ''],
       ['Statut', (b) => b.status?.name || ''],
       ['Notes internes', (b) => b.internal_notes || ''],
@@ -129,7 +147,10 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
       ],
       ['Acompte', (b) => fmtAmount(depositAmount(primaryQuote(b)))],
       ['Date envoi devis', (b) => fmtDate(primaryQuote(b)?.quote_sent_at)],
-      ['Date signature devis', (b) => fmtDate(primaryQuote(b)?.quote_signed_at)],
+      [
+        'Date signature devis',
+        (b) => fmtDate(primaryQuote(b)?.quote_signed_at),
+      ],
     ]
 
     const header = columns.map(([label]) => csvField(label)).join(';')
@@ -140,7 +161,10 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
 
     const today = new Date().toISOString().slice(0, 10)
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
-    res.setHeader('Content-Disposition', `attachment; filename="evenements-${today}.csv"`)
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="evenements-${today}.csv"`
+    )
     // BOM UTF-8 pour qu'Excel detecte l'encodage et affiche les accents.
     res.send('\uFEFF' + csv)
   } catch (error) {
