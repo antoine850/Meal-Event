@@ -33,7 +33,6 @@ import {
   Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { deriveHtFromTtc } from '@/lib/price'
 import { supabase } from '@/lib/supabase'
 import type { QuoteItem } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
@@ -96,6 +95,7 @@ import {
   computeDepositAmounts,
   computeBalanceTtc,
   deriveUnitHt,
+  deriveUnitTtc,
   formatEuroWhole,
   formatEuroDecimal,
 } from '@/features/reservations/lib/quote-rounding'
@@ -115,6 +115,7 @@ import {
   generateCGV,
   type RestaurantBillingInfo,
 } from '../hooks/use-quotes'
+import { CreditNoteDialog } from './credit-note-dialog'
 import { QuotePreview, type DocumentType } from './quote-preview'
 import { SaveToCatalogDialog } from './save-to-catalog-dialog'
 
@@ -268,7 +269,7 @@ function SortableItemRow({
             onUpdateItemFields(item.id, {
               price_entry_mode: 'ht',
               unit_price: ht,
-              unit_price_ttc: null,
+              unit_price_ttc: deriveUnitTtc(ht, item.tva_rate ?? 20),
             })
           }}
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
@@ -284,16 +285,16 @@ function SortableItemRow({
             const oldTva = item.tva_rate ?? 20
             if (newTva !== oldTva) {
               if (((item as any).price_entry_mode ?? 'ht') === 'ttc') {
-                const ttc =
-                  (item as any).unit_price_ttc ??
-                  (item.unit_price ?? 0) * (1 + oldTva / 100)
+                const ttc = (item as any).unit_price_ttc ?? 0
                 onUpdateItemFields(item.id, {
                   tva_rate: newTva,
-                  unit_price_ttc: ttc,
                   unit_price: deriveUnitHt(ttc, newTva),
                 })
               } else {
-                onUpdateItemFields(item.id, { tva_rate: newTva })
+                onUpdateItemFields(item.id, {
+                  tva_rate: newTva,
+                  unit_price_ttc: deriveUnitTtc(item.unit_price ?? 0, newTva),
+                })
               }
             }
           }}
@@ -394,6 +395,7 @@ export function QuoteEditor({
   const [extraName, setExtraName] = useState('')
   const [extraDescription, setExtraDescription] = useState('')
   const [extraQuantity, setExtraQuantity] = useState(1)
+  const [extraUnitPriceHt, setExtraUnitPriceHt] = useState(0)
   const [extraUnitPrice, setExtraUnitPrice] = useState(0)
   const [extraTvaRate, setExtraTvaRate] = useState(20)
 
@@ -436,6 +438,7 @@ export function QuoteEditor({
   const [activeTab, setActiveTab] = useState('general')
   const [activeCondition, setActiveCondition] = useState('devis')
   const [documentType, setDocumentType] = useState<DocumentType>('devis')
+  const [creditNoteOpen, setCreditNoteOpen] = useState(false)
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
   const [productSearch, setProductSearch] = useState('')
   const [packagePopoverOpen, setPackagePopoverOpen] = useState(false)
@@ -2305,6 +2308,25 @@ export function QuoteEditor({
                             </div>
                             <div>
                               <Label className='text-xs'>
+                                Prix unitaire HT
+                              </Label>
+                              <Input
+                                type='number'
+                                min={0}
+                                step={0.01}
+                                value={extraUnitPriceHt}
+                                onChange={(e) => {
+                                  const ht = parseFloat(e.target.value) || 0
+                                  setExtraUnitPriceHt(ht)
+                                  setExtraUnitPrice(
+                                    deriveUnitTtc(ht, extraTvaRate)
+                                  )
+                                }}
+                                className='mt-1 h-8 text-xs'
+                              />
+                            </div>
+                            <div>
+                              <Label className='text-xs'>
                                 Prix unitaire TTC
                               </Label>
                               <Input
@@ -2312,21 +2334,15 @@ export function QuoteEditor({
                                 min={0}
                                 step={0.01}
                                 value={extraUnitPrice}
-                                onChange={(e) =>
-                                  setExtraUnitPrice(
-                                    parseFloat(e.target.value) || 0
+                                onChange={(e) => {
+                                  const ttc = parseFloat(e.target.value) || 0
+                                  setExtraUnitPrice(ttc)
+                                  setExtraUnitPriceHt(
+                                    deriveUnitHt(ttc, extraTvaRate)
                                   )
-                                }
+                                }}
                                 className='mt-1 h-8 text-xs'
                               />
-                              <p className='mt-0.5 text-[10px] text-muted-foreground'>
-                                ={' '}
-                                {deriveHtFromTtc(
-                                  extraUnitPrice,
-                                  extraTvaRate
-                                ).toFixed(2)}{' '}
-                                € HT
-                              </p>
                             </div>
                             <div>
                               <Label className='text-xs'>TVA %</Label>
@@ -2335,11 +2351,13 @@ export function QuoteEditor({
                                 min={0}
                                 max={100}
                                 value={extraTvaRate}
-                                onChange={(e) =>
-                                  setExtraTvaRate(
-                                    parseFloat(e.target.value) || 20
+                                onChange={(e) => {
+                                  const tva = parseFloat(e.target.value) || 20
+                                  setExtraTvaRate(tva)
+                                  setExtraUnitPrice(
+                                    deriveUnitTtc(extraUnitPriceHt, tva)
                                   )
-                                }
+                                }}
                                 className='mt-1 h-8 text-xs'
                               />
                             </div>
@@ -2360,10 +2378,9 @@ export function QuoteEditor({
                                         name: extraName,
                                         description: extraDescription || null,
                                         quantity: extraQuantity,
-                                        unit_price: deriveHtFromTtc(
-                                          extraUnitPrice,
-                                          extraTvaRate
-                                        ),
+                                        unit_price: extraUnitPriceHt,
+                                        unit_price_ttc: extraUnitPrice,
+                                        price_entry_mode: 'ttc',
                                         tva_rate: extraTvaRate,
                                       } as any,
                                       {
@@ -2373,6 +2390,7 @@ export function QuoteEditor({
                                           setExtraName('')
                                           setExtraDescription('')
                                           setExtraQuantity(1)
+                                          setExtraUnitPriceHt(0)
                                           setExtraUnitPrice(0)
                                           setExtraTvaRate(20)
                                         },
@@ -2389,10 +2407,9 @@ export function QuoteEditor({
                                         name: extraName,
                                         description: extraDescription,
                                         quantity: extraQuantity,
-                                        unitPrice: deriveHtFromTtc(
-                                          extraUnitPrice,
-                                          extraTvaRate
-                                        ),
+                                        unitPrice: extraUnitPriceHt,
+                                        unitPriceTtc: extraUnitPrice,
+                                        priceEntryMode: 'ttc',
                                         tvaRate: extraTvaRate,
                                         position: items.length,
                                         itemType: 'extra',
@@ -2403,6 +2420,7 @@ export function QuoteEditor({
                                           setExtraName('')
                                           setExtraDescription('')
                                           setExtraQuantity(1)
+                                          setExtraUnitPriceHt(0)
                                           setExtraUnitPrice(0)
                                           setExtraTvaRate(20)
                                         },
@@ -2432,6 +2450,7 @@ export function QuoteEditor({
                                 setExtraName('')
                                 setExtraDescription('')
                                 setExtraQuantity(1)
+                                setExtraUnitPriceHt(0)
                                 setExtraUnitPrice(0)
                                 setExtraTvaRate(20)
                               }}
@@ -2513,14 +2532,18 @@ export function QuoteEditor({
                                             extra.description || ''
                                           )
                                           setExtraQuantity(extra.quantity ?? 1)
+                                          setExtraUnitPriceHt(
+                                            extra.unit_price ?? 0
+                                          )
                                           setExtraUnitPrice(
-                                            Math.round(
-                                              (extra.unit_price ?? 0) *
-                                                (1 +
-                                                  (extra.tva_rate ?? 20) /
-                                                    100) *
-                                                100
-                                            ) / 100
+                                            (extra as any).unit_price_ttc ??
+                                              Math.round(
+                                                (extra.unit_price ?? 0) *
+                                                  (1 +
+                                                    (extra.tva_rate ?? 20) /
+                                                      100) *
+                                                  100
+                                              ) / 100
                                           )
                                           setExtraTvaRate(extra.tva_rate ?? 20)
                                         }}
@@ -2638,6 +2661,21 @@ export function QuoteEditor({
                   variant='outline'
                   size='sm'
                   className='h-7 gap-1.5 text-xs'
+                  onClick={() => {
+                    if (!quoteData?.id) {
+                      toast.error('Devis non disponible')
+                      return
+                    }
+                    setCreditNoteOpen(true)
+                  }}
+                >
+                  <ReceiptText className='h-3 w-3' />
+                  {"Générer une facture d'avoir"}
+                </Button>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  className='h-7 gap-1.5 text-xs'
                   onClick={async () => {
                     if (!quoteData?.id) {
                       toast.error('Devis non disponible')
@@ -2678,6 +2716,14 @@ export function QuoteEditor({
                   Télécharger PDF
                 </Button>
               </div>
+              {quoteData && (
+                <CreditNoteDialog
+                  quote={quoteData as any}
+                  payments={bookingPayments}
+                  open={creditNoteOpen}
+                  onOpenChange={setCreditNoteOpen}
+                />
+              )}
               <div className='flex-1 overflow-auto'>
                 <div className='p-4'>
                   <QuotePreview

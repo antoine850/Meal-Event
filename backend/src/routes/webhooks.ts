@@ -391,6 +391,14 @@ async function handlePaymentSuccess(
           deposit_paid_at: new Date().toISOString(),
         })
         .eq('id', quote_id)
+
+      // Fige l'acompte en euros au montant encaisse (si pas deja fige), pour qu'il ne se
+      // recalcule plus en % si le total du devis change ensuite.
+      await supabase
+        .from('quotes')
+        .update({ deposit_amount_override: (session.amount_total || 0) / 100 })
+        .eq('id', quote_id)
+        .is('deposit_amount_override', null)
     } else if (quote_id && link_type === 'balance') {
       await supabase
         .from('quotes')
@@ -605,6 +613,14 @@ async function handleInvoicePaymentSuccess(
           deposit_paid_at: new Date().toISOString(),
         })
         .eq('id', quote_id)
+
+      // Fige l'acompte en euros au montant encaisse (si pas deja fige), pour qu'il ne se
+      // recalcule plus en % si le total du devis change ensuite.
+      await supabase
+        .from('quotes')
+        .update({ deposit_amount_override: (invoice.amount_paid || 0) / 100 })
+        .eq('id', quote_id)
+        .is('deposit_amount_override', null)
     } else if (quote_id && link_type === 'balance') {
       await supabase
         .from('quotes')

@@ -9,11 +9,18 @@ import {
   buildBalanceEmailHtml,
   buildBalanceEmailSubject,
 } from '../lib/email-templates.js'
-import { generateQuotePdf, fetchQuoteFullData } from '../lib/pdf-generator.js'
+import {
+  generateQuotePdf,
+  fetchQuoteFullData,
+  generateCreditNotePdf,
+} from '../lib/pdf-generator.js'
 import {
   formatEuroWhole,
   computeQuoteAmounts,
   computeDepositAmounts,
+  computeCreditNote,
+  computeLineAmounts,
+  round2,
 } from '../lib/quote-rounding.js'
 
 // Montant d'acompte TTC : montant fixe saisi (override) sinon pourcentage, au centime.
@@ -54,7 +61,8 @@ async function savePdfAsDocument(
   storagePath: string,
   docName: string,
   organizationId: string | null,
-  bookingId: string | null
+  bookingId: string | null,
+  opts?: { doc_kind?: string; credit_note_id?: string }
 ) {
   try {
     // Upload to Supabase Storage
@@ -89,7 +97,9 @@ async function savePdfAsDocument(
       file_size: pdfBuffer.length,
       file_path: storagePath,
       file_url: fileUrl,
-    })
+      ...(opts?.doc_kind ? { doc_kind: opts.doc_kind } : {}),
+      ...(opts?.credit_note_id ? { credit_note_id: opts.credit_note_id } : {}),
+    } as any)
 
     if (docError) {
       console.error(
@@ -1309,6 +1319,173 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to send balance invoice' })
   }
 })
+
+// POST /api/quotes/:id/credit-note - Génère un avoir : crédite des prestations,
+// réduit le devis (et son solde), fige l'acompte, émet un document immuable numéroté.
+// Corps : { credits: [{ quote_item_id, credited_ttc }], reason? }
+quotesRouter.post('/:id/credit-note', async (req: Request, res: Response) => {
+  const quoteId = req.params.id
+  const { credits, reason } = req.body as {
+    credits: { quote_item_id: string; credited_ttc: number }[]
+    reason?: string
+  }
+  if (!Array.isArray(credits) || credits.length === 0) {
+    return res.status(400).json({ error: 'NO_CREDITS' })
+  }
+
+  // 1. Charge devis + lignes + booking (restaurant) + paiements encaissés
+  const { data: quote, error: qErr } = await supabase
+    .from('quotes')
+    .select('*, quote_items(*), booking:bookings(id, restaurant_id)')
+    .eq('id', quoteId)
+    .single()
+  if (qErr || !quote)
+    return res.status(404).json({ error: 'QUOTE_NOT_FOUND' })
+
+  const q = quote as any
+  const booking = q.booking
+
+  const { data: payments } = await supabase
+    .from('payments')
+    .select('amount, payment_modality, payment_type, status')
+    .eq('booking_id', booking?.id ?? null)
+    .in('status', ['paid', 'completed'])
+
+  const collectedAcompte = (payments ?? [])
+    .filter(
+      (p: any) =>
+        p.payment_modality === 'acompte' || p.payment_type === 'deposit'
+    )
+    .reduce((s: number, p: any) => s + (p.amount || 0), 0)
+
+  const items = (q.quote_items ?? []).map((i: any) => ({
+    id: i.id,
+    quantity: i.quantity,
+    unit_price: i.unit_price,
+    unit_price_ttc: i.unit_price_ttc,
+    price_entry_mode: i.price_entry_mode,
+    discount_amount: i.discount_amount,
+    tva_rate: i.tva_rate,
+    item_type: i.item_type,
+  }))
+
+  // 2. Calcul (lib partagée)
+  const creditsById: Record<string, number> = {}
+  for (const c of credits) creditsById[c.quote_item_id] = c.credited_ttc
+  const result = computeCreditNote(
+    items,
+    creditsById,
+    q.discount_percentage ?? 0,
+    collectedAcompte
+  )
+
+  // Fige l'acompte au montant réellement encaissé (fallback : acompte sur l'ancien effectif)
+  const frozenDeposit =
+    collectedAcompte > 0
+      ? round2(collectedAcompte)
+      : quoteDepositTtc({ ...q, total_ttc: result.oldEffectiveTtc })
+
+  // Nouveaux totaux du devis = produits seuls (extras hors quote.total_ttc)
+  const productItemsAfter = items
+    .filter(
+      (i: any) => !result.creditedItems.find((c) => c.id === i.id && c.remove)
+    )
+    .map((i: any) => {
+      const upd = result.creditedItems.find((c) => c.id === i.id && !c.remove)
+      return upd ? { ...i, discount_amount: upd.newDiscountAmount } : i
+    })
+    .filter((i: any) => i.item_type !== 'extra')
+  const newTotals = computeQuoteAmounts(
+    productItemsAfter,
+    q.discount_percentage ?? 0
+  )
+
+  // 3. Snapshot des lignes créditées pour credit_note_items
+  const creditItems = result.creditedItems.map((c) => {
+    const src = q.quote_items.find((i: any) => i.id === c.id)
+    const line = computeLineAmounts(src)
+    return {
+      source_quote_item_id: c.id,
+      name: src.name,
+      description: src.description ?? null,
+      quantity: src.quantity,
+      unit_price: src.unit_price,
+      tva_rate: src.tva_rate,
+      item_type: src.item_type ?? 'product',
+      total_ht: line.totalHt,
+      total_ttc: line.totalTtc,
+      credited_ttc: c.creditedTtc,
+    }
+  })
+
+  // 4. Écriture atomique via RPC
+  const { data: cn, error: rpcErr } = await supabase.rpc('create_credit_note', {
+    p_organization_id: q.organization_id,
+    p_restaurant_id: booking?.restaurant_id ?? null,
+    p_booking_id: booking?.id ?? null,
+    p_quote_id: quoteId,
+    p_reason: reason ?? null,
+    p_new_total_ht: newTotals.totalHt,
+    p_new_total_tva: newTotals.totalTva,
+    p_new_total_ttc: newTotals.totalTtc,
+    p_deposit_override: frozenDeposit,
+    p_avoir_ht: result.avoirHt,
+    p_avoir_tva: result.avoirTva,
+    p_avoir_ttc: result.avoirTtc,
+    p_old_effective_ttc: result.oldEffectiveTtc,
+    p_new_effective_ttc: result.newEffectiveTtc,
+    p_overpaid_ttc: result.overpaidTtc,
+    p_removed_item_ids: result.creditedItems
+      .filter((c) => c.remove)
+      .map((c) => c.id),
+    p_updated_items: result.creditedItems
+      .filter((c) => !c.remove)
+      .map((c) => ({ id: c.id, discount_amount: c.newDiscountAmount })),
+    p_credit_items: creditItems,
+    p_created_by: (req as any).user?.id ?? null,
+  } as any)
+  if (rpcErr || !cn)
+    return res
+      .status(500)
+      .json({ error: 'CREDIT_NOTE_FAILED', detail: rpcErr?.message })
+
+  const creditNote = cn as any
+
+  // 5. Effets de bord : PDF + ligne documents (avoir régénérable, pas de rollback)
+  try {
+    const pdf = await generateCreditNotePdf(creditNote.id)
+    const path = `${q.organization_id}/quotes/${quoteId}/avoir-${creditNote.avoir_number}.pdf`
+    await savePdfAsDocument(
+      pdf,
+      `avoir-${creditNote.avoir_number}.pdf`,
+      path,
+      `Avoir - ${creditNote.avoir_number}`,
+      q.organization_id,
+      booking?.id ?? null,
+      { doc_kind: 'avoir', credit_note_id: creditNote.id }
+    )
+  } catch (e) {
+    console.error('[credit-note] pdf/storage failed', e)
+  }
+
+  res.json({ credit_note: creditNote })
+})
+
+// GET /api/quotes/credit-notes/:id/download-pdf - Télécharge le PDF d'un avoir (inline)
+quotesRouter.get(
+  '/credit-notes/:id/download-pdf',
+  async (req: Request, res: Response) => {
+    try {
+      const pdfBuffer = await generateCreditNotePdf(req.params.id)
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', 'inline; filename="avoir.pdf"')
+      res.send(pdfBuffer)
+    } catch (error) {
+      console.error('Error generating credit note PDF for download:', error)
+      res.status(500).json({ error: 'Erreur lors de la génération du PDF' })
+    }
+  }
+)
 
 // GET /api/quotes/:id/download-pdf?type=devis|acompte|solde - Download PDF
 quotesRouter.get('/:id/download-pdf', async (req: Request, res: Response) => {
