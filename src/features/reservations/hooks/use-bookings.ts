@@ -854,6 +854,14 @@ export function useCreatePayment() {
                 deposit_paid_at: new Date().toISOString(),
               })
               .eq('id', quoteId)
+
+            // Fige l'acompte en euros au montant encaisse (si pas deja fige), pour qu'il ne se
+            // recalcule plus en % si le total du devis change ensuite.
+            await supabase
+              .from('quotes')
+              .update({ deposit_amount_override: amount } as never)
+              .eq('id', quoteId)
+              .is('deposit_amount_override', null)
           }
         } else if (modality === 'solde' || paymentType === 'balance') {
           // Balance paid → update quote status only (booking status "Fonction envoyée" is manual)
