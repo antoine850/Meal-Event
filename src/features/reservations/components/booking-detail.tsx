@@ -34,6 +34,7 @@ import {
   ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
 import type { Payment, Quote } from '@/lib/supabase/types'
 import {
   AlertDialog,
@@ -63,7 +64,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { SendEmailMenuItems } from './send-email-menu'
 import {
   Form,
   FormControl,
@@ -137,11 +137,34 @@ import {
   useSendSignature,
   useSendDeposit,
   useSendBalance,
+  useCreditNotesByBooking,
 } from '../hooks/use-quotes'
+import { CreditNoteDialog } from './credit-note-dialog'
 import { FicheFonction } from './fiche-fonction'
 import { MenuFormBuilder } from './menu-form-builder'
 import { PaymentDialog } from './payment-dialog'
 import { QuoteEditor } from './quote-editor'
+import { SendEmailMenuItems } from './send-email-menu'
+
+const API_BASE_URL = import.meta.env.DEV
+  ? ''
+  : import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
+// Libellé du type de document : depuis doc_kind, sinon depuis le 1er mot du nom.
+function docKindLabel(doc: { doc_kind?: string | null; name?: string | null }) {
+  const byKind: Record<string, string> = {
+    avoir: 'Avoir',
+    facture_acompte: 'Facture acompte',
+    facture_solde: 'Facture solde',
+    devis: 'Devis',
+  }
+  if (doc.doc_kind && byKind[doc.doc_kind]) return byKind[doc.doc_kind]
+  const first = (doc.name || '').trim().split(/\s+/)[0]?.toLowerCase()
+  if (first === 'avoir') return 'Avoir'
+  if (first === 'devis') return 'Devis'
+  if (first === 'facture') return 'Facture'
+  return null
+}
 
 const bookingDetailSchema = z.object({
   contact_id: z.string().min(1, 'Le contact est requis'),
@@ -186,6 +209,7 @@ export const BookingDetail = forwardRef<
   const { mutate: setPrimaryQuote, isPending: isSettingPrimary } =
     useSetPrimaryQuote()
   const { data: payments = [] } = usePaymentsByBooking(booking.id)
+  const { data: creditNotes = [] } = useCreditNotesByBooking(booking.id)
   const { data: documents = [] } = useDocumentsByBooking(booking.id)
   const { mutate: uploadDocument } = useUploadDocument()
   const { mutate: deleteDocument, isPending: isDeletingDocument } =
@@ -216,6 +240,9 @@ export const BookingDetail = forwardRef<
   const [quoteEditorOpen, setQuoteEditorOpen] = useState(false)
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [deleteQuoteId, setDeleteQuoteId] = useState<string | null>(null)
+  const [creditNoteQuoteId, setCreditNoteQuoteId] = useState<string | null>(
+    null
+  )
   // Multi-quote email send dialog
   const [sendEmailDialogOpen, setSendEmailDialogOpen] = useState(false)
   const [_sendEmailSourceQuoteId, setSendEmailSourceQuoteId] = useState<
@@ -601,7 +628,9 @@ export const BookingDetail = forwardRef<
                                   min_revenue_privatization_eur:
                                     (
                                       booking.restaurant as {
-                                        min_revenue_privatization_eur?: number | null
+                                        min_revenue_privatization_eur?:
+                                          | number
+                                          | null
                                       }
                                     ).min_revenue_privatization_eur ?? null,
                                 }
@@ -2125,6 +2154,15 @@ export const BookingDetail = forwardRef<
                                         </DropdownMenuItem>
 
                                         <DropdownMenuItem
+                                          onClick={() =>
+                                            setCreditNoteQuoteId(quote.id)
+                                          }
+                                        >
+                                          <Receipt className='mr-2 h-3.5 w-3.5' />
+                                          Générer une facture d'avoir
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem
                                           className='text-destructive focus:text-destructive'
                                           onClick={() =>
                                             setDeleteQuoteId(quote.id)
@@ -2188,6 +2226,86 @@ export const BookingDetail = forwardRef<
                     </CardContent>
                   </Card>
 
+                  {/* Avoirs Section */}
+                  <Card>
+                    <CardHeader className='pb-3'>
+                      <CardTitle className='text-base'>Avoirs</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {creditNotes.length > 0 ? (
+                        <div className='space-y-2'>
+                          {creditNotes.map((cn) => (
+                            <div
+                              key={cn.id}
+                              className='flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50'
+                            >
+                              <div className='min-w-0 flex-1'>
+                                <div className='flex items-center gap-2 text-sm font-medium'>
+                                  <span className='truncate'>
+                                    {cn.avoir_number}
+                                  </span>
+                                  <span className='font-semibold'>
+                                    {formatEuroWhole(cn.total_ttc)}
+                                  </span>
+                                </div>
+                                <p className='text-xs text-muted-foreground'>
+                                  {cn.issued_at
+                                    ? new Date(cn.issued_at).toLocaleDateString(
+                                        'fr-FR'
+                                      )
+                                    : ''}
+                                  {cn.reason ? ` • ${cn.reason}` : ''}
+                                </p>
+                              </div>
+                              <Button
+                                size='sm'
+                                variant='ghost'
+                                onClick={async () => {
+                                  try {
+                                    const {
+                                      data: { session },
+                                    } = await supabase.auth.getSession()
+                                    const response = await fetch(
+                                      `${API_BASE_URL}/api/quotes/credit-notes/${cn.id}/download-pdf`,
+                                      {
+                                        headers: session?.access_token
+                                          ? {
+                                              Authorization: `Bearer ${session.access_token}`,
+                                            }
+                                          : {},
+                                      }
+                                    )
+                                    if (!response.ok)
+                                      throw new Error('Erreur serveur')
+                                    const blob = await response.blob()
+                                    const url = URL.createObjectURL(blob)
+                                    const a = document.createElement('a')
+                                    a.href = url
+                                    a.download = `${cn.avoir_number}.pdf`
+                                    document.body.appendChild(a)
+                                    a.click()
+                                    document.body.removeChild(a)
+                                    URL.revokeObjectURL(url)
+                                  } catch {
+                                    toast.error(
+                                      "Erreur lors du téléchargement de l'avoir"
+                                    )
+                                  }
+                                }}
+                              >
+                                <Download className='h-3.5 w-3.5' />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className='py-6 text-center text-muted-foreground'>
+                          <p className='text-sm'>Aucun avoir émis.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   {/* Paiements / Cautions Section */}
                   <Card>
                     <CardHeader className='pb-3'>
@@ -2245,6 +2363,15 @@ export const BookingDetail = forwardRef<
                           )
                           .reduce((sum, p) => sum + (p.amount || 0), 0)
                         const soldeRestant = totalDevisTtc - paiementsRecus
+                        // Informatif : les totaux devis reflètent déjà la réduction.
+                        const avoirsTtc = creditNotes.reduce(
+                          (sum, cn) => sum + (cn.total_ttc || 0),
+                          0
+                        )
+                        const tropPercu = creditNotes.reduce(
+                          (sum, cn) => sum + (cn.overpaid_ttc || 0),
+                          0
+                        )
 
                         if (totalDevisTtc > 0 || paiementsRecus > 0) {
                           // La remise s'applique uniquement au devis principal (les extras
@@ -2306,6 +2433,26 @@ export const BookingDetail = forwardRef<
                                   - {formatEuroAdaptive(paiementsRecus)}
                                 </span>
                               </div>
+                              {avoirsTtc > 0 && (
+                                <div className='flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-2'>
+                                  <span className='text-muted-foreground'>
+                                    Avoirs émis
+                                  </span>
+                                  <span className='font-medium'>
+                                    {formatEuroAdaptive(avoirsTtc)}
+                                  </span>
+                                </div>
+                              )}
+                              {tropPercu > 0 && (
+                                <div className='flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-2'>
+                                  <span className='text-destructive'>
+                                    Trop-perçu
+                                  </span>
+                                  <span className='font-medium text-destructive'>
+                                    {formatEuroAdaptive(tropPercu)}
+                                  </span>
+                                </div>
+                              )}
                               <Separator className='my-1' />
                               <div className='flex flex-col gap-0.5 font-semibold sm:flex-row sm:justify-between sm:gap-2'>
                                 <span>Solde restant</span>
@@ -2552,14 +2699,24 @@ export const BookingDetail = forwardRef<
                                 <div className='flex min-w-0 flex-1 items-center gap-3'>
                                   <FileText className='h-5 w-5 flex-shrink-0 text-muted-foreground' />
                                   <div className='min-w-0 flex-1'>
-                                    <a
-                                      href={doc.file_url}
-                                      target='_blank'
-                                      rel='noopener noreferrer'
-                                      className='block truncate text-sm font-medium hover:underline'
-                                    >
-                                      {doc.name}
-                                    </a>
+                                    <div className='flex items-center gap-2'>
+                                      <a
+                                        href={doc.file_url}
+                                        target='_blank'
+                                        rel='noopener noreferrer'
+                                        className='truncate text-sm font-medium hover:underline'
+                                      >
+                                        {doc.name}
+                                      </a>
+                                      {docKindLabel(doc) && (
+                                        <Badge
+                                          variant='outline'
+                                          className='h-5 flex-shrink-0 px-1.5 py-0 text-[9px]'
+                                        >
+                                          {docKindLabel(doc)}
+                                        </Badge>
+                                      )}
+                                    </div>
                                     <p className='text-xs text-muted-foreground'>
                                       {doc.file_size
                                         ? `${(doc.file_size / 1024).toFixed(2)} KB`
@@ -3470,6 +3627,21 @@ export const BookingDetail = forwardRef<
           </div>
         </DialogContent>
       </Dialog>
+
+      {(() => {
+        const creditQuote = quotes.find((q) => q.id === creditNoteQuoteId)
+        if (!creditQuote) return null
+        return (
+          <CreditNoteDialog
+            quote={creditQuote as any}
+            payments={payments}
+            open={!!creditNoteQuoteId}
+            onOpenChange={(open) => {
+              if (!open) setCreditNoteQuoteId(null)
+            }}
+          />
+        )
+      })()}
 
       <AlertDialog
         open={!!deleteQuoteId}
