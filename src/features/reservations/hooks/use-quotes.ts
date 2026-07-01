@@ -158,6 +158,93 @@ export function useSendBalance() {
 }
 
 // ============================================
+// Facture d'avoir
+// ============================================
+
+// credit_notes / credit_note_items ne sont pas encore dans les types Supabase generes.
+// Interface locale (cast via `as any` sur la requete, cf. unit_price_ttc ailleurs).
+export type CreditNoteItem = {
+  id: string
+  credit_note_id: string
+  source_quote_item_id: string | null
+  name: string
+  description: string | null
+  quantity: number
+  unit_price: number
+  tva_rate: number
+  item_type: string
+  total_ht: number
+  total_ttc: number
+  credited_ttc: number
+}
+
+export type CreditNote = {
+  id: string
+  avoir_number: string
+  issued_at: string
+  reason: string | null
+  total_ht: number
+  total_tva: number
+  total_ttc: number
+  overpaid_ttc: number
+  quote_id: string | null
+  booking_id: string | null
+  created_at: string
+  credit_note_items: CreditNoteItem[]
+}
+
+export function useCreateCreditNote() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      quoteId,
+      bookingId: _bookingId,
+      credits,
+      reason,
+    }: {
+      quoteId: string
+      bookingId: string
+      credits: { quote_item_id: string; credited_ttc: number }[]
+      reason?: string
+    }) => {
+      return apiClient<{ credit_note: CreditNote }>(
+        `/api/quotes/${quoteId}/credit-note`,
+        {
+          method: 'POST',
+          body: { credits, reason },
+        }
+      )
+    },
+    onSuccess: (_, { bookingId, quoteId }) => {
+      queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
+      queryClient.invalidateQueries({ queryKey: ['quotes', bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['credit-notes', bookingId] })
+      queryClient.invalidateQueries({ queryKey: ['payments', bookingId] })
+    },
+  })
+}
+
+export function useCreditNotesByBooking(bookingId: string | null) {
+  return useQuery<CreditNote[]>({
+    queryKey: ['credit-notes', bookingId],
+    queryFn: async () => {
+      if (!bookingId) return []
+
+      const { data, error } = await supabase
+        .from('credit_notes' as any)
+        .select('*, credit_note_items(*)')
+        .eq('booking_id', bookingId)
+        .order('issued_at', { ascending: false })
+
+      if (error) throw error
+      return (data ?? []) as unknown as CreditNote[]
+    },
+    enabled: !!bookingId,
+  })
+}
+
+// ============================================
 // Types
 // ============================================
 
