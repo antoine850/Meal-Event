@@ -92,7 +92,10 @@ import {
   useContactSearch,
 } from '@/features/contacts/hooks/use-contacts'
 import {
-  computeQuoteTotals,
+  computeQuoteAmounts,
+  computeDepositAmounts,
+  computeBalanceTtc,
+  deriveUnitHt,
   formatEuroWhole,
   formatEuroDecimal,
 } from '@/features/reservations/lib/quote-rounding'
@@ -234,20 +237,22 @@ function SortableItemRow({
       </TableCell>
       <TableCell>
         <Input
-          key={`ttc-${item.tva_rate ?? 20}-${item.unit_price ?? 0}`}
+          key={`ttc-${item.tva_rate ?? 20}-${(item as any).unit_price_ttc ?? item.unit_price ?? 0}`}
           type='number'
           step='0.01'
           defaultValue={
+            (item as any).unit_price_ttc ??
             Math.round(
               (item.unit_price ?? 0) * (1 + (item.tva_rate ?? 20) / 100) * 100
             ) / 100
           }
           onBlur={(e) => {
             const ttc = parseFloat(e.target.value) || 0
-            const ht = deriveHtFromTtc(ttc, item.tva_rate ?? 20)
-            if (ht !== (item.unit_price ?? 0)) {
-              onUpdateItem(item.id, 'unit_price', ht)
-            }
+            onUpdateItemFields(item.id, {
+              price_entry_mode: 'ttc',
+              unit_price_ttc: ttc,
+              unit_price: deriveUnitHt(ttc, item.tva_rate ?? 20),
+            })
           }}
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
         />
@@ -260,9 +265,11 @@ function SortableItemRow({
           defaultValue={item.unit_price ?? 0}
           onBlur={(e) => {
             const ht = parseFloat(e.target.value) || 0
-            if (ht !== (item.unit_price ?? 0)) {
-              onUpdateItem(item.id, 'unit_price', ht)
-            }
+            onUpdateItemFields(item.id, {
+              price_entry_mode: 'ht',
+              unit_price: ht,
+              unit_price_ttc: null,
+            })
           }}
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
         />
@@ -276,11 +283,18 @@ function SortableItemRow({
             const newTva = parseFloat(e.target.value) || 20
             const oldTva = item.tva_rate ?? 20
             if (newTva !== oldTva) {
-              const ttc = (item.unit_price ?? 0) * (1 + oldTva / 100)
-              onUpdateItemFields(item.id, {
-                tva_rate: newTva,
-                unit_price: deriveHtFromTtc(ttc, newTva),
-              })
+              if (((item as any).price_entry_mode ?? 'ht') === 'ttc') {
+                const ttc =
+                  (item as any).unit_price_ttc ??
+                  (item.unit_price ?? 0) * (1 + oldTva / 100)
+                onUpdateItemFields(item.id, {
+                  tva_rate: newTva,
+                  unit_price_ttc: ttc,
+                  unit_price: deriveUnitHt(ttc, newTva),
+                })
+              } else {
+                onUpdateItemFields(item.id, { tva_rate: newTva })
+              }
             }
           }}
           className='h-7 w-16 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
@@ -324,7 +338,7 @@ function SortableItemRow({
         {formatEuroDecimal((item.total_ht as number) || 0)}
       </TableCell>
       <TableCell className='text-right text-xs'>
-        {formatEuroWhole((item.total_ttc as number) || 0)}
+        {formatEuroDecimal((item.total_ttc as number) || 0)}
       </TableCell>
       <TableCell>
         <div className='flex items-center gap-0.5'>
@@ -851,9 +865,9 @@ export function QuoteEditor({
   const products = items.filter((item) => item.item_type !== 'extra')
   const extras = items.filter((item) => item.item_type === 'extra')
 
-  // Totaux calculés depuis les champs bruts via l'helper unifié (TTC = Math.ceil à l'euro).
-  const rawTotals = computeQuoteTotals(products, 0)
-  const finalTotals = computeQuoteTotals(products, discountPercentage)
+  // Totaux au centime (somme des lignes, remise en pied), ancrage HT/TTC par ligne.
+  const rawTotals = computeQuoteAmounts(products, 0)
+  const finalTotals = computeQuoteAmounts(products, discountPercentage)
   const rawTotalHt = rawTotals.totalHt
   const rawTotalTtc = rawTotals.totalTtc
   const totalHt = finalTotals.totalHt
@@ -861,8 +875,10 @@ export function QuoteEditor({
   const depositAmount =
     depositMode === 'amount'
       ? parseFloat(depositAmountOverride) || 0
-      : Math.ceil(totalTtc * (depositPercentage / 100))
-  const balanceAmount = totalTtc - depositAmount
+      : computeDepositAmounts(totalTtc, totalHt, {
+          percentage: depositPercentage,
+        }).ttc
+  const balanceAmount = computeBalanceTtc(totalTtc, depositAmount)
 
   // Build preview data
   const previewData = {
@@ -987,7 +1003,7 @@ export function QuoteEditor({
             </div>
             <div className='flex items-center gap-2'>
               <span className='text-sm font-semibold'>
-                Total TTC: {formatEuroWhole(totalTtc)}
+                Total TTC: {formatEuroDecimal(totalTtc)}
               </span>
               {isDirty && (
                 <Button size='sm' onClick={saveAllFields}>
@@ -1142,7 +1158,7 @@ export function QuoteEditor({
                                 Acompte
                               </span>
                               <Badge variant='outline'>
-                                {formatEuroWhole(depositAmount)}
+                                {formatEuroDecimal(depositAmount)}
                               </Badge>
                             </div>
                             <div className='grid grid-cols-3 gap-2'>
@@ -1247,7 +1263,7 @@ export function QuoteEditor({
                             <div className='flex items-center justify-between'>
                               <span className='text-sm font-medium'>Solde</span>
                               <Badge variant='outline'>
-                                {formatEuroWhole(balanceAmount)}
+                                {formatEuroDecimal(balanceAmount)}
                               </Badge>
                             </div>
                             <div className='grid grid-cols-2 gap-2'>
@@ -2230,7 +2246,7 @@ export function QuoteEditor({
                             <Separator />
                             <div className='flex justify-between text-sm font-semibold'>
                               <span>Total TTC</span>
-                              <span>{formatEuroWhole(totalTtc)}</span>
+                              <span>{formatEuroDecimal(totalTtc)}</span>
                             </div>
                           </div>
                         </div>

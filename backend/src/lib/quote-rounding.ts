@@ -102,7 +102,7 @@ export type LineAmountsInput = {
   quantity?: number | null
   unit_price?: number | null // HT
   unit_price_ttc?: number | null // TTC (saisie TTC)
-  price_entry_mode?: PriceEntryMode | null
+  price_entry_mode?: string | null // 'ht' (defaut) | 'ttc'
   discount_amount?: number | null
   tva_rate?: number | null
 }
@@ -123,9 +123,8 @@ export function computeLineAmounts(input: LineAmountsInput): QuoteTotals {
   const rate = input.tva_rate ?? 0
   const discount = input.discount_amount ?? 0
   const mult = 1 + rate / 100
-  const mode: PriceEntryMode = input.price_entry_mode ?? 'ht'
 
-  if (mode === 'ttc') {
+  if (input.price_entry_mode === 'ttc') {
     const unitTtc = input.unit_price_ttc ?? (input.unit_price ?? 0) * mult
     const totalTtc = round2(qty * unitTtc - discount)
     const totalHt = rate <= -100 ? 0 : round2(totalTtc / mult)

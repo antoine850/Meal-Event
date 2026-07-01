@@ -1652,12 +1652,14 @@ export type Database = {
           item_type: string | null
           name: string
           position: number | null
+          price_entry_mode: string
           quantity: number | null
           quote_id: string | null
           total_ht: number | null
           total_ttc: number | null
           tva_rate: number | null
           unit_price: number
+          unit_price_ttc: number | null
         }
         Insert: {
           booking_product_service_id?: string | null
@@ -1668,12 +1670,14 @@ export type Database = {
           item_type?: string | null
           name: string
           position?: number | null
+          price_entry_mode?: string
           quantity?: number | null
           quote_id?: string | null
           total_ht?: number | null
           total_ttc?: number | null
           tva_rate?: number | null
           unit_price: number
+          unit_price_ttc?: number | null
         }
         Update: {
           booking_product_service_id?: string | null
@@ -1684,12 +1688,14 @@ export type Database = {
           item_type?: string | null
           name?: string
           position?: number | null
+          price_entry_mode?: string
           quantity?: number | null
           quote_id?: string | null
           total_ht?: number | null
           total_ttc?: number | null
           tva_rate?: number | null
           unit_price?: number
+          unit_price_ttc?: number | null
         }
         Relationships: [
           {
