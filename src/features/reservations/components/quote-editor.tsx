@@ -95,7 +95,6 @@ import {
   computeQuoteAmounts,
   computeDepositAmounts,
   computeBalanceTtc,
-  deriveUnitHt,
   formatEuroWhole,
   formatEuroDecimal,
 } from '@/features/reservations/lib/quote-rounding'
@@ -251,7 +250,6 @@ function SortableItemRow({
             onUpdateItemFields(item.id, {
               price_entry_mode: 'ttc',
               unit_price_ttc: ttc,
-              unit_price: deriveUnitHt(ttc, item.tva_rate ?? 20),
             })
           }}
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
@@ -268,7 +266,6 @@ function SortableItemRow({
             onUpdateItemFields(item.id, {
               price_entry_mode: 'ht',
               unit_price: ht,
-              unit_price_ttc: null,
             })
           }}
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
@@ -283,18 +280,7 @@ function SortableItemRow({
             const newTva = parseFloat(e.target.value) || 20
             const oldTva = item.tva_rate ?? 20
             if (newTva !== oldTva) {
-              if (((item as any).price_entry_mode ?? 'ht') === 'ttc') {
-                const ttc =
-                  (item as any).unit_price_ttc ??
-                  (item.unit_price ?? 0) * (1 + oldTva / 100)
-                onUpdateItemFields(item.id, {
-                  tva_rate: newTva,
-                  unit_price_ttc: ttc,
-                  unit_price: deriveUnitHt(ttc, newTva),
-                })
-              } else {
-                onUpdateItemFields(item.id, { tva_rate: newTva })
-              }
+              onUpdateItemFields(item.id, { tva_rate: newTva })
             }
           }}
           className='h-7 w-16 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
