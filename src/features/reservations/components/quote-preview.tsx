@@ -507,14 +507,15 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
     return { amount, pct }
   }
 
-  // Regroupement TVA par taux après remise globale (HT/TVA décimaux dérivés).
+  // Regroupement TVA par taux après remise globale. TVA = TTC - HT par ligne (verbatim),
+  // pas HT * taux : le taux ne sert qu'au regroupement.
   const discountMult =
     data.discountPercentage > 0 ? 1 - data.discountPercentage / 100 : 1
   const tvaByRate: Record<number, { ht: number; tva: number }> = {}
   for (const item of data.items) {
     const rate = item.tva_rate || 20
     const ht = computeItemHt(item) * discountMult
-    const tva = ht * (rate / 100)
+    const tva = (computeItemTtc(item) - computeItemHt(item)) * discountMult
     if (!tvaByRate[rate]) tvaByRate[rate] = { ht: 0, tva: 0 }
     tvaByRate[rate].ht += ht
     tvaByRate[rate].tva += tva
