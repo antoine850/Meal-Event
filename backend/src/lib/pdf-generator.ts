@@ -1210,12 +1210,13 @@ function buildDocDefinition(
   // TOTALS SECTION with TVA breakdown
   // ══════════════════════════════════════════════════════════════════
 
-  // Regroupement TVA par taux à partir des HT décimaux des items.
+  // Regroupement TVA par taux. TVA = TTC - HT par ligne (verbatim), pas HT * taux ;
+  // le taux ne sert qu'au regroupement.
   const tvaByRate: Record<number, { ht: number; tva: number }> = {}
   for (const item of items) {
     const rate = item.tva_rate || 20
     const ht = item.total_ht || 0
-    const tva = ht * (rate / 100)
+    const tva = (item.total_ttc || 0) - ht
     if (!tvaByRate[rate]) tvaByRate[rate] = { ht: 0, tva: 0 }
     tvaByRate[rate].ht += ht
     tvaByRate[rate].tva += tva
