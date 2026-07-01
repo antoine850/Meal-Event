@@ -49,31 +49,37 @@ for q in quotes:
     if q.get("external_id") and len(prod) == 1 and "import Booking Shake" in (prod[0].get("name") or ""):
         placeholders.append(q)
 
-def parse_live(eid):
+def candidates(eid):
+    """Parse les docs facture/solde vivants ; dedup au niveau DOCUMENT (pas par ligne, sinon les
+    factures legitimement repetees par echeance s'ecrasent et le total tombe a 1/2, 1/3...). Renvoie
+    les candidats : chaque doc distinct seul (prefere facture puis le + complet) + l'union des docs."""
     docs = [d for d in bill.get(eid, []) if dtype(d) in ("facture", "solde") and is_live(d) and s(d.get("url"))]
-    out = []
+    parsed = []
     for d in docs:
         try:
             its, ok = p4.parse_lines(p4.pdftext(p4.download(s(d.get("url")))))
-            if ok: out += its
+            if ok and its:
+                parsed.append((d, its, round(sum((i["total_ttc"] or 0) for i in its), 2)))
         except Exception:
             pass
     seen, uniq = set(), []
-    for it in out:
-        k = (it["name"], it["total_ttc"])
-        if k not in seen:
-            seen.add(k); uniq.append(it)
-    return uniq
+    for d, its, sm in parsed:
+        sig = tuple(sorted((i["name"], i["total_ttc"]) for i in its))
+        if sig not in seen:
+            seen.add(sig); uniq.append((d, its, sm))
+    singles = sorted(uniq, key=lambda x: (0 if dtype(x[0]) == "facture" else 1, -x[2]))
+    union = [i for _, its, _ in uniq for i in its]
+    return [its for _, its, _ in singles] + ([union] if len(uniq) > 1 else [])
 
 def evaluate(q):
     eid, st = q["external_id"], q.get("total_ttc") or 0
-    its = parse_live(eid)
-    if not its or not st:
+    if not st:
         return None
-    psum = round(sum((i["total_ttc"] or 0) for i in its), 2)
-    if abs(psum - st) <= max(2.0, 0.02 * st) and all(coherent(it) for it in its):
-        return {"q": q, "eid": eid, "items": its, "psum": psum, "stored": st,
-                "delta": round(psum - st, 2), "status": q.get("status")}
+    for its in candidates(eid):
+        psum = round(sum((i["total_ttc"] or 0) for i in its), 2)
+        if abs(psum - st) <= max(2.0, 0.02 * st) and all(coherent(it) for it in its):
+            return {"q": q, "eid": eid, "items": its, "psum": psum, "stored": st,
+                    "delta": round(psum - st, 2), "status": q.get("status")}
     return None
 
 with ThreadPoolExecutor(max_workers=12) as ex:

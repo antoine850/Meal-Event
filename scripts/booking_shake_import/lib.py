@@ -5,9 +5,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CSV_DIR = Path(os.environ.get("BOOKING_SHAKE_CSV_DIR", "/Users/thomas/Downloads"))
-EVENTS_CSV = CSV_DIR / "document (1).csv"
+# Exports FRAIS (2026-06-30). Les anciens etaient document (1)/(3) ; on lit le frais pour la reconciliation.
+EVENTS_CSV = CSV_DIR / "document (7).csv"
 CONTACTS_CSV = CSV_DIR / "document (2).csv"
-BILLING_CSV = CSV_DIR / "document (3).csv"
+BILLING_CSV = CSV_DIR / "document (8).csv"
 
 ORG_ID = "425be1b8-f059-4a4f-8e94-d8b8fe69ab27"
 SOURCE = "booking_shake"
