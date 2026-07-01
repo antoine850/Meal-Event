@@ -94,6 +94,8 @@ import {
   computeQuoteAmounts,
   computeDepositAmounts,
   computeBalanceTtc,
+  deriveUnitHt,
+  deriveUnitTtc,
   formatEuroWhole,
   formatEuroDecimal,
 } from '@/features/reservations/lib/quote-rounding'
@@ -249,6 +251,7 @@ function SortableItemRow({
             onUpdateItemFields(item.id, {
               price_entry_mode: 'ttc',
               unit_price_ttc: ttc,
+              unit_price: deriveUnitHt(ttc, item.tva_rate ?? 20),
             })
           }}
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
@@ -265,6 +268,7 @@ function SortableItemRow({
             onUpdateItemFields(item.id, {
               price_entry_mode: 'ht',
               unit_price: ht,
+              unit_price_ttc: deriveUnitTtc(ht, item.tva_rate ?? 20),
             })
           }}
           className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
@@ -279,7 +283,18 @@ function SortableItemRow({
             const newTva = parseFloat(e.target.value) || 20
             const oldTva = item.tva_rate ?? 20
             if (newTva !== oldTva) {
-              onUpdateItemFields(item.id, { tva_rate: newTva })
+              if (((item as any).price_entry_mode ?? 'ht') === 'ttc') {
+                const ttc = (item as any).unit_price_ttc ?? 0
+                onUpdateItemFields(item.id, {
+                  tva_rate: newTva,
+                  unit_price: deriveUnitHt(ttc, newTva),
+                })
+              } else {
+                onUpdateItemFields(item.id, {
+                  tva_rate: newTva,
+                  unit_price_ttc: deriveUnitTtc(item.unit_price ?? 0, newTva),
+                })
+              }
             }
           }}
           className='h-7 w-16 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
@@ -2298,11 +2313,13 @@ export function QuoteEditor({
                                 min={0}
                                 step={0.01}
                                 value={extraUnitPriceHt}
-                                onChange={(e) =>
-                                  setExtraUnitPriceHt(
-                                    parseFloat(e.target.value) || 0
+                                onChange={(e) => {
+                                  const ht = parseFloat(e.target.value) || 0
+                                  setExtraUnitPriceHt(ht)
+                                  setExtraUnitPrice(
+                                    deriveUnitTtc(ht, extraTvaRate)
                                   )
-                                }
+                                }}
                                 className='mt-1 h-8 text-xs'
                               />
                             </div>
@@ -2315,11 +2332,13 @@ export function QuoteEditor({
                                 min={0}
                                 step={0.01}
                                 value={extraUnitPrice}
-                                onChange={(e) =>
-                                  setExtraUnitPrice(
-                                    parseFloat(e.target.value) || 0
+                                onChange={(e) => {
+                                  const ttc = parseFloat(e.target.value) || 0
+                                  setExtraUnitPrice(ttc)
+                                  setExtraUnitPriceHt(
+                                    deriveUnitHt(ttc, extraTvaRate)
                                   )
-                                }
+                                }}
                                 className='mt-1 h-8 text-xs'
                               />
                             </div>
@@ -2330,11 +2349,13 @@ export function QuoteEditor({
                                 min={0}
                                 max={100}
                                 value={extraTvaRate}
-                                onChange={(e) =>
-                                  setExtraTvaRate(
-                                    parseFloat(e.target.value) || 20
+                                onChange={(e) => {
+                                  const tva = parseFloat(e.target.value) || 20
+                                  setExtraTvaRate(tva)
+                                  setExtraUnitPrice(
+                                    deriveUnitTtc(extraUnitPriceHt, tva)
                                   )
-                                }
+                                }}
                                 className='mt-1 h-8 text-xs'
                               />
                             </div>
