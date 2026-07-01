@@ -222,3 +222,122 @@ export function computeBalanceTtc(
 ): number {
   return round2(totalTtc - collectedTtc)
 }
+
+// --- Facture d'avoir ---
+
+export type EffectiveLineInput = LineAmountsInput & {
+  item_type?: string | null
+}
+
+// Total effectif = produits (avec remise en pied) + extras (hors remise).
+// Reproduit exactement la base de la facture de solde : quote.total_ttc + Σ extras.total_ttc.
+export function computeEffectiveTotals(
+  items: EffectiveLineInput[],
+  discountPercentage: number | null | undefined = 0
+): QuoteTotals {
+  const products = items.filter((i) => i.item_type !== 'extra')
+  const extras = items.filter((i) => i.item_type === 'extra')
+  const prod = computeQuoteAmounts(products, discountPercentage)
+  let extraHt = 0
+  let extraTtc = 0
+  for (const e of extras) {
+    const l = computeLineAmounts(e)
+    extraHt += l.totalHt
+    extraTtc += l.totalTtc
+  }
+  const totalHt = round2(prod.totalHt + extraHt)
+  const totalTtc = round2(prod.totalTtc + extraTtc)
+  return { totalHt, totalTva: round2(totalTtc - totalHt), totalTtc }
+}
+
+// Applique un credit TTC sur une ligne. Retourne la ligne modifiee (remise augmentee,
+// cote ancre selon price_entry_mode) ou null si la ligne est entierement creditee.
+export function applyLineCredit(
+  line: LineAmountsInput,
+  creditedTtc: number
+): LineAmountsInput | null {
+  const current = computeLineAmounts(line).totalTtc
+  if (creditedTtc >= current - 1e-9) return null
+  const rate = line.tva_rate ?? 0
+  const mult = 1 + rate / 100
+  const discount = line.discount_amount ?? 0
+  const addDiscount =
+    line.price_entry_mode === 'ttc'
+      ? creditedTtc
+      : rate <= -100
+        ? 0
+        : creditedTtc / mult
+  return { ...line, discount_amount: round2(discount + addDiscount) }
+}
+
+export type CreditItemInput = EffectiveLineInput & { id: string }
+export type CreditedItem = {
+  id: string
+  creditedTtc: number
+  remove: boolean
+  newDiscountAmount: number | null
+}
+export type CreditNoteResult = {
+  avoirHt: number
+  avoirTva: number
+  avoirTtc: number
+  oldEffectiveHt: number
+  oldEffectiveTtc: number
+  newEffectiveHt: number
+  newEffectiveTtc: number
+  overpaidTtc: number
+  creditedItems: CreditedItem[]
+}
+
+// Coeur du calcul d'avoir. avoir = ancien total effectif - nouveau, mesure apres application.
+export function computeCreditNote(
+  items: CreditItemInput[],
+  creditsByItemId: Record<string, number>,
+  discountPercentage: number | null | undefined,
+  collectedTtc: number
+): CreditNoteResult {
+  const old = computeEffectiveTotals(items, discountPercentage)
+  const creditedItems: CreditedItem[] = []
+  const newItems: CreditItemInput[] = []
+  for (const it of items) {
+    const credit = creditsByItemId[it.id]
+    if (!credit || credit <= 0) {
+      newItems.push(it)
+      continue
+    }
+    const modified = applyLineCredit(it, credit)
+    if (modified === null) {
+      creditedItems.push({
+        id: it.id,
+        creditedTtc: round2(computeLineAmounts(it).totalTtc),
+        remove: true,
+        newDiscountAmount: null,
+      })
+    } else {
+      const actual = round2(
+        computeLineAmounts(it).totalTtc - computeLineAmounts(modified).totalTtc
+      )
+      creditedItems.push({
+        id: it.id,
+        creditedTtc: actual,
+        remove: false,
+        newDiscountAmount: modified.discount_amount ?? null,
+      })
+      newItems.push({ ...it, discount_amount: modified.discount_amount })
+    }
+  }
+  const neu = computeEffectiveTotals(newItems, discountPercentage)
+  const avoirTtc = round2(old.totalTtc - neu.totalTtc)
+  const avoirHt = round2(old.totalHt - neu.totalHt)
+  return {
+    avoirHt,
+    avoirTva: round2(avoirTtc - avoirHt),
+    avoirTtc,
+    oldEffectiveHt: old.totalHt,
+    oldEffectiveTtc: old.totalTtc,
+    newEffectiveHt: neu.totalHt,
+    newEffectiveTtc: neu.totalTtc,
+    overpaidTtc: Math.max(0, round2(collectedTtc - neu.totalTtc)),
+    creditedItems,
+  }
+}
