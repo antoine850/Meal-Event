@@ -97,7 +97,6 @@ import {
   computeBalanceTtc,
   deriveUnitHt,
   deriveUnitTtc,
-  formatEuroWhole,
   formatEuroDecimal,
 } from '@/features/reservations/lib/quote-rounding'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
@@ -2529,7 +2528,7 @@ export function QuoteEditor({
                                     {extra.tva_rate}%
                                   </TableCell>
                                   <TableCell className='text-right text-xs font-medium'>
-                                    {formatEuroWhole(extra.total_ttc || 0)}
+                                    {formatEuroDecimal(extra.total_ttc || 0)}
                                   </TableCell>
                                   <TableCell>
                                     <div className='flex items-center gap-1'>
@@ -2610,7 +2609,7 @@ export function QuoteEditor({
                             <div className='flex justify-between text-sm font-semibold'>
                               <span>Total Extras TTC</span>
                               <span>
-                                {formatEuroWhole(
+                                {formatEuroDecimal(
                                   extras.reduce(
                                     (sum, e) => sum + (e.total_ttc || 0),
                                     0

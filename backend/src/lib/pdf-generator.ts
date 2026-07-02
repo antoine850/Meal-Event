@@ -5,7 +5,7 @@ import type {
   TableCell,
 } from 'pdfmake/interfaces'
 import {
-  formatEuroWhole,
+  formatEuroAdaptive,
   formatEuroDecimal,
   computeDepositAmounts,
 } from './quote-rounding.js'
@@ -903,7 +903,7 @@ function buildDocDefinition(
             fillColor: rowColor,
           },
           {
-            text: formatEuroWhole(item.total_ttc || 0),
+            text: formatEuroAdaptive(item.total_ttc || 0),
             style: 'tableCell',
             alignment: 'right' as const,
             fillColor: rowColor,
@@ -1086,7 +1086,7 @@ function buildDocDefinition(
             alignment: 'right' as const,
           },
           {
-            text: formatEuroWhole(item.total_ttc || 0),
+            text: formatEuroAdaptive(item.total_ttc || 0),
             style: 'tableCell',
             alignment: 'right' as const,
           },
@@ -1190,7 +1190,7 @@ function buildDocDefinition(
             alignment: 'right' as const,
           },
           {
-            text: formatEuroWhole(extra.total_ttc || 0),
+            text: formatEuroAdaptive(extra.total_ttc || 0),
             style: 'tableCell',
             alignment: 'right' as const,
           },
@@ -1354,7 +1354,7 @@ function buildDocDefinition(
             [
               { text: l.totalTtc, style: 'bold', color: 'white' },
               {
-                text: formatEuroWhole(quote.total_ttc),
+                text: formatEuroAdaptive(quote.total_ttc),
                 style: 'bold',
                 color: 'white',
                 alignment: 'right' as const,
@@ -1428,7 +1428,7 @@ function buildDocDefinition(
               style: 'small',
             },
             {
-              text: formatEuroWhole(quote.total_ttc),
+              text: formatEuroAdaptive(quote.total_ttc),
               alignment: 'right' as const,
               style: 'small',
             },
@@ -1477,7 +1477,7 @@ function buildDocDefinition(
             [
               { text: l.totalTtc, style: 'bold', color: 'white' },
               {
-                text: formatEuroWhole(depositTtc),
+                text: formatEuroAdaptive(depositTtc),
                 style: 'bold',
                 color: 'white',
                 alignment: 'right' as const,
@@ -1489,7 +1489,7 @@ function buildDocDefinition(
         fillColor: color,
       } as Content,
       {
-        text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatEuroWhole(quote.total_ttc)}`,
+        text: `${l.relatedQuote}: ${quote.quote_number} — Total: ${formatEuroAdaptive(quote.total_ttc)}`,
         style: 'tiny',
         color: '#888',
         margin: [0, 6, 0, 0] as [number, number, number, number],
@@ -1526,12 +1526,12 @@ function buildDocDefinition(
       margin: [0, 0, 0, 2] as [number, number, number, number],
     })
 
-    // Total TTC (entier)
+    // Total TTC
     soldeStack.push({
       columns: [
         { text: 'Total TTC', style: 'small', bold: true },
         {
-          text: formatEuroWhole(totalTtc),
+          text: formatEuroAdaptive(totalTtc),
           alignment: 'right' as const,
           bold: true,
         },
@@ -1577,7 +1577,7 @@ function buildDocDefinition(
       }
     }
 
-    // Separator + remaining balance (entier)
+    // Separator + remaining balance
     soldeStack.push(
       {
         canvas: [
@@ -1600,7 +1600,7 @@ function buildDocDefinition(
             [
               { text: l.remainingBalance, style: 'bold', color: 'white' },
               {
-                text: formatEuroWhole(balanceTtc),
+                text: formatEuroAdaptive(balanceTtc),
                 style: 'bold',
                 color: 'white',
                 alignment: 'right' as const,
@@ -1658,7 +1658,7 @@ function buildDocDefinition(
                   fillColor: '#f9fafb',
                 },
                 {
-                  text: formatEuroWhole(depositAmount),
+                  text: formatEuroAdaptive(depositAmount),
                   style: 'tableCell',
                   alignment: 'right' as const,
                   bold: true,
@@ -1678,7 +1678,7 @@ function buildDocDefinition(
                   alignment: 'center' as const,
                 },
                 {
-                  text: formatEuroWhole(balanceAmount),
+                  text: formatEuroAdaptive(balanceAmount),
                   style: 'tableCell',
                   alignment: 'right' as const,
                   bold: true,
@@ -2263,7 +2263,7 @@ function buildCreditNoteDocDefinition(
         color: '#dc2626' as const,
       },
       {
-        text: `- ${formatEuroWhole(item.credited_ttc)}`,
+        text: `- ${formatEuroAdaptive(item.credited_ttc)}`,
         style: 'tableCell',
         alignment: 'right' as const,
         fillColor: rowColor,
@@ -2365,7 +2365,7 @@ function buildCreditNoteDocDefinition(
           [
             { text: l.totalCredited, style: 'bold', color: 'white' },
             {
-              text: `- ${formatEuroWhole(cn.total_ttc)}`,
+              text: `- ${formatEuroAdaptive(cn.total_ttc)}`,
               style: 'bold',
               color: 'white',
               alignment: 'right' as const,
@@ -2383,7 +2383,7 @@ function buildCreditNoteDocDefinition(
       columns: [
         { text: l.overpaid, style: 'small', bold: true, color: '#dc2626' },
         {
-          text: formatEuroWhole(cn.overpaid_ttc),
+          text: formatEuroAdaptive(cn.overpaid_ttc),
           alignment: 'right' as const,
           bold: true,
           color: '#dc2626',

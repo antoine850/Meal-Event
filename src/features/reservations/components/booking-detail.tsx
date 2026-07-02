@@ -91,10 +91,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { TimePicker } from '@/components/ui/time-picker'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
-import {
-  formatEuroWhole,
-  formatEuroAdaptive,
-} from '@/features/reservations/lib/quote-rounding'
+import { formatEuroAdaptive } from '@/features/reservations/lib/quote-rounding'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
 import {
   useActivityLogs,
@@ -1709,7 +1706,9 @@ export const BookingDetail = forwardRef<
                                     <div className='flex items-center gap-2 text-xs text-muted-foreground'>
                                       <span className='font-medium'>
                                         TTC:{' '}
-                                        {formatEuroWhole(quote.total_ttc || 0)}
+                                        {formatEuroAdaptive(
+                                          quote.total_ttc || 0
+                                        )}
                                       </span>
                                       {quote.title && (
                                         <>
@@ -2245,7 +2244,7 @@ export const BookingDetail = forwardRef<
                                     {cn.avoir_number}
                                   </span>
                                   <span className='font-semibold'>
-                                    {formatEuroWhole(cn.total_ttc)}
+                                    {formatEuroAdaptive(cn.total_ttc)}
                                   </span>
                                 </div>
                                 <p className='text-xs text-muted-foreground'>
@@ -2412,7 +2411,7 @@ export const BookingDetail = forwardRef<
                                   {discountPct > 0 ? ' après remise' : ''}
                                 </span>
                                 <span className='font-medium'>
-                                  {formatEuroWhole(baseTtc)}
+                                  {formatEuroAdaptive(baseTtc)}
                                 </span>
                               </div>
                               {extrasTtc > 0 && (
@@ -2421,7 +2420,7 @@ export const BookingDetail = forwardRef<
                                     Extras TTC
                                   </span>
                                   <span className='font-medium'>
-                                    + {formatEuroWhole(extrasTtc)}
+                                    + {formatEuroAdaptive(extrasTtc)}
                                   </span>
                                 </div>
                               )}
@@ -3566,7 +3565,7 @@ export const BookingDetail = forwardRef<
                     </span>
                   )}
                   <span className='ml-2 text-xs text-muted-foreground'>
-                    {formatEuroWhole(q.total_ttc || 0)}
+                    {formatEuroAdaptive(q.total_ttc || 0)}
                   </span>
                   {(q as any).primary_quote && (
                     <span className='ml-2 text-[10px] font-medium text-emerald-600'>

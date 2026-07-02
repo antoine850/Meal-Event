@@ -15,7 +15,7 @@ import {
   generateCreditNotePdf,
 } from '../lib/pdf-generator.js'
 import {
-  formatEuroWhole,
+  formatEuroAdaptive,
   computeQuoteAmounts,
   computeDepositAmounts,
   computeCreditNote,
@@ -705,7 +705,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
 
     if (isStripeEnabled && connectAcctId) {
       console.log(
-        `[send-deposit] Creating Stripe invoice on Connect account ${connectAcctId} for deposit: ${formatEuroWhole(depositAmount)}`
+        `[send-deposit] Creating Stripe invoice on Connect account ${connectAcctId} for deposit: ${formatEuroAdaptive(depositAmount)}`
       )
 
       const customerId = await getOrCreateStripeCustomerOnAccount(
@@ -727,7 +727,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           },
           description:
             (quoteData as any).deposit_amount_override != null
-              ? `Acompte ${formatEuroWhole(depositAmount)} - ${quoteData.quote_number}`
+              ? `Acompte ${formatEuroAdaptive(depositAmount)} - ${quoteData.quote_number}`
               : `Acompte ${effectiveDepositPct}% - ${quoteData.quote_number}`,
         },
         stripeOpts
@@ -742,7 +742,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
           currency: 'eur',
           description:
             (quoteData as any).deposit_amount_override != null
-              ? `Acompte ${formatEuroWhole(depositAmount)} pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
+              ? `Acompte ${formatEuroAdaptive(depositAmount)} pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
               : `Acompte ${effectiveDepositPct}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
         },
         stripeOpts
@@ -759,7 +759,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       const reason =
         stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
       console.log(
-        `[send-deposit] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroWhole(depositAmount)}`
+        `[send-deposit] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroAdaptive(depositAmount)}`
       )
     }
 
@@ -1099,7 +1099,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
 
     if (isStripeEnabled && connectAcctId) {
       console.log(
-        `[send-balance] Creating Stripe invoice on Connect account ${connectAcctId} for balance: ${formatEuroWhole(balanceAmount)}`
+        `[send-balance] Creating Stripe invoice on Connect account ${connectAcctId} for balance: ${formatEuroAdaptive(balanceAmount)}`
       )
 
       const customerId = await getOrCreateStripeCustomerOnAccount(
@@ -1146,7 +1146,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       const reason =
         stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
       console.log(
-        `[send-balance] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroWhole(balanceAmount)}`
+        `[send-balance] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroAdaptive(balanceAmount)}`
       )
     }
 

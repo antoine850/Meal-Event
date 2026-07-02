@@ -60,7 +60,7 @@ export function normalizeFrenchSpaces(s: string): string {
   return s.replace(/ /g, ' ')
 }
 
-// Format "1 234 €" — pour TTC entiers.
+// Format "1 234 €" (entier). Utilise formatEuroAdaptive pour un montant pouvant porter des centimes.
 export function formatEuroWhole(amount: number): string {
   const rounded = Math.round(amount)
   return normalizeFrenchSpaces(
@@ -83,6 +83,13 @@ export function formatEuroDecimal(amount: number): string {
       minimumFractionDigits: 2,
     }).format(amount),
   )
+}
+
+// Entier si rond (à 0,5 cent près), décimal sinon. Pour montants pouvant
+// venir de Stripe (entiers) OU saisis manuellement (décimaux possibles).
+export function formatEuroAdaptive(amount: number): string {
+  const isWhole = Math.abs(amount - Math.round(amount)) < 0.005
+  return isWhole ? formatEuroWhole(amount) : formatEuroDecimal(amount)
 }
 
 // --- Regle d'arrondi au centime (ancree sur la valeur saisie) ---

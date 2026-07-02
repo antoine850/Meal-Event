@@ -28,7 +28,6 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   computeCreditNote,
   computeLineAmounts,
-  formatEuroWhole,
   formatEuroAdaptive,
   type CreditItemInput,
   type LineAmountsInput,
@@ -133,10 +132,10 @@ export function CreditNoteDialog({
   }
 
   const confirmText = engaged
-    ? `Avoir de ${formatEuroWhole(result.avoirTtc)} sur ${quote.quote_number} : devis ramené à ${formatEuroWhole(result.newEffectiveTtc)}, ${
+    ? `Avoir de ${formatEuroAdaptive(result.avoirTtc)} sur ${quote.quote_number} : devis ramené à ${formatEuroAdaptive(result.newEffectiveTtc)}, ${
         result.overpaidTtc > 0
           ? `trop-perçu ${formatEuroAdaptive(result.overpaidTtc)}`
-          : `solde réduit à ${formatEuroWhole(newSolde)}`
+          : `solde réduit à ${formatEuroAdaptive(newSolde)}`
       }. Document fiscal, irréversible.`
     : 'Aucune facture émise, tu peux simplement modifier le devis. Émettre un avoir quand même ?'
 
@@ -224,11 +223,11 @@ export function CreditNoteDialog({
               </div>
               <div className='flex justify-between'>
                 <span className='text-muted-foreground'>Nouveau total</span>
-                <span>{formatEuroWhole(result.newEffectiveTtc)}</span>
+                <span>{formatEuroAdaptive(result.newEffectiveTtc)}</span>
               </div>
               <div className='flex justify-between'>
                 <span className='text-muted-foreground'>Nouveau solde</span>
-                <span>{formatEuroWhole(newSolde)}</span>
+                <span>{formatEuroAdaptive(newSolde)}</span>
               </div>
               {result.overpaidTtc > 0 && (
                 <div className='flex justify-between text-destructive'>

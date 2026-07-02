@@ -3,7 +3,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   computeLineAmounts,
   deriveUnitTtc,
-  formatEuroWhole,
+  formatEuroAdaptive,
   formatEuroDecimal,
 } from '@/features/reservations/lib/quote-rounding'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
@@ -692,7 +692,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           {formatEuroDecimal(computeItemHt(item))}
                         </td>
                         <td className='px-2 py-1.5 text-right'>
-                          {formatEuroWhole(computeItemTtc(item))}
+                          {formatEuroAdaptive(computeItemTtc(item))}
                         </td>
                       </tr>
                     )
@@ -756,7 +756,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 style={{ backgroundColor: color, color: 'white' }}
               >
                 <span>{l.totalTtc}</span>
-                <span>{formatEuroWhole(data.totalTtc)}</span>
+                <span>{formatEuroAdaptive(data.totalTtc)}</span>
               </div>
             </div>
           </div>
@@ -780,7 +780,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                       J-{data.depositDays}
                     </td>
                     <td className='px-2 py-1.5 text-right font-semibold'>
-                      {formatEuroWhole(data.depositAmount)}
+                      {formatEuroAdaptive(data.depositAmount)}
                     </td>
                   </tr>
                   <tr>
@@ -794,7 +794,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                       J-{data.balanceDays}
                     </td>
                     <td className='px-2 py-1.5 text-right font-semibold'>
-                      {formatEuroWhole(data.balanceAmount)}
+                      {formatEuroAdaptive(data.balanceAmount)}
                     </td>
                   </tr>
                 </tbody>
@@ -980,7 +980,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           {formatEuroDecimal(computeItemHt(item))}
                         </td>
                         <td className='px-2 py-1.5 text-right'>
-                          {formatEuroWhole(computeItemTtc(item))}
+                          {formatEuroAdaptive(computeItemTtc(item))}
                         </td>
                       </tr>
                     )
@@ -1007,7 +1007,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 style={{ backgroundColor: color, color: 'white' }}
               >
                 <span>{l.totalTtc}</span>
-                <span>{formatEuroWhole(depositTtc)}</span>
+                <span>{formatEuroAdaptive(depositTtc)}</span>
               </div>
               <div className='text-right text-[9px] text-gray-500'>
                 {l.totalHt}: {formatEuroDecimal(depositHt)}
@@ -1193,7 +1193,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                             {formatEuroDecimal(computeItemHt(item))}
                           </td>
                           <td className='px-2 py-1.5 text-right'>
-                            {formatEuroWhole(computeItemTtc(item))}
+                            {formatEuroAdaptive(computeItemTtc(item))}
                           </td>
                         </tr>
                       )
@@ -1210,7 +1210,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         {formatEuroDecimal(data.totalHt)}
                       </td>
                       <td className='px-2 py-1 text-right text-[9px] font-medium'>
-                        {formatEuroWhole(data.totalTtc)}
+                        {formatEuroAdaptive(data.totalTtc)}
                       </td>
                     </tr>
                   </>
@@ -1286,7 +1286,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                             {formatEuroDecimal(computeItemHt(extra))}
                           </td>
                           <td className='px-2 py-1.5 text-right'>
-                            {formatEuroWhole(computeItemTtc(extra))}
+                            {formatEuroAdaptive(computeItemTtc(extra))}
                           </td>
                         </tr>
                       )
@@ -1308,7 +1308,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         )}
                       </td>
                       <td className='px-2 py-1 text-right text-[9px] font-medium'>
-                        {formatEuroWhole(
+                        {formatEuroAdaptive(
                           (data.extras || []).reduce(
                             (sum, e) => sum + computeItemTtc(e),
                             0
@@ -1354,7 +1354,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 </div>
                 <div className='flex justify-between text-[10px] font-semibold'>
                   <span>Total TTC</span>
-                  <span>{formatEuroWhole(grandTotalTtc)}</span>
+                  <span>{formatEuroAdaptive(grandTotalTtc)}</span>
                 </div>
                 {paidPayments.length > 0 && (
                   <>
@@ -1399,7 +1399,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                   style={{ backgroundColor: color, color: 'white' }}
                 >
                   <span>{l.remainingBalance} TTC</span>
-                  <span>{formatEuroWhole(remainingTtc)}</span>
+                  <span>{formatEuroAdaptive(remainingTtc)}</span>
                 </div>
               </div>
             </div>
@@ -1556,7 +1556,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         {formatEuroDecimal(computeItemHt(item))}
                       </td>
                       <td className='px-2 py-1.5 text-right'>
-                        {formatEuroWhole(computeItemTtc(item))}
+                        {formatEuroAdaptive(computeItemTtc(item))}
                       </td>
                     </tr>
                   ))}
@@ -1628,7 +1628,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           {formatEuroDecimal(computeItemHt(extra))}
                         </td>
                         <td className='px-2 py-1.5 text-right'>
-                          {formatEuroWhole(computeItemTtc(extra))}
+                          {formatEuroAdaptive(computeItemTtc(extra))}
                         </td>
                       </tr>
                     ))}
@@ -1669,7 +1669,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 style={{ backgroundColor: color, color: 'white' }}
               >
                 <span>{l.totalTtc}</span>
-                <span>{formatEuroWhole(grandTotalTtc)}</span>
+                <span>{formatEuroAdaptive(grandTotalTtc)}</span>
               </div>
 
               {/* Payments received */}
@@ -1706,7 +1706,7 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                     }}
                   >
                     <span>{l.remainingBalance}</span>
-                    <span>{formatEuroWhole(remainingBalance)}</span>
+                    <span>{formatEuroAdaptive(remainingBalance)}</span>
                   </div>
                 </>
               )}
