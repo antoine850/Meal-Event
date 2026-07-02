@@ -75,6 +75,7 @@ interface QuoteData {
     description: string | null
     quantity: number
     unit_price: number
+    unit_price_ttc: number | null
     tva_rate: number
     discount_amount: number
     total_ht: number | null
@@ -879,7 +880,8 @@ function buildDocDefinition(
           },
           {
             text: formatEuroDecimal(
-              (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
+              item.unit_price_ttc ??
+                (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
             ),
             style: 'tableCell',
             alignment: 'right' as const,
@@ -1064,7 +1066,8 @@ function buildDocDefinition(
           },
           {
             text: formatEuroDecimal(
-              (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
+              item.unit_price_ttc ??
+                (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
             ),
             style: 'tableCell',
             alignment: 'right' as const,
@@ -1167,7 +1170,8 @@ function buildDocDefinition(
           },
           {
             text: formatEuroDecimal(
-              (extra.unit_price || 0) * (1 + (extra.tva_rate || 0) / 100)
+              extra.unit_price_ttc ??
+                (extra.unit_price || 0) * (1 + (extra.tva_rate || 0) / 100)
             ),
             style: 'tableCell',
             alignment: 'right' as const,
