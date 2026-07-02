@@ -469,9 +469,12 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
     price_entry_mode?: string | null
     discount_amount?: number | null
     tva_rate?: number | null
+    total_ttc?: number | null
   }) {
-    return computeLineAmounts({ ...item, tva_rate: item.tva_rate ?? 20 })
-      .totalTtc
+    return (
+      item.total_ttc ??
+      computeLineAmounts({ ...item, tva_rate: item.tva_rate ?? 20 }).totalTtc
+    )
   }
   function computeItemHt(item: {
     quantity?: number | null
@@ -480,9 +483,12 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
     price_entry_mode?: string | null
     discount_amount?: number | null
     tva_rate?: number | null
+    total_ht?: number | null
   }) {
-    return computeLineAmounts({ ...item, tva_rate: item.tva_rate ?? 20 })
-      .totalHt
+    return (
+      item.total_ht ??
+      computeLineAmounts({ ...item, tva_rate: item.tva_rate ?? 20 }).totalHt
+    )
   }
   // Prix unitaire TTC : valeur saisie si ligne en TTC, sinon dérivée du HT (au centime).
   function computeItemUnitTtc(item: {
