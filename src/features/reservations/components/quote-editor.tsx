@@ -494,6 +494,10 @@ export function QuoteEditor({
   // Track which quote ID we already replaced placeholders for, to avoid infinite loop
   const replacedPlaceholdersRef = useRef<string | null>(null)
 
+  // L'utilisateur a-t-il explicitement bascule le mode d'acompte dans cette session ?
+  // Sinon on ne reecrit pas deposit_amount_override (pour ne pas effacer un gel serveur).
+  const depositModeTouchedRef = useRef(false)
+
   // Initialize from quote data
   useEffect(() => {
     if (quoteData) {
@@ -504,6 +508,7 @@ export function QuoteEditor({
       setDateEnd(quoteData.date_end ? quoteData.date_end.split('T')[0] : '')
       setOrderNumber(quoteData.order_number || '')
       setDiscountPercentage(quoteData.discount_percentage || 0)
+      depositModeTouchedRef.current = false
       if ((quoteData as any).deposit_amount_override != null) {
         setDepositMode('amount')
         setDepositAmountOverride(
@@ -617,10 +622,11 @@ export function QuoteEditor({
         discount_percentage: discountPercentage,
         deposit_percentage:
           depositMode === 'percentage' ? depositPercentage : 0,
-        deposit_amount_override:
-          depositMode === 'amount'
-            ? parseFloat(depositAmountOverride) || 0
-            : null,
+        ...(depositMode === 'amount'
+          ? { deposit_amount_override: parseFloat(depositAmountOverride) || 0 }
+          : depositModeTouchedRef.current
+            ? { deposit_amount_override: null }
+            : {}),
         deposit_label: depositLabel,
         deposit_days: depositDays,
         balance_label: balanceLabel,
@@ -1191,9 +1197,10 @@ export function QuoteEditor({
                                           ? 'bg-primary text-primary-foreground'
                                           : 'bg-background hover:bg-accent'
                                       )}
-                                      onClick={() =>
+                                      onClick={() => {
+                                        depositModeTouchedRef.current = true
                                         dirty(setDepositMode)('percentage')
-                                      }
+                                      }}
                                     >
                                       %
                                     </button>
@@ -1205,9 +1212,10 @@ export function QuoteEditor({
                                           ? 'bg-primary text-primary-foreground'
                                           : 'bg-background hover:bg-accent'
                                       )}
-                                      onClick={() =>
+                                      onClick={() => {
+                                        depositModeTouchedRef.current = true
                                         dirty(setDepositMode)('amount')
-                                      }
+                                      }}
                                     >
                                       €
                                     </button>
