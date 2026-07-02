@@ -70,8 +70,9 @@ supabase migration new ma_feature
 # Appliquer en local
 supabase db reset
 
-# Régénérer les types TypeScript
-supabase gen types typescript --local > src/lib/supabase/database.types.ts
+# Régénérer les types TypeScript (contre la prod : source de vérité)
+supabase gen types typescript --project-id geofmvmydyjuculbbmil > src/lib/supabase/types.ts
+# puis ré-appender le bloc "Convenience types" en fin de fichier (non généré par la CLI)
 ```
 
 ## Types générés
