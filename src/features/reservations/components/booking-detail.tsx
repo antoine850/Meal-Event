@@ -2368,10 +2368,10 @@ export const BookingDetail = forwardRef<
                           (sum, cn) => sum + (cn.total_ttc || 0),
                           0
                         )
-                        const tropPercu = creditNotes.reduce(
-                          (sum, cn) => sum + (cn.overpaid_ttc || 0),
-                          0
-                        )
+                        // Trop-perçu vivant = encaissé - total effectif courant.
+                        // (overpaid_ttc de chaque avoir est cumulatif : les sommer double-compte.)
+                        const tropPercu =
+                          soldeRestant < -0.005 ? -soldeRestant : 0
 
                         if (totalDevisTtc > 0 || paiementsRecus > 0) {
                           // La remise s'applique uniquement au devis principal (les extras

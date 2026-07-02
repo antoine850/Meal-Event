@@ -1358,6 +1358,13 @@ quotesRouter.post('/:id/credit-note', async (req: Request, res: Response) => {
     )
     .reduce((s: number, p: any) => s + (p.amount || 0), 0)
 
+  // Encaissé total (toutes modalités) : même règle que le récap solde et le dialogue
+  // d'avoir. Sert au trop-perçu ; l'acompte seul sert à figer deposit_amount_override.
+  const collectedTtc = (payments ?? []).reduce(
+    (s: number, p: any) => s + (p.amount || 0),
+    0
+  )
+
   const items = (q.quote_items ?? []).map((i: any) => ({
     id: i.id,
     quantity: i.quantity,
@@ -1376,7 +1383,7 @@ quotesRouter.post('/:id/credit-note', async (req: Request, res: Response) => {
     items,
     creditsById,
     q.discount_percentage ?? 0,
-    collectedAcompte
+    collectedTtc
   )
 
   // Fige l'acompte au montant réellement encaissé (fallback : acompte sur l'ancien effectif)
