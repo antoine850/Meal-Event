@@ -131,7 +131,7 @@ describe('Verbatim : les deux PU saisis, aucune derivation', () => {
     expect(l.totalTtc).toBe(25) // 2*12.5, PAS 2*10*1.2=24
     expect(l.totalTva).toBe(5)
   })
-  it('remise soustraite des deux cotes', () => {
+  it('remise ancree HT, baisse TTC au prorata du ratio reel de la ligne', () => {
     const l = computeLineAmounts({
       quantity: 1,
       unit_price: 100,
@@ -139,8 +139,9 @@ describe('Verbatim : les deux PU saisis, aucune derivation', () => {
       discount_amount: 20,
       tva_rate: 20,
     })
-    expect(l.totalHt).toBe(80)
-    expect(l.totalTtc).toBe(100)
+    expect(l.totalHt).toBe(80) // 100 - 20
+    expect(l.totalTtc).toBe(96) // 120 - 20*(120/100)
+    expect(l.totalTva).toBe(16)
   })
   it('legacy HT seul (unit_price_ttc absent) -> derive comme avant', () => {
     const l = computeLineAmounts({
