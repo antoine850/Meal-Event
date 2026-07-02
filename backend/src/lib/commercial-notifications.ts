@@ -1,13 +1,14 @@
 // ── Commercial Notification Emails ──
 // Send styled email notifications to assigned commercial users
 // when a quote is signed or a payment is received.
-
-import { supabase } from './supabase.js'
-import { sendEmail } from './resend.js'
 import {
-  buildSignatureNotificationHtml, buildSignatureNotificationSubject,
-  buildPaymentNotificationHtml, buildPaymentNotificationSubject,
+  buildSignatureNotificationHtml,
+  buildSignatureNotificationSubject,
+  buildPaymentNotificationHtml,
+  buildPaymentNotificationSubject,
 } from './email-templates.js'
+import { sendEmail } from './resend.js'
+import { supabase } from './supabase.js'
 
 interface CommercialUser {
   first_name: string
@@ -22,26 +23,21 @@ interface BookingContext {
   restaurant: any
 }
 
-// Fetch all commercial users assigned to a booking (assigned_user_ids + fallback assigned_to)
-async function getCommercialUsers(bookingId: string): Promise<CommercialUser[]> {
+// Fetch all commercial users assigned to a booking (assigned_user_ids array)
+async function getCommercialUsers(
+  bookingId: string
+): Promise<CommercialUser[]> {
   const { data: booking } = await supabase
     .from('bookings')
-    .select('assigned_to, assigned_user_ids')
+    .select('assigned_user_ids')
     .eq('id', bookingId)
     .single()
 
   if (!booking) return []
 
-  const userIds: string[] = []
-
-  // Primary: assigned_user_ids array
-  if (Array.isArray((booking as any).assigned_user_ids) && (booking as any).assigned_user_ids.length > 0) {
-    userIds.push(...(booking as any).assigned_user_ids)
-  }
-  // Fallback: assigned_to (single)
-  if (booking.assigned_to && !userIds.includes(booking.assigned_to)) {
-    userIds.push(booking.assigned_to)
-  }
+  const userIds: string[] = Array.isArray((booking as any).assigned_user_ids)
+    ? (booking as any).assigned_user_ids
+    : []
 
   if (userIds.length === 0) return []
 
@@ -50,14 +46,17 @@ async function getCommercialUsers(bookingId: string): Promise<CommercialUser[]> 
     .select('first_name, last_name, email')
     .in('id', userIds)
 
-  return (users || []).filter(u => u.email) as CommercialUser[]
+  return (users || []).filter((u) => u.email) as CommercialUser[]
 }
 
 // Fetch booking context (contact name, event info, restaurant branding)
-async function getBookingContext(bookingId: string): Promise<BookingContext | null> {
+async function getBookingContext(
+  bookingId: string
+): Promise<BookingContext | null> {
   const { data: booking } = await supabase
     .from('bookings')
-    .select(`
+    .select(
+      `
       event_date, event_type, occasion,
       contact:contacts(first_name, last_name),
       restaurant:restaurants(
@@ -65,7 +64,8 @@ async function getBookingContext(bookingId: string): Promise<BookingContext | nu
         logo_url, color, siret, tva_number, iban, bic, bank_name,
         legal_name, legal_form, share_capital, rcs, siren
       )
-    `)
+    `
+    )
     .eq('id', bookingId)
     .single()
 
@@ -103,11 +103,15 @@ export async function notifyCommercialSignature(params: {
     ])
 
     if (commercials.length === 0) {
-      console.log(`[Notify] No commercial assigned to booking ${bookingId} — skipping signature notification`)
+      console.log(
+        `[Notify] No commercial assigned to booking ${bookingId} — skipping signature notification`
+      )
       return
     }
     if (!context) {
-      console.log(`[Notify] Booking ${bookingId} not found — skipping signature notification`)
+      console.log(
+        `[Notify] Booking ${bookingId} not found — skipping signature notification`
+      )
       return
     }
 
@@ -125,10 +129,15 @@ export async function notifyCommercialSignature(params: {
         eventTitle,
       })
 
-      const subject = buildSignatureNotificationSubject(quoteNumber, context.contactName)
+      const subject = buildSignatureNotificationSubject(
+        quoteNumber,
+        context.contactName
+      )
 
       await sendEmail({ to: commercial.email, subject, html })
-      console.log(`[Notify] ✅ Signature notification sent to ${commercial.email} for quote ${quoteNumber}`)
+      console.log(
+        `[Notify] ✅ Signature notification sent to ${commercial.email} for quote ${quoteNumber}`
+      )
     }
   } catch (error) {
     console.error('[Notify] Error sending signature notification:', error)
@@ -154,11 +163,15 @@ export async function notifyCommercialPayment(params: {
     ])
 
     if (commercials.length === 0) {
-      console.log(`[Notify] No commercial assigned to booking ${bookingId} — skipping payment notification`)
+      console.log(
+        `[Notify] No commercial assigned to booking ${bookingId} — skipping payment notification`
+      )
       return
     }
     if (!context) {
-      console.log(`[Notify] Booking ${bookingId} not found — skipping payment notification`)
+      console.log(
+        `[Notify] Booking ${bookingId} not found — skipping payment notification`
+      )
       return
     }
 
@@ -187,10 +200,16 @@ export async function notifyCommercialPayment(params: {
         paymentMethod,
       })
 
-      const subject = buildPaymentNotificationSubject(amount, context.contactName, paymentType)
+      const subject = buildPaymentNotificationSubject(
+        amount,
+        context.contactName,
+        paymentType
+      )
 
       await sendEmail({ to: commercial.email, subject, html })
-      console.log(`[Notify] ✅ Payment notification sent to ${commercial.email} — ${amount} € (${paymentType})`)
+      console.log(
+        `[Notify] ✅ Payment notification sent to ${commercial.email} — ${amount} € (${paymentType})`
+      )
     }
   } catch (error) {
     console.error('[Notify] Error sending payment notification:', error)

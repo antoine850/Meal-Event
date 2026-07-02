@@ -1,10 +1,17 @@
 import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
-import { supabase } from '../lib/supabase.js'
 import { notifyCommercialPayment } from '../lib/commercial-notifications.js'
+import {
+  buildPaymentLinkEmailHtml,
+  buildPaymentLinkEmailSubject,
+} from '../lib/email-templates.js'
 import { sendEmail } from '../lib/resend.js'
-import { buildPaymentLinkEmailHtml, buildPaymentLinkEmailSubject } from '../lib/email-templates.js'
-import { getRestaurantStripeContext, resolveStripeMode, stripeRequestOptions } from '../lib/stripe-connect.js'
+import {
+  getRestaurantStripeContext,
+  resolveStripeMode,
+  stripeRequestOptions,
+} from '../lib/stripe-connect.js'
+import { supabase } from '../lib/supabase.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -19,14 +26,16 @@ paymentsRouter.get('/', async (req: Request, res: Response) => {
 
     let query = supabase
       .from('payments')
-      .select(`
+      .select(
+        `
         *,
         booking:bookings (
           id, event_type, event_date,
           contact:contacts (id, first_name, last_name),
           restaurant:restaurants (id, name)
         )
-      `)
+      `
+      )
       .order('created_at', { ascending: false })
 
     if (organizationId) query = query.eq('organization_id', organizationId)
@@ -65,7 +74,9 @@ paymentsRouter.post('/', async (req: Request, res: Response) => {
         amount: data.amount,
         paymentType: data.payment_type || data.payment_modality || 'full',
         paymentMethod: data.payment_method || 'manual',
-      }).catch(err => console.error('[Manual Payment] Commercial notification error:', err))
+      }).catch((err) =>
+        console.error('[Manual Payment] Commercial notification error:', err)
+      )
     }
 
     res.status(201).json(data)
@@ -102,12 +113,18 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
 
     // Normalize modality
     const modality: 'acompte' | 'solde' | 'autre' =
-      payment_modality || (link_type === 'deposit' ? 'acompte' : link_type === 'balance' ? 'solde' : 'autre')
+      payment_modality ||
+      (link_type === 'deposit'
+        ? 'acompte'
+        : link_type === 'balance'
+          ? 'solde'
+          : 'autre')
 
     // Get booking details with full restaurant branding for the email
     const { data: booking } = await supabase
       .from('bookings')
-      .select(`
+      .select(
+        `
         *,
         contact:contacts (first_name, last_name, email),
         restaurant:restaurants (
@@ -115,7 +132,8 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
           siret, tva_number, iban, bic, bank_name, legal_name, legal_form,
           share_capital, rcs, siren
         )
-      `)
+      `
+      )
       .eq('id', booking_id)
       .single()
 
@@ -125,7 +143,11 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
 
     const bookingAny = booking as any
     const restaurantBranding = bookingAny.restaurant || { name: 'Restaurant' }
-    const contactFromDb = bookingAny.contact as { first_name: string; last_name: string | null; email: string | null } | null
+    const contactFromDb = bookingAny.contact as {
+      first_name: string
+      last_name: string | null
+      email: string | null
+    } | null
 
     // Resolve Stripe mode for this restaurant (Connect-only architecture).
     const stripeCtx = bookingAny.restaurant_id
@@ -160,34 +182,42 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
     }
 
     // Product label (for Stripe Checkout)
-    const productLabel = modality === 'acompte' ? 'Acompte' : modality === 'solde' ? 'Solde' : 'Paiement'
+    const productLabel =
+      modality === 'acompte'
+        ? 'Acompte'
+        : modality === 'solde'
+          ? 'Solde'
+          : 'Paiement'
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      line_items: [
-        {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: `${productLabel} - ${booking.event_type}`,
-              description: `Réservation chez ${restaurantBranding.name} le ${booking.event_date}`,
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: 'eur',
+              product_data: {
+                name: `${productLabel} - ${booking.event_type}`,
+                description: `Réservation chez ${restaurantBranding.name} le ${booking.event_date}`,
+              },
+              unit_amount: Math.round(amount * 100), // Stripe uses cents
             },
-            unit_amount: Math.round(amount * 100), // Stripe uses cents
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        metadata: {
+          booking_id,
+          quote_id: quote_id || '',
+          link_type: link_type || 'full',
+          payment_modality: modality,
+          restaurant_id: bookingAny.restaurant_id || '',
         },
-      ],
-      metadata: {
-        booking_id,
-        quote_id: quote_id || '',
-        link_type: link_type || 'full',
-        payment_modality: modality,
-        restaurant_id: bookingAny.restaurant_id || '',
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?type=${link_type || 'full'}&booking=${booking_id}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?status=cancelled`,
       },
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?type=${link_type || 'full'}&booking=${booking_id}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?status=cancelled`,
-    }, stripeOpts)
+      stripeOpts
+    )
 
     const paymentLink = { url: session.url || '', id: session.id }
 
@@ -210,27 +240,28 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
     if (error) throw error
 
     // Create pending payment record so Stripe webhook can find and update it
-    await supabase
-      .from('payments')
-      .insert({
-        organization_id: bookingAny.organization_id,
-        booking_id,
-        quote_id: quote_id || null,
-        amount,
-        payment_type: link_type || 'full',
-        payment_modality: modality,
-        payment_method: 'stripe',
-        stripe_payment_id: session.id,
-        stripe_account_id: connectAcctId,
-        status: 'pending',
-        notes: notes || null,
-      })
+    await supabase.from('payments').insert({
+      organization_id: bookingAny.organization_id,
+      booking_id,
+      quote_id: quote_id || null,
+      amount,
+      payment_type: link_type || 'full',
+      payment_modality: modality,
+      payment_method: 'stripe',
+      stripe_payment_id: session.id,
+      stripe_account_id: connectAcctId,
+      status: 'pending',
+      notes: notes || null,
+    })
 
     // Log activity
     await supabase.from('activity_logs').insert({
       organization_id: bookingAny.organization_id,
       booking_id,
-      action_type: modality === 'acompte' ? 'payment.deposit_sent' : 'payment.balance_sent',
+      action_type:
+        modality === 'acompte'
+          ? 'payment.deposit_sent'
+          : 'payment.balance_sent',
       action_label: `Lien de paiement ${modality} de ${amount} \u20AC créé`,
       actor_type: 'user',
       entity_type: 'payment',
@@ -241,7 +272,10 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
     let emailSent = false
     let emailError: string | null = null
     if (send_email) {
-      const toEmail = (contact_email_override && contact_email_override.trim()) || contactFromDb?.email || null
+      const toEmail =
+        (contact_email_override && contact_email_override.trim()) ||
+        contactFromDb?.email ||
+        null
       if (!toEmail) {
         emailError = 'Aucune adresse email destinataire disponible'
       } else {
@@ -249,11 +283,12 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
           // Commercial info (for reply-to + signature)
           let commercialName: string | null = null
           let commercialEmail: string | null = null
-          if (bookingAny.assigned_to) {
+          const commercialId = bookingAny.assigned_user_ids?.[0]
+          if (commercialId) {
             const { data: user } = await supabase
               .from('users')
               .select('first_name, last_name, email')
-              .eq('id', bookingAny.assigned_to)
+              .eq('id', commercialId)
               .single()
             if (user) {
               commercialName = `${(user as any).first_name} ${(user as any).last_name}`
@@ -288,7 +323,11 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
             orderNumber: quoteOrderNumber,
           })
 
-          const subject = buildPaymentLinkEmailSubject(modality, restaurantBranding.name || 'Restaurant', quoteNumber)
+          const subject = buildPaymentLinkEmailSubject(
+            modality,
+            restaurantBranding.name || 'Restaurant',
+            quoteNumber
+          )
 
           await sendEmail({
             to: toEmail,
@@ -307,7 +346,14 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
       }
     }
 
-    res.status(201).json({ ...data, email_sent: emailSent, email_error: emailError, url: paymentLink.url })
+    res
+      .status(201)
+      .json({
+        ...data,
+        email_sent: emailSent,
+        email_error: emailError,
+        url: paymentLink.url,
+      })
   } catch (error) {
     console.error('Error creating payment link:', error)
     res.status(500).json({ error: 'Failed to create payment link' })
@@ -319,7 +365,9 @@ paymentsRouter.post('/:id/cancel-link', async (req: Request, res: Response) => {
   try {
     const { data: payment, error: fetchError } = await supabase
       .from('payments')
-      .select('id, booking_id, status, payment_method, stripe_payment_id, stripe_account_id, amount, payment_modality, organization_id')
+      .select(
+        'id, booking_id, status, payment_method, stripe_payment_id, stripe_account_id, amount, payment_modality, organization_id'
+      )
       .eq('id', req.params.id)
       .single()
 
@@ -339,7 +387,10 @@ paymentsRouter.post('/:id/cancel-link', async (req: Request, res: Response) => {
 
     if (sessionId) {
       try {
-        const session = await stripe.checkout.sessions.retrieve(sessionId, stripeOpts)
+        const session = await stripe.checkout.sessions.retrieve(
+          sessionId,
+          stripeOpts
+        )
         if (session.payment_status === 'paid') {
           return res.status(409).json({ error: 'ALREADY_PAID' })
         }
@@ -419,7 +470,11 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
 
     // Auto-update booking status → Relance paiement
     if (payment.booking_id) {
-      const { data: booking } = await supabase.from('bookings').select('organization_id').eq('id', payment.booking_id).single()
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('organization_id')
+        .eq('id', payment.booking_id)
+        .single()
       if (booking?.organization_id) {
         const { data: statusData } = await supabase
           .from('statuses')
@@ -429,8 +484,13 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
           .eq('type', 'booking')
           .single()
         if (statusData) {
-          await supabase.from('bookings').update({ status_id: statusData.id }).eq('id', payment.booking_id)
-          console.log(`[Remind] ✅ Booking ${payment.booking_id} status → relance_paiement`)
+          await supabase
+            .from('bookings')
+            .update({ status_id: statusData.id })
+            .eq('id', payment.booking_id)
+          console.log(
+            `[Remind] ✅ Booking ${payment.booking_id} status → relance_paiement`
+          )
         }
       }
     }
