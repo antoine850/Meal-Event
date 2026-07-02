@@ -127,8 +127,14 @@ export function computeLineAmounts(input: LineAmountsInput): QuoteTotals {
   // Verbatim : les deux PU saisis -> aucune derivation, on somme tel quel.
   // round2 ici = normalisation centime (anti-bruit flottant), pas un arrondi metier.
   if (input.unit_price != null && input.unit_price_ttc != null) {
-    const totalHt = round2(qty * input.unit_price - discount)
-    const totalTtc = round2(qty * input.unit_price_ttc - discount)
+    const grossHt = qty * input.unit_price
+    const grossTtc = qty * input.unit_price_ttc
+    // Remise ancree HT (l'editeur et le PDF la derivent du HT) ; la baisse TTC suit
+    // le ratio reel de la ligne, pas tva_rate (verbatim : les PU saisis font foi).
+    const totalHt = round2(grossHt - discount)
+    const totalTtc = round2(
+      grossTtc - (grossHt > 0 ? discount * (grossTtc / grossHt) : discount)
+    )
     return { totalHt, totalTva: round2(totalTtc - totalHt), totalTtc }
   }
 
@@ -242,7 +248,15 @@ export function applyLineCredit(
   const mult = 1 + rate / 100
   const discount = line.discount_amount ?? 0
   const addDiscount =
-    line.price_entry_mode === 'ttc' ? creditedTtc : rate <= -100 ? 0 : creditedTtc / mult
+    line.unit_price != null && line.unit_price_ttc != null
+      ? line.unit_price_ttc > 0
+        ? creditedTtc * (line.unit_price / line.unit_price_ttc)
+        : 0
+      : line.price_entry_mode === 'ttc'
+        ? creditedTtc
+        : rate <= -100
+          ? 0
+          : creditedTtc / mult
   return { ...line, discount_amount: round2(discount + addDiscount) }
 }
 

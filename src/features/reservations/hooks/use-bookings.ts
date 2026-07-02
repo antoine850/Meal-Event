@@ -1024,6 +1024,14 @@ export function useUpdatePayment() {
                 deposit_paid_at: new Date().toISOString(),
               })
               .eq('id', resolvedQuoteId)
+
+            // Fige l'acompte en euros au montant encaisse (si pas deja fige), pour qu'il ne se
+            // recalcule plus en % si le total du devis change ensuite.
+            await supabase
+              .from('quotes')
+              .update({ deposit_amount_override: payment.amount } as never)
+              .eq('id', resolvedQuoteId)
+              .is('deposit_amount_override', null)
           }
         } else if (
           paymentModality_ === 'solde' ||

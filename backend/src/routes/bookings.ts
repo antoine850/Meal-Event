@@ -22,15 +22,14 @@ bookingsRouter.get('/', async (req: Request, res: Response) => {
         restaurant:restaurants (id, name, color),
         status:statuses (*),
         space:spaces (id, name),
-        time_slot:time_slots (id, name, start_time, end_time),
-        assigned_user:users!bookings_assigned_to_fkey (id, first_name, last_name)
+        time_slot:time_slots (id, name, start_time, end_time)
       `)
       .order('event_date', { ascending: true })
 
     if (organizationId) query = query.eq('organization_id', organizationId)
     if (restaurantId) query = query.eq('restaurant_id', restaurantId)
     if (statusId) query = query.eq('status_id', statusId)
-    if (assignedTo) query = query.eq('assigned_to', assignedTo)
+    if (assignedTo) query = query.contains('assigned_user_ids', [assignedTo])
     if (startDate) query = query.gte('event_date', startDate)
     if (endDate) query = query.lte('event_date', endDate)
 
@@ -56,7 +55,6 @@ bookingsRouter.get('/:id', async (req: Request, res: Response) => {
         status:statuses (*),
         space:spaces (*),
         time_slot:time_slots (*),
-        assigned_user:users!bookings_assigned_to_fkey (id, first_name, last_name, email),
         booking_products_services (*),
         quotes (
           *,

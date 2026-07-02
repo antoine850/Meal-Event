@@ -51,3 +51,23 @@ describe('computeCreditNote : avoir = ancien effectif - nouveau effectif', () =>
     expect(r.newEffectiveTtc).toBe(1020)
   })
 })
+
+describe('avoir partiel sur ligne verbatim (les deux PU saisis)', () => {
+  const VERBATIM = [
+    {
+      id: 'v1',
+      quantity: 1,
+      unit_price: 100,
+      unit_price_ttc: 120,
+      tva_rate: 20,
+      item_type: 'product',
+    },
+  ]
+  it('credit 12 TTC -> avoir 12 TTC / 10 HT / 2 TVA (pas de TVA a 0)', () => {
+    const r = computeCreditNote(VERBATIM, { v1: 12 }, 0, 0)
+    expect(r.avoirTtc).toBe(12)
+    expect(r.avoirHt).toBe(10)
+    expect(r.avoirTva).toBe(2)
+    expect(r.newEffectiveTtc).toBe(108)
+  })
+})

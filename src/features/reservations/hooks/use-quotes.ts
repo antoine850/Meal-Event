@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
-import type { Quote, QuoteItem } from '@/lib/supabase/types'
+import type { Quote, QuoteItem, Tables } from '@/lib/supabase/types'
 import {
   computeLineAmounts,
   computeQuoteAmounts,
@@ -161,35 +161,9 @@ export function useSendBalance() {
 // Facture d'avoir
 // ============================================
 
-// credit_notes / credit_note_items ne sont pas encore dans les types Supabase generes.
-// Interface locale (cast via `as any` sur la requete, cf. unit_price_ttc ailleurs).
-export type CreditNoteItem = {
-  id: string
-  credit_note_id: string
-  source_quote_item_id: string | null
-  name: string
-  description: string | null
-  quantity: number
-  unit_price: number
-  tva_rate: number
-  item_type: string
-  total_ht: number
-  total_ttc: number
-  credited_ttc: number
-}
+export type CreditNoteItem = Tables<'credit_note_items'>
 
-export type CreditNote = {
-  id: string
-  avoir_number: string
-  issued_at: string
-  reason: string | null
-  total_ht: number
-  total_tva: number
-  total_ttc: number
-  overpaid_ttc: number
-  quote_id: string | null
-  booking_id: string | null
-  created_at: string
+export type CreditNote = Tables<'credit_notes'> & {
   credit_note_items: CreditNoteItem[]
 }
 
@@ -232,13 +206,14 @@ export function useCreditNotesByBooking(bookingId: string | null) {
       if (!bookingId) return []
 
       const { data, error } = await supabase
-        .from('credit_notes' as any)
+        .from('credit_notes')
         .select('*, credit_note_items(*)')
         .eq('booking_id', bookingId)
         .order('issued_at', { ascending: false })
+        .returns<CreditNote[]>()
 
       if (error) throw error
-      return (data ?? []) as unknown as CreditNote[]
+      return data ?? []
     },
     enabled: !!bookingId,
   })
