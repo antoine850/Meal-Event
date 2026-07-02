@@ -33,6 +33,7 @@ import {
   Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { normalizeTvaRate } from '@/lib/price'
 import { supabase } from '@/lib/supabase'
 import type { QuoteItem } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
@@ -281,7 +282,8 @@ function SortableItemRow({
           step='0.01'
           defaultValue={item.tva_rate ?? 20}
           onBlur={(e) => {
-            const newTva = parseFloat(e.target.value) || 20
+            const newTva = normalizeTvaRate(parseFloat(e.target.value) || 20)
+            e.target.value = String(newTva)
             const oldTva = item.tva_rate ?? 20
             if (newTva !== oldTva) {
               if (((item as any).price_entry_mode ?? 'ht') === 'ttc') {
@@ -706,7 +708,7 @@ export function QuoteEditor({
           description: product.description || undefined,
           quantity: product.price_per_person ? booking.guests_count || 1 : 1,
           unitPrice: product.unit_price_ht,
-          tvaRate: product.tva_rate,
+          tvaRate: normalizeTvaRate(product.tva_rate ?? 20),
           position: itemsLengthRef.current,
         },
         {
@@ -744,7 +746,7 @@ export function QuoteEditor({
           description: fullDescription || undefined,
           quantity: pkg.price_per_person ? booking.guests_count || 1 : 1,
           unitPrice: pkg.unit_price_ht,
-          tvaRate: pkg.tva_rate,
+          tvaRate: normalizeTvaRate(pkg.tva_rate ?? 20),
           position: itemsLengthRef.current,
         },
         {
@@ -2360,7 +2362,9 @@ export function QuoteEditor({
                                 max={100}
                                 value={extraTvaRate}
                                 onChange={(e) => {
-                                  const tva = parseFloat(e.target.value) || 20
+                                  const tva = normalizeTvaRate(
+                                    parseFloat(e.target.value) || 20
+                                  )
                                   setExtraTvaRate(tva)
                                   setExtraUnitPrice(
                                     deriveUnitTtc(extraUnitPriceHt, tva)

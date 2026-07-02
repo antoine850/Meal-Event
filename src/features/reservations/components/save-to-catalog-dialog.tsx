@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { normalizeTvaRate } from '@/lib/price'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -89,7 +90,7 @@ export function SaveToCatalogDialog({
       name: trimmed,
       description: line?.description?.trim() || null,
       unit_price_ht: parseFloat(priceHt) || 0,
-      tva_rate: parseFloat(tvaRate) || 20,
+      tva_rate: normalizeTvaRate(parseFloat(tvaRate) || 20),
       price_per_person: pricePerPerson,
       restaurant_ids: [restaurantId],
     }
@@ -180,6 +181,11 @@ export function SaveToCatalogDialog({
                 step='0.01'
                 value={tvaRate}
                 onChange={(e) => setTvaRate(e.target.value)}
+                onBlur={() =>
+                  setTvaRate(
+                    String(normalizeTvaRate(parseFloat(tvaRate) || 20))
+                  )
+                }
               />
             </div>
           </div>

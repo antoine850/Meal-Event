@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { deriveHtFromTtc } from '@/lib/price'
+import { deriveHtFromTtc, normalizeTvaRate } from '@/lib/price'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -93,7 +93,7 @@ export function ProductDialog({
     () =>
       deriveHtFromTtc(
         parseFloat(unitPriceTtc) || 0,
-        parseFloat(tvaRate) || 0
+        normalizeTvaRate(parseFloat(tvaRate) || 0)
       ).toFixed(2),
     [unitPriceTtc, tvaRate]
   )
@@ -111,9 +111,9 @@ export function ProductDialog({
       price_per_person: pricePerPerson,
       unit_price_ht: deriveHtFromTtc(
         parseFloat(unitPriceTtc) || 0,
-        parseFloat(tvaRate) || 0
+        normalizeTvaRate(parseFloat(tvaRate) || 0)
       ),
-      tva_rate: parseFloat(tvaRate) || 20,
+      tva_rate: normalizeTvaRate(parseFloat(tvaRate) || 20),
       margin: parseFloat(margin) || 0,
       is_active: isActive,
       restaurant_ids: selectedRestaurants,
@@ -221,6 +221,11 @@ export function ProductDialog({
                 step='0.01'
                 value={tvaRate}
                 onChange={(e) => setTvaRate(e.target.value)}
+                onBlur={() =>
+                  setTvaRate(
+                    String(normalizeTvaRate(parseFloat(tvaRate) || 20))
+                  )
+                }
                 placeholder='20'
               />
             </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { deriveHtFromTtc } from '@/lib/price'
+import { deriveHtFromTtc, normalizeTvaRate } from '@/lib/price'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -89,7 +89,8 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
     }
   }, [open, pkg])
 
-  const derivedHt = deriveHtFromTtc(unitPriceTtc, tvaRate)
+  const rate = normalizeTvaRate(tvaRate)
+  const derivedHt = deriveHtFromTtc(unitPriceTtc, rate)
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -106,7 +107,7 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
       description: description.trim() || null,
       unit_price_ht: derivedHt,
       price_per_person: pricePerPerson,
-      tva_rate: tvaRate,
+      tva_rate: rate,
       is_active: isActive,
       product_items: productItems.filter((pi) => pi.product_id),
       restaurant_ids: selectedRestaurants,
@@ -216,6 +217,7 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
                 max={100}
                 value={tvaRate}
                 onChange={(e) => setTvaRate(parseFloat(e.target.value) || 20)}
+                onBlur={() => setTvaRate(normalizeTvaRate(tvaRate))}
               />
             </div>
             <div>
