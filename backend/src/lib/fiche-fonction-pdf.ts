@@ -309,6 +309,7 @@ function itemsTable(
         table: {
           headerRows: 1,
           dontBreakRows: true,
+          keepWithHeaderRows: 1,
           widths: ['*', 28, 38, 56, 56, 56, 56],
           body,
         },
@@ -373,7 +374,12 @@ export function buildFicheFonctionDocDefinition(
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  })} à ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+    timeZone: 'Europe/Paris',
+  })} à ${now.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+  })}`
 
   const quotes = booking.quotes || []
   const payments = booking.payments || []
@@ -589,12 +595,15 @@ export function buildFicheFonctionDocDefinition(
     ],
   })
 
-  content.push(
-    infoRow([
+  // Champs TEXT illimités : pas d'unbreakable (pdfmake tronque les blocs insécables > 1 page)
+  content.push({
+    columns: [
       labelValue('Allergies et Régimes', booking.allergies_regimes),
       labelValue('Prestations souhaitées', booking.prestations_souhaitees),
-    ])
-  )
+    ].map((c) => ({ width: '*', ...(c as object) })) as Column[],
+    columnGap: 10,
+    margin: [0, 4, 0, 0] as [number, number, number, number],
+  })
 
   // Commentaires combinés (commentaires + instructions spéciales + contact sur place)
   const contactSurPlaceLines: string[] = []
@@ -667,7 +676,8 @@ export function buildFicheFonctionDocDefinition(
       ],
       margin: [30, 8, 30, 0] as [number, number, number, number],
     }),
-    // Un titre de section ne reste jamais seul en bas de page
+    // Un titre de section ne reste jamais seul en bas de page.
+    // Cast : @types/pdfmake 0.3 déclare (currentNode, nodeQueries) mais le runtime 0.2.23 passe des arguments positionnels, on garde la signature positionnelle.
     pageBreakBefore: ((currentNode: any, followingNodesOnPage: any[]) =>
       currentNode.headlineLevel === 1 &&
       followingNodesOnPage.length === 0) as unknown as TDocumentDefinitions['pageBreakBefore'],
