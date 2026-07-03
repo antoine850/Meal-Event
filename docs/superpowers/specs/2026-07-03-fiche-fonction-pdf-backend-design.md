@@ -102,7 +102,9 @@ Nettoyage : suppression de `quote-pdf-export.tsx` (mort depuis c95428f) et de `h
 
 ## Périmètre fichiers
 
-`backend/src/lib/pdf-generator.ts` (fetch + build), `backend/src/lib/documents.ts` (nouveau),
+`backend/src/lib/fiche-fonction-pdf.ts` (nouveau : fetch + build + génération, pdf-generator.ts
+fait déjà 2484 lignes), `backend/src/lib/pdf-generator.ts` (export `renderPdfToBuffer`),
+`backend/src/lib/documents.ts` (nouveau),
 `backend/src/routes/bookings.ts` (route), `backend/src/routes/quotes.ts` (import du helper
 déplacé), `src/features/reservations/components/fiche-fonction-pdf-button.tsx` (réécrit),
 `src/features/reservations/components/quote-pdf-export.tsx` (supprimé), `package.json`
