@@ -580,7 +580,7 @@ export function buildFicheFonctionDocDefinition(
             ].map((c, i) => ({
               ...(c as object),
               margin: [0, i === 0 ? 0 : 4, 0, 0] as [number, number, number, number],
-            })) as Content[],
+            })),
           },
           { width: '*', ...(labelValue('Boissons', booking.menu_boissons) as object) },
         ] as Column[],
@@ -635,7 +635,7 @@ export function buildFicheFonctionDocDefinition(
                 ) as object),
                 margin: [0, 4, 0, 0],
               },
-            ] as Content[],
+            ],
           },
           {
             width: '*',
@@ -649,7 +649,7 @@ export function buildFicheFonctionDocDefinition(
                 ) as object),
                 margin: [0, 4, 0, 0],
               },
-            ] as Content[],
+            ],
           },
         ] as Column[],
         columnGap: 14,
