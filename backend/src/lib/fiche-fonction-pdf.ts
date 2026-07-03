@@ -1,4 +1,9 @@
-import type { Column, Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces'
+import type {
+  Column,
+  Content,
+  TableCell,
+  TDocumentDefinitions,
+} from 'pdfmake/interfaces'
 import { renderPdfToBuffer } from './pdf-generator.js'
 import { formatEuroAdaptive, formatEuroDecimal } from './quote-rounding.js'
 import { supabase } from './supabase.js'
@@ -62,7 +67,7 @@ export interface FicheBookingData {
   option: string | null
   relance: string | null
   date_signature_devis: string | null
-  budget_client: number | null
+  budget_client: number | string | null
   space_id: string | null
   assigned_user_ids: string[] | null
   contact: {
@@ -94,7 +99,10 @@ export async function fetchBookingFullData(bookingId: string): Promise<{
     `
     )
     .eq('id', bookingId)
-    .order('position', { referencedTable: 'quotes.quote_items', ascending: true })
+    .order('position', {
+      referencedTable: 'quotes.quote_items',
+      ascending: true,
+    })
     .single()
 
   if (error) throw new Error(`Failed to fetch booking: ${error.message}`)
@@ -165,7 +173,10 @@ function computeVatBreakdown(items: FicheQuoteItem[]) {
   return { totalHt, vat10, vat20, totalTtc }
 }
 
-function getRemainingBalance(totalTtc: number, payments: FichePayment[]): number {
+function getRemainingBalance(
+  totalTtc: number,
+  payments: FichePayment[]
+): number {
   const paid = payments
     .filter((p) => p.status === 'paid' || p.status === 'completed')
     .reduce((s, p) => s + (p.amount || 0), 0)
@@ -256,7 +267,11 @@ function infoRow(cells: Content[]): Content {
   }
 }
 
-function headerCell(text: string, color: string, alignment?: 'right'): TableCell {
+function headerCell(
+  text: string,
+  color: string,
+  alignment?: 'right'
+): TableCell {
   return {
     text,
     style: 'ficheTableHeader',
@@ -286,7 +301,12 @@ function itemsTable(
   if (items.length === 0) {
     body.push([
       { text: 'Aucune ligne', colSpan: 7, alignment: 'center', color: GRAY },
-      {}, {}, {}, {}, {}, {},
+      {},
+      {},
+      {},
+      {},
+      {},
+      {},
     ])
   } else {
     for (const item of items) {
@@ -299,11 +319,20 @@ function itemsTable(
           stack: [
             { text: item.name, bold: true },
             ...(item.description
-              ? [{ text: item.description, style: 'ficheDesc' as const, color: GRAY }]
+              ? [
+                  {
+                    text: item.description,
+                    style: 'ficheDesc' as const,
+                    color: GRAY,
+                  },
+                ]
               : []),
           ],
         },
-        { text: item.quantity != null ? String(item.quantity) : DASH, alignment: 'right' },
+        {
+          text: item.quantity != null ? String(item.quantity) : DASH,
+          alignment: 'right',
+        },
         { text: `${tvaRate.toFixed(2)}%`, alignment: 'right' },
         { text: formatEuroDecimal(item.unit_price || 0), alignment: 'right' },
         { text: formatEuroDecimal(unitTtc), alignment: 'right' },
@@ -347,7 +376,11 @@ function amountsTable(
           widths: headers.map(() => '*'),
           body: [
             headers.map((h, i) =>
-              headerCell(h, color, i >= headers.length - 4 ? 'right' : undefined)
+              headerCell(
+                h,
+                color,
+                i >= headers.length - 4 ? 'right' : undefined
+              )
             ),
             ...rows,
           ],
@@ -449,14 +482,20 @@ export function buildFicheFonctionDocDefinition(
     infoRow([
       labelValue(
         'Horaires (Global)',
-        formatHorairesGlobal(booking.event_date, booking.start_time, booking.end_time)
+        formatHorairesGlobal(
+          booking.event_date,
+          booking.start_time,
+          booking.end_time
+        )
       ),
     ])
   )
 
   // ── Compte / Contact / Coordonnées ──
   const contactName = booking.contact
-    ? [booking.contact.first_name, booking.contact.last_name].filter(Boolean).join(' ')
+    ? [booking.contact.first_name, booking.contact.last_name]
+        .filter(Boolean)
+        .join(' ')
     : ''
   const coordonnees = [booking.contact?.phone, booking.contact?.email]
     .filter(Boolean)
@@ -498,7 +537,11 @@ export function buildFicheFonctionDocDefinition(
             { text: formatEuroDecimal(totals.totalHt), alignment: 'right' },
             { text: formatEuroDecimal(totals.vat10), alignment: 'right' },
             { text: formatEuroDecimal(totals.vat20), alignment: 'right' },
-            { text: formatEuroDecimal(totals.totalTtc), alignment: 'right', bold: true },
+            {
+              text: formatEuroDecimal(totals.totalTtc),
+              alignment: 'right',
+              bold: true,
+            },
           ],
         ],
         color
@@ -515,7 +558,21 @@ export function buildFicheFonctionDocDefinition(
     }
     const depositRows: TableCell[][] =
       allDeposits.length === 0
-        ? [[{ text: 'Aucun acompte', colSpan: 6, alignment: 'center', color: GRAY }, {}, {}, {}, {}, {}]]
+        ? [
+            [
+              {
+                text: 'Aucun acompte',
+                colSpan: 6,
+                alignment: 'center',
+                color: GRAY,
+              },
+              {},
+              {},
+              {},
+              {},
+              {},
+            ],
+          ]
         : allDeposits.map((p) => {
             const isPaid = p.status === 'paid' || p.status === 'completed'
             const totalRatio =
@@ -526,12 +583,28 @@ export function buildFicheFonctionDocDefinition(
               ? quoteNumberById.get(p.quote_id) || DASH
               : DASH
             return [
-              { text: isPaid ? 'Payé' : 'En attente', color: isPaid ? '#15803d' : GRAY },
+              {
+                text: isPaid ? 'Payé' : 'En attente',
+                color: isPaid ? '#15803d' : GRAY,
+              },
               { text: quoteNum },
-              { text: formatEuroDecimal(totals.totalHt * totalRatio), alignment: 'right' },
-              { text: formatEuroDecimal(totals.vat10 * totalRatio), alignment: 'right' },
-              { text: formatEuroDecimal(totals.vat20 * totalRatio), alignment: 'right' },
-              { text: formatEuroDecimal(p.amount || 0), alignment: 'right', bold: true },
+              {
+                text: formatEuroDecimal(totals.totalHt * totalRatio),
+                alignment: 'right',
+              },
+              {
+                text: formatEuroDecimal(totals.vat10 * totalRatio),
+                alignment: 'right',
+              },
+              {
+                text: formatEuroDecimal(totals.vat20 * totalRatio),
+                alignment: 'right',
+              },
+              {
+                text: formatEuroDecimal(p.amount || 0),
+                alignment: 'right',
+                bold: true,
+              },
             ]
           })
     content.push(
@@ -549,17 +622,32 @@ export function buildFicheFonctionDocDefinition(
         ? getRemainingBalance(activeQuote.total_ttc || 0, payments)
         : 0
     const ratio =
-      (activeQuote.total_ttc || 0) > 0 ? remainingTtc / (activeQuote.total_ttc || 1) : 0
+      (activeQuote.total_ttc || 0) > 0
+        ? remainingTtc / (activeQuote.total_ttc || 1)
+        : 0
     content.push(
       amountsTable(
         'Reste',
         ['Total HT', 'TVA 10%', 'TVA 20%', 'Total TTC'],
         [
           [
-            { text: formatEuroDecimal(totals.totalHt * ratio), alignment: 'right' },
-            { text: formatEuroDecimal(totals.vat10 * ratio), alignment: 'right' },
-            { text: formatEuroDecimal(totals.vat20 * ratio), alignment: 'right' },
-            { text: formatEuroDecimal(remainingTtc), alignment: 'right', bold: true },
+            {
+              text: formatEuroDecimal(totals.totalHt * ratio),
+              alignment: 'right',
+            },
+            {
+              text: formatEuroDecimal(totals.vat10 * ratio),
+              alignment: 'right',
+            },
+            {
+              text: formatEuroDecimal(totals.vat20 * ratio),
+              alignment: 'right',
+            },
+            {
+              text: formatEuroDecimal(remainingTtc),
+              alignment: 'right',
+              bold: true,
+            },
           ],
         ],
         color
@@ -568,7 +656,9 @@ export function buildFicheFonctionDocDefinition(
   }
 
   // ── Textes libres ──
-  content.push(textSection('Commentaires facturation', booking.internal_notes, color))
+  content.push(
+    textSection('Commentaires facturation', booking.internal_notes, color)
+  )
   content.push(
     infoRow([
       labelValue('Espace', booking.space?.name),
@@ -596,10 +686,18 @@ export function buildFicheFonctionDocDefinition(
               labelValue('Dessert', booking.menu_dessert),
             ].map((c, i) => ({
               ...(c as object),
-              margin: [0, i === 0 ? 0 : 4, 0, 0] as [number, number, number, number],
+              margin: [0, i === 0 ? 0 : 4, 0, 0] as [
+                number,
+                number,
+                number,
+                number,
+              ],
             })),
           },
-          { width: '*', ...(labelValue('Boissons', booking.menu_boissons) as object) },
+          {
+            width: '*',
+            ...(labelValue('Boissons', booking.menu_boissons) as object),
+          },
         ] as Column[],
         columnGap: 14,
       },
@@ -619,7 +717,9 @@ export function buildFicheFonctionDocDefinition(
   // Commentaires combinés (commentaires + instructions spéciales + contact sur place)
   const contactSurPlaceLines: string[] = []
   if (booking.contact_sur_place_nom)
-    contactSurPlaceLines.push(`Contact sur place : ${booking.contact_sur_place_nom}`)
+    contactSurPlaceLines.push(
+      `Contact sur place : ${booking.contact_sur_place_nom}`
+    )
   if (booking.contact_sur_place_tel)
     contactSurPlaceLines.push(`Tél : ${booking.contact_sur_place_tel}`)
   if (booking.contact_sur_place_societe)
@@ -627,11 +727,17 @@ export function buildFicheFonctionDocDefinition(
   const commentairesBlocks: string[] = []
   if (booking.commentaires) commentairesBlocks.push(booking.commentaires)
   if (booking.instructions_speciales)
-    commentairesBlocks.push(`Instructions spéciales :\n${booking.instructions_speciales}`)
+    commentairesBlocks.push(
+      `Instructions spéciales :\n${booking.instructions_speciales}`
+    )
   if (contactSurPlaceLines.length > 0)
     commentairesBlocks.push(contactSurPlaceLines.join('\n'))
   content.push(
-    textSection('Commentaires', commentairesBlocks.join('\n\n').trim() || null, color)
+    textSection(
+      'Commentaires',
+      commentairesBlocks.join('\n\n').trim() || null,
+      color
+    )
   )
 
   // Suivi commercial (2 colonnes, insécable)
@@ -643,15 +749,28 @@ export function buildFicheFonctionDocDefinition(
           {
             width: '*',
             stack: [
-              labelValue('Commerciaux assignés', assignedNames.join(', ') || null),
-              { ...(labelValue('Occasion', booking.occasion) as object), margin: [0, 4, 0, 0] },
-              { ...(labelValue('Relance', booking.relance) as object), margin: [0, 4, 0, 0] },
+              labelValue(
+                'Commerciaux assignés',
+                assignedNames.join(', ') || null
+              ),
               {
+                ...(labelValue('Occasion', booking.occasion) as object),
+                margin: [0, 4, 0, 0],
+              },
+              {
+                ...(labelValue('Relance', booking.relance) as object),
+                margin: [0, 4, 0, 0],
+              },
+              {
+                // budget_client : numérique ou texte libre selon la source (import BS)
                 ...(labelValue(
                   'Budget client',
-                  booking.budget_client != null
+                  typeof booking.budget_client === 'number' &&
+                    Number.isFinite(booking.budget_client)
                     ? formatEuroAdaptive(booking.budget_client)
-                    : null
+                    : booking.budget_client
+                      ? String(booking.budget_client).trim()
+                      : null
                 ) as object),
                 margin: [0, 4, 0, 0],
               },
@@ -661,7 +780,10 @@ export function buildFicheFonctionDocDefinition(
             width: '*',
             stack: [
               labelValue('Source', booking.source),
-              { ...(labelValue('Option', booking.option) as object), margin: [0, 4, 0, 0] },
+              {
+                ...(labelValue('Option', booking.option) as object),
+                margin: [0, 4, 0, 0],
+              },
               {
                 ...(labelValue(
                   'Date signature devis',
@@ -682,16 +804,26 @@ export function buildFicheFonctionDocDefinition(
     content,
     footer: (currentPage: number, pageCount: number) => ({
       columns: [
-        { text: `Fiche de fonction n°${bookingRef} — imprimé le ${printedAt}`, style: 'footer' },
-        { text: `Page ${currentPage}/${pageCount}`, style: 'footer', alignment: 'right' as const },
+        {
+          text: `Fiche de fonction n°${bookingRef} — imprimé le ${printedAt}`,
+          style: 'footer',
+        },
+        {
+          text: `Page ${currentPage}/${pageCount}`,
+          style: 'footer',
+          alignment: 'right' as const,
+        },
       ],
+      style: 'footer',
       margin: [30, 8, 30, 0] as [number, number, number, number],
     }),
     // Un titre de section ne reste jamais seul en bas de page.
+    // Les nœuds du footer figurent dans followingNodesOnPage sur chaque page : on les ignore via leur style.
     // Cast : @types/pdfmake 0.3 déclare (currentNode, nodeQueries) mais le runtime 0.2.23 passe des arguments positionnels, on garde la signature positionnelle.
     pageBreakBefore: ((currentNode: any, followingNodesOnPage: any[]) =>
       currentNode.headlineLevel === 1 &&
-      followingNodesOnPage.length === 0) as unknown as TDocumentDefinitions['pageBreakBefore'],
+      followingNodesOnPage.filter((n) => n.style !== 'footer').length ===
+        0) as unknown as TDocumentDefinitions['pageBreakBefore'],
     defaultStyle: {
       font: 'Roboto',
       fontSize: 9,
