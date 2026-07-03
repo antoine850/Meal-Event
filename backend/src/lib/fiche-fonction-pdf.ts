@@ -63,6 +63,7 @@ export interface FicheBookingData {
   relance: string | null
   date_signature_devis: string | null
   budget_client: number | null
+  space_id: string | null
   assigned_user_ids: string[] | null
   contact: {
     first_name: string | null
@@ -88,7 +89,6 @@ export async function fetchBookingFullData(bookingId: string): Promise<{
       *,
       contact:contacts(id, first_name, last_name, email, phone, company:companies(name)),
       restaurant:restaurants(id, name, color),
-      space:spaces(id, name),
       quotes(*, quote_items(*)),
       payments(*)
     `
@@ -99,6 +99,17 @@ export async function fetchBookingFullData(bookingId: string): Promise<{
 
   if (error) throw new Error(`Failed to fetch booking: ${error.message}`)
   const booking = data as unknown as FicheBookingData
+
+  // Pas de FK bookings->spaces exposé côté PostgREST en prod : l'embed échoue, on résout à part (comme le frontend)
+  booking.space = null
+  if (booking.space_id) {
+    const { data: space } = await supabase
+      .from('spaces')
+      .select('name')
+      .eq('id', booking.space_id)
+      .single()
+    booking.space = space ?? null
+  }
 
   const ids = booking.assigned_user_ids || []
   let assignedNames: string[] = []
