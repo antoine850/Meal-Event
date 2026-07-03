@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -181,9 +181,9 @@ function ItemsTable({ title, items }: { title: string; items: QuoteItem[] }) {
 }
 
 export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
-  const printRef = useRef<HTMLDivElement>(null)
   const { data: orgUsers = [] } = useOrganizationUsers()
-  const { mutate: updateBooking } = useUpdateBooking()
+  const { mutate: updateBooking, mutateAsync: updateBookingAsync } =
+    useUpdateBooking()
 
   // Édition inline du commentaire facturation : état local, save on blur,
   // resync si la valeur change côté DB (ex. autre tab/onglet édite le booking).
@@ -199,6 +199,15 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
     updateBooking({ id: booking.id, internal_notes: next } as never, {
       onError: () => toast.error('Erreur lors de la sauvegarde'),
     })
+  }
+
+  // Version awaitable pour l'export PDF : la note doit être en base avant
+  // que le backend ne lise le booking.
+  const flushBillingNotes = async () => {
+    const next = billingNotes.trim() || null
+    const current = booking.internal_notes || null
+    if (next === current) return
+    await updateBookingAsync({ id: booking.id, internal_notes: next } as never)
   }
 
   const activeQuote = useMemo(
@@ -321,12 +330,14 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
         <h2 className='text-lg font-semibold'>
           Récapitulatif d&apos;évènements
         </h2>
-        <FicheFonctionPdfButton bookingId={booking.id} printRef={printRef} />
+        <FicheFonctionPdfButton
+          bookingId={booking.id}
+          flushNotes={flushBillingNotes}
+        />
       </div>
 
       {/* Printable area */}
       <div
-        ref={printRef}
         id='fiche-fonction-content'
         className='space-y-1.5 rounded-lg bg-muted/30 p-3 sm:p-4 print:bg-white print:p-0'
       >
