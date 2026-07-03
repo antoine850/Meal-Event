@@ -7,6 +7,7 @@ import {
   computeBalanceTtc,
   computeQuoteBreakdown,
   deriveUnitTtc,
+  displayUnitTtc,
 } from '../src/lib/quote-rounding'
 
 // Cas de reference de la note client (Foolish Studio, 29/06/2026).
@@ -153,4 +154,19 @@ describe('Verbatim : les deux PU saisis, aucune derivation', () => {
     expect(l.totalHt).toBe(85.5)
     expect(l.totalTtc).toBe(102.6)
   })
+})
+
+describe('displayUnitTtc : PU TTC affiche coherent avec le total de ligne', () => {
+  it('PU TTC saisi -> verbatim', () =>
+    expect(displayUnitTtc({ quantity: 40, unit_price: 45.45, unit_price_ttc: 50, tva_rate: 10, total_ttc: 2000 })).toBe(50))
+  it('cas SAPRI : pas de PU TTC stocke, total bon -> total / qte (50, pas 49,995x40=1999,80)', () =>
+    expect(displayUnitTtc({ quantity: 40, unit_price: 45.45, unit_price_ttc: null, tva_rate: 10, total_ttc: 2000 })).toBe(50))
+  it('import BS a centimes : total / qte meme non divisible (545,45 / 40)', () =>
+    expect(displayUnitTtc({ quantity: 40, unit_price: 13.64, unit_price_ttc: null, tva_rate: 10, total_ttc: 545.45 })).toBeCloseTo(13.636, 3))
+  it('ligne remisee : prix avant remise, donc derivation HT (pas total / qte)', () =>
+    expect(displayUnitTtc({ quantity: 2, unit_price: 100, unit_price_ttc: null, discount_amount: 20, tva_rate: 20, total_ttc: 216 })).toBe(120))
+  it('sans total stocke -> derivation HT au centime', () =>
+    expect(displayUnitTtc({ quantity: 40, unit_price: 45.45, unit_price_ttc: null, tva_rate: 10, total_ttc: null })).toBe(50))
+  it('tva_rate null -> defaut 20 comme les autres helpers', () =>
+    expect(displayUnitTtc({ quantity: 3, unit_price: 28.5, unit_price_ttc: null, tva_rate: null, total_ttc: null })).toBe(34.2))
 })

@@ -135,6 +135,19 @@ export function deriveUnitHt(
   return round2(unitTtc / (1 + rate / 100))
 }
 
+// PU TTC a afficher : saisi si present, sinon total stocke / quantite (coherent avec
+// la colonne Total TTC), en dernier recours derive du HT. Ligne remisee : le PU affiche
+// reste le prix avant remise, donc derivation HT.
+export function displayUnitTtc(
+  item: LineAmountsInput & { total_ttc?: number | null }
+): number {
+  if (item.unit_price_ttc != null) return item.unit_price_ttc
+  const qty = item.quantity ?? 0
+  if (item.total_ttc != null && qty > 0 && !item.discount_amount)
+    return item.total_ttc / qty
+  return deriveUnitTtc(item.unit_price ?? 0, item.tva_rate ?? 20)
+}
+
 // Totaux d'une ligne, ancres sur la valeur saisie (HT ou TTC). Aucun ceil.
 export function computeLineAmounts(input: LineAmountsInput): QuoteTotals {
   const qty = input.quantity ?? 0

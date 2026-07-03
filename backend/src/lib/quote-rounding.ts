@@ -18,7 +18,10 @@ export function roundLineTtc(input: LineInput): number {
   return Math.ceil(rawTtc)
 }
 
-export function deriveLineHt(lineTtc: number, tvaRate: number | null | undefined): number {
+export function deriveLineHt(
+  lineTtc: number,
+  tvaRate: number | null | undefined
+): number {
   const rate = tvaRate ?? 0
   if (rate <= -100) return 0
   return lineTtc / (1 + rate / 100)
@@ -32,7 +35,7 @@ export type QuoteTotals = {
 
 export function computeQuoteTotals(
   items: LineInput[],
-  discountPercentage: number | null | undefined = 0,
+  discountPercentage: number | null | undefined = 0
 ): QuoteTotals {
   const discountPct = discountPercentage ?? 0
   const discountMult = discountPct > 0 ? 1 - discountPct / 100 : 1
@@ -69,7 +72,7 @@ export function formatEuroWhole(amount: number): string {
       currency: 'EUR',
       maximumFractionDigits: 0,
       minimumFractionDigits: 0,
-    }).format(rounded),
+    }).format(rounded)
   )
 }
 
@@ -81,7 +84,7 @@ export function formatEuroDecimal(amount: number): string {
       currency: 'EUR',
       maximumFractionDigits: 2,
       minimumFractionDigits: 2,
-    }).format(amount),
+    }).format(amount)
   )
 }
 
@@ -114,14 +117,33 @@ export type LineAmountsInput = {
   tva_rate?: number | null
 }
 
-export function deriveUnitTtc(unitHt: number, tvaRate: number | null | undefined): number {
+export function deriveUnitTtc(
+  unitHt: number,
+  tvaRate: number | null | undefined
+): number {
   return round2(unitHt * (1 + (tvaRate ?? 0) / 100))
 }
 
-export function deriveUnitHt(unitTtc: number, tvaRate: number | null | undefined): number {
+export function deriveUnitHt(
+  unitTtc: number,
+  tvaRate: number | null | undefined
+): number {
   const rate = tvaRate ?? 0
   if (rate <= -100) return 0
   return round2(unitTtc / (1 + rate / 100))
+}
+
+// PU TTC a afficher : saisi si present, sinon total stocke / quantite (coherent avec
+// la colonne Total TTC), en dernier recours derive du HT. Ligne remisee : le PU affiche
+// reste le prix avant remise, donc derivation HT.
+export function displayUnitTtc(
+  item: LineAmountsInput & { total_ttc?: number | null }
+): number {
+  if (item.unit_price_ttc != null) return item.unit_price_ttc
+  const qty = item.quantity ?? 0
+  if (item.total_ttc != null && qty > 0 && !item.discount_amount)
+    return item.total_ttc / qty
+  return deriveUnitTtc(item.unit_price ?? 0, item.tva_rate ?? 20)
 }
 
 // Totaux d'une ligne, ancres sur la valeur saisie (HT ou TTC). Aucun ceil.
@@ -161,7 +183,7 @@ export function computeLineAmounts(input: LineAmountsInput): QuoteTotals {
 // une seule fois. Les lignes affichees somment au sous-total ; sous-total - remise = total.
 export function computeQuoteAmounts(
   items: LineAmountsInput[],
-  discountPercentage: number | null | undefined = 0,
+  discountPercentage: number | null | undefined = 0
 ): QuoteTotals {
   let subHt = 0
   let subTtc = 0
@@ -179,12 +201,16 @@ export function computeQuoteAmounts(
   return { totalHt, totalTva: round2(totalTtc - totalHt), totalTtc }
 }
 
-export type QuoteBreakdown = QuoteTotals & { subHt: number; subTtc: number; remiseTtc: number }
+export type QuoteBreakdown = QuoteTotals & {
+  subHt: number
+  subTtc: number
+  remiseTtc: number
+}
 
 // Detail pour l'affichage : sous-total (somme lignes), remise en euros, total. Somme lignes = subTtc.
 export function computeQuoteBreakdown(
   items: LineAmountsInput[],
-  discountPercentage: number | null | undefined = 0,
+  discountPercentage: number | null | undefined = 0
 ): QuoteBreakdown {
   let subHt = 0
   let subTtc = 0
@@ -205,28 +231,35 @@ export type DepositAmounts = { ttc: number; ht: number; tva: number }
 export function computeDepositAmounts(
   totalTtc: number,
   totalHt: number,
-  opts: { overrideTtc?: number | null; percentage?: number | null },
+  opts: { overrideTtc?: number | null; percentage?: number | null }
 ): DepositAmounts {
   const ttc =
-    opts.overrideTtc != null ? round2(opts.overrideTtc) : round2((totalTtc * (opts.percentage ?? 0)) / 100)
+    opts.overrideTtc != null
+      ? round2(opts.overrideTtc)
+      : round2((totalTtc * (opts.percentage ?? 0)) / 100)
   const ht = totalTtc > 0 ? round2(ttc * (totalHt / totalTtc)) : 0
   return { ttc, ht, tva: round2(ttc - ht) }
 }
 
 // Solde = total du devis moins ce qui a deja ete encaisse. Soustraction stricte.
-export function computeBalanceTtc(totalTtc: number, collectedTtc: number): number {
+export function computeBalanceTtc(
+  totalTtc: number,
+  collectedTtc: number
+): number {
   return round2(totalTtc - collectedTtc)
 }
 
 // --- Facture d'avoir ---
 
-export type EffectiveLineInput = LineAmountsInput & { item_type?: string | null }
+export type EffectiveLineInput = LineAmountsInput & {
+  item_type?: string | null
+}
 
 // Total effectif = produits (avec remise en pied) + extras (hors remise).
 // Reproduit exactement la base de la facture de solde : quote.total_ttc + Σ extras.total_ttc.
 export function computeEffectiveTotals(
   items: EffectiveLineInput[],
-  discountPercentage: number | null | undefined = 0,
+  discountPercentage: number | null | undefined = 0
 ): QuoteTotals {
   const products = items.filter((i) => i.item_type !== 'extra')
   const extras = items.filter((i) => i.item_type === 'extra')
@@ -247,7 +280,7 @@ export function computeEffectiveTotals(
 // cote ancre selon price_entry_mode) ou null si la ligne est entierement creditee.
 export function applyLineCredit(
   line: LineAmountsInput,
-  creditedTtc: number,
+  creditedTtc: number
 ): LineAmountsInput | null {
   const current = computeLineAmounts(line).totalTtc
   if (creditedTtc >= current - 1e-9) return null
@@ -291,7 +324,7 @@ export function computeCreditNote(
   items: CreditItemInput[],
   creditsByItemId: Record<string, number>,
   discountPercentage: number | null | undefined,
-  collectedTtc: number,
+  collectedTtc: number
 ): CreditNoteResult {
   const old = computeEffectiveTotals(items, discountPercentage)
   const creditedItems: CreditedItem[] = []
@@ -311,7 +344,9 @@ export function computeCreditNote(
         newDiscountAmount: null,
       })
     } else {
-      const actual = round2(computeLineAmounts(it).totalTtc - computeLineAmounts(modified).totalTtc)
+      const actual = round2(
+        computeLineAmounts(it).totalTtc - computeLineAmounts(modified).totalTtc
+      )
       creditedItems.push({
         id: it.id,
         creditedTtc: actual,

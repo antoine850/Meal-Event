@@ -8,6 +8,7 @@ import {
   formatEuroAdaptive,
   formatEuroDecimal,
   computeDepositAmounts,
+  displayUnitTtc,
 } from './quote-rounding.js'
 import { supabase } from './supabase.js'
 
@@ -885,10 +886,7 @@ function buildDocDefinition(
               : {}),
           },
           {
-            text: formatEuroDecimal(
-              item.unit_price_ttc ??
-                (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
-            ),
+            text: formatEuroDecimal(displayUnitTtc(item)),
             style: 'tableCell',
             alignment: 'right' as const,
             fillColor: rowColor,
@@ -1071,10 +1069,7 @@ function buildDocDefinition(
               : {}),
           },
           {
-            text: formatEuroDecimal(
-              item.unit_price_ttc ??
-                (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
-            ),
+            text: formatEuroDecimal(displayUnitTtc(item)),
             style: 'tableCell',
             alignment: 'right' as const,
             ...(discountPct > 0
@@ -1175,10 +1170,7 @@ function buildDocDefinition(
               : {}),
           },
           {
-            text: formatEuroDecimal(
-              extra.unit_price_ttc ??
-                (extra.unit_price || 0) * (1 + (extra.tva_rate || 0) / 100)
-            ),
+            text: formatEuroDecimal(displayUnitTtc(extra)),
             style: 'tableCell',
             alignment: 'right' as const,
             ...(discountPct > 0
