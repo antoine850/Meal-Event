@@ -2255,18 +2255,16 @@ function buildCreditNoteDocDefinition(
         fillColor: rowColor,
       },
       {
-        text: `- ${formatEuroDecimal(creditedHt(item))}`,
+        text: formatEuroDecimal(creditedHt(item)),
         style: 'tableCell',
         alignment: 'right' as const,
         fillColor: rowColor,
-        color: '#dc2626' as const,
       },
       {
-        text: `- ${formatEuroAdaptive(item.credited_ttc)}`,
+        text: formatEuroAdaptive(item.credited_ttc),
         style: 'tableCell',
         alignment: 'right' as const,
         fillColor: rowColor,
-        color: '#dc2626' as const,
       },
     ])
   })
@@ -2293,7 +2291,7 @@ function buildCreditNoteDocDefinition(
     })
   }
 
-  // ── TOTALS BOX (crédité, en négatif) ──
+  // ── TOTALS BOX (crédité, en positif) ──
   // Regroupement TVA par taux : TVA = crédité TTC - crédité HT par ligne (verbatim),
   // pas ht*taux. Le taux ne sert qu'au regroupement.
   const tvaByRate: Record<number, number> = {}
@@ -2308,10 +2306,9 @@ function buildCreditNoteDocDefinition(
     columns: [
       { text: l.subtotalHt, style: 'small', color: '#666' },
       {
-        text: `- ${formatEuroDecimal(cn.total_ht)}`,
+        text: formatEuroDecimal(cn.total_ht),
         alignment: 'right' as const,
         style: 'bold',
-        color: '#dc2626',
       },
     ],
     margin: [0, 0, 0, 2] as [number, number, number, number],
@@ -2321,10 +2318,9 @@ function buildCreditNoteDocDefinition(
       columns: [
         { text: `TVA ${rate}%`, style: 'small', color: '#666' },
         {
-          text: `- ${formatEuroDecimal(tva)}`,
+          text: formatEuroDecimal(tva),
           alignment: 'right' as const,
           style: 'small',
-          color: '#dc2626',
         },
       ],
       margin: [0, 0, 0, 2] as [number, number, number, number],
@@ -2335,10 +2331,9 @@ function buildCreditNoteDocDefinition(
       columns: [
         { text: l.totalTvaLabel, style: 'small', color: '#666' },
         {
-          text: `- ${formatEuroDecimal(cn.total_tva)}`,
+          text: formatEuroDecimal(cn.total_tva),
           alignment: 'right' as const,
           style: 'bold',
-          color: '#dc2626',
         },
       ],
       margin: [0, 0, 0, 4] as [number, number, number, number],
@@ -2364,7 +2359,7 @@ function buildCreditNoteDocDefinition(
           [
             { text: l.totalCredited, style: 'bold', color: 'white' },
             {
-              text: `- ${formatEuroAdaptive(cn.total_ttc)}`,
+              text: formatEuroAdaptive(cn.total_ttc),
               style: 'bold',
               color: 'white',
               alignment: 'right' as const,
