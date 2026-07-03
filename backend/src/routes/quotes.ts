@@ -49,70 +49,11 @@ import {
   getOrCreateStripeCustomerOnAccount,
 } from '../lib/stripe-connect.js'
 import { supabase } from '../lib/supabase.js'
+import { savePdfAsDocument } from '../lib/documents.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 export const quotesRouter = Router()
-
-// Helper: save a generated PDF to Supabase Storage and create a document record
-async function savePdfAsDocument(
-  pdfBuffer: Buffer,
-  fileName: string,
-  storagePath: string,
-  docName: string,
-  organizationId: string | null,
-  bookingId: string | null,
-  opts?: { doc_kind?: string; credit_note_id?: string }
-) {
-  try {
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(storagePath, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true,
-      })
-
-    if (uploadError) {
-      console.error(
-        `[PDF Save] Storage upload error for ${fileName}:`,
-        uploadError
-      )
-      return
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('documents')
-      .getPublicUrl(uploadData?.path || storagePath)
-
-    const fileUrl = urlData?.publicUrl || ''
-
-    // Create document record
-    const { error: docError } = await supabase.from('documents').insert({
-      organization_id: organizationId,
-      booking_id: bookingId,
-      name: docName,
-      file_type: 'pdf',
-      file_size: pdfBuffer.length,
-      file_path: storagePath,
-      file_url: fileUrl,
-      ...(opts?.doc_kind ? { doc_kind: opts.doc_kind } : {}),
-      ...(opts?.credit_note_id ? { credit_note_id: opts.credit_note_id } : {}),
-    } as any)
-
-    if (docError) {
-      console.error(
-        `[PDF Save] Document record error for ${fileName}:`,
-        docError
-      )
-    } else {
-      console.log(`[PDF Save] ✅ Saved ${docName} for booking ${bookingId}`)
-    }
-  } catch (err) {
-    console.error(`[PDF Save] Error saving ${fileName}:`, err)
-  }
-}
 
 // Helper: update booking status by slug
 async function updateBookingStatusBySlug(
