@@ -37,6 +37,19 @@ const fonts = {
 
 const printer = new PdfPrinter(fonts)
 
+export function renderPdfToBuffer(
+  docDefinition: TDocumentDefinitions
+): Promise<Buffer> {
+  return new Promise<Buffer>((resolve, reject) => {
+    const pdfDoc = printer.createPdfKitDocument(docDefinition)
+    const chunks: Uint8Array[] = []
+    pdfDoc.on('data', (chunk: Uint8Array) => chunks.push(chunk))
+    pdfDoc.on('end', () => resolve(Buffer.concat(chunks)))
+    pdfDoc.on('error', reject)
+    pdfDoc.end()
+  })
+}
+
 export type DocumentType = 'devis' | 'acompte' | 'solde' | 'avoir'
 
 interface QuoteData {
@@ -425,14 +438,7 @@ export async function generateQuotePdf(
     paidPayments
   )
 
-  return new Promise<Buffer>((resolve, reject) => {
-    const pdfDoc = printer.createPdfKitDocument(docDefinition)
-    const chunks: Uint8Array[] = []
-    pdfDoc.on('data', (chunk: Uint8Array) => chunks.push(chunk))
-    pdfDoc.on('end', () => resolve(Buffer.concat(chunks)))
-    pdfDoc.on('error', reject)
-    pdfDoc.end()
-  })
+  return renderPdfToBuffer(docDefinition)
 }
 
 type BookingData = NonNullable<QuoteData['booking']>
@@ -1973,14 +1979,7 @@ export async function generateCreditNotePdf(
     lang
   )
 
-  return new Promise<Buffer>((resolve, reject) => {
-    const pdfDoc = printer.createPdfKitDocument(docDefinition)
-    const chunks: Uint8Array[] = []
-    pdfDoc.on('data', (chunk: Uint8Array) => chunks.push(chunk))
-    pdfDoc.on('end', () => resolve(Buffer.concat(chunks)))
-    pdfDoc.on('error', reject)
-    pdfDoc.end()
-  })
+  return renderPdfToBuffer(docDefinition)
 }
 
 function buildCreditNoteDocDefinition(
