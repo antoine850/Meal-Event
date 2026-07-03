@@ -26,14 +26,21 @@ export function FicheFonctionPdfButton({ bookingId, flushNotes }: Props) {
         version: number
       }>(`/api/bookings/${bookingId}/fiche-fonction-pdf`, { method: 'POST' })
 
+      // Le document est déjà créé côté backend : la liste doit le refléter
+      // même si le téléchargement échoue ensuite.
+      queryClient.invalidateQueries({ queryKey: ['documents', bookingId] })
+
       // iOS Safari ne supporte pas les blob URL downloads (le fichier s'ouvre dans
       // l'onglet courant plutôt que de se télécharger). On ouvre directement l'URL
       // publique Supabase, qui s'affiche dans l'aperçu PDF natif iOS.
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
       if (isIOS) {
-        window.open(fileUrl, '_blank')
+        const win = window.open(fileUrl, '_blank')
+        // Popup bloquée après les awaits : on navigue dans l'onglet courant.
+        if (!win) window.location.assign(fileUrl)
       } else {
         const response = await fetch(fileUrl)
+        if (!response.ok) throw new Error('Erreur serveur')
         const blob = await response.blob()
         const downloadUrl = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -47,7 +54,6 @@ export function FicheFonctionPdfButton({ bookingId, flushNotes }: Props) {
         setTimeout(() => URL.revokeObjectURL(downloadUrl), 300)
       }
 
-      queryClient.invalidateQueries({ queryKey: ['documents', bookingId] })
       toast.success(`Fiche v${version} enregistrée`)
     } catch (err) {
       console.error('Fiche de fonction PDF export error:', err)
