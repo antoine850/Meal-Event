@@ -937,6 +937,8 @@ export function useDuplicateQuote() {
           description: item.description,
           quantity: item.quantity,
           unit_price: item.unit_price,
+          unit_price_ttc: item.unit_price_ttc,
+          price_entry_mode: item.price_entry_mode,
           tva_rate: item.tva_rate,
           discount_amount: item.discount_amount,
           total_ht: item.total_ht,
