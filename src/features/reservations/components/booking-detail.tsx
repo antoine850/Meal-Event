@@ -91,6 +91,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { TimePicker } from '@/components/ui/time-picker'
 import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
+import { BookingEmailsTab } from '@/features/emails/components/booking-emails-tab'
 import { formatEuroAdaptive } from '@/features/reservations/lib/quote-rounding'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
 import {
@@ -3155,6 +3156,11 @@ export const BookingDetail = forwardRef<
                     </DialogContent>
                   </Dialog>
                 </div>
+              )}
+
+              {/* ── Tab: Emails ── */}
+              {activeTab === 'emails' && (
+                <BookingEmailsTab bookingId={booking.id} />
               )}
 
               {/* ── Tab: Historique ── */}
