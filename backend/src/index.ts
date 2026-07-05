@@ -17,6 +17,7 @@ import { apiV1Router } from './routes/api-v1.js'
 import { googleCalendarRouter, googleCalendarPublicRouter } from './routes/google-calendar.js'
 import { stripeConnectRouter, stripeConnectPublicRouter } from './routes/stripe-connect.js'
 import { exportsRouter } from './routes/exports.js'
+import { gmailRouter, gmailPublicRouter } from './routes/gmail.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -112,11 +113,15 @@ app.use('/api/v1', apiV1Router)
 // Must be mounted BEFORE the authenticated router so requireAuth is never hit.
 app.use('/api/google-calendar', googleCalendarPublicRouter)
 
+// Gmail OAuth callback (no auth — redirect from Google)
+app.use('/api/gmail', gmailPublicRouter)
+
 // Stripe Connect OAuth callback (public — redirect from Stripe, no cookies)
 app.use('/api/stripe-connect', stripeConnectPublicRouter)
 
 // All other Google Calendar routes require authentication
 app.use('/api/google-calendar', requireAuth, googleCalendarRouter)
+app.use('/api/gmail', requireAuth, gmailRouter)
 app.use('/api/organizations', requireAuth, organizationsRouter)
 app.use('/api/restaurants', requireAuth, restaurantsRouter)
 app.use('/api/contacts', requireAuth, contactsRouter)
