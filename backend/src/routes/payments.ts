@@ -1,11 +1,15 @@
 import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
+import {
+  sendClientEmail,
+  getCommercialInfo,
+  getOrgFacturationEmail,
+} from '../lib/client-email.js'
 import { notifyCommercialPayment } from '../lib/commercial-notifications.js'
 import {
   buildPaymentLinkEmailHtml,
   buildPaymentLinkEmailSubject,
 } from '../lib/email-templates.js'
-import { sendEmail } from '../lib/resend.js'
 import {
   getRestaurantStripeContext,
   resolveStripeMode,
@@ -281,31 +285,12 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
       } else {
         try {
           // Commercial info (for reply-to + signature)
-          let commercialName: string | null = null
-          let commercialEmail: string | null = null
-          const commercialId = bookingAny.assigned_user_ids?.[0]
-          if (commercialId) {
-            const { data: user } = await supabase
-              .from('users')
-              .select('first_name, last_name, email')
-              .eq('id', commercialId)
-              .single()
-            if (user) {
-              commercialName = `${(user as any).first_name} ${(user as any).last_name}`
-              commercialEmail = (user as any).email
-            }
-          }
+          const commercial = await getCommercialInfo(booking_id)
 
           // Org-level facturation email (for reply-to)
-          let facturationEmail: string | null = null
-          if (bookingAny.organization_id) {
-            const { data: org } = await supabase
-              .from('organizations')
-              .select('facturation_email')
-              .eq('id', bookingAny.organization_id)
-              .single()
-            facturationEmail = (org as any)?.facturation_email || null
-          }
+          const facturationEmail = await getOrgFacturationEmail(
+            bookingAny.organization_id
+          )
 
           const html = buildPaymentLinkEmailHtml({
             restaurant: restaurantBranding,
@@ -319,7 +304,7 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
             amount,
             stripePaymentUrl: paymentLink.url,
             eventDate: bookingAny.event_date || null,
-            commercialName,
+            commercialName: commercial.name,
             orderNumber: quoteOrderNumber,
           })
 
@@ -329,11 +314,15 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
             quoteNumber
           )
 
-          await sendEmail({
+          await sendClientEmail({
+            organizationId: bookingAny.organization_id,
+            bookingId: booking_id,
+            quoteId: quote_id || null,
+            emailType: 'payment_link',
             to: toEmail,
             subject,
             html,
-            replyTo: commercialEmail || restaurantBranding.email || undefined,
+            replyTo: commercial.email || restaurantBranding.email || undefined,
             facturationEmail: facturationEmail || undefined,
           })
 
@@ -346,14 +335,12 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
       }
     }
 
-    res
-      .status(201)
-      .json({
-        ...data,
-        email_sent: emailSent,
-        email_error: emailError,
-        url: paymentLink.url,
-      })
+    res.status(201).json({
+      ...data,
+      email_sent: emailSent,
+      email_error: emailError,
+      url: paymentLink.url,
+    })
   } catch (error) {
     console.error('Error creating payment link:', error)
     res.status(500).json({ error: 'Failed to create payment link' })
