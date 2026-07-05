@@ -23,7 +23,11 @@ gmailRouter.get('/auth-url', async (req: Request, res: Response) => {
     }
     const userId = (req as any).user?.id as string | undefined
     if (!userId) return res.status(401).json({ error: 'Unauthenticated' })
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GMAIL_REDIRECT_URI) {
+    if (
+      !process.env.GOOGLE_CLIENT_ID ||
+      !process.env.GOOGLE_CLIENT_SECRET ||
+      !process.env.GMAIL_REDIRECT_URI
+    ) {
       return res.status(500).json({ error: 'Gmail integration is not configured' })
     }
     return res.json({ url: getGmailAuthUrl(userId) })

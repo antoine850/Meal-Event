@@ -67,7 +67,7 @@ export async function handleGmailCallback(code: string, state: string) {
     console.warn('[Gmail] getProfile a echoue:', err instanceof Error ? err.message : err)
   }
 
-  await supabase
+  const { error } = await supabase
     .from('user_gmail_accounts')
     .upsert(
       {
@@ -83,6 +83,10 @@ export async function handleGmailCallback(code: string, state: string) {
       } as never,
       { onConflict: 'user_id' }
     )
+
+  // Frontiere externe : sans persistance du token, la connexion est un echec
+  // meme si l'echange OAuth a reussi (sinon on afficherait "connecte" a tort).
+  if (error) throw new Error(`Echec d'enregistrement du compte Gmail: ${error.message}`)
 
   return { userId, googleEmail }
 }
