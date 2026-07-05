@@ -10,6 +10,7 @@ import {
   Trash2,
   UtensilsCrossed,
   ClipboardList,
+  Mail,
 } from 'lucide-react'
 import {
   AlertDialog,
@@ -29,6 +30,7 @@ import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { useEmailLogsByBooking } from '@/features/emails/hooks/use-email-logs'
 import {
   useBooking,
   useQuotesByBooking,
@@ -51,6 +53,7 @@ export function BookingDetailPage() {
   const { data: payments = [] } = usePaymentsByBooking(id)
   const { data: documents = [] } = useDocumentsByBooking(id)
   const { data: menuForms = [] } = useBookingMenuForms(id)
+  const { data: emailLogs = [] } = useEmailLogsByBooking(id)
   const markAsRead = useMarkBookingAsRead()
   const [activeTab, setActiveTab] = useState(initialTab)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -134,7 +137,7 @@ export function BookingDetailPage() {
             Événements
           </Button>
           <Tabs value={activeTab} onValueChange={changeTab}>
-            <TabsList className='grid w-fit grid-cols-6'>
+            <TabsList className='grid w-fit grid-cols-7'>
               <TabsTrigger value='evenementiel' className='gap-1.5'>
                 <CalendarIcon className='h-4 w-4' />
                 Événementiel
@@ -178,6 +181,18 @@ export function BookingDetailPage() {
               <TabsTrigger value='fiche-fonction' className='gap-1.5'>
                 <ClipboardList className='h-4 w-4' />
                 Fiche
+              </TabsTrigger>
+              <TabsTrigger value='emails' className='gap-1.5'>
+                <Mail className='h-4 w-4' />
+                Emails
+                {emailLogs.length > 0 && (
+                  <Badge
+                    variant='secondary'
+                    className='ml-1 h-5 px-1.5 text-[10px]'
+                  >
+                    {emailLogs.length}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value='historique' className='gap-1.5'>
                 <History className='h-4 w-4' />

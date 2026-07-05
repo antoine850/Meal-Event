@@ -1,6 +1,13 @@
 import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
+import {
+  sendClientEmail,
+  getCommercialInfo,
+  getOrgFacturationEmail,
+} from '../lib/client-email.js'
 import { notifyCommercialSignature } from '../lib/commercial-notifications.js'
+import { createAndSendDeposit, quoteDepositTtc } from '../lib/deposit-flow.js'
+import { savePdfAsDocument } from '../lib/documents.js'
 import {
   buildQuoteEmailHtml,
   buildQuoteEmailSubject,
@@ -17,26 +24,10 @@ import {
 import {
   formatEuroAdaptive,
   computeQuoteAmounts,
-  computeDepositAmounts,
   computeCreditNote,
   computeLineAmounts,
   round2,
 } from '../lib/quote-rounding.js'
-
-// Montant d'acompte TTC : montant fixe saisi (override) sinon pourcentage, au centime.
-// Acompte et solde DOIVENT passer par cet helper pour que acompte + solde = total exactement.
-function quoteDepositTtc(q: {
-  total_ttc: number
-  total_ht?: number | null
-  deposit_amount_override?: number | null
-  deposit_percentage?: number | null
-}): number {
-  return computeDepositAmounts(q.total_ttc, q.total_ht ?? 0, {
-    overrideTtc: q.deposit_amount_override ?? null,
-    percentage: q.deposit_percentage ?? null,
-  }).ttc
-}
-import { sendEmail } from '../lib/resend.js'
 import {
   uploadDocument,
   addSignatureField,
@@ -49,7 +40,6 @@ import {
   getOrCreateStripeCustomerOnAccount,
 } from '../lib/stripe-connect.js'
 import { supabase } from '../lib/supabase.js'
-import { savePdfAsDocument } from '../lib/documents.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -79,43 +69,6 @@ async function updateBookingStatusBySlug(
   } else {
     console.warn(`[Status] Slug '${slug}' not found for org ${organizationId}`)
   }
-}
-
-// Shared helper to get organization facturation email (used as reply-to)
-async function getOrgFacturationEmail(
-  organizationId: string | null
-): Promise<string | null> {
-  if (!organizationId) return null
-  const { data } = await supabase
-    .from('organizations')
-    .select('facturation_email')
-    .eq('id', organizationId)
-    .single()
-  return (data as any)?.facturation_email || null
-}
-
-// Shared helper to get commercial info from a booking
-async function getCommercialInfo(
-  bookingId: string
-): Promise<{ name: string | null; email: string | null }> {
-  const { data: bookingFull } = await supabase
-    .from('bookings')
-    .select('assigned_user_ids')
-    .eq('id', bookingId)
-    .single()
-
-  const commercialId = (bookingFull as any)?.assigned_user_ids?.[0]
-  if (commercialId) {
-    const { data: user } = await supabase
-      .from('users')
-      .select('first_name, last_name, email')
-      .eq('id', commercialId)
-      .single()
-    if (user) {
-      return { name: `${user.first_name} ${user.last_name}`, email: user.email }
-    }
-  }
-  return { name: null, email: null }
 }
 
 // GET /api/quotes
@@ -345,8 +298,12 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       quoteData.organization_id
     )
 
-    // Send via Resend
-    const emailResult = await sendEmail({
+    // Send via Resend (journalisé par sendClientEmail)
+    const emailResult = await sendClientEmail({
+      organizationId: quoteData.organization_id,
+      bookingId: booking?.id || null,
+      quoteId,
+      emailType: 'quote_sent',
       to: contact.email,
       subject,
       html,
@@ -385,19 +342,6 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       quoteData.organization_id,
       'proposition'
     )
-
-    // Log email
-    await supabase.from('email_logs').insert({
-      organization_id: quoteData.organization_id,
-      quote_id: quoteId,
-      booking_id: booking?.id,
-      email_type: 'quote_sent',
-      recipient_email: contact.email,
-      reply_to_email: commercialEmail || restaurant?.email,
-      subject,
-      resend_message_id: emailResult.id,
-      status: 'sent',
-    })
 
     console.log(
       `[send-email] ✅ Quote ${quoteData.quote_number} sent to ${contact.email}`
@@ -589,7 +533,11 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
             quoteData.organization_id
           )
 
-          await sendEmail({
+          await sendClientEmail({
+            organizationId: quoteData.organization_id,
+            bookingId: booking?.id || null,
+            quoteId,
+            emailType: 'deposit_invoice_resend',
             to: contact.email,
             subject,
             html,
@@ -610,258 +558,19 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
       }
     }
 
-    // Calculate deposit amount — montant fixe en priorité, sinon % du TTC.
-    // Toujours arrondi au supérieur à l'euro entier.
-    const depositAmount = quoteDepositTtc(quoteData as any)
-    const effectiveDepositPct =
-      (quoteData as any).deposit_amount_override != null
-        ? Math.round((depositAmount / quoteData.total_ttc) * 100)
-        : quoteData.deposit_percentage
-
-    // Get commercial info
-    const commercial = booking
-      ? await getCommercialInfo(booking.id)
-      : { name: null, email: null }
-    const commercialName = commercial.name
-    const commercialEmail = commercial.email
-
-    // Connect-only architecture : on encaisse Stripe UNIQUEMENT sur le compte
-    // Connect du restaurant. Si pas encore connecté → fallback virement bancaire
-    // (soft fallback, aucune facture créée sur la plateforme).
-    const restaurantId = (restaurant as any)?.id as string | undefined
-    const stripeCtx = restaurantId
-      ? await getRestaurantStripeContext(restaurantId)
-      : null
-    const stripeMode = stripeCtx
-      ? resolveStripeMode(stripeCtx)
-      : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
-
-    const isStripeEnabled = stripeMode.mode === 'connect'
-    const connectAcctId =
-      stripeMode.mode === 'connect' ? stripeMode.acctId : null
-    const stripeOpts = stripeRequestOptions(connectAcctId)
-
-    let invoiceUrl = ''
-    let invoiceId = ''
-
-    if (isStripeEnabled && connectAcctId) {
-      console.log(
-        `[send-deposit] Creating Stripe invoice on Connect account ${connectAcctId} for deposit: ${formatEuroAdaptive(depositAmount)}`
-      )
-
-      const customerId = await getOrCreateStripeCustomerOnAccount(
-        contact.email,
-        `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null,
-        connectAcctId
-      )
-
-      const invoice = await stripe.invoices.create(
-        {
-          customer: customerId,
-          collection_method: 'send_invoice',
-          days_until_due: 30,
-          metadata: {
-            booking_id: booking?.id || '',
-            quote_id: quoteId,
-            link_type: 'deposit',
-            restaurant_id: restaurantId || '',
-          },
-          description:
-            (quoteData as any).deposit_amount_override != null
-              ? `Acompte ${formatEuroAdaptive(depositAmount)} - ${quoteData.quote_number}`
-              : `Acompte ${effectiveDepositPct}% - ${quoteData.quote_number}`,
-        },
-        stripeOpts
-      )
-
-      // Stripe est appelé en cents : depositAmount est entier, donc × 100 = entier exact.
-      await stripe.invoiceItems.create(
-        {
-          invoice: invoice.id,
-          customer: customerId,
-          amount: Math.round(depositAmount * 100),
-          currency: 'eur',
-          description:
-            (quoteData as any).deposit_amount_override != null
-              ? `Acompte ${formatEuroAdaptive(depositAmount)} pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`
-              : `Acompte ${effectiveDepositPct}% pour ${restaurant?.name || 'événement'} le ${quoteData.date_start || booking?.event_date || ''}`,
-        },
-        stripeOpts
-      )
-
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(
-        invoice.id,
-        undefined,
-        stripeOpts
-      )
-      invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
-      invoiceId = invoice.id
-    } else {
-      const reason =
-        stripeMode.mode === 'bank_transfer' ? stripeMode.reason : 'unknown'
-      console.log(
-        `[send-deposit] No Stripe Connect (reason=${reason}) — bank transfer fallback for ${formatEuroAdaptive(depositAmount)}`
-      )
-    }
-
-    // Generate deposit invoice PDF with error handling
-    let pdfBuffer: Buffer
-    try {
-      pdfBuffer = await generateQuotePdf(quoteId, 'acompte', quoteData)
-    } catch (pdfError) {
-      console.error('Error generating deposit PDF:', pdfError)
-      return res
-        .status(500)
-        .json({ error: "Erreur lors de la génération du PDF d'acompte" })
-    }
-
-    // Build email
-    const html = buildDepositEmailHtml({
-      restaurant: restaurant as any,
-      contact: {
-        first_name: contact.first_name,
-        last_name: contact.last_name,
-        email: contact.email,
-      },
-      quoteNumber: quoteData.quote_number,
-      depositPercentage: effectiveDepositPct,
-      depositAmount,
-      totalTtc: quoteData.total_ttc,
-      stripePaymentUrl: invoiceUrl,
-      eventDate: quoteData.date_start || booking?.event_date || null,
-      commercialName,
-      stripeEnabled: isStripeEnabled,
-      orderNumber: quoteData.order_number,
-    })
-
-    const subject = buildDepositEmailSubject(
-      quoteData.quote_number,
-      restaurant?.name || 'Restaurant'
-    )
-
-    // Get org-level facturation email for reply-to
-    const facturationEmail = await getOrgFacturationEmail(
-      quoteData.organization_id
-    )
-
-    // Send email
-    const emailResult = await sendEmail({
-      to: contact.email,
-      subject,
-      html,
-      replyTo: commercialEmail || restaurant?.email || undefined,
-      facturationEmail: facturationEmail || undefined,
-      attachments: [
-        {
-          filename: `facture-acompte-${quoteData.quote_number}.pdf`,
-          content: pdfBuffer,
-        },
-      ],
-    })
-
-    // Save acompte PDF to storage and documents table
-    await savePdfAsDocument(
-      pdfBuffer,
-      `facture-acompte-${quoteData.quote_number}.pdf`,
-      `${quoteData.organization_id}/quotes/${quoteId}/facture-acompte-${quoteData.quote_number}.pdf`,
-      `Facture acompte - ${quoteData.quote_number}`,
-      quoteData.organization_id,
-      booking?.id || null
-    )
-
-    // Update quote
-    await supabase
-      .from('quotes')
-      .update({
-        status: 'deposit_sent',
-        deposit_sent_at: new Date().toISOString(),
-        ...(isStripeEnabled
-          ? {
-              stripe_deposit_session_id: invoiceId,
-              stripe_deposit_url: invoiceUrl,
-            }
-          : {}),
-      })
-      .eq('id', quoteId)
-
-    if (isStripeEnabled) {
-      // Save payment link (Stripe)
-      await supabase.from('payment_links').insert({
-        booking_id: booking?.id,
-        quote_id: quoteId,
-        link_type: 'deposit',
-        amount: depositAmount,
-        percentage: quoteData.deposit_percentage,
-        url: invoiceUrl,
-        stripe_link_id: invoiceId,
-        stripe_account_id: connectAcctId,
-      })
-
-      // Create pending payment record (will be updated to 'paid' by webhook)
-      await supabase.from('payments').insert({
-        organization_id: quoteData.organization_id,
-        booking_id: booking?.id,
-        quote_id: quoteId,
-        amount: depositAmount,
-        payment_type: 'deposit',
-        payment_modality: 'acompte',
-        payment_method: 'stripe',
-        stripe_payment_id: invoiceId,
-        stripe_account_id: connectAcctId,
-        status: 'pending',
-        notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number}`,
-      })
-    } else {
-      // Create pending bank transfer payment record (will be manually marked as paid)
-      await supabase.from('payments').insert({
-        organization_id: quoteData.organization_id,
-        booking_id: booking?.id,
-        quote_id: quoteId,
-        amount: depositAmount,
-        payment_type: 'deposit',
-        payment_modality: 'acompte',
-        payment_method: 'virement',
-        status: 'pending',
-        notes: `Acompte ${quoteData.deposit_percentage}% - ${quoteData.quote_number} (virement bancaire)`,
-      })
-    }
-
-    // Log email
-    await supabase.from('email_logs').insert({
-      organization_id: quoteData.organization_id,
-      quote_id: quoteId,
-      booking_id: booking?.id,
-      email_type: 'deposit_invoice',
-      recipient_email: contact.email,
-      reply_to_email: commercialEmail || restaurant?.email,
-      subject,
-      resend_message_id: emailResult.id,
-      status: 'sent',
-    })
-
-    // Log activity
-    await supabase.from('activity_logs').insert({
-      organization_id: quoteData.organization_id,
-      booking_id: booking?.id,
-      action_type: 'payment.deposit_sent',
-      action_label: `Facture acompte de ${depositAmount.toLocaleString('fr-FR')} \u20AC envoyée${isStripeEnabled ? ' avec lien de paiement' : ' (virement bancaire)'}`,
-      actor_type: 'user',
-      actor_id: req.body.userId || null,
-      entity_type: 'quote',
-      entity_id: quoteId,
-      metadata: {
-        amount: depositAmount,
-        method: isStripeEnabled ? 'stripe' : 'virement',
-      },
+    const result = await createAndSendDeposit(quoteId, {
+      source: 'manual',
+      actorUserId: req.body.userId || null,
+      quoteData,
     })
 
     console.log(
-      `[send-deposit] ✅ Deposit for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${depositAmount}€${isStripeEnabled ? `, Stripe invoice: ${invoiceId}` : ', bank transfer only'}`
+      `[send-deposit] ✅ Deposit for quote ${quoteData.quote_number} sent to ${contact.email}, amount: ${result.depositAmount}€`
     )
     res.json({
       success: true,
-      sessionId: invoiceId || null,
-      paymentUrl: invoiceUrl || null,
+      sessionId: result.invoiceId || null,
+      paymentUrl: result.invoiceUrl || null,
     })
   } catch (error) {
     console.error('[send-deposit] ❌ Error:', error)
@@ -978,7 +687,11 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
             quoteData.organization_id
           )
 
-          await sendEmail({
+          await sendClientEmail({
+            organizationId: quoteData.organization_id,
+            bookingId: booking?.id || null,
+            quoteId,
+            emailType: 'balance_invoice_resend',
             to: contact.email,
             subject,
             html,
@@ -1130,8 +843,12 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       quoteData.organization_id
     )
 
-    // Send email
-    const emailResult = await sendEmail({
+    // Send email (journalisé par sendClientEmail)
+    await sendClientEmail({
+      organizationId: quoteData.organization_id,
+      bookingId: booking?.id || null,
+      quoteId,
+      emailType: 'balance_invoice',
       to: contact.email,
       subject,
       html,
@@ -1218,19 +935,6 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       })
     }
 
-    // Log email
-    await supabase.from('email_logs').insert({
-      organization_id: quoteData.organization_id,
-      quote_id: quoteId,
-      booking_id: booking?.id,
-      email_type: 'balance_invoice',
-      recipient_email: contact.email,
-      reply_to_email: commercialEmail || restaurant?.email,
-      subject,
-      resend_message_id: emailResult.id,
-      status: 'sent',
-    })
-
     // Log activity
     await supabase.from('activity_logs').insert({
       organization_id: quoteData.organization_id,
@@ -1280,8 +984,7 @@ quotesRouter.post('/:id/credit-note', async (req: Request, res: Response) => {
     .select('*, quote_items(*), booking:bookings(id, restaurant_id)')
     .eq('id', quoteId)
     .single()
-  if (qErr || !quote)
-    return res.status(404).json({ error: 'QUOTE_NOT_FOUND' })
+  if (qErr || !quote) return res.status(404).json({ error: 'QUOTE_NOT_FOUND' })
 
   const q = quote as any
   const booking = q.booking

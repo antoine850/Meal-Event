@@ -4,42 +4,17 @@ import {
   notifyCommercialSignature,
   notifyCommercialPayment,
 } from '../lib/commercial-notifications.js'
-import {
-  buildDepositEmailHtml,
-  buildDepositEmailSubject,
-} from '../lib/email-templates.js'
-import { generateQuotePdf } from '../lib/pdf-generator.js'
-import { computeDepositAmounts } from '../lib/quote-rounding.js'
-import { sendEmail } from '../lib/resend.js'
+import { createAndSendDeposit } from '../lib/deposit-flow.js'
 import {
   verifyWebhookSignature,
   downloadSignedDocument,
 } from '../lib/signnow.js'
-import {
-  getRestaurantStripeContext,
-  resolveStripeMode,
-  stripeRequestOptions,
-  getOrCreateStripeCustomerOnAccount,
-} from '../lib/stripe-connect.js'
+import { stripeRequestOptions } from '../lib/stripe-connect.js'
 import { supabase } from '../lib/supabase.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
-
-// Helper: get existing Stripe customer by email, or create one
-async function getOrCreateStripeCustomer(
-  email: string,
-  name?: string | null
-): Promise<string> {
-  const existing = await stripe.customers.list({ email, limit: 1 })
-  if (existing.data.length > 0) return existing.data[0].id
-  const customer = await stripe.customers.create({
-    email,
-    ...(name ? { name } : {}),
-  })
-  return customer.id
-}
 
 export const webhooksRouter = Router()
 
@@ -1074,24 +1049,9 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
 
 async function autoSendDepositAfterSignature(quoteId: string) {
   try {
-    // Fetch full quote data for PDF generation and email
     const { data: quote } = await supabase
       .from('quotes')
-      .select(
-        `
-        *,
-        booking:bookings(
-          id, event_date, assigned_user_ids,
-          contact:contacts(id, first_name, last_name, email, phone),
-          restaurant:restaurants(
-            id, name, address, city, postal_code, phone, email,
-            logo_url, color, siret, tva_number, iban, bic, bank_name,
-            legal_name, legal_form, share_capital, rcs, siren,
-            stripe_enabled, stripe_account_id
-          )
-        )
-      `
-      )
+      .select('id, status, quote_number')
       .eq('id', quoteId)
       .single()
 
@@ -1120,307 +1080,10 @@ async function autoSendDepositAfterSignature(quoteId: string) {
       return
     }
 
-    const booking = (quote as any).booking
-    const restaurant = booking?.restaurant
-    const contact = booking?.contact
-
-    if (!contact?.email) {
-      console.error('No contact email for auto-deposit after signature')
-      return
-    }
-
-    // Meme helper que quotes.ts/send-deposit (au centime) pour que acompte + solde = total.
-    const depositAmount = computeDepositAmounts(
-      quote.total_ttc,
-      (quote as any).total_ht ?? 0,
-      {
-        overrideTtc: (quote as any).deposit_amount_override ?? null,
-        percentage: quote.deposit_percentage,
-      }
-    ).ttc
-
-    // Get commercial info
-    let commercialName: string | null = null
-    let commercialEmail: string | null = null
-    const commercialId = booking?.assigned_user_ids?.[0]
-    if (commercialId) {
-      const { data: user } = await supabase
-        .from('users')
-        .select('first_name, last_name, email')
-        .eq('id', commercialId)
-        .single()
-      if (user) {
-        commercialName = `${user.first_name} ${user.last_name}`
-        commercialEmail = user.email
-      }
-    }
-
-    if (!booking?.id) {
-      throw new Error('Booking ID is required for deposit')
-    }
-
-    const stripeCtx = restaurant?.id
-      ? await getRestaurantStripeContext(restaurant.id)
-      : null
-    const stripeMode = stripeCtx
-      ? resolveStripeMode(stripeCtx)
-      : ({ mode: 'bank_transfer', reason: 'disabled' } as const)
-
-    if (stripeMode.mode === 'bank_transfer') {
-      console.log(
-        `[SignNow] Restaurant ${restaurant?.id} sans Connect (raison: ${stripeMode.reason}) — fallback virement pour auto-deposit`
-      )
-    }
-
-    const isStripeEnabled = stripeMode.mode === 'connect'
-    const connectAcctId =
-      stripeMode.mode === 'connect' ? stripeMode.acctId : null
-
-    let invoiceUrl = ''
-    let invoiceId = ''
-
-    if (isStripeEnabled) {
-      // Create Stripe Invoice (30-day expiration instead of Checkout Session's 24h max)
-      console.log(
-        `[Stripe] Creating deposit invoice for quote ${quote.quote_number}`
-      )
-
-      const customerId = connectAcctId
-        ? await getOrCreateStripeCustomerOnAccount(
-            contact.email,
-            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
-              null,
-            connectAcctId
-          )
-        : await getOrCreateStripeCustomer(
-            contact.email,
-            `${contact.first_name || ''} ${contact.last_name || ''}`.trim() ||
-              null
-          )
-
-      const stripeOpts = stripeRequestOptions(connectAcctId)
-
-      const invoice = await stripe.invoices.create(
-        {
-          customer: customerId,
-          collection_method: 'send_invoice',
-          days_until_due: 30,
-          metadata: {
-            booking_id: booking.id,
-            quote_id: quoteId,
-            link_type: 'deposit',
-            restaurant_id: restaurant?.id || '',
-          },
-          description: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
-        },
-        stripeOpts
-      )
-
-      await stripe.invoiceItems.create(
-        {
-          invoice: invoice.id,
-          customer: customerId,
-          amount: Math.round(depositAmount * 100),
-          currency: 'eur',
-          description: `Acompte ${quote.deposit_percentage}% pour ${restaurant?.name || 'événement'}`,
-        },
-        stripeOpts
-      )
-
-      const finalizedInvoice = await stripe.invoices.finalizeInvoice(
-        invoice.id,
-        undefined,
-        stripeOpts
-      )
-      invoiceUrl = finalizedInvoice.hosted_invoice_url || ''
-      invoiceId = invoice.id
-
-      console.log(`[Stripe] Invoice created: ${invoice.id}, URL: ${invoiceUrl}`)
-    } else {
-      console.log(
-        `[SignNow] Stripe disabled — sending bank transfer only deposit for quote ${quote.quote_number}`
-      )
-    }
-
-    // Generate deposit PDF with error handling
-    let pdfBuffer: Buffer
-    try {
-      pdfBuffer = await generateQuotePdf(quoteId, 'acompte')
-    } catch (pdfError) {
-      console.error('Error generating deposit PDF in auto-send:', pdfError)
-      throw new Error('Failed to generate deposit PDF')
-    }
-
-    // Build & send email
-    const html = buildDepositEmailHtml({
-      restaurant: restaurant as any,
-      contact: {
-        first_name: contact.first_name,
-        last_name: contact.last_name,
-        email: contact.email,
-      },
-      quoteNumber: quote.quote_number,
-      depositPercentage: quote.deposit_percentage,
-      depositAmount,
-      totalTtc: quote.total_ttc,
-      stripePaymentUrl: invoiceUrl,
-      eventDate: quote.date_start || booking?.event_date || null,
-      commercialName,
-      stripeEnabled: isStripeEnabled,
-    })
-
-    const subject = buildDepositEmailSubject(
-      quote.quote_number,
-      restaurant?.name || 'Restaurant'
-    )
-
-    // Get org-level facturation email for reply-to
-    let facturationEmail: string | null = null
-    if (quote.organization_id) {
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('facturation_email')
-        .eq('id', quote.organization_id)
-        .single()
-      facturationEmail = (org as any)?.facturation_email || null
-    }
-
-    const emailResult = await sendEmail({
-      to: contact.email,
-      subject,
-      html,
-      replyTo: commercialEmail || restaurant?.email || undefined,
-      facturationEmail: facturationEmail || undefined,
-      attachments: [
-        {
-          filename: `facture-acompte-${quote.quote_number}.pdf`,
-          content: pdfBuffer,
-        },
-      ],
-    })
-
-    // Save acompte PDF to storage and documents table
-    const storagePath = `${quote.organization_id}/quotes/${quoteId}/facture-acompte-${quote.quote_number}.pdf`
-    try {
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(storagePath, pdfBuffer, {
-          contentType: 'application/pdf',
-          upsert: true,
-        })
-      if (uploadError) {
-        console.error(
-          '[PDF Save] Auto-deposit storage upload error:',
-          uploadError
-        )
-      } else {
-        const { data: urlData } = supabase.storage
-          .from('documents')
-          .getPublicUrl(uploadData?.path || storagePath)
-        await supabase.from('documents').insert({
-          organization_id: quote.organization_id,
-          booking_id: booking.id,
-          name: `Facture acompte - ${quote.quote_number}`,
-          file_type: 'pdf',
-          file_size: pdfBuffer.length,
-          file_path: storagePath,
-          file_url: urlData?.publicUrl || '',
-        })
-        console.log(`[PDF Save] ✅ Saved acompte PDF for booking ${booking.id}`)
-      }
-    } catch (saveErr) {
-      console.error('[PDF Save] Error saving auto-deposit PDF:', saveErr)
-    }
-
-    // Update quote
-    await supabase
-      .from('quotes')
-      .update({
-        status: 'deposit_sent',
-        deposit_sent_at: new Date().toISOString(),
-        ...(isStripeEnabled
-          ? {
-              stripe_deposit_session_id: invoiceId,
-              stripe_deposit_url: invoiceUrl,
-            }
-          : {}),
-      })
-      .eq('id', quoteId)
-
-    if (isStripeEnabled) {
-      // Save payment link (Stripe)
-      await supabase.from('payment_links').insert({
-        booking_id: booking.id,
-        quote_id: quoteId,
-        link_type: 'deposit',
-        amount: depositAmount,
-        percentage: quote.deposit_percentage,
-        url: invoiceUrl,
-        stripe_link_id: invoiceId,
-        stripe_account_id: connectAcctId,
-      })
-
-      // Create pending payment record (will be updated to 'paid' by webhook)
-      await supabase.from('payments').insert({
-        organization_id: quote.organization_id,
-        booking_id: booking.id,
-        quote_id: quoteId,
-        amount: depositAmount,
-        payment_type: 'deposit',
-        payment_modality: 'acompte',
-        payment_method: 'stripe',
-        stripe_payment_id: invoiceId,
-        stripe_account_id: connectAcctId,
-        status: 'pending',
-        notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number}`,
-      })
-    } else {
-      // Create pending bank transfer payment record
-      await supabase.from('payments').insert({
-        organization_id: quote.organization_id,
-        booking_id: booking.id,
-        quote_id: quoteId,
-        amount: depositAmount,
-        payment_type: 'deposit',
-        payment_modality: 'acompte',
-        payment_method: 'virement',
-        status: 'pending',
-        notes: `Acompte ${quote.deposit_percentage}% - ${quote.quote_number} (virement bancaire)`,
-      })
-    }
-
-    // Log email
-    await supabase.from('email_logs').insert({
-      organization_id: quote.organization_id,
-      quote_id: quoteId,
-      booking_id: booking.id,
-      email_type: 'deposit_invoice',
-      recipient_email: contact.email,
-      reply_to_email: commercialEmail || restaurant?.email,
-      subject,
-      resend_message_id: emailResult.id,
-      status: 'sent',
-    })
-
-    // Log activity
-    await supabase.from('activity_logs').insert({
-      organization_id: quote.organization_id,
-      booking_id: booking.id,
-      action_type: 'payment.deposit_sent',
-      action_label: `Facture acompte de ${depositAmount.toLocaleString('fr-FR')} \u20AC envoyée automatiquement après signature${isStripeEnabled ? '' : ' (virement bancaire)'}`,
-      actor_type: 'system',
-      actor_name: 'Système',
-      entity_type: 'quote',
-      entity_id: quoteId,
-      metadata: {
-        amount: depositAmount,
-        auto: true,
-        method: isStripeEnabled ? 'stripe' : 'virement',
-      },
-    })
+    await createAndSendDeposit(quoteId, { source: 'auto_signature' })
 
     console.log(
-      `✅ Auto-sent deposit email for quote ${quote.quote_number} after signature${isStripeEnabled ? '' : ' (bank transfer only)'}`
+      `✅ Auto-sent deposit email for quote ${quote.quote_number} after signature`
     )
   } catch (error: any) {
     console.error(
