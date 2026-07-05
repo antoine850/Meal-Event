@@ -1,6 +1,12 @@
 import { Router, Request, Response } from 'express'
 import Stripe from 'stripe'
+import {
+  sendClientEmail,
+  getCommercialInfo,
+  getOrgFacturationEmail,
+} from '../lib/client-email.js'
 import { notifyCommercialSignature } from '../lib/commercial-notifications.js'
+import { savePdfAsDocument } from '../lib/documents.js'
 import {
   buildQuoteEmailHtml,
   buildQuoteEmailSubject,
@@ -22,6 +28,19 @@ import {
   computeLineAmounts,
   round2,
 } from '../lib/quote-rounding.js'
+import { sendEmail } from '../lib/resend.js'
+import {
+  uploadDocument,
+  addSignatureField,
+  createSigningInvite,
+} from '../lib/signnow.js'
+import {
+  getRestaurantStripeContext,
+  resolveStripeMode,
+  stripeRequestOptions,
+  getOrCreateStripeCustomerOnAccount,
+} from '../lib/stripe-connect.js'
+import { supabase } from '../lib/supabase.js'
 
 // Montant d'acompte TTC : montant fixe saisi (override) sinon pourcentage, au centime.
 // Acompte et solde DOIVENT passer par cet helper pour que acompte + solde = total exactement.
@@ -36,20 +55,6 @@ function quoteDepositTtc(q: {
     percentage: q.deposit_percentage ?? null,
   }).ttc
 }
-import { sendEmail } from '../lib/resend.js'
-import {
-  uploadDocument,
-  addSignatureField,
-  createSigningInvite,
-} from '../lib/signnow.js'
-import {
-  getRestaurantStripeContext,
-  resolveStripeMode,
-  stripeRequestOptions,
-  getOrCreateStripeCustomerOnAccount,
-} from '../lib/stripe-connect.js'
-import { supabase } from '../lib/supabase.js'
-import { savePdfAsDocument } from '../lib/documents.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
@@ -79,43 +84,6 @@ async function updateBookingStatusBySlug(
   } else {
     console.warn(`[Status] Slug '${slug}' not found for org ${organizationId}`)
   }
-}
-
-// Shared helper to get organization facturation email (used as reply-to)
-async function getOrgFacturationEmail(
-  organizationId: string | null
-): Promise<string | null> {
-  if (!organizationId) return null
-  const { data } = await supabase
-    .from('organizations')
-    .select('facturation_email')
-    .eq('id', organizationId)
-    .single()
-  return (data as any)?.facturation_email || null
-}
-
-// Shared helper to get commercial info from a booking
-async function getCommercialInfo(
-  bookingId: string
-): Promise<{ name: string | null; email: string | null }> {
-  const { data: bookingFull } = await supabase
-    .from('bookings')
-    .select('assigned_user_ids')
-    .eq('id', bookingId)
-    .single()
-
-  const commercialId = (bookingFull as any)?.assigned_user_ids?.[0]
-  if (commercialId) {
-    const { data: user } = await supabase
-      .from('users')
-      .select('first_name, last_name, email')
-      .eq('id', commercialId)
-      .single()
-    if (user) {
-      return { name: `${user.first_name} ${user.last_name}`, email: user.email }
-    }
-  }
-  return { name: null, email: null }
 }
 
 // GET /api/quotes
@@ -345,8 +313,12 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       quoteData.organization_id
     )
 
-    // Send via Resend
-    const emailResult = await sendEmail({
+    // Send via Resend (journalisé par sendClientEmail)
+    const emailResult = await sendClientEmail({
+      organizationId: quoteData.organization_id,
+      bookingId: booking?.id || null,
+      quoteId,
+      emailType: 'quote_sent',
       to: contact.email,
       subject,
       html,
@@ -385,19 +357,6 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       quoteData.organization_id,
       'proposition'
     )
-
-    // Log email
-    await supabase.from('email_logs').insert({
-      organization_id: quoteData.organization_id,
-      quote_id: quoteId,
-      booking_id: booking?.id,
-      email_type: 'quote_sent',
-      recipient_email: contact.email,
-      reply_to_email: commercialEmail || restaurant?.email,
-      subject,
-      resend_message_id: emailResult.id,
-      status: 'sent',
-    })
 
     console.log(
       `[send-email] ✅ Quote ${quoteData.quote_number} sent to ${contact.email}`
@@ -1280,8 +1239,7 @@ quotesRouter.post('/:id/credit-note', async (req: Request, res: Response) => {
     .select('*, quote_items(*), booking:bookings(id, restaurant_id)')
     .eq('id', quoteId)
     .single()
-  if (qErr || !quote)
-    return res.status(404).json({ error: 'QUOTE_NOT_FOUND' })
+  if (qErr || !quote) return res.status(404).json({ error: 'QUOTE_NOT_FOUND' })
 
   const q = quote as any
   const booking = q.booking
