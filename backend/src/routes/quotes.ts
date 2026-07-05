@@ -548,7 +548,11 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
             quoteData.organization_id
           )
 
-          await sendEmail({
+          await sendClientEmail({
+            organizationId: quoteData.organization_id,
+            bookingId: booking?.id || null,
+            quoteId,
+            emailType: 'deposit_invoice_resend',
             to: contact.email,
             subject,
             html,
@@ -937,7 +941,11 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
             quoteData.organization_id
           )
 
-          await sendEmail({
+          await sendClientEmail({
+            organizationId: quoteData.organization_id,
+            bookingId: booking?.id || null,
+            quoteId,
+            emailType: 'balance_invoice_resend',
             to: contact.email,
             subject,
             html,
@@ -1089,8 +1097,12 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       quoteData.organization_id
     )
 
-    // Send email
-    const emailResult = await sendEmail({
+    // Send email (journalisé par sendClientEmail)
+    await sendClientEmail({
+      organizationId: quoteData.organization_id,
+      bookingId: booking?.id || null,
+      quoteId,
+      emailType: 'balance_invoice',
       to: contact.email,
       subject,
       html,
@@ -1176,19 +1188,6 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
         notes: `Solde - ${quoteData.quote_number} (virement bancaire)`,
       })
     }
-
-    // Log email
-    await supabase.from('email_logs').insert({
-      organization_id: quoteData.organization_id,
-      quote_id: quoteId,
-      booking_id: booking?.id,
-      email_type: 'balance_invoice',
-      recipient_email: contact.email,
-      reply_to_email: commercialEmail || restaurant?.email,
-      subject,
-      resend_message_id: emailResult.id,
-      status: 'sent',
-    })
 
     // Log activity
     await supabase.from('activity_logs').insert({
