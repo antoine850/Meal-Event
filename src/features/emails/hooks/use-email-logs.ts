@@ -7,7 +7,8 @@ export function useEmailLogsByBooking(bookingId: string | null) {
     queryKey: ['email_logs', bookingId],
     enabled: !!bookingId,
     queryFn: async () => {
-      const { data, error } = await (supabase.from('email_logs') as any)
+      const { data, error } = await supabase
+        .from('email_logs')
         .select('*')
         .eq('booking_id', bookingId!)
         .order('sent_at', { ascending: false })
