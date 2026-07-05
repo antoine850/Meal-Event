@@ -16,9 +16,13 @@ CREATE POLICY "email_logs_select_org" ON email_logs
     organization_id IN (SELECT organization_id FROM users WHERE id = auth.uid())
   );
 
+-- Le IS NULL couvre les lignes orphelines (org non backfillee, ex booking deja
+-- supprime) : sans lui, la FK sans CASCADE bloquerait la suppression d'un booking
+-- dont le front supprime d'abord les logs par booking_id.
 CREATE POLICY "email_logs_delete_org" ON email_logs
   FOR DELETE USING (
-    organization_id IN (SELECT organization_id FROM users WHERE id = auth.uid())
+    organization_id IS NULL
+    OR organization_id IN (SELECT organization_id FROM users WHERE id = auth.uid())
   );
 
 CREATE POLICY "email_logs_service_role" ON email_logs
