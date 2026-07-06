@@ -410,7 +410,7 @@ function SortableItemRow({
       <TableCell className='text-right text-xs'>
         {formatEuroDecimal((item.total_ttc as number) || 0)}
       </TableCell>
-      <TableCell className='px-1'>
+      <TableCell className='px-0 text-center'>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -2300,7 +2300,7 @@ export function QuoteEditor({
                                   <TableHead className='w-20 text-right text-xs'>
                                     Total TTC
                                   </TableHead>
-                                  <TableHead className='w-14 px-1' />
+                                  <TableHead className='w-8 px-0' />
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
