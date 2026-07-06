@@ -829,3 +829,37 @@ export function buildReminderEmailSubject(
     ? subject
     : `Relance de paiement -- ${restaurantName}`
 }
+
+// Template G: Avoir (note de credit) -- document fiscal
+export function buildCreditNoteEmailHtml(params: {
+  restaurant: RestaurantBranding
+  contact: ContactInfo
+  avoirNumber: string
+  totalTtc: number
+  quoteNumber?: string | null
+  commercialName?: string | null
+}): string {
+  const { restaurant, contact, avoirNumber, totalTtc, quoteNumber, commercialName } = params
+  const color = restaurant.color || '#0d7377'
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Bonjour <strong>${contact.first_name}${contact.last_name ? ' ' + contact.last_name : ''}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#444;">
+      Veuillez trouver ci-joint votre avoir <strong>n&deg;${avoirNumber}</strong>${quoteNumber ? ` relatif au devis <strong>n&deg;${quoteNumber}</strong>` : ''}.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background-color:#f8f9fa;border-radius:8px;border:1px solid #e5e7eb;">
+      <tr><td style="padding:16px;text-align:center;">
+        <p style="margin:0 0 4px;font-size:12px;color:#666;">Montant de l'avoir</p>
+        <p style="margin:0;font-size:24px;font-weight:700;color:${color};">${formatCurrency(totalTtc)}</p>
+      </td></tr>
+    </table>
+    <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#444;">Cordialement,</p>
+    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">${commercialName || restaurant.name}</p>
+  `
+  return buildEmailWrapper(restaurant, body)
+}
+
+export function buildCreditNoteEmailSubject(avoirNumber: string, restaurantName: string): string {
+  return `Avoir ${avoirNumber} -- ${restaurantName}`
+}

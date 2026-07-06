@@ -15,6 +15,8 @@ import {
   buildDepositEmailSubject,
   buildBalanceEmailHtml,
   buildBalanceEmailSubject,
+  buildCreditNoteEmailHtml,
+  buildCreditNoteEmailSubject,
 } from '../lib/email-templates.js'
 import {
   generateQuotePdf,
@@ -1138,6 +1140,86 @@ quotesRouter.get(
     } catch (error) {
       console.error('Error generating credit note PDF for download:', error)
       res.status(500).json({ error: 'Erreur lors de la génération du PDF' })
+    }
+  }
+)
+
+// POST /api/quotes/credit-notes/:id/send-email -- envoie l'avoir (PDF) dans le fil.
+quotesRouter.post(
+  '/credit-notes/:id/send-email',
+  async (req: Request, res: Response) => {
+    try {
+      const { data: cn } = await supabase
+        .from('credit_notes')
+        .select(
+          'id, organization_id, booking_id, quote_id, avoir_number, total_ttc'
+        )
+        .eq('id', req.params.id)
+        .single()
+      if (!cn) return res.status(404).json({ error: 'Avoir introuvable' })
+
+      const quoteData = cn.quote_id
+        ? await fetchQuoteFullData(cn.quote_id)
+        : null
+      const contact = quoteData?.booking?.contact
+      const restaurant = quoteData?.booking?.restaurant
+      if (!contact?.email) {
+        return res.status(400).json({ error: "Le contact n'a pas d'adresse email" })
+      }
+
+      const pdfBuffer = await generateCreditNotePdf(cn.id)
+      const commercial = cn.booking_id
+        ? await getCommercialInfo(cn.booking_id)
+        : { name: null, email: null }
+      const facturationEmail = await getOrgFacturationEmail(cn.organization_id)
+
+      const html = buildCreditNoteEmailHtml({
+        restaurant: restaurant as any,
+        contact: {
+          first_name: contact.first_name,
+          last_name: contact.last_name,
+          email: contact.email,
+        },
+        avoirNumber: cn.avoir_number,
+        totalTtc: cn.total_ttc,
+        quoteNumber: quoteData?.quote_number ?? null,
+        commercialName: commercial.name,
+      })
+
+      const result = await sendClientEmail({
+        organizationId: cn.organization_id,
+        bookingId: cn.booking_id || null,
+        quoteId: cn.quote_id || null,
+        emailType: 'credit_note',
+        actorUserId: (req as any).user?.id ?? null,
+        to: contact.email,
+        subject: buildCreditNoteEmailSubject(
+          cn.avoir_number,
+          restaurant?.name || 'Restaurant'
+        ),
+        html,
+        replyTo: commercial.email || restaurant?.email || undefined,
+        facturationEmail: facturationEmail || undefined,
+        attachments: [
+          { filename: `avoir-${cn.avoir_number}.pdf`, content: pdfBuffer },
+        ],
+      })
+
+      await supabase.from('activity_logs').insert({
+        organization_id: cn.organization_id,
+        booking_id: cn.booking_id,
+        action_type: 'payment.avoir_sent',
+        action_label: `Avoir ${cn.avoir_number} envoye par email`,
+        actor_type: 'user',
+        actor_id: (req as any).user?.id ?? null,
+        entity_type: 'credit_note',
+        entity_id: cn.id,
+      })
+
+      res.json({ success: true, provider: result.provider })
+    } catch (error) {
+      console.error('Error sending credit note email:', error)
+      res.status(500).json({ error: "Echec de l'envoi de l'avoir" })
     }
   }
 )
