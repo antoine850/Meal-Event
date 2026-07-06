@@ -7,8 +7,11 @@ import type {
 import {
   formatEuroAdaptive,
   formatEuroDecimal,
+  formatUnitPriceEuro,
   computeDepositAmounts,
+  displayUnitHt,
   displayUnitTtc,
+  round2,
 } from './quote-rounding.js'
 import { supabase } from './supabase.js'
 
@@ -877,7 +880,7 @@ function buildDocDefinition(
             fillColor: rowColor,
           },
           {
-            text: formatEuroDecimal(item.unit_price),
+            text: formatUnitPriceEuro(displayUnitHt(item)),
             style: 'tableCell',
             alignment: 'right' as const,
             fillColor: rowColor,
@@ -886,7 +889,7 @@ function buildDocDefinition(
               : {}),
           },
           {
-            text: formatEuroDecimal(displayUnitTtc(item)),
+            text: formatUnitPriceEuro(displayUnitTtc(item)),
             style: 'tableCell',
             alignment: 'right' as const,
             fillColor: rowColor,
@@ -1061,7 +1064,7 @@ function buildDocDefinition(
             alignment: 'center' as const,
           },
           {
-            text: formatEuroDecimal(item.unit_price),
+            text: formatUnitPriceEuro(displayUnitHt(item)),
             style: 'tableCell',
             alignment: 'right' as const,
             ...(discountPct > 0
@@ -1069,7 +1072,7 @@ function buildDocDefinition(
               : {}),
           },
           {
-            text: formatEuroDecimal(displayUnitTtc(item)),
+            text: formatUnitPriceEuro(displayUnitTtc(item)),
             style: 'tableCell',
             alignment: 'right' as const,
             ...(discountPct > 0
@@ -1162,7 +1165,7 @@ function buildDocDefinition(
             alignment: 'center' as const,
           },
           {
-            text: formatEuroDecimal(extra.unit_price),
+            text: formatUnitPriceEuro(displayUnitHt(extra)),
             style: 'tableCell',
             alignment: 'right' as const,
             ...(discountPct > 0
@@ -1170,7 +1173,7 @@ function buildDocDefinition(
               : {}),
           },
           {
-            text: formatEuroDecimal(displayUnitTtc(extra)),
+            text: formatUnitPriceEuro(displayUnitTtc(extra)),
             style: 'tableCell',
             alignment: 'right' as const,
             ...(discountPct > 0
@@ -1241,8 +1244,8 @@ function buildDocDefinition(
 
     if (discountPct > 0) {
       // Show pre-discount subtotal, then discount line
-      const rawHt = quote.total_ht / (1 - discountPct / 100)
-      const discountAmount = rawHt - quote.total_ht
+      const rawHt = round2(items.reduce((s, i) => s + (i.total_ht || 0), 0))
+      const discountAmount = round2(rawHt - quote.total_ht)
       totalsStack.push(
         {
           columns: [
@@ -1384,7 +1387,7 @@ function buildDocDefinition(
 
     // Show discount context if applicable
     if (discountPct > 0) {
-      const rawTtc = quote.total_ttc / (1 - discountPct / 100)
+      const rawTtc = round2(items.reduce((s, i) => s + (i.total_ttc || 0), 0))
       acompteStack.push(
         {
           columns: [

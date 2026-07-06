@@ -2,9 +2,11 @@ import type { QuoteItem, Payment } from '@/lib/supabase/types'
 import { Separator } from '@/components/ui/separator'
 import {
   computeLineAmounts,
+  displayUnitHt,
   displayUnitTtc,
   formatEuroAdaptive,
   formatEuroDecimal,
+  formatUnitPriceEuro,
 } from '@/features/reservations/lib/quote-rounding'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
 import type { BookingWithRelations } from '../hooks/use-bookings'
@@ -655,22 +657,22 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         <td className='px-2 py-1.5 text-right'>
                           {disc.pct > 0 ? (
                             <span className='text-gray-400 line-through'>
-                              {formatEuroDecimal(item.unit_price || 0)}
+                              {formatUnitPriceEuro(displayUnitHt(item))}
                             </span>
                           ) : (
                             <span>
-                              {formatEuroDecimal(item.unit_price || 0)}
+                              {formatUnitPriceEuro(displayUnitHt(item))}
                             </span>
                           )}
                         </td>
                         <td className='px-2 py-1.5 text-right'>
                           {disc.pct > 0 ? (
                             <span className='text-gray-400 line-through'>
-                              {formatEuroDecimal(displayUnitTtc(item))}
+                              {formatUnitPriceEuro(displayUnitTtc(item))}
                             </span>
                           ) : (
                             <span>
-                              {formatEuroDecimal(displayUnitTtc(item))}
+                              {formatUnitPriceEuro(displayUnitTtc(item))}
                             </span>
                           )}
                         </td>
@@ -943,22 +945,22 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         <td className='px-2 py-1.5 text-right'>
                           {disc.pct > 0 ? (
                             <span className='text-gray-400 line-through'>
-                              {formatEuroDecimal(item.unit_price || 0)}
+                              {formatUnitPriceEuro(displayUnitHt(item))}
                             </span>
                           ) : (
                             <span>
-                              {formatEuroDecimal(item.unit_price || 0)}
+                              {formatUnitPriceEuro(displayUnitHt(item))}
                             </span>
                           )}
                         </td>
                         <td className='px-2 py-1.5 text-right'>
                           {disc.pct > 0 ? (
                             <span className='text-gray-400 line-through'>
-                              {formatEuroDecimal(displayUnitTtc(item))}
+                              {formatUnitPriceEuro(displayUnitTtc(item))}
                             </span>
                           ) : (
                             <span>
-                              {formatEuroDecimal(displayUnitTtc(item))}
+                              {formatUnitPriceEuro(displayUnitTtc(item))}
                             </span>
                           )}
                         </td>
@@ -1156,22 +1158,22 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           <td className='px-2 py-1.5 text-right'>
                             {disc.pct > 0 ? (
                               <span className='text-gray-400 line-through'>
-                                {formatEuroDecimal(item.unit_price || 0)}
+                                {formatUnitPriceEuro(displayUnitHt(item))}
                               </span>
                             ) : (
                               <span>
-                                {formatEuroDecimal(item.unit_price || 0)}
+                                {formatUnitPriceEuro(displayUnitHt(item))}
                               </span>
                             )}
                           </td>
                           <td className='px-2 py-1.5 text-right'>
                             {disc.pct > 0 ? (
                               <span className='text-gray-400 line-through'>
-                                {formatEuroDecimal(displayUnitTtc(item))}
+                                {formatUnitPriceEuro(displayUnitTtc(item))}
                               </span>
                             ) : (
                               <span>
-                                {formatEuroDecimal(displayUnitTtc(item))}
+                                {formatUnitPriceEuro(displayUnitTtc(item))}
                               </span>
                             )}
                           </td>
@@ -1249,22 +1251,22 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           <td className='px-2 py-1.5 text-right'>
                             {disc.pct > 0 ? (
                               <span className='text-gray-400 line-through'>
-                                {formatEuroDecimal(extra.unit_price || 0)}
+                                {formatUnitPriceEuro(displayUnitHt(extra))}
                               </span>
                             ) : (
                               <span>
-                                {formatEuroDecimal(extra.unit_price || 0)}
+                                {formatUnitPriceEuro(displayUnitHt(extra))}
                               </span>
                             )}
                           </td>
                           <td className='px-2 py-1.5 text-right'>
                             {disc.pct > 0 ? (
                               <span className='text-gray-400 line-through'>
-                                {formatEuroDecimal(displayUnitTtc(extra))}
+                                {formatUnitPriceEuro(displayUnitTtc(extra))}
                               </span>
                             ) : (
                               <span>
-                                {formatEuroDecimal(displayUnitTtc(extra))}
+                                {formatUnitPriceEuro(displayUnitTtc(extra))}
                               </span>
                             )}
                           </td>
@@ -1558,10 +1560,10 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                         {item.quantity}
                       </td>
                       <td className='px-2 py-1.5 text-right'>
-                        {formatEuroDecimal(item.unit_price || 0)}
+                        {formatUnitPriceEuro(displayUnitHt(item))}
                       </td>
                       <td className='px-2 py-1.5 text-right'>
-                        {formatEuroDecimal(displayUnitTtc(item))}
+                        {formatUnitPriceEuro(displayUnitTtc(item))}
                       </td>
                       <td className='px-2 py-1.5 text-center'>
                         {item.tva_rate}%
@@ -1630,10 +1632,10 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                           {extra.quantity}
                         </td>
                         <td className='px-2 py-1.5 text-right'>
-                          {formatEuroDecimal(extra.unit_price || 0)}
+                          {formatUnitPriceEuro(displayUnitHt(extra))}
                         </td>
                         <td className='px-2 py-1.5 text-right'>
-                          {formatEuroDecimal(displayUnitTtc(extra))}
+                          {formatUnitPriceEuro(displayUnitTtc(extra))}
                         </td>
                         <td className='px-2 py-1.5 text-center'>
                           {extra.tva_rate}%

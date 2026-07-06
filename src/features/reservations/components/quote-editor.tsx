@@ -92,7 +92,7 @@ import {
   useContactSearch,
 } from '@/features/contacts/hooks/use-contacts'
 import {
-  computeQuoteAmounts,
+  sumStoredQuoteTotals,
   computeDepositAmounts,
   computeBalanceTtc,
   deriveUnitHt,
@@ -966,9 +966,9 @@ export function QuoteEditor({
   const products = items.filter((item) => item.item_type !== 'extra')
   const extras = items.filter((item) => item.item_type === 'extra')
 
-  // Totaux au centime (somme des lignes, remise en pied), ancrage HT/TTC par ligne.
-  const rawTotals = computeQuoteAmounts(products, 0)
-  const finalTotals = computeQuoteAmounts(products, discountPercentage)
+  // Totaux affichés = somme des totaux de lignes stockés (parité PDF/DB).
+  const rawTotals = sumStoredQuoteTotals(products, 0)
+  const finalTotals = sumStoredQuoteTotals(products, discountPercentage)
   const rawTotalHt = rawTotals.totalHt
   const rawTotalTtc = rawTotals.totalTtc
   const totalHt = finalTotals.totalHt
