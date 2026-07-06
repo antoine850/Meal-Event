@@ -18,16 +18,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS contacts_delete_email_threads ON contacts;
 CREATE TRIGGER contacts_delete_email_threads
   BEFORE DELETE ON contacts
   FOR EACH ROW EXECUTE FUNCTION delete_contact_only_threads();
 
 -- 3. Chaque fil vise un booking OU un contact (report de la phase 1).
+-- Pre-check avant d'appliquer : SELECT count(*) FROM email_threads
+-- WHERE booking_id IS NULL AND contact_id IS NULL; doit valoir 0.
+ALTER TABLE email_threads DROP CONSTRAINT IF EXISTS email_threads_target_chk;
 ALTER TABLE email_threads
   ADD CONSTRAINT email_threads_target_chk
   CHECK (booking_id IS NOT NULL OR contact_id IS NOT NULL);
 
 -- 4. Un seul fil contact-only OUVERT par contact.
-CREATE UNIQUE INDEX email_threads_contact_open_uidx
+CREATE UNIQUE INDEX IF NOT EXISTS email_threads_contact_open_uidx
   ON email_threads (contact_id, kind)
   WHERE contact_id IS NOT NULL AND booking_id IS NULL AND status = 'open';

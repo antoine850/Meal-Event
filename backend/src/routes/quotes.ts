@@ -564,7 +564,9 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
 
     const result = await createAndSendDeposit(quoteId, {
       source: 'manual',
-      actorUserId: req.body.userId || null,
+      // Boite d'envoi = acteur authentifie (pas req.body.userId cote client :
+      // sinon on pourrait envoyer depuis la boite Gmail d'un autre commercial).
+      actorUserId: (req as any).user?.id ?? null,
       quoteData,
     })
 
