@@ -23,6 +23,7 @@ export type Product = {
   unit_price_ht: number
   tva_rate: number
   unit_price_ttc: number
+  price_entry_mode: 'ht' | 'ttc'
   margin: number
   is_active: boolean
   old_id: string | null

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { deriveHtFromTtc, normalizeTvaRate } from '@/lib/price'
+import { normalizeTvaRate } from '@/lib/price'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { deriveUnitHt } from '@/features/reservations/lib/quote-rounding'
 import {
   type ProductWithRestaurants,
   type PackageWithRelations,
@@ -90,7 +91,7 @@ export function PackageDialog({ open, onOpenChange, pkg, products }: Props) {
   }, [open, pkg])
 
   const rate = normalizeTvaRate(tvaRate)
-  const derivedHt = deriveHtFromTtc(unitPriceTtc, rate)
+  const derivedHt = deriveUnitHt(unitPriceTtc, rate)
 
   const handleSubmit = () => {
     if (!name.trim()) {

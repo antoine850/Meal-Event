@@ -199,7 +199,8 @@ for (const { file, restaurant } of CSV_FILES) {
     }
 
     const price = parseFloat(row.price) || 0
-    const vat = parseFloat(row.vat) || 20
+    let vat = parseFloat(row.vat) || 20
+    if (vat > 0 && vat < 1) vat = vat * 100
     const tag = (row.tag || '').trim()
     const description = (row.description || '').replace(/"/g, '').trim()
     const pricePerPerson = row.is_price_per_person === 'true'
@@ -291,6 +292,8 @@ for (const [, p] of productMap) {
     tag: p.tag,
     price_per_person: p.pricePerPerson,
     unit_price_ht: p.unitPriceHt,
+    unit_price_ttc: p.priceTtc,
+    price_entry_mode: 'ttc',
     tva_rate: p.tvaRate,
     old_id: p.oldIds[0] || null,
     restaurants: [...p.restaurants],

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { deriveHtFromTtc, normalizeTvaRate } from '@/lib/price'
+import { normalizeTvaRate } from '@/lib/price'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,6 +22,10 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  deriveUnitHt,
+  deriveUnitTtc,
+} from '@/features/reservations/lib/quote-rounding'
 import {
   type Product,
   type ProductWithRestaurants,
@@ -55,7 +60,8 @@ export function ProductDialog({
   const [description, setDescription] = useState('')
   const [type, setType] = useState<Product['type']>('food')
   const [pricePerPerson, setPricePerPerson] = useState(false)
-  const [unitPriceTtc, setUnitPriceTtc] = useState('')
+  const [priceMode, setPriceMode] = useState<'ht' | 'ttc'>('ttc')
+  const [priceInput, setPriceInput] = useState('')
   const [tvaRate, setTvaRate] = useState('20')
   const [margin, setMargin] = useState('0')
   const [isActive, setIsActive] = useState(true)
@@ -68,7 +74,14 @@ export function ProductDialog({
         setDescription(source.description || '')
         setType(source.type)
         setPricePerPerson(source.price_per_person)
-        setUnitPriceTtc(String(source.unit_price_ttc))
+        setPriceMode((source.price_entry_mode as 'ht' | 'ttc') ?? 'ttc')
+        setPriceInput(
+          String(
+            (source.price_entry_mode ?? 'ttc') === 'ttc'
+              ? source.unit_price_ttc
+              : source.unit_price_ht
+          )
+        )
         setTvaRate(String(source.tva_rate))
         setMargin(String(source.margin))
         setIsActive(source.is_active)
@@ -80,7 +93,8 @@ export function ProductDialog({
         setDescription('')
         setType('food')
         setPricePerPerson(false)
-        setUnitPriceTtc('')
+        setPriceMode('ttc')
+        setPriceInput('')
         setTvaRate('20')
         setMargin('0')
         setIsActive(true)
@@ -89,14 +103,10 @@ export function ProductDialog({
     }
   }, [open, source, duplicateFrom])
 
-  const priceHt = useMemo(
-    () =>
-      deriveHtFromTtc(
-        parseFloat(unitPriceTtc) || 0,
-        normalizeTvaRate(parseFloat(tvaRate) || 0)
-      ).toFixed(2),
-    [unitPriceTtc, tvaRate]
-  )
+  const rate = normalizeTvaRate(parseFloat(tvaRate) || 0)
+  const typed = parseFloat(priceInput) || 0
+  const derived =
+    priceMode === 'ttc' ? deriveUnitHt(typed, rate) : deriveUnitTtc(typed, rate)
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -109,10 +119,9 @@ export function ProductDialog({
       description: description.trim() || null,
       type,
       price_per_person: pricePerPerson,
-      unit_price_ht: deriveHtFromTtc(
-        parseFloat(unitPriceTtc) || 0,
-        normalizeTvaRate(parseFloat(tvaRate) || 0)
-      ),
+      unit_price_ht: priceMode === 'ht' ? typed : derived,
+      unit_price_ttc: priceMode === 'ttc' ? typed : derived,
+      price_entry_mode: priceMode,
       tva_rate: normalizeTvaRate(parseFloat(tvaRate) || 20),
       margin: parseFloat(margin) || 0,
       is_active: isActive,
@@ -203,16 +212,44 @@ export function ProductDialog({
             />
           </div>
 
-          <div className='grid grid-cols-3 gap-3'>
+          <div className='grid grid-cols-2 gap-3'>
             <div>
-              <Label>Prix TTC (€)</Label>
-              <Input
-                type='number'
-                step='0.01'
-                value={unitPriceTtc}
-                onChange={(e) => setUnitPriceTtc(e.target.value)}
-                placeholder='0.00'
-              />
+              <div className='flex items-center justify-between'>
+                <Label>Prix ({priceMode === 'ttc' ? 'TTC' : 'HT'}) (€)</Label>
+                <div className='flex overflow-hidden rounded-md border text-xs'>
+                  {(['ttc', 'ht'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type='button'
+                      onClick={() => {
+                        if (m === priceMode) return
+                        setPriceInput(String(derived))
+                        setPriceMode(m)
+                      }}
+                      className={cn(
+                        'px-2 py-0.5',
+                        priceMode === m
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background hover:bg-muted'
+                      )}
+                    >
+                      {m.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className='mt-1 flex items-center gap-2'>
+                <Input
+                  type='number'
+                  step='0.01'
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  placeholder='0.00'
+                />
+                <span className='text-xs whitespace-nowrap text-muted-foreground'>
+                  {priceMode === 'ttc' ? 'HT' : 'TTC'} : {derived.toFixed(2)} €
+                </span>
+              </div>
             </div>
             <div>
               <Label>TVA (%)</Label>
@@ -228,10 +265,6 @@ export function ProductDialog({
                 }
                 placeholder='20'
               />
-            </div>
-            <div>
-              <Label>Prix HT (€)</Label>
-              <Input value={priceHt} disabled className='bg-muted' />
             </div>
           </div>
 

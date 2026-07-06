@@ -23,6 +23,10 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
+  deriveUnitHt,
+  deriveUnitTtc,
+} from '@/features/reservations/lib/quote-rounding'
+import {
   PRODUCT_TYPES,
   useCreateProduct,
   useCreatePackage,
@@ -32,6 +36,8 @@ import {
 type CatalogLine = {
   name: string
   unit_price: number | null
+  unit_price_ttc: number | null
+  price_entry_mode: string | null
   tva_rate: number | null
   description: string | null
 }
@@ -60,7 +66,8 @@ export function SaveToCatalogDialog({
 
   const [kind, setKind] = useState<'product' | 'package'>('product')
   const [name, setName] = useState('')
-  const [priceHt, setPriceHt] = useState('')
+  const [priceMode, setPriceMode] = useState<'ht' | 'ttc'>('ttc')
+  const [priceInput, setPriceInput] = useState('')
   const [tvaRate, setTvaRate] = useState('20')
   const [type, setType] = useState<Product['type']>('food')
   const [pricePerPerson, setPricePerPerson] = useState(false)
@@ -69,12 +76,24 @@ export function SaveToCatalogDialog({
     if (open && line) {
       setKind('product')
       setName(line.name)
-      setPriceHt(String(line.unit_price ?? 0))
+      setPriceMode((line.price_entry_mode as 'ht' | 'ttc') ?? 'ttc')
+      setPriceInput(
+        String(
+          (line.price_entry_mode ?? 'ttc') === 'ttc'
+            ? (line.unit_price_ttc ?? 0)
+            : (line.unit_price ?? 0)
+        )
+      )
       setTvaRate(String(line.tva_rate ?? 20))
       setType('food')
       setPricePerPerson(false)
     }
   }, [open, line])
+
+  const rate = normalizeTvaRate(parseFloat(tvaRate) || 0)
+  const typed = parseFloat(priceInput) || 0
+  const derived =
+    priceMode === 'ttc' ? deriveUnitHt(typed, rate) : deriveUnitTtc(typed, rate)
 
   const handleSubmit = async () => {
     const trimmed = name.trim()
@@ -86,19 +105,27 @@ export function SaveToCatalogDialog({
       toast.error('Aucun restaurant associé au booking')
       return
     }
-    const payload = {
+    const common = {
       name: trimmed,
       description: line?.description?.trim() || null,
-      unit_price_ht: parseFloat(priceHt) || 0,
       tva_rate: normalizeTvaRate(parseFloat(tvaRate) || 20),
       price_per_person: pricePerPerson,
       restaurant_ids: [restaurantId],
     }
     try {
       if (kind === 'product') {
-        await createProduct({ ...payload, type })
+        await createProduct({
+          ...common,
+          type,
+          unit_price_ht: priceMode === 'ht' ? typed : derived,
+          unit_price_ttc: priceMode === 'ttc' ? typed : derived,
+          price_entry_mode: priceMode,
+        })
       } else {
-        await createPackage(payload)
+        await createPackage({
+          ...common,
+          unit_price_ht: priceMode === 'ht' ? typed : derived,
+        })
       }
       queryClient.invalidateQueries({ queryKey: ['products-by-restaurant'] })
       queryClient.invalidateQueries({ queryKey: ['packages-by-restaurant'] })
@@ -166,13 +193,41 @@ export function SaveToCatalogDialog({
 
           <div className='grid grid-cols-2 gap-3'>
             <div className='space-y-2'>
-              <Label>Prix HT</Label>
-              <Input
-                type='number'
-                step='0.01'
-                value={priceHt}
-                onChange={(e) => setPriceHt(e.target.value)}
-              />
+              <div className='flex items-center justify-between'>
+                <Label>Prix ({priceMode === 'ttc' ? 'TTC' : 'HT'})</Label>
+                <div className='flex overflow-hidden rounded-md border text-xs'>
+                  {(['ttc', 'ht'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type='button'
+                      onClick={() => {
+                        if (m === priceMode) return
+                        setPriceInput(String(derived))
+                        setPriceMode(m)
+                      }}
+                      className={cn(
+                        'px-2 py-0.5',
+                        priceMode === m
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background hover:bg-muted'
+                      )}
+                    >
+                      {m.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className='flex items-center gap-2'>
+                <Input
+                  type='number'
+                  step='0.01'
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                />
+                <span className='text-xs whitespace-nowrap text-muted-foreground'>
+                  {priceMode === 'ttc' ? 'HT' : 'TTC'} : {derived.toFixed(2)} €
+                </span>
+              </div>
             </div>
             <div className='space-y-2'>
               <Label>TVA (%)</Label>

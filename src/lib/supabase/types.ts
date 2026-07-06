@@ -1858,6 +1858,7 @@ export type Database = {
           name: string
           old_id: string | null
           organization_id: string
+          price_entry_mode: string
           price_per_person: boolean | null
           tag: string | null
           tva_rate: number
@@ -1875,6 +1876,7 @@ export type Database = {
           name: string
           old_id?: string | null
           organization_id: string
+          price_entry_mode?: string
           price_per_person?: boolean | null
           tag?: string | null
           tva_rate?: number
@@ -1892,6 +1894,7 @@ export type Database = {
           name?: string
           old_id?: string | null
           organization_id?: string
+          price_entry_mode?: string
           price_per_person?: boolean | null
           tag?: string | null
           tva_rate?: number
