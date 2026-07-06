@@ -182,11 +182,16 @@ function SortableItemRow({
       ? ((item as any).unit_price_ttc ??
         deriveUnitTtc(item.unit_price ?? 0, rate))
       : (item.unit_price ?? 0)
-  const [anchorInput, setAnchorInput] = useState(String(anchorStored))
+  // Champ prix en 2 decimales, virgule (48,00). On ecrit au blur seulement si le
+  // champ a ete touche (dirty) : evite les ecritures fantomes du focus+blur.
+  const fmtPrice = (n: number) => n.toFixed(2).replace('.', ',')
+  const [anchorInput, setAnchorInput] = useState(fmtPrice(anchorStored))
+  const [anchorDirty, setAnchorDirty] = useState(false)
   useEffect(() => {
-    setAnchorInput(String(anchorStored))
+    setAnchorInput(fmtPrice(anchorStored))
+    setAnchorDirty(false)
   }, [item.id, mode, anchorStored])
-  const typedAnchor = parseFloat(anchorInput) || 0
+  const typedAnchor = parseFloat(anchorInput.replace(',', '.')) || 0
   const derivedUnit =
     mode === 'ttc'
       ? deriveUnitHt(typedAnchor, rate)
@@ -213,10 +218,8 @@ function SortableItemRow({
   }
 
   const handleAnchorBlur = () => {
-    // Ne pas ecrire seulement si la valeur est inchangee a la precision stockee
-    // (4 decimales) : sinon taper 48 sur un PU stocke 48,004 serait avale.
-    if (Math.round(typedAnchor * 10000) === Math.round(anchorStored * 10000))
-      return
+    if (!anchorDirty) return
+    setAnchorDirty(false)
     onUpdateItemFields(item.id, {
       price_entry_mode: mode,
       ...(mode === 'ttc'
@@ -224,6 +227,20 @@ function SortableItemRow({
         : { unit_price: typedAnchor }),
     })
   }
+
+  const anchorInputEl = (
+    <Input
+      type='text'
+      inputMode='decimal'
+      value={anchorInput}
+      onChange={(e) => {
+        setAnchorInput(e.target.value)
+        setAnchorDirty(true)
+      }}
+      onBlur={handleAnchorBlur}
+      className='h-7 w-full rounded bg-muted px-1.5 text-xs shadow-none focus-visible:ring-1'
+    />
+  )
 
   const discountBase =
     (item.quantity ?? 1) *
@@ -289,40 +306,36 @@ function SortableItemRow({
               onUpdateItem(item.id, 'quantity', v)
             }
           }}
-          className='h-7 w-16 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
+          className='h-7 w-12 rounded bg-muted px-1.5 text-xs shadow-none focus-visible:ring-1'
         />
       </TableCell>
       <TableCell>
-        <div className='space-y-1'>
-          <div className='inline-flex overflow-hidden rounded-md border text-[10px]'>
-            {(['ttc', 'ht'] as const).map((m) => (
-              <button
-                key={m}
-                type='button'
-                onClick={() => handleToggleMode(m)}
-                className={cn(
-                  'px-1.5 py-0.5 transition-colors',
-                  mode === m
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                )}
-              >
-                {m.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <Input
-            type='number'
-            step='0.01'
-            value={anchorInput}
-            onChange={(e) => setAnchorInput(e.target.value)}
-            onBlur={handleAnchorBlur}
-            className='h-6 w-full border-0 p-0 text-xs shadow-none focus-visible:ring-0'
-          />
-          <div className='text-[10px] text-muted-foreground'>
-            {formatEuroDecimal(derivedUnit)} {mode === 'ttc' ? 'HT' : 'TTC'}
-          </div>
-        </div>
+        {mode === 'ttc' ? (
+          anchorInputEl
+        ) : (
+          <button
+            type='button'
+            title='Saisir le prix en TTC'
+            onClick={() => handleToggleMode('ttc')}
+            className='px-1.5 text-xs text-muted-foreground italic hover:text-foreground'
+          >
+            {formatEuroDecimal(derivedUnit)}
+          </button>
+        )}
+      </TableCell>
+      <TableCell>
+        {mode === 'ht' ? (
+          anchorInputEl
+        ) : (
+          <button
+            type='button'
+            title='Saisir le prix en HT'
+            onClick={() => handleToggleMode('ht')}
+            className='px-1.5 text-xs text-muted-foreground italic hover:text-foreground'
+          >
+            {formatEuroDecimal(derivedUnit)}
+          </button>
+        )}
       </TableCell>
       <TableCell>
         <Select
@@ -333,7 +346,7 @@ function SortableItemRow({
             onUpdateItemFields(item.id, { tva_rate: newTva })
           }}
         >
-          <SelectTrigger className='h-7 w-16 border-0 p-0 text-xs shadow-none'>
+          <SelectTrigger className='h-7 w-fit gap-1 rounded bg-muted px-1.5 text-xs shadow-none'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -379,7 +392,7 @@ function SortableItemRow({
                 onUpdateItem(item.id, 'discount_amount', newDiscount)
               }
             }}
-            className='h-7 w-14 border-0 p-0 text-xs text-red-600 shadow-none focus-visible:ring-0'
+            className='h-7 w-12 rounded bg-muted px-1.5 text-xs text-red-600 shadow-none focus-visible:ring-1'
           />
         </div>
       </TableCell>
@@ -2251,11 +2264,14 @@ export function QuoteEditor({
                                   <TableHead className='text-xs'>
                                     Désignation
                                   </TableHead>
-                                  <TableHead className='w-12 text-xs'>
+                                  <TableHead className='w-14 text-xs'>
                                     Qté
                                   </TableHead>
-                                  <TableHead className='w-28 text-xs'>
-                                    Prix unitaire
+                                  <TableHead className='w-24 text-xs'>
+                                    Prix TTC
+                                  </TableHead>
+                                  <TableHead className='w-24 text-xs'>
+                                    Prix HT
                                   </TableHead>
                                   <TableHead className='w-16 text-xs'>
                                     TVA
