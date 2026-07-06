@@ -133,36 +133,20 @@ export function deriveUnitHt(
   return round2(unitTtc / (1 + rate / 100))
 }
 
-// PU TTC a afficher : saisi si present, sinon total stocke / quantite (coherent avec
-// la colonne Total TTC), en dernier recours derive du HT. Ligne remisee : le PU affiche
-// reste le prix avant remise, donc derivation HT.
+// PU TTC a afficher : le PU stocke (identique a l'editeur), sinon derive du HT.
+// Le PU affiche reste le prix avant remise.
 export function displayUnitTtc(
   item: LineAmountsInput & { total_ttc?: number | null }
 ): number {
   if (item.unit_price_ttc != null) return item.unit_price_ttc
-  const qty = item.quantity ?? 0
-  if (item.total_ttc != null && qty > 0 && !item.discount_amount)
-    return item.total_ttc / qty
   return deriveUnitTtc(item.unit_price ?? 0, item.tva_rate ?? 20)
 }
 
-// PU HT a afficher : symetrique de displayUnitTtc (total stocke / qte prioritaire).
+// PU HT a afficher : le PU stocke (identique a l'editeur), sinon derive du TTC.
 export function displayUnitHt(
   item: LineAmountsInput & { total_ht?: number | null }
 ): number {
-  if (item.price_entry_mode !== 'ttc' && item.unit_price != null) {
-    const qty = item.quantity ?? 0
-    if (item.total_ht != null && qty > 0 && !item.discount_amount) {
-      // ancre HT : si le stocke round-trip depuis le PU, afficher le PU saisi
-      if (round2(qty * item.unit_price) === round2(item.total_ht))
-        return item.unit_price
-      return item.total_ht / qty
-    }
-    return item.unit_price
-  }
-  const qty = item.quantity ?? 0
-  if (item.total_ht != null && qty > 0 && !item.discount_amount)
-    return item.total_ht / qty
+  if (item.unit_price != null) return item.unit_price
   return deriveUnitHt(item.unit_price_ttc ?? 0, item.tva_rate ?? 20)
 }
 
@@ -214,18 +198,9 @@ export function sumStoredQuoteTotals(
   return { totalHt, totalTva: round2(totalTtc - totalHt), totalTtc }
 }
 
-// Format PU : 2 decimales par defaut, etendu a 3-4 quand la valeur exacte l'exige
-// (lignes historiques dont le PU n'est pas representable en 2 decimales).
+// Format PU : 2 decimales (le PU affiche = valeur stockee, comme l'editeur).
 export function formatUnitPriceEuro(amount: number): string {
-  const needsMore = Math.abs(amount - Math.round(amount * 100) / 100) > 5e-5
-  return normalizeFrenchSpaces(
-    new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: needsMore ? 4 : 2,
-    }).format(amount)
-  )
+  return formatEuroDecimal(amount)
 }
 
 // Totaux d'une ligne : l'ancre (price_entry_mode) fait foi, l'autre cote est derive.

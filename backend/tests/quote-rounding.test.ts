@@ -106,8 +106,10 @@ describe('Remise globale en pied (option A)', () => {
   const b = computeQuoteBreakdown(DEVIS, 10)
   it('sous-total = somme des lignes = 1855', () => expect(b.subTtc).toBe(1855))
   it('total apres remise 10% = 1669,50', () => expect(b.totalTtc).toBe(1669.5))
-  it('remise = sous-total - total = 185,50', () => expect(b.remiseTtc).toBe(185.5))
-  it('HT + TVA = TTC', () => expect(round2(b.totalHt + b.totalTva)).toBe(b.totalTtc))
+  it('remise = sous-total - total = 185,50', () =>
+    expect(b.remiseTtc).toBe(185.5))
+  it('HT + TVA = TTC', () =>
+    expect(round2(b.totalHt + b.totalTva)).toBe(b.totalTtc))
 })
 
 describe('Test 5 : coherence comptable HT/TVA cumulee (tolerance 0,01)', () => {
@@ -162,17 +164,66 @@ describe('Mono-ancre par defaut (ht) : unit_price_ttc ignore comme cache perime'
 
 describe('displayUnitTtc : PU TTC affiche coherent avec le total de ligne', () => {
   it('PU TTC saisi -> verbatim', () =>
-    expect(displayUnitTtc({ quantity: 40, unit_price: 45.45, unit_price_ttc: 50, tva_rate: 10, total_ttc: 2000 })).toBe(50))
-  it('cas SAPRI : pas de PU TTC stocke, total bon -> total / qte (50, pas 49,995x40=1999,80)', () =>
-    expect(displayUnitTtc({ quantity: 40, unit_price: 45.45, unit_price_ttc: null, tva_rate: 10, total_ttc: 2000 })).toBe(50))
-  it('import BS a centimes : total / qte meme non divisible (545,45 / 40)', () =>
-    expect(displayUnitTtc({ quantity: 40, unit_price: 13.64, unit_price_ttc: null, tva_rate: 10, total_ttc: 545.45 })).toBeCloseTo(13.636, 3))
+    expect(
+      displayUnitTtc({
+        quantity: 40,
+        unit_price: 45.45,
+        unit_price_ttc: 50,
+        tva_rate: 10,
+        total_ttc: 2000,
+      })
+    ).toBe(50))
+  it('PU TTC absent -> derive du HT au centime (45,45 -> 50)', () =>
+    expect(
+      displayUnitTtc({
+        quantity: 40,
+        unit_price: 45.45,
+        unit_price_ttc: null,
+        tva_rate: 10,
+        total_ttc: 2000,
+      })
+    ).toBe(50))
+  it('PU TTC absent -> derive du HT (comme l editeur), jamais total / qte', () =>
+    expect(
+      displayUnitTtc({
+        quantity: 40,
+        unit_price: 13.64,
+        unit_price_ttc: null,
+        tva_rate: 10,
+        total_ttc: 545.45,
+      })
+    ).toBe(15))
   it('ligne remisee : prix avant remise, donc derivation HT (pas total / qte)', () =>
-    expect(displayUnitTtc({ quantity: 2, unit_price: 100, unit_price_ttc: null, discount_amount: 20, tva_rate: 20, total_ttc: 216 })).toBe(120))
+    expect(
+      displayUnitTtc({
+        quantity: 2,
+        unit_price: 100,
+        unit_price_ttc: null,
+        discount_amount: 20,
+        tva_rate: 20,
+        total_ttc: 216,
+      })
+    ).toBe(120))
   it('sans total stocke -> derivation HT au centime', () =>
-    expect(displayUnitTtc({ quantity: 40, unit_price: 45.45, unit_price_ttc: null, tva_rate: 10, total_ttc: null })).toBe(50))
+    expect(
+      displayUnitTtc({
+        quantity: 40,
+        unit_price: 45.45,
+        unit_price_ttc: null,
+        tva_rate: 10,
+        total_ttc: null,
+      })
+    ).toBe(50))
   it('tva_rate null -> defaut 20 comme les autres helpers', () =>
-    expect(displayUnitTtc({ quantity: 3, unit_price: 28.5, unit_price_ttc: null, tva_rate: null, total_ttc: null })).toBe(34.2))
+    expect(
+      displayUnitTtc({
+        quantity: 3,
+        unit_price: 28.5,
+        unit_price_ttc: null,
+        tva_rate: null,
+        total_ttc: null,
+      })
+    ).toBe(34.2))
 })
 
 describe('computeLineAmounts mono-ancre (price_entry_mode fait foi)', () => {
@@ -261,8 +312,14 @@ describe('sumStoredQuoteTotals : somme des totaux stockés, remise en pied', () 
   it('ligne à totaux NULL : recalcul de secours via computeLineAmounts', () => {
     const t = sumStoredQuoteTotals(
       [
-        { total_ht: null, total_ttc: null, quantity: 2, unit_price: 50,
-          price_entry_mode: 'ht', tva_rate: 20 },
+        {
+          total_ht: null,
+          total_ttc: null,
+          quantity: 2,
+          unit_price: 50,
+          price_entry_mode: 'ht',
+          tva_rate: 20,
+        },
       ],
       0
     )
@@ -271,15 +328,16 @@ describe('sumStoredQuoteTotals : somme des totaux stockés, remise en pied', () 
   })
 })
 
-describe('displayUnitHt + formatUnitPriceEuro (PU adaptatif)', () => {
-  it('displayUnitHt : total stocké / qté quand pas de remise', () => {
-    expect(displayUnitHt({ quantity: 3, unit_price: 29.17, total_ht: 87.5 }))
-      .toBeCloseTo(29.166666, 4)
+describe('displayUnitHt + formatUnitPriceEuro (PU stocke, 2 decimales)', () => {
+  it('displayUnitHt : le PU stocke (identique a l editeur), pas total/qte', () => {
+    expect(
+      displayUnitHt({ quantity: 3, unit_price: 29.17, total_ht: 87.5 })
+    ).toBe(29.17)
   })
   it('formatUnitPriceEuro : 2 décimales quand exact', () => {
     expect(formatUnitPriceEuro(39.99)).toBe('39,99 €')
   })
-  it('formatUnitPriceEuro : étend à 3-4 décimales quand nécessaire', () => {
-    expect(formatUnitPriceEuro(639.76 / 16)).toBe('39,985 €')
+  it('formatUnitPriceEuro : toujours 2 décimales (arrondi au centime)', () => {
+    expect(formatUnitPriceEuro(13.7667)).toBe('13,77 €')
   })
 })
