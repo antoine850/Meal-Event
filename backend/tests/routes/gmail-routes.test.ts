@@ -18,8 +18,14 @@ describe('gmail routes wiring', () => {
     expect(routes).toContain("gmailPublicRouter.get('/callback'")
   })
 
-  it('gate auth-url derriere GMAIL_INTEGRATION_ENABLED', () => {
-    expect(routes).toContain('GMAIL_INTEGRATION_ENABLED')
+  it('gate auth-url et callback derriere le master switch', () => {
+    const lib = read('lib/gmail.ts')
+    expect(lib).toContain('GMAIL_INTEGRATION_ENABLED')
+    // auth-url et callback utilisent le helper centralise.
+    const authUrlIdx = routes.indexOf("'/auth-url'")
+    const callbackIdx = routes.indexOf("'/callback'")
+    expect(routes.indexOf('isGmailIntegrationEnabled', authUrlIdx)).toBeGreaterThan(authUrlIdx)
+    expect(routes.indexOf('isGmailIntegrationEnabled', callbackIdx)).toBeGreaterThan(callbackIdx)
   })
 
   it('monte le callback public avant le router authentifie', () => {

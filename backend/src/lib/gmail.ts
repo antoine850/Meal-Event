@@ -11,6 +11,14 @@ export const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
 ]
 
+// Master switch de l'integration Gmail. Defaut OFF : seule la valeur exacte
+// 'true' active (variable absente/vide/autre => OFF). Gate le flux de connexion,
+// et gmailClient() renvoie null quand OFF (donc envoi/polling des phases 2-3
+// retombent sur Resend meme si leurs propres flags sont ON).
+export function isGmailIntegrationEnabled(): boolean {
+  return process.env.GMAIL_INTEGRATION_ENABLED === 'true'
+}
+
 function getGmailOAuthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -94,6 +102,8 @@ export async function handleGmailCallback(code: string, state: string) {
 // Client Gmail authentifie pour un utilisateur, ou null s'il n'a pas de compte
 // connecte. Utilise en phases 2-3 (envoi/polling).
 export async function gmailClient(userId: string) {
+  if (!isGmailIntegrationEnabled()) return null
+
   const { data: account } = await supabase
     .from('user_gmail_accounts')
     .select('refresh_token, status')
