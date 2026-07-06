@@ -19,6 +19,11 @@ export function isGmailIntegrationEnabled(): boolean {
   return process.env.GMAIL_INTEGRATION_ENABLED === 'true'
 }
 
+// Sous-switch d'envoi. Effectif seulement si le master est ON.
+export function isGmailSendingEnabled(): boolean {
+  return isGmailIntegrationEnabled() && process.env.GMAIL_SENDING_ENABLED === 'true'
+}
+
 function getGmailOAuthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -152,4 +157,33 @@ export async function disconnectGmail(userId: string) {
   }
 
   await supabase.from('user_gmail_accounts').delete().eq('user_id', userId)
+}
+
+// Verifie qu'un message qu'on croit avoir envoye existe bien (apres timeout ambigu).
+// Renvoie le gmail_message_id trouve, sinon null.
+export async function findByRfcMessageId(
+  client: NonNullable<Awaited<ReturnType<typeof gmailClient>>>,
+  rfcMessageId: string
+): Promise<string | null> {
+  try {
+    const bare = rfcMessageId.replace(/^<|>$/g, '')
+    const { data } = await client.users.messages.list({
+      userId: 'me',
+      q: `rfc822msgid:${bare}`,
+      maxResults: 1,
+    })
+    return data.messages?.[0]?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+// Marque un compte comme revoque (401/invalid_grant) : coupe les futurs envois
+// Gmail de cette boite et alimente le bandeau reglages. Best-effort.
+export async function markAccountRevoked(userId: string, err: unknown): Promise<void> {
+  const message = err instanceof Error ? err.message : String(err)
+  await supabase
+    .from('user_gmail_accounts')
+    .update({ status: 'revoked', last_error: message } as never)
+    .eq('user_id', userId)
 }
