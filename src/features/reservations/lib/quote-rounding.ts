@@ -131,21 +131,25 @@ export function deriveUnitHt(
   return round2(unitTtc / (1 + rate / 100))
 }
 
-// PU TTC a afficher : le PU stocke (identique a l'editeur), sinon derive du HT.
+// PU affiche = cote ancre (price_entry_mode) stocke, cote derive recalcule de
+// l'ancre -- exactement comme l'editeur, pour que editeur/apercu/PDF concordent.
 // Le PU affiche reste le prix avant remise.
 export function displayUnitTtc(
   item: LineAmountsInput & { total_ttc?: number | null }
 ): number {
-  if (item.unit_price_ttc != null) return item.unit_price_ttc
-  return deriveUnitTtc(item.unit_price ?? 0, item.tva_rate ?? 20)
+  const rate = item.tva_rate ?? 20
+  if (item.price_entry_mode === 'ttc' && item.unit_price_ttc != null)
+    return item.unit_price_ttc
+  return deriveUnitTtc(item.unit_price ?? 0, rate)
 }
 
-// PU HT a afficher : le PU stocke (identique a l'editeur), sinon derive du TTC.
 export function displayUnitHt(
   item: LineAmountsInput & { total_ht?: number | null }
 ): number {
-  if (item.unit_price != null) return item.unit_price
-  return deriveUnitHt(item.unit_price_ttc ?? 0, item.tva_rate ?? 20)
+  const rate = item.tva_rate ?? 20
+  if (item.price_entry_mode !== 'ttc' && item.unit_price != null)
+    return item.unit_price
+  return deriveUnitHt(item.unit_price_ttc ?? 0, rate)
 }
 
 // Les deux PU a persister : l'ancre telle que saisie, l'autre cote en cache derive.

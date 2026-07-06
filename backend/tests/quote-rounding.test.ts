@@ -163,16 +163,27 @@ describe('Mono-ancre par defaut (ht) : unit_price_ttc ignore comme cache perime'
 })
 
 describe('displayUnitTtc : PU TTC affiche coherent avec le total de ligne', () => {
-  it('PU TTC saisi -> verbatim', () =>
+  it('mode ttc : PU TTC ancre verbatim', () =>
     expect(
       displayUnitTtc({
         quantity: 40,
         unit_price: 45.45,
         unit_price_ttc: 50,
+        price_entry_mode: 'ttc',
         tva_rate: 10,
         total_ttc: 2000,
       })
     ).toBe(50))
+  it('mode ht : PU TTC derive de l ancre, ignore un cache TTC perime', () =>
+    expect(
+      displayUnitTtc({
+        quantity: 40,
+        unit_price: 13.64,
+        unit_price_ttc: 99,
+        price_entry_mode: 'ht',
+        tva_rate: 10,
+      })
+    ).toBe(15))
   it('PU TTC absent -> derive du HT au centime (45,45 -> 50)', () =>
     expect(
       displayUnitTtc({
