@@ -74,10 +74,16 @@ export interface ClientEmailParams {
   threadKind?: 'booking' | 'contact' | 'facturation'
 }
 
-// Journalisation email_logs best-effort (un echec d'insert ne casse jamais l'envoi).
+// Journalisation email_logs best-effort. DOIT etre non-throwing : supabase-js
+// rejette (throw) sur erreur transport, pas seulement via {error} ; un throw ici
+// re-rentrerait dans le catch Gmail et pourrait declencher un double envoi.
 async function logEmail(row: Record<string, unknown>): Promise<void> {
-  const { error } = await supabase.from('email_logs').insert(row as never)
-  if (error) console.error('[client-email] email_logs insert failed:', error)
+  try {
+    const { error } = await supabase.from('email_logs').insert(row as never)
+    if (error) console.error('[client-email] email_logs insert failed:', error)
+  } catch (err) {
+    console.error('[client-email] email_logs insert threw:', err)
+  }
 }
 
 // Point de passage unique des emails client. Resout un fil, choisit la boite
@@ -123,6 +129,9 @@ export async function sendClientEmail(
   if (mailbox && isGmailSendingEnabled()) {
     const client = await gmailClient(mailbox.userId)
     if (client) {
+      // In-Reply-To/References = seulement le dernier message (phase 2). Pas la
+      // chaine References complete : le threading reste bon pour un aller-retour
+      // lineaire (In-Reply-To + sujet), chaine complete reportee.
       const tail = thread
         ? await getThreadTail(thread.id, mailbox.userId)
         : { lastRfcMessageId: null, gmailThreadIdForSender: null }

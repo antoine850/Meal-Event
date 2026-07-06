@@ -56,6 +56,8 @@ export async function getOrCreateThread(input: {
     if (existing) return { id: existing.id, subject: existing.subject ?? input.subject, isNew: false }
   }
 
+  // Race select-then-insert : deux envois simultanes sur le meme (booking_id, kind)
+  // peuvent lever un duplicate-key ; le fil part alors non lie (pas de double envoi).
   const { data: created, error } = await base
     .insert({
       organization_id: input.organizationId,
@@ -82,7 +84,7 @@ export async function getThreadTail(
     .select('rfc_message_id')
     .eq('thread_id', threadId)
     .not('rfc_message_id', 'is', null)
-    .order('sent_at', { ascending: false })
+    .order('sent_at', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle()
 
@@ -92,7 +94,7 @@ export async function getThreadTail(
     .eq('thread_id', threadId)
     .eq('sender_user_id', senderUserId)
     .not('gmail_thread_id', 'is', null)
-    .order('sent_at', { ascending: false })
+    .order('sent_at', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle()
 
@@ -159,30 +161,37 @@ export async function recordOutbound(
   }
 ): Promise<void> {
   if (!thread) return
-  const now = new Date().toISOString()
-  const { error } = await supabase.from('email_messages').insert({
-    thread_id: thread.id,
-    direction: 'outbound',
-    provider: msg.provider,
-    sender_user_id: msg.senderUserId,
-    gmail_thread_id: msg.gmailThreadId,
-    gmail_message_id: msg.gmailMessageId,
-    rfc_message_id: msg.rfcMessageId,
-    from_email: msg.fromEmail,
-    to_emails: msg.toEmails,
-    cc: msg.cc,
-    subject: msg.subject,
-    body_html: msg.html,
-    sent_at: now,
-    in_reply_to: msg.inReplyTo,
-    references_header: msg.references,
-  } as never)
-  if (error) {
-    console.error('[email-threads] recordOutbound insert failed:', error)
-    return
+  // Non-throwing : supabase-js rejette sur erreur transport (pas seulement via
+  // {error}) ; un throw ici s'echapperait de sendClientEmail apres un envoi
+  // reussi -> le caller croit a un echec -> retry -> double envoi.
+  try {
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('email_messages').insert({
+      thread_id: thread.id,
+      direction: 'outbound',
+      provider: msg.provider,
+      sender_user_id: msg.senderUserId,
+      gmail_thread_id: msg.gmailThreadId,
+      gmail_message_id: msg.gmailMessageId,
+      rfc_message_id: msg.rfcMessageId,
+      from_email: msg.fromEmail,
+      to_emails: msg.toEmails,
+      cc: msg.cc,
+      subject: msg.subject,
+      body_html: msg.html,
+      sent_at: now,
+      in_reply_to: msg.inReplyTo,
+      references_header: msg.references,
+    } as never)
+    if (error) {
+      console.error('[email-threads] recordOutbound insert failed:', error)
+      return
+    }
+    await supabase
+      .from('email_threads')
+      .update({ last_message_at: now } as never)
+      .eq('id', thread.id)
+  } catch (err) {
+    console.error('[email-threads] recordOutbound threw:', err)
   }
-  await supabase
-    .from('email_threads')
-    .update({ last_message_at: now } as never)
-    .eq('id', thread.id)
 }
