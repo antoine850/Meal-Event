@@ -40,6 +40,7 @@ def n(x):
 
 def main():
     apply = "--apply" in sys.argv
+    only_a = "--only-a" in sys.argv  # n'ecrire que la Population A (brouillons catalogue)
     db = Supa(*load_env()[:2])
 
     quotes = db.get_all(
@@ -166,6 +167,9 @@ def main():
     quotes_by_id = {q["id"]: q for q in quotes}
     for p in plan_b:
         p["quote"] = quotes_by_id.get(p["item"]["quote_id"])
+
+    if only_a:  # on ne traite que la Population A : headers/snapshot/ecritures A seuls
+        plan_b = []
 
     # ---------------------------------------------------------------- headers affectes
     new_line_totals = {}  # item_id -> (total_ht, total_ttc)
