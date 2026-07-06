@@ -175,6 +175,59 @@ function SortableItemRow({
 
   const [showDesc, setShowDesc] = useState(!!item.description)
 
+  const mode = ((item as any).price_entry_mode ?? 'ht') as 'ht' | 'ttc'
+  const rate = item.tva_rate ?? 20
+  const anchorStored =
+    mode === 'ttc'
+      ? ((item as any).unit_price_ttc ??
+        deriveUnitTtc(item.unit_price ?? 0, rate))
+      : (item.unit_price ?? 0)
+  const [anchorInput, setAnchorInput] = useState(String(anchorStored))
+  useEffect(() => {
+    setAnchorInput(String(anchorStored))
+  }, [item.id, mode, anchorStored])
+  const typedAnchor = parseFloat(anchorInput) || 0
+  const derivedUnit =
+    mode === 'ttc'
+      ? deriveUnitHt(typedAnchor, rate)
+      : deriveUnitTtc(typedAnchor, rate)
+
+  // Bascule d'ancre sans changer les montants : la nouvelle ancre reprend le
+  // total stocke / qte (4 decimales) pour que le recalcul reproduise le total.
+  const handleToggleMode = (newMode: 'ht' | 'ttc') => {
+    if (newMode === mode) return
+    const qty = item.quantity ?? 1
+    const total = newMode === 'ttc' ? item.total_ttc : item.total_ht
+    const newAnchor =
+      total != null && qty > 0 && !(item.discount_amount ?? 0)
+        ? Math.round((total / qty) * 10000) / 10000
+        : newMode === 'ttc'
+          ? ((item as any).unit_price_ttc ?? derivedUnit)
+          : (item.unit_price ?? derivedUnit)
+    onUpdateItemFields(item.id, {
+      price_entry_mode: newMode,
+      ...(newMode === 'ttc'
+        ? { unit_price_ttc: newAnchor }
+        : { unit_price: newAnchor }),
+    })
+  }
+
+  const handleAnchorBlur = () => {
+    if (Math.abs(typedAnchor - anchorStored) < 0.005) return
+    onUpdateItemFields(item.id, {
+      price_entry_mode: mode,
+      ...(mode === 'ttc'
+        ? { unit_price_ttc: typedAnchor }
+        : { unit_price: typedAnchor }),
+    })
+  }
+
+  const discountBase =
+    (item.quantity ?? 1) *
+    (mode === 'ttc'
+      ? ((item as any).unit_price_ttc ?? 0)
+      : (item.unit_price ?? 0))
+
   return (
     <TableRow ref={setNodeRef} style={style}>
       <TableCell className='px-1'>
@@ -237,70 +290,70 @@ function SortableItemRow({
         />
       </TableCell>
       <TableCell>
-        <Input
-          key={`ttc-${item.tva_rate ?? 20}-${(item as any).unit_price_ttc ?? item.unit_price ?? 0}`}
-          type='number'
-          step='0.01'
-          defaultValue={
-            (item as any).unit_price_ttc ??
-            Math.round(
-              (item.unit_price ?? 0) * (1 + (item.tva_rate ?? 20) / 100) * 100
-            ) / 100
-          }
-          onBlur={(e) => {
-            const ttc = parseFloat(e.target.value) || 0
-            onUpdateItemFields(item.id, {
-              price_entry_mode: 'ttc',
-              unit_price_ttc: ttc,
-              unit_price: deriveUnitHt(ttc, item.tva_rate ?? 20),
-            })
-          }}
-          className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
-        />
+        {mode === 'ttc' ? (
+          <Input
+            type='number'
+            step='0.01'
+            value={anchorInput}
+            onChange={(e) => setAnchorInput(e.target.value)}
+            onBlur={handleAnchorBlur}
+            className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
+          />
+        ) : (
+          <button
+            type='button'
+            title='Saisir en TTC'
+            onClick={() => handleToggleMode('ttc')}
+            className='text-xs text-muted-foreground italic'
+          >
+            {derivedUnit.toFixed(2)}
+          </button>
+        )}
       </TableCell>
       <TableCell>
-        <Input
-          key={`ht-${item.unit_price ?? 0}`}
-          type='number'
-          step='0.01'
-          defaultValue={item.unit_price ?? 0}
-          onBlur={(e) => {
-            const ht = parseFloat(e.target.value) || 0
-            onUpdateItemFields(item.id, {
-              price_entry_mode: 'ht',
-              unit_price: ht,
-              unit_price_ttc: deriveUnitTtc(ht, item.tva_rate ?? 20),
-            })
-          }}
-          className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
-        />
+        {mode === 'ht' ? (
+          <Input
+            type='number'
+            step='0.01'
+            value={anchorInput}
+            onChange={(e) => setAnchorInput(e.target.value)}
+            onBlur={handleAnchorBlur}
+            className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
+          />
+        ) : (
+          <button
+            type='button'
+            title='Saisir en HT'
+            onClick={() => handleToggleMode('ht')}
+            className='text-xs text-muted-foreground italic'
+          >
+            {derivedUnit.toFixed(2)}
+          </button>
+        )}
       </TableCell>
       <TableCell>
-        <Input
-          type='number'
-          step='0.01'
-          defaultValue={item.tva_rate ?? 20}
-          onBlur={(e) => {
-            const newTva = normalizeTvaRate(parseFloat(e.target.value) || 20)
-            e.target.value = String(newTva)
-            const oldTva = item.tva_rate ?? 20
-            if (newTva !== oldTva) {
-              if (((item as any).price_entry_mode ?? 'ht') === 'ttc') {
-                const ttc = (item as any).unit_price_ttc ?? 0
-                onUpdateItemFields(item.id, {
-                  tva_rate: newTva,
-                  unit_price: deriveUnitHt(ttc, newTva),
-                })
-              } else {
-                onUpdateItemFields(item.id, {
-                  tva_rate: newTva,
-                  unit_price_ttc: deriveUnitTtc(item.unit_price ?? 0, newTva),
-                })
-              }
-            }
+        <Select
+          value={String(rate)}
+          onValueChange={(v) => {
+            const newTva = parseFloat(v)
+            if (newTva === rate) return
+            onUpdateItemFields(item.id, { tva_rate: newTva })
           }}
-          className='h-7 w-16 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
-        />
+        >
+          <SelectTrigger className='h-7 w-16 border-0 p-0 text-xs shadow-none'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[0, 2.1, 5.5, 10, 20].map((r) => (
+              <SelectItem key={r} value={String(r)}>
+                {r}%
+              </SelectItem>
+            ))}
+            {![0, 2.1, 5.5, 10, 20].includes(rate) && (
+              <SelectItem value={String(rate)}>{rate}% (hérité)</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
       </TableCell>
       <TableCell>
         <div className='relative w-16'>
@@ -310,22 +363,23 @@ function SortableItemRow({
             max={100}
             step='0.1'
             defaultValue={
-              (item.discount_amount ?? 0) > 0 &&
-              (item.quantity ?? 1) * (item.unit_price ?? 0) > 0
-                ? Math.round(
-                    (item.discount_amount! /
-                      ((item.quantity ?? 1) * (item.unit_price ?? 0))) *
-                      1000
-                  ) / 10
+              (item.discount_amount ?? 0) > 0 && discountBase > 0
+                ? Math.round((item.discount_amount! / discountBase) * 1000) / 10
                 : undefined
             }
             placeholder='0'
             onBlur={(e) => {
               const pct = parseFloat(e.target.value)
-              const base = (item.quantity ?? 1) * (item.unit_price ?? 0)
+              const currentPct =
+                (item.discount_amount ?? 0) > 0 && discountBase > 0
+                  ? Math.round(
+                      ((item.discount_amount ?? 0) / discountBase) * 1000
+                    ) / 10
+                  : 0
+              if ((isNaN(pct) ? 0 : pct) === currentPct) return
               const newDiscount =
                 !isNaN(pct) && pct > 0
-                  ? Math.round(base * (pct / 100) * 100) / 100
+                  ? Math.round(discountBase * (pct / 100) * 100) / 100
                   : 0
               const currentDiscount = item.discount_amount ?? 0
               if (Math.abs(newDiscount - currentDiscount) > 0.001) {
