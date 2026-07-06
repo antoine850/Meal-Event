@@ -747,10 +747,28 @@ export function QuoteEditor({
   const itemsLengthRef = useRef(items.length)
   itemsLengthRef.current = items.length
 
+  // Devis engage : on ne bloque pas, on confirme une fois par session d'edition.
+  const engagedEditConfirmedRef = useRef(false)
+  const isEngaged = !!(
+    (quoteData as any)?.quote_signed_at ||
+    (quoteData as any)?.deposit_paid_at ||
+    (quoteData as any)?.balance_paid_at ||
+    (quoteData as any)?.external_source
+  )
+  const confirmEngagedEdit = useCallback(() => {
+    if (!isEngaged || engagedEditConfirmedRef.current) return true
+    const ok = window.confirm(
+      'Ce devis est signé, payé ou importé : modifier les montants changera le total et le solde dû. Continuer ?'
+    )
+    if (ok) engagedEditConfirmedRef.current = true
+    return ok
+  }, [isEngaged])
+
   // Add product from catalog (via combobox)
   const handleAddProductFromCatalog = useCallback(
     (productId: string) => {
       if (!quoteId) return
+      if (!confirmEngagedEdit()) return
       const product = catalogProducts.find((p) => p.id === productId)
       if (!product) return
 
@@ -761,6 +779,8 @@ export function QuoteEditor({
           description: product.description || undefined,
           quantity: product.price_per_person ? booking.guests_count || 1 : 1,
           unitPrice: product.unit_price_ht,
+          unitPriceTtc: product.unit_price_ttc,
+          priceEntryMode: product.price_entry_mode,
           tvaRate: normalizeTvaRate(product.tva_rate ?? 20),
           position: itemsLengthRef.current,
         },
@@ -773,13 +793,20 @@ export function QuoteEditor({
         }
       )
     },
-    [quoteId, catalogProducts, addQuoteItem, booking.guests_count]
+    [
+      quoteId,
+      catalogProducts,
+      addQuoteItem,
+      booking.guests_count,
+      confirmEngagedEdit,
+    ]
   )
 
   // Add package from catalog (via combobox)
   const handleAddPackageFromCatalog = useCallback(
     (packageId: string) => {
       if (!quoteId) return
+      if (!confirmEngagedEdit()) return
       const pkg = catalogPackages.find((p) => p.id === packageId)
       if (!pkg) return
 
@@ -799,6 +826,7 @@ export function QuoteEditor({
           description: fullDescription || undefined,
           quantity: pkg.price_per_person ? booking.guests_count || 1 : 1,
           unitPrice: pkg.unit_price_ht,
+          priceEntryMode: 'ht',
           tvaRate: normalizeTvaRate(pkg.tva_rate ?? 20),
           position: itemsLengthRef.current,
         },
@@ -811,7 +839,13 @@ export function QuoteEditor({
         }
       )
     },
-    [quoteId, catalogPackages, addQuoteItem, booking.guests_count]
+    [
+      quoteId,
+      catalogPackages,
+      addQuoteItem,
+      booking.guests_count,
+      confirmEngagedEdit,
+    ]
   )
 
   // Change contact on the quote
@@ -829,28 +863,31 @@ export function QuoteEditor({
   const handleUpdateItem = useCallback(
     (itemId: string, field: string, value: any) => {
       if (!quoteId) return
+      if (!confirmEngagedEdit()) return
       updateQuoteItem({ id: itemId, quoteId, [field]: value } as any, {
         onError: () => toast.error('Erreur lors de la mise à jour'),
       })
     },
-    [quoteId, updateQuoteItem]
+    [quoteId, updateQuoteItem, confirmEngagedEdit]
   )
 
   // Maj multi-champs en une mutation (ex: TVA modifiee = on garde le TTC, on recalcule le HT)
   const handleUpdateItemFields = useCallback(
     (itemId: string, updates: Partial<QuoteItem>) => {
       if (!quoteId) return
+      if (!confirmEngagedEdit()) return
       updateQuoteItem({ id: itemId, quoteId, ...updates } as any, {
         onError: () => toast.error('Erreur lors de la mise à jour'),
       })
     },
-    [quoteId, updateQuoteItem]
+    [quoteId, updateQuoteItem, confirmEngagedEdit]
   )
 
   // Delete item
   const handleDeleteItem = useCallback(
     (itemId: string) => {
       if (!quoteId) return
+      if (!confirmEngagedEdit()) return
       deleteQuoteItem(
         { id: itemId, quoteId },
         {
@@ -859,7 +896,7 @@ export function QuoteEditor({
         }
       )
     },
-    [quoteId, deleteQuoteItem]
+    [quoteId, deleteQuoteItem, confirmEngagedEdit]
   )
 
   // DnD sensors
@@ -2173,12 +2210,15 @@ export function QuoteEditor({
                           disabled={isAddingItem}
                           onClick={() => {
                             if (!quoteId) return
+                            if (!confirmEngagedEdit()) return
                             addQuoteItem(
                               {
                                 quoteId,
                                 name: 'Nouveau produit',
                                 quantity: booking.guests_count || 1,
                                 unitPrice: 0,
+                                unitPriceTtc: 0,
+                                priceEntryMode: 'ttc',
                                 tvaRate: 20,
                                 position: items.length,
                               },
