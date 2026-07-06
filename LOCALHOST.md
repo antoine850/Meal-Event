@@ -79,6 +79,11 @@ FRONTEND_URL=http://localhost:5173
 
 # Port
 PORT=3001
+
+# Gmail (optionnel) — laisser tout OFF tant que la console Google Cloud n'est pas prete
+GMAIL_INTEGRATION_ENABLED=false                        # master switch : coupe toute l'integration Gmail
+GMAIL_SENDING_ENABLED=false                            # phase 2 : envoi via la boite du commercial (effectif seulement si le master est ON)
+GMAIL_POLLING_ENABLED=false                            # phase 3 : polling des reponses (declare ici, consomme en phase 3)
 ```
 
 ### 2. Installation et lancement

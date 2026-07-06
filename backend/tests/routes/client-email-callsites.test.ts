@@ -43,4 +43,36 @@ describe('client emails go through sendClientEmail', () => {
       )
     expect(writers).toEqual(['client-email.ts'])
   })
+
+  it('le transport Gmail vit uniquement dans client-email.ts', () => {
+    const libDir = path.resolve(__dirname, '../../src/lib')
+    const senders = fs
+      .readdirSync(libDir)
+      .filter((f) => f.endsWith('.ts'))
+      .filter((f) => {
+        const code = fs
+          .readFileSync(path.join(libDir, f), 'utf-8')
+          .split('\n')
+          .filter((l) => !l.trim().startsWith('//'))
+          .join('\n')
+        return code.includes('users.messages.send')
+      })
+    expect(senders).toEqual(['client-email.ts'])
+  })
+
+  it("email_messages n'est ecrit que par email-threads.ts", () => {
+    const libDir = path.resolve(__dirname, '../../src/lib')
+    const writers = fs
+      .readdirSync(libDir)
+      .filter((f) => f.endsWith('.ts'))
+      .filter((f) => {
+        const code = fs
+          .readFileSync(path.join(libDir, f), 'utf-8')
+          .split('\n')
+          .filter((l) => !l.trim().startsWith('//'))
+          .join('\n')
+        return code.includes("from('email_messages').insert")
+      })
+    expect(writers).toEqual(['email-threads.ts'])
+  })
 })
