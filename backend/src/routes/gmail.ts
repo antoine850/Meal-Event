@@ -26,7 +26,9 @@ gmailRouter.get('/auth-url', async (req: Request, res: Response) => {
     if (
       !process.env.GOOGLE_CLIENT_ID ||
       !process.env.GOOGLE_CLIENT_SECRET ||
-      !process.env.GMAIL_REDIRECT_URI
+      !process.env.GMAIL_REDIRECT_URI ||
+      !process.env.GMAIL_OAUTH_STATE_SECRET ||
+      !process.env.GMAIL_TOKEN_ENC_KEY
     ) {
       return res.status(500).json({ error: 'Gmail integration is not configured' })
     }

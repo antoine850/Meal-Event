@@ -4,7 +4,9 @@ import crypto from 'node:crypto'
 // Format de sortie : base64(iv).base64(tag).base64(ciphertext).
 function getKey(): Buffer {
   const hex = process.env.GMAIL_TOKEN_ENC_KEY
-  if (!hex || hex.length !== 64) {
+  // Valider le format hex : Buffer.from(hex, 'hex') tronque sur un caractere
+  // non-hex et donnerait une cle de mauvaise taille (erreur cryptique au chiffrement).
+  if (!hex || !/^[0-9a-f]{64}$/i.test(hex)) {
     throw new Error('GMAIL_TOKEN_ENC_KEY manquante ou invalide (64 hex attendus)')
   }
   return Buffer.from(hex, 'hex')
