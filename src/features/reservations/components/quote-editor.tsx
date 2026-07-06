@@ -354,7 +354,7 @@ function SortableItemRow({
             onUpdateItemFields(item.id, { tva_rate: newTva })
           }}
         >
-          <SelectTrigger className='h-7 w-fit gap-0.5 rounded bg-muted px-1.5 py-0 text-xs shadow-none [&_svg]:size-3'>
+          <SelectTrigger className='h-7! w-fit gap-0.5 rounded bg-muted px-1.5 py-0 text-xs shadow-none [&_svg]:size-3'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
