@@ -146,26 +146,95 @@ export function displayUnitTtc(
   return deriveUnitTtc(item.unit_price ?? 0, item.tva_rate ?? 20)
 }
 
-// Totaux d'une ligne, ancres sur la valeur saisie (HT ou TTC). Aucun ceil.
+// PU HT a afficher : symetrique de displayUnitTtc (total stocke / qte prioritaire).
+export function displayUnitHt(
+  item: LineAmountsInput & { total_ht?: number | null }
+): number {
+  if (item.price_entry_mode !== 'ttc' && item.unit_price != null) {
+    const qty = item.quantity ?? 0
+    if (item.total_ht != null && qty > 0 && !item.discount_amount) {
+      // ancre HT : si le stocke round-trip depuis le PU, afficher le PU saisi
+      if (round2(qty * item.unit_price) === round2(item.total_ht))
+        return item.unit_price
+      return item.total_ht / qty
+    }
+    return item.unit_price
+  }
+  const qty = item.quantity ?? 0
+  if (item.total_ht != null && qty > 0 && !item.discount_amount)
+    return item.total_ht / qty
+  return deriveUnitHt(item.unit_price_ttc ?? 0, item.tva_rate ?? 20)
+}
+
+// Les deux PU a persister : l'ancre telle que saisie, l'autre cote en cache derive.
+export function resolveUnitPrices(input: {
+  unit_price?: number | null
+  unit_price_ttc?: number | null
+  price_entry_mode?: string | null
+  tva_rate?: number | null
+}): { unit_price: number; unit_price_ttc: number } {
+  const rate = input.tva_rate ?? 20
+  if (input.price_entry_mode === 'ttc') {
+    const ttc = input.unit_price_ttc ?? deriveUnitTtc(input.unit_price ?? 0, rate)
+    return { unit_price: deriveUnitHt(ttc, rate), unit_price_ttc: ttc }
+  }
+  const ht = input.unit_price ?? deriveUnitHt(input.unit_price_ttc ?? 0, rate)
+  return { unit_price: ht, unit_price_ttc: deriveUnitTtc(ht, rate) }
+}
+
+export type StoredLine = LineAmountsInput & {
+  total_ht?: number | null
+  total_ttc?: number | null
+}
+
+// Totaux du devis = somme des totaux de lignes STOCKES (recalcul en secours si NULL),
+// remise globale appliquee une fois en pied. Les lignes non touchees ne bougent jamais.
+export function sumStoredQuoteTotals(
+  items: StoredLine[],
+  discountPercentage: number | null | undefined = 0
+): QuoteTotals {
+  let subHt = 0
+  let subTtc = 0
+  for (const item of items) {
+    if (item.total_ht != null && item.total_ttc != null) {
+      subHt += item.total_ht
+      subTtc += item.total_ttc
+    } else {
+      const line = computeLineAmounts(item)
+      subHt += line.totalHt
+      subTtc += line.totalTtc
+    }
+  }
+  subHt = round2(subHt)
+  subTtc = round2(subTtc)
+  const pct = discountPercentage ?? 0
+  const mult = pct > 0 ? 1 - pct / 100 : 1
+  const totalHt = round2(subHt * mult)
+  const totalTtc = round2(subTtc * mult)
+  return { totalHt, totalTva: round2(totalTtc - totalHt), totalTtc }
+}
+
+// Format PU : 2 decimales par defaut, etendu a 3-4 quand la valeur exacte l'exige
+// (lignes historiques dont le PU n'est pas representable en 2 decimales).
+export function formatUnitPriceEuro(amount: number): string {
+  const needsMore = Math.abs(amount - Math.round(amount * 100) / 100) > 5e-5
+  return normalizeFrenchSpaces(
+    new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: needsMore ? 4 : 2,
+    }).format(amount)
+  )
+}
+
+// Totaux d'une ligne : l'ancre (price_entry_mode) fait foi, l'autre cote est derive.
+// La remise s'applique cote ancre. Aucun ceil ; round2 = normalisation centime.
 export function computeLineAmounts(input: LineAmountsInput): QuoteTotals {
   const qty = input.quantity ?? 0
   const rate = input.tva_rate ?? 0
   const discount = input.discount_amount ?? 0
   const mult = 1 + rate / 100
-
-  // Verbatim : les deux PU saisis -> aucune derivation, on somme tel quel.
-  // round2 ici = normalisation centime (anti-bruit flottant), pas un arrondi metier.
-  if (input.unit_price != null && input.unit_price_ttc != null) {
-    const grossHt = qty * input.unit_price
-    const grossTtc = qty * input.unit_price_ttc
-    // Remise ancree HT (l'editeur et le PDF la derivent du HT) ; la baisse TTC suit
-    // le ratio reel de la ligne, pas tva_rate (verbatim : les PU saisis font foi).
-    const totalHt = round2(grossHt - discount)
-    const totalTtc = round2(
-      grossTtc - (grossHt > 0 ? discount * (grossTtc / grossHt) : discount)
-    )
-    return { totalHt, totalTva: round2(totalTtc - totalHt), totalTtc }
-  }
 
   if (input.price_entry_mode === 'ttc') {
     const unitTtc = input.unit_price_ttc ?? (input.unit_price ?? 0) * mult
