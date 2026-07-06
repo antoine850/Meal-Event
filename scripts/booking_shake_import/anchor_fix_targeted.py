@@ -137,6 +137,7 @@ def main():
 
     # ---------------------------------------------------------------- Population B
     plan_b = []
+    skip_b_engaged = []  # devis engage/facture -> revue manuelle, jamais d'auto-fix
     for it in items:
         if it.get("item_type") == "extra":
             continue
@@ -148,6 +149,11 @@ def main():
             continue
         expected_ttc = round2(qty * pu_ttc - disc)
         if abs(expected_ttc - n(it.get("total_ttc"))) <= 0.005:
+            continue
+        # Brouillons uniquement : un devis engage/facture garde son total facture,
+        # on ne corrige jamais automatiquement un montant deja encaisse.
+        if it["quote_id"] not in draft_quotes:
+            skip_b_engaged.append(it)
             continue
         tva = n(it.get("tva_rate"))
         new_ht = round2(expected_ttc / (1 + tva / 100)) if tva > -100 else 0.0
@@ -192,7 +198,8 @@ def main():
     line("population A non matchee (laissee intacte)", len(unmatched_a))
     line("population A ecartee : remise ligne deja presente (laissee intacte)", len(skipped_discounted_a))
     line("population A ecartee : prix catalogue diverge du prix historique (laissee intacte)", len(skipped_pricedrift_a))
-    line("population B (ttc + remise, mauvais cote)", len(plan_b))
+    line("population B (ttc + remise, mauvais cote) [brouillons]", len(plan_b))
+    line("population B ecartee : devis engage/facture (revue manuelle)", len(skip_b_engaged))
     line("headers devis a recomposer", len(header_plan))
 
     print("\n  -- Population A : devis / ligne / ancien total_ttc -> nouveau --")
@@ -209,6 +216,14 @@ def main():
         q, it = p["quote"], p["item"]
         print(f"     {(q['id'][:8] if q else '?'):8} {(q.get('quote_number') if q else '?'):10} "
               f"{(it.get('name') or '?')[:30]:32} {n(it.get('total_ttc')):>10.2f} -> {p['total_ttc']:>10.2f}")
+
+    if skip_b_engaged:
+        print(f"\n  -- Population B ECARTEE : devis engage/facture (revue manuelle, {len(skip_b_engaged)}) --")
+        for it in skip_b_engaged:
+            q = quotes_by_id.get(it["quote_id"])
+            print(f"     {(q['id'][:8] if q else '?'):8} {(q.get('quote_number') if q else '?'):12} "
+                  f"statut={(q.get('status') if q else '?'):14} {(it.get('name') or '?')[:26]:28} "
+                  f"total {n(it.get('total_ttc')):>10.2f}")
 
     print(f"\n  -- lignes de brouillon sans produit correspondant (non touchees, {len(unmatched_a)}) --")
     for q, it in unmatched_a[:30]:
