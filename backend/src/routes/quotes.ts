@@ -27,6 +27,7 @@ import {
   computeCreditNote,
   computeLineAmounts,
   round2,
+  sumStoredQuoteTotals,
 } from '../lib/quote-rounding.js'
 import {
   uploadDocument,
@@ -139,6 +140,9 @@ quotesRouter.get('/:id', async (req: Request, res: Response) => {
 // POST /api/quotes
 quotesRouter.post('/', async (req: Request, res: Response) => {
   try {
+    // Les totaux sont calcules serveur (somme des lignes) : jamais acceptes du client.
+    const { total_ht, total_tva, total_ttc, ...body } = req.body
+
     // Generate quote number
     const { data: settings } = await supabase
       .from('settings')
@@ -152,7 +156,7 @@ quotesRouter.post('/', async (req: Request, res: Response) => {
 
     const { data, error } = await supabase
       .from('quotes')
-      .insert({ ...req.body, quote_number: quoteNumber })
+      .insert({ ...body, quote_number: quoteNumber })
       .select()
       .single()
 
@@ -167,14 +171,22 @@ quotesRouter.post('/', async (req: Request, res: Response) => {
 // PATCH /api/quotes/:id
 quotesRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
+    // Les totaux sont calcules serveur (somme des lignes) : jamais acceptes du client.
+    const { total_ht, total_tva, total_ttc, ...body } = req.body
+
     const { data, error } = await supabase
       .from('quotes')
-      .update(req.body)
+      .update(body)
       .eq('id', req.params.id)
       .select()
       .single()
 
     if (error) throw error
+
+    if ('discount_percentage' in body) {
+      await recalculateQuoteTotals(req.params.id)
+    }
+
     res.json(data)
   } catch (error) {
     console.error('Error updating quote:', error)
@@ -653,10 +665,9 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
             (sum: number, e: any) => sum + (e.total_ttc || 0),
             0
           )
-          // total_ttc et extras.total_ttc sont des entiers, leur somme est entière
           const totalWithExtrasTtc = quoteData.total_ttc + extrasTtc
           const depositTtc = quoteDepositTtc(quoteData as any)
-          const balanceAmount = totalWithExtrasTtc - depositTtc
+          const balanceAmount = round2(totalWithExtrasTtc - depositTtc)
 
           const commercial = booking
             ? await getCommercialInfo(booking.id)
@@ -713,7 +724,6 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     }
 
     // Calculate balance: total_ttc (products only, discount already applied) + extras - deposit
-    // Tous les montants sont des entiers (post-helper), donc pas besoin de Math.round.
     const extras = (quoteData.quote_items || []).filter(
       (i: any) => i.item_type === 'extra'
     )
@@ -725,7 +735,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     // MUST mirror send-deposit exactly so the balance subtracts the *actual*
     // amount that was invoiced as deposit (otherwise the customer over/under-pays).
     const depositTtc = quoteDepositTtc(quoteData as any)
-    const balanceAmount = totalWithExtrasTtc - depositTtc
+    const balanceAmount = round2(totalWithExtrasTtc - depositTtc)
 
     // Get commercial info
     const commercial = booking
@@ -1245,7 +1255,7 @@ async function recalculateQuoteTotals(quoteId: string) {
     .eq('id', quoteId)
     .single()
 
-  const totals = computeQuoteAmounts(
+  const totals = sumStoredQuoteTotals(
     productItems,
     (quote as any)?.discount_percentage
   )
