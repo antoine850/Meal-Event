@@ -22,6 +22,7 @@ import {
   FileText,
   GripVertical,
   Loader2,
+  MoreVertical,
   Package,
   Plus,
   ReceiptText,
@@ -61,6 +62,13 @@ import {
 } from '@/components/ui/command'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -346,7 +354,7 @@ function SortableItemRow({
             onUpdateItemFields(item.id, { tva_rate: newTva })
           }}
         >
-          <SelectTrigger className='h-7 w-fit gap-1 rounded bg-muted px-1.5 text-xs shadow-none'>
+          <SelectTrigger className='h-7 w-fit gap-0.5 rounded bg-muted px-1.5 py-0 text-xs shadow-none [&_svg]:size-3'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -402,26 +410,33 @@ function SortableItemRow({
       <TableCell className='text-right text-xs'>
         {formatEuroDecimal((item.total_ttc as number) || 0)}
       </TableCell>
-      <TableCell>
-        <div className='flex items-center gap-0.5'>
-          <Button
-            size='icon'
-            variant='ghost'
-            className='h-6 w-6 text-green-600 hover:text-green-700'
-            title='Enregistrer au catalogue'
-            onClick={() => onSaveToCatalog(item)}
-          >
-            <BookmarkPlus className='h-3 w-3' />
-          </Button>
-          <Button
-            size='icon'
-            variant='ghost'
-            className='h-6 w-6 text-destructive hover:text-destructive'
-            onClick={() => onDeleteItem(item.id)}
-          >
-            <Trash2 className='h-3 w-3' />
-          </Button>
-        </div>
+      <TableCell className='px-1'>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size='icon'
+              variant='ghost'
+              className='h-6 w-6 text-muted-foreground'
+              aria-label='Actions'
+            >
+              <MoreVertical className='h-4 w-4' />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end'>
+            <DropdownMenuItem onClick={() => onSaveToCatalog(item)}>
+              <BookmarkPlus className='mr-2 h-4 w-4' />
+              Enregistrer au catalogue
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant='destructive'
+              onClick={() => onDeleteItem(item.id)}
+            >
+              <Trash2 className='mr-2 h-4 w-4' />
+              Supprimer
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   )
