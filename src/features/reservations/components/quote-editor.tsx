@@ -293,46 +293,36 @@ function SortableItemRow({
         />
       </TableCell>
       <TableCell>
-        {mode === 'ttc' ? (
+        <div className='space-y-1'>
+          <div className='inline-flex overflow-hidden rounded-md border text-[10px]'>
+            {(['ttc', 'ht'] as const).map((m) => (
+              <button
+                key={m}
+                type='button'
+                onClick={() => handleToggleMode(m)}
+                className={cn(
+                  'px-1.5 py-0.5 transition-colors',
+                  mode === m
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted'
+                )}
+              >
+                {m.toUpperCase()}
+              </button>
+            ))}
+          </div>
           <Input
             type='number'
             step='0.01'
             value={anchorInput}
             onChange={(e) => setAnchorInput(e.target.value)}
             onBlur={handleAnchorBlur}
-            className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
+            className='h-6 w-full border-0 p-0 text-xs shadow-none focus-visible:ring-0'
           />
-        ) : (
-          <button
-            type='button'
-            title='Saisir en TTC'
-            onClick={() => handleToggleMode('ttc')}
-            className='text-xs text-muted-foreground italic'
-          >
-            {derivedUnit.toFixed(2)}
-          </button>
-        )}
-      </TableCell>
-      <TableCell>
-        {mode === 'ht' ? (
-          <Input
-            type='number'
-            step='0.01'
-            value={anchorInput}
-            onChange={(e) => setAnchorInput(e.target.value)}
-            onBlur={handleAnchorBlur}
-            className='h-7 w-20 border-0 p-0 text-xs shadow-none focus-visible:ring-0'
-          />
-        ) : (
-          <button
-            type='button'
-            title='Saisir en HT'
-            onClick={() => handleToggleMode('ht')}
-            className='text-xs text-muted-foreground italic'
-          >
-            {derivedUnit.toFixed(2)}
-          </button>
-        )}
+          <div className='text-[10px] text-muted-foreground'>
+            {formatEuroDecimal(derivedUnit)} {mode === 'ttc' ? 'HT' : 'TTC'}
+          </div>
+        </div>
       </TableCell>
       <TableCell>
         <Select
@@ -2254,35 +2244,32 @@ export function QuoteEditor({
                             collisionDetection={closestCenter}
                             onDragEnd={handleDragEnd}
                           >
-                            <Table>
+                            <Table className='table-fixed'>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className='w-8' />
+                                  <TableHead className='w-6 px-1' />
                                   <TableHead className='text-xs'>
                                     Désignation
                                   </TableHead>
-                                  <TableHead className='w-20 text-xs'>
+                                  <TableHead className='w-12 text-xs'>
                                     Qté
                                   </TableHead>
-                                  <TableHead className='w-24 text-xs'>
-                                    Prix TTC
+                                  <TableHead className='w-28 text-xs'>
+                                    Prix unitaire
                                   </TableHead>
-                                  <TableHead className='w-20 text-xs'>
-                                    Prix HT
+                                  <TableHead className='w-16 text-xs'>
+                                    TVA
                                   </TableHead>
-                                  <TableHead className='w-20 text-xs'>
-                                    TVA %
+                                  <TableHead className='w-14 text-xs text-red-600'>
+                                    Remise
                                   </TableHead>
-                                  <TableHead className='w-16 text-xs text-red-600'>
-                                    Remise %
-                                  </TableHead>
-                                  <TableHead className='w-24 text-right text-xs'>
+                                  <TableHead className='w-20 text-right text-xs'>
                                     Total HT
                                   </TableHead>
-                                  <TableHead className='w-24 text-right text-xs'>
+                                  <TableHead className='w-20 text-right text-xs'>
                                     Total TTC
                                   </TableHead>
-                                  <TableHead className='w-16' />
+                                  <TableHead className='w-14 px-1' />
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
