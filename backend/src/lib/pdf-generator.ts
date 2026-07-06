@@ -1524,6 +1524,50 @@ function buildDocDefinition(
       margin: [0, 0, 0, 2] as [number, number, number, number],
     })
 
+    // TVA par taux (produits remisés + extras). Total TVA = TTC - HT (extras
+    // inclus) pour rester cohérent avec les totaux affichés.
+    const soldeDiscountMult =
+      (quote.discount_percentage || 0) > 0
+        ? 1 - (quote.discount_percentage || 0) / 100
+        : 1
+    const soldeTvaByRate: Record<number, number> = {}
+    for (const item of items) {
+      const rate = item.tva_rate || 20
+      soldeTvaByRate[rate] =
+        (soldeTvaByRate[rate] || 0) +
+        ((item.total_ttc || 0) - (item.total_ht || 0)) * soldeDiscountMult
+    }
+    for (const extra of extras) {
+      const rate = extra.tva_rate || 20
+      soldeTvaByRate[rate] =
+        (soldeTvaByRate[rate] || 0) +
+        ((extra.total_ttc || 0) - (extra.total_ht || 0))
+    }
+    Object.entries(soldeTvaByRate).forEach(([rate, tva]) => {
+      soldeStack.push({
+        columns: [
+          { text: `TVA ${rate}%`, style: 'small', color: '#666' },
+          {
+            text: formatEuroDecimal(tva),
+            alignment: 'right' as const,
+            style: 'small',
+          },
+        ],
+        margin: [0, 0, 0, 2] as [number, number, number, number],
+      })
+    })
+    soldeStack.push({
+      columns: [
+        { text: l.totalTvaLabel, style: 'small', color: '#666' },
+        {
+          text: formatEuroDecimal(totalTtc - totalHt),
+          alignment: 'right' as const,
+          style: 'bold',
+        },
+      ],
+      margin: [0, 0, 0, 4] as [number, number, number, number],
+    })
+
     // Total TTC
     soldeStack.push({
       columns: [

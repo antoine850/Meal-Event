@@ -1324,6 +1324,21 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           )
           const grandTotalHt = data.totalHt + extrasHt
           const grandTotalTtc = data.totalTtc + extrasTtc
+          // TVA par taux (produits remisés + extras). Total TVA = TTC - HT
+          // (extras inclus) pour rester cohérent avec les totaux affichés.
+          const soldeTvaByRate: Record<number, number> = {}
+          for (const item of data.items) {
+            const rate = item.tva_rate || 20
+            soldeTvaByRate[rate] =
+              (soldeTvaByRate[rate] || 0) +
+              (computeItemTtc(item) - computeItemHt(item)) * discountMult
+          }
+          for (const extra of data.extras || []) {
+            const rate = extra.tva_rate || 20
+            soldeTvaByRate[rate] =
+              (soldeTvaByRate[rate] || 0) +
+              (computeItemTtc(extra) - computeItemHt(extra))
+          }
           const paidPayments = (data.payments || []).filter(
             (p) => p.status === 'paid' || p.status === 'completed'
           )
@@ -1340,6 +1355,16 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
                 <div className='flex justify-between text-[10px]'>
                   <span className='text-gray-600'>Total HT</span>
                   <span>{formatEuroDecimal(grandTotalHt)}</span>
+                </div>
+                {Object.entries(soldeTvaByRate).map(([rate, tva]) => (
+                  <div key={rate} className='flex justify-between text-[10px]'>
+                    <span className='text-gray-600'>TVA {rate}%</span>
+                    <span>{formatEuroDecimal(tva)}</span>
+                  </div>
+                ))}
+                <div className='flex justify-between text-[10px]'>
+                  <span className='text-gray-600'>{l.totalTvaLabel}</span>
+                  <span>{formatEuroDecimal(grandTotalTtc - grandTotalHt)}</span>
                 </div>
                 <div className='flex justify-between text-[10px] font-semibold'>
                   <span>Total TTC</span>
