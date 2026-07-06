@@ -319,6 +319,7 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
             bookingId: booking_id,
             quoteId: quote_id || null,
             emailType: 'payment_link',
+            actorUserId: (req as any).user?.id ?? null,
             to: toEmail,
             subject,
             html,

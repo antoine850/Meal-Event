@@ -192,6 +192,7 @@ export async function createAndSendDeposit(
     bookingId: booking?.id || null,
     quoteId,
     emailType: 'deposit_invoice',
+    actorUserId: opts.actorUserId ?? null,
     to: contact.email,
     subject,
     html,
