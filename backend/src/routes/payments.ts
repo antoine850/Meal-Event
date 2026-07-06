@@ -9,6 +9,8 @@ import { notifyCommercialPayment } from '../lib/commercial-notifications.js'
 import {
   buildPaymentLinkEmailHtml,
   buildPaymentLinkEmailSubject,
+  buildReminderEmailHtml,
+  buildReminderEmailSubject,
 } from '../lib/email-templates.js'
 import {
   getRestaurantStripeContext,
@@ -429,10 +431,9 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
   try {
     const { reminder_type, subject, message } = req.body
 
-    // Get payment details
     const { data: payment } = await supabase
       .from('payments')
-      .select('booking_id')
+      .select('booking_id, organization_id, quote_id')
       .eq('id', req.params.id)
       .single()
 
@@ -440,7 +441,6 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Payment not found' })
     }
 
-    // Create reminder record
     const { data, error } = await supabase
       .from('payment_reminders')
       .insert({
@@ -453,10 +453,56 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
       })
       .select()
       .single()
-
     if (error) throw error
 
-    // Auto-update booking status → Relance paiement
+    // Envoi email de relance (best-effort : n'echoue pas la relance en cas de souci envoi).
+    let emailSent = false
+    if (payment.booking_id && message) {
+      try {
+        const { data: booking } = await supabase
+          .from('bookings')
+          .select(
+            'organization_id, contact:contacts(first_name, last_name, email), restaurant:restaurants(*)'
+          )
+          .eq('id', payment.booking_id)
+          .single()
+        const contact = (booking as any)?.contact
+        const restaurant = (booking as any)?.restaurant
+        if (contact?.email) {
+          const commercial = await getCommercialInfo(payment.booking_id)
+          const facturationEmail = await getOrgFacturationEmail(
+            (booking as any)?.organization_id ?? payment.organization_id
+          )
+          const html = buildReminderEmailHtml({
+            restaurant: restaurant as any,
+            contact,
+            message,
+            commercialName: commercial.name,
+          })
+          await sendClientEmail({
+            organizationId:
+              (booking as any)?.organization_id ?? payment.organization_id,
+            bookingId: payment.booking_id,
+            quoteId: payment.quote_id || null,
+            emailType: 'payment_reminder',
+            actorUserId: (req as any).user?.id ?? null,
+            to: contact.email,
+            subject: buildReminderEmailSubject(
+              subject,
+              restaurant?.name || 'Restaurant'
+            ),
+            html,
+            replyTo: commercial.email || restaurant?.email || undefined,
+            facturationEmail: facturationEmail || undefined,
+          })
+          emailSent = true
+        }
+      } catch (mailErr) {
+        console.error('[Remind] envoi email echoue:', mailErr)
+      }
+    }
+
+    // Auto-update booking status -> Relance paiement
     if (payment.booking_id) {
       const { data: booking } = await supabase
         .from('bookings')
@@ -476,14 +522,11 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
             .from('bookings')
             .update({ status_id: statusData.id })
             .eq('id', payment.booking_id)
-          console.log(
-            `[Remind] ✅ Booking ${payment.booking_id} status → relance_paiement`
-          )
         }
       }
     }
 
-    res.status(201).json(data)
+    res.status(201).json({ ...data, email_sent: emailSent })
   } catch (error) {
     console.error('Error sending reminder:', error)
     res.status(500).json({ error: 'Failed to send reminder' })
