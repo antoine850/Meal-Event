@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase'
 import type { Quote, QuoteItem, Tables } from '@/lib/supabase/types'
 import {
   computeLineAmounts,
-  computeQuoteAmounts,
+  resolveUnitPrices,
+  sumStoredQuoteTotals,
   type PriceEntryMode,
 } from '@/features/reservations/lib/quote-rounding'
 import type { ProductWithRestaurants } from '@/features/settings/hooks/use-products'
@@ -807,6 +808,11 @@ export function useUpdateQuote() {
         .single()
 
       if (error) throw error
+
+      if ('discount_percentage' in updates) {
+        await recalculateQuoteTotals(id)
+      }
+
       return data as Quote
     },
     onSuccess: (data) => {
@@ -1066,10 +1072,16 @@ export function useAddQuoteItem() {
       position?: number
       itemType?: string
     }) => {
-      const line = computeLineAmounts({
-        quantity,
+      const units = resolveUnitPrices({
         unit_price: unitPrice,
         unit_price_ttc: unitPriceTtc,
+        price_entry_mode: priceEntryMode,
+        tva_rate: tvaRate,
+      })
+      const line = computeLineAmounts({
+        quantity,
+        unit_price: units.unit_price,
+        unit_price_ttc: units.unit_price_ttc,
         price_entry_mode: priceEntryMode,
         discount_amount: discountAmount,
         tva_rate: tvaRate,
@@ -1082,8 +1094,8 @@ export function useAddQuoteItem() {
           name,
           description: description || null,
           quantity,
-          unit_price: unitPrice,
-          unit_price_ttc: unitPriceTtc ?? null,
+          unit_price: units.unit_price,
+          unit_price_ttc: units.unit_price_ttc,
           price_entry_mode: priceEntryMode ?? 'ht',
           tva_rate: tvaRate,
           discount_amount: discountAmount || 0,
@@ -1147,12 +1159,20 @@ export function useUpdateQuoteItem() {
           .eq('id', id)
           .single()
 
+        const mode = (priceEntryMode ??
+          (current as any)?.price_entry_mode ??
+          'ht') as PriceEntryMode
+        const units = resolveUnitPrices({
+          unit_price: unitPrice ?? (current as any)?.unit_price,
+          unit_price_ttc: unitPriceTtc ?? (current as any)?.unit_price_ttc,
+          price_entry_mode: mode,
+          tva_rate: tvaRate ?? (current as any)?.tva_rate ?? 20,
+        })
         const line = computeLineAmounts({
           quantity: quantity ?? (current as any)?.quantity ?? 1,
-          unit_price: unitPrice ?? (current as any)?.unit_price ?? 0,
-          unit_price_ttc: unitPriceTtc ?? (current as any)?.unit_price_ttc,
-          price_entry_mode:
-            priceEntryMode ?? (current as any)?.price_entry_mode,
+          unit_price: units.unit_price,
+          unit_price_ttc: units.unit_price_ttc,
+          price_entry_mode: mode,
           discount_amount:
             discountAmount ?? (current as any)?.discount_amount ?? 0,
           tva_rate: tvaRate ?? (current as any)?.tva_rate ?? 20,
@@ -1160,6 +1180,8 @@ export function useUpdateQuoteItem() {
 
         updates = {
           ...updates,
+          unit_price: units.unit_price,
+          unit_price_ttc: units.unit_price_ttc,
           total_ht: line.totalHt,
           total_ttc: line.totalTtc,
         } as any
@@ -1251,7 +1273,8 @@ async function recalculateQuoteTotals(quoteId: string) {
     .eq('id', quoteId)
     .single()
 
-  const totals = computeQuoteAmounts(
+  // Somme des totaux de lignes STOCKÉS : éditer une ligne ne reprice jamais les autres.
+  const totals = sumStoredQuoteTotals(
     productItems,
     (quote as any)?.discount_percentage
   )
