@@ -213,7 +213,10 @@ function SortableItemRow({
   }
 
   const handleAnchorBlur = () => {
-    if (Math.abs(typedAnchor - anchorStored) < 0.005) return
+    // Ne pas ecrire seulement si la valeur est inchangee a la precision stockee
+    // (4 decimales) : sinon taper 48 sur un PU stocke 48,004 serait avale.
+    if (Math.round(typedAnchor * 10000) === Math.round(anchorStored * 10000))
+      return
     onUpdateItemFields(item.id, {
       price_entry_mode: mode,
       ...(mode === 'ttc'
