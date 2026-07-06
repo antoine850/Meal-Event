@@ -17,6 +17,7 @@ import {
   UserPlus,
   Code,
   Mail,
+  Plug,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -117,6 +118,11 @@ export const sidebarData: SidebarData = {
               title: 'API',
               url: '/settings/api-docs',
               icon: Code,
+            },
+            {
+              title: 'Intégrations',
+              url: '/settings/integrations',
+              icon: Plug,
             },
           ],
         },
