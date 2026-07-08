@@ -1044,6 +1044,15 @@ externe à un email envoyé par le CRM, vérifier l'apparition de la ligne
 
 ---
 
+## Post-audit (08/07, après exécution complète)
+
+L'audit multi-agents pré-push a ajouté 4 correctifs hors plan : `@types/nodemailer`
+déplacé en dependencies (Render build avec NODE_ENV=production, devDeps omises),
+`loadTrackedThreads` paginé par `.range()` (cap PostgREST 1000 lignes),
+`filterUnknownIds` chunké par 500 ids (`.in()` casse vers ~1500 ids), et skip des
+404 sur `messages.get` (message supprimé entre l'history et le fetch). Les blocs
+de code des Tasks 4-5 ci-dessus ne reflètent pas ces correctifs : la source fait foi.
+
 ## Hors périmètre de ce plan
 
 - **Phase 4 (UI)** : onglet Emails sur l'événement, composer contact, badge —

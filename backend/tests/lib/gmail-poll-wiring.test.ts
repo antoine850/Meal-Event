@@ -52,4 +52,15 @@ describe('gmail polling wiring', () => {
     const index = read('index.ts')
     expect(index).toContain('startGmailPolling()')
   })
+
+  it('polling pagine les fils suivis, chunke les ids connus, saute un message supprime (404)', () => {
+    const poll = read('lib/gmail-poll.ts')
+    expect(poll).toContain('loadTrackedThreads')
+    expect(poll).toContain('.range(')
+    expect(poll).toContain('ids.slice(')
+    // messages.get protege : un message supprime ne bloque pas le curseur.
+    const stubLoop = poll.indexOf('for (const stub of stubs)')
+    expect(stubLoop).toBeGreaterThan(-1)
+    expect(poll.indexOf('status === 404', stubLoop)).toBeGreaterThan(stubLoop)
+  })
 })

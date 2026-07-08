@@ -1,6 +1,5 @@
 // Reception des reponses (phase 3) : helpers purs de parsing history/MIME,
 // puis orchestration du polling par boite (pollAccount/runGmailPoll).
-
 import { recordInbound } from './email-threads.js'
 import { classifyGmailError } from './gmail-mime.js'
 import {
@@ -31,7 +30,11 @@ export interface HistoryPage {
 }
 
 export function isExcludedByLabels(labels: string[]): boolean {
-  return labels.includes('SPAM') || labels.includes('TRASH') || labels.includes('DRAFT')
+  return (
+    labels.includes('SPAM') ||
+    labels.includes('TRASH') ||
+    labels.includes('DRAFT')
+  )
 }
 
 // Stubs messagesAdded des pages history.list : dedupliques entre pages
@@ -62,14 +65,18 @@ export function classifyDirection(
   accountEmail: string | null
 ): 'inbound' | 'outbound' {
   if (!fromEmail || !accountEmail) return 'inbound'
-  return fromEmail.toLowerCase() === accountEmail.toLowerCase() ? 'outbound' : 'inbound'
+  return fromEmail.toLowerCase() === accountEmail.toLowerCase()
+    ? 'outbound'
+    : 'inbound'
 }
 
 export function getHeader(
   headers: Array<{ name?: string | null; value?: string | null }> | undefined,
   name: string
 ): string | null {
-  const h = (headers ?? []).find((x) => x.name?.toLowerCase() === name.toLowerCase())
+  const h = (headers ?? []).find(
+    (x) => x.name?.toLowerCase() === name.toLowerCase()
+  )
   return h?.value ?? null
 }
 
@@ -162,15 +169,49 @@ async function saveCursor(
 }
 
 // Ids deja en base (nos propres envois CRM notamment) : evite un messages.get
-// inutile sur le scope restricted.
+// inutile sur le scope restricted. Chunke : .in() casse (400, longueur d'URL)
+// vers ~1500 ids et la reponse PostgREST est cappee a 1000 lignes.
 async function filterUnknownIds(ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set()
-  const { data } = await supabase
-    .from('email_messages')
-    .select('gmail_message_id')
-    .in('gmail_message_id', ids)
-  const known = new Set(((data ?? []) as any[]).map((r) => r.gmail_message_id))
+  const known = new Set<string>()
+  for (let i = 0; i < ids.length; i += 500) {
+    const { data, error } = await supabase
+      .from('email_messages')
+      .select('gmail_message_id')
+      .in('gmail_message_id', ids.slice(i, i + 500))
+    // Erreur toleree : les ids du chunk restent "inconnus", le refetch est
+    // absorbe par la dedup 23505.
+    if (error) console.error('[gmail-poll] filterUnknownIds:', error)
+    for (const r of (data ?? []) as any[]) known.add(r.gmail_message_id)
+  }
   return new Set(ids.filter((id) => !known.has(id)))
+}
+
+// Fils suivis par une boite : un fil nait toujours d'un envoi CRM de la boite,
+// donc sender_user_id suffit a retrouver ses gmail_thread_id. Pagine :
+// PostgREST cappe a 1000 lignes et tronque en silence au-dela (un fil absent
+// de la map = reponses clients perdues).
+async function loadTrackedThreads(
+  userId: string
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  const PAGE = 1000
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
+      .from('email_messages')
+      .select('gmail_thread_id, thread_id')
+      .eq('sender_user_id', userId)
+      .not('gmail_thread_id', 'is', null)
+      .order('id')
+      .range(from, from + PAGE - 1)
+    const rows = (data ?? []) as any[]
+    for (const row of rows) {
+      if (!map.has(row.gmail_thread_id))
+        map.set(row.gmail_thread_id, row.thread_id)
+    }
+    if (rows.length < PAGE) break
+  }
+  return map
 }
 
 // Materialise un message Gmail complet dans le fil CRM. false si exclu par
@@ -258,19 +299,7 @@ export async function pollAccount(
   gmail: GmailApi,
   account: PollableAccount
 ): Promise<PollSummary> {
-  // Fils suivis par cette boite : un fil nait toujours d'un envoi CRM de la
-  // boite, donc sender_user_id = boite suffit a retrouver ses gmail_thread_id.
-  const { data: tracked } = await supabase
-    .from('email_messages')
-    .select('gmail_thread_id, thread_id')
-    .eq('sender_user_id', account.user_id)
-    .not('gmail_thread_id', 'is', null)
-  const threadByGmailId = new Map<string, string>()
-  for (const row of (tracked ?? []) as any[]) {
-    if (!threadByGmailId.has(row.gmail_thread_id)) {
-      threadByGmailId.set(row.gmail_thread_id, row.thread_id)
-    }
-  }
+  const threadByGmailId = await loadTrackedThreads(account.user_id)
 
   // Pas de curseur (compte connecte avant le seed, ou seed en echec) : on seme.
   if (!account.history_id) {
@@ -308,11 +337,21 @@ export async function pollAccount(
   let inserted = 0
   for (const stub of stubs) {
     if (!fresh.has(stub.id)) continue
-    const { data: full } = await gmail.users.messages.get({
-      userId: 'me',
-      id: stub.id,
-      format: 'full',
-    })
+    let full: any
+    try {
+      const res = await gmail.users.messages.get({
+        userId: 'me',
+        id: stub.id,
+        format: 'full',
+      })
+      full = res.data
+    } catch (err) {
+      const status = (err as any)?.response?.status ?? (err as any)?.code
+      // Message supprime entre l'history et le fetch (cas documente Gmail) :
+      // on saute, sinon le curseur resterait bloque sur ce batch a chaque tick.
+      if (status === 404) continue
+      throw err
+    }
     if (
       await ingestMessage(full, account, threadByGmailId.get(stub.threadId)!)
     ) {
@@ -350,7 +389,9 @@ export async function runGmailPoll(): Promise<{
       inserted += res.inserted
     } catch (err) {
       if (classifyGmailError(err) === 'revoked') {
-        console.warn(`[gmail-poll] boite ${account.user_id} revoquee, polling coupe`)
+        console.warn(
+          `[gmail-poll] boite ${account.user_id} revoquee, polling coupe`
+        )
         await markAccountRevoked(account.user_id, err)
       } else {
         console.error(

@@ -59,13 +59,15 @@ gérés. Phase 100 % backend : pas d'UI, pas de sous-système de notification.
 
 1. Fils suivis de la boîte : `gmail_thread_id → thread_id` depuis
    `email_messages` où `sender_user_id = boîte` (un fil naît toujours d'un
-   envoi CRM de cette boîte).
+   envoi CRM de cette boîte). Requête paginée par `.range()` : PostgREST cappe
+   à 1000 lignes et tronque en silence (fil absent = réponses perdues).
 2. `history_id` null ? → seed via `getProfile`, fin du tick pour cette boîte.
 3. `history.list(startHistoryId, historyTypes=[messageAdded])` + pagination.
 4. Filtre **sur les stubs** (id + threadId + labelIds, pas de fetch) :
    threadId ∈ fils suivis, labels sans SPAM/TRASH/DRAFT.
 5. Skip des ids déjà en base (nos propres envois CRM notamment) — pas de
-   `messages.get` inutile, économie de quota sur le scope restricted.
+   `messages.get` inutile, économie de quota sur le scope restricted. Requête
+   chunkée par 500 ids (`.in()` casse vers ~1500 ids, réponse cappée à 1000).
 6. `messages.get(format=full)` sur les survivants → `recordInbound` + bump
    `last_message_at`.
 7. Batch complet OK → persiste le nouveau `history_id` (celui de la réponse
@@ -84,6 +86,7 @@ cas bonus du spec général), sinon `inbound` (`sender_user_id = null`).
 | **401 / invalid_grant**         | `classifyGmailError` ⇒ `markAccountRevoked` (existant) → bandeau réglages                                                                                                                             |
 | **429 / 5xx**                   | curseur inchangé, erreur loggée ; le tick suivant (3 min) reprend au même point — l'intervalle **est** le backoff                                                                                     |
 | SPAM / TRASH / DRAFT            | exclus au filtre labelIds (stubs et resync)                                                                                                                                                           |
+| Message supprimé avant le fetch | `messages.get` → 404 (cas documenté Gmail) : message sauté, le curseur avance (même pattern que `threads.get` au resync)                                                                              |
 | Expéditeur ≠ email du contact   | stocké tel quel (`from_email` brut) ; marqueur « autre adresse » = dérivation read-time en Phase 4, pas de colonne                                                                                    |
 | Boîte en erreur                 | isolée : ne bloque pas les autres boîtes du tick                                                                                                                                                      |
 | Échec en cours de batch         | curseur non avancé → re-traitement au tick suivant, redédupliqué par `gmail_message_id` (at-least-once)                                                                                               |
