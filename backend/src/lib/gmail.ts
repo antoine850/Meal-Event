@@ -24,6 +24,12 @@ export function isGmailSendingEnabled(): boolean {
   return isGmailIntegrationEnabled() && process.env.GMAIL_SENDING_ENABLED === 'true'
 }
 
+// Sous-switch de polling (phase 3). Effectif seulement si le master est ON.
+// Independant de l'envoi : couper l'envoi ne coupe pas la capture des reponses.
+export function isGmailPollingEnabled(): boolean {
+  return isGmailIntegrationEnabled() && process.env.GMAIL_POLLING_ENABLED === 'true'
+}
+
 // Client OAuth dedie a Gmail, distinct de Calendar (GOOGLE_CLIENT_*) : les
 // scopes gmail.send/readonly sont "restricted" et l'app vit sur son propre
 // ecran de consentement (Internal, mono-groupe) sans toucher Calendar.
