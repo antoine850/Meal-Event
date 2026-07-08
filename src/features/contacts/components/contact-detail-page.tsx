@@ -1,6 +1,14 @@
 import { useState, useRef } from 'react'
 import { useParams, Link } from '@tanstack/react-router'
-import { ArrowLeft, Loader2, User, Calendar, Save, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  User,
+  Calendar,
+  Mail,
+  Save,
+  Trash2,
+} from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +27,9 @@ import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { SendEmailDialog } from '@/features/emails/components/send-email-dialog'
 import { useBookingsByContact } from '@/features/reservations/hooks/use-bookings'
+import { useGmailStatus } from '@/features/settings/hooks/use-gmail-account'
 import { useContact } from '../hooks/use-contacts'
 import { ContactDetail } from './contact-detail'
 
@@ -30,6 +40,8 @@ export function ContactDetailPage() {
   const [activeTab, setActiveTab] = useState('general')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const { data: gmailStatus } = useGmailStatus()
   const contactDetailRef = useRef<{
     submitForm: () => void
     deleteContact: () => void
@@ -90,6 +102,16 @@ export function ContactDetailPage() {
           </Tabs>
         </div>
         <div className='ms-auto flex items-center space-x-2'>
+          {gmailStatus?.integration_enabled && contact.email && (
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => setEmailOpen(true)}
+            >
+              <Mail className='mr-2 h-4 w-4' />
+              Envoyer un email
+            </Button>
+          )}
           <Button
             size='sm'
             onClick={() => contactDetailRef.current?.submitForm()}
@@ -143,6 +165,12 @@ export function ContactDetailPage() {
           onDirtyChange={setIsDirty}
         />
       </Main>
+
+      <SendEmailDialog
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        contactId={contact.id}
+      />
     </>
   )
 }

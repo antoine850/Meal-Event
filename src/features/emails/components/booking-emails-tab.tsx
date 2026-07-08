@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Loader2, Mail } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,6 +10,7 @@ import {
 import { useGmailStatus } from '@/features/settings/hooks/use-gmail-account'
 import { useEmailLogsByBooking } from '../hooks/use-email-logs'
 import { useBookingEmailThread } from '../hooks/use-email-thread'
+import { useThreadMeta, useMarkThreadRead } from '../hooks/use-thread-unread'
 import { EmailReplyComposer } from './email-reply-composer'
 import { EmailThreadView } from './email-thread-view'
 
@@ -22,6 +24,7 @@ const EMAIL_TYPE_LABELS: Record<string, string> = {
   payment_reminder: 'Relance de paiement',
   credit_note: 'Avoir',
   manual_reply: 'Réponse',
+  manual_email: 'Email',
 }
 
 export function BookingEmailsTab({
@@ -36,6 +39,15 @@ export function BookingEmailsTab({
   const { data: threadData, isLoading: threadLoading } =
     useBookingEmailThread(bookingId)
   const { data: gmailStatus } = useGmailStatus()
+  const { data: threadMeta } = useThreadMeta(bookingId)
+  const markRead = useMarkThreadRead()
+
+  useEffect(() => {
+    if (threadMeta?.id && threadMeta.unread) {
+      markRead.mutate(threadMeta.id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadMeta?.id, threadMeta?.unread])
 
   const messages = threadData?.messages ?? []
   const isLoading = logsLoading || threadLoading

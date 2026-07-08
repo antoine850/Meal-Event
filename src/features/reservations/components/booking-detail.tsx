@@ -142,7 +142,7 @@ import { FicheFonction } from './fiche-fonction'
 import { MenuFormBuilder } from './menu-form-builder'
 import { PaymentDialog } from './payment-dialog'
 import { QuoteEditor } from './quote-editor'
-import { SendEmailMenuItems } from './send-email-menu'
+import { SendEmailMenuItems, useEmailComposer } from './send-email-menu'
 
 const API_BASE_URL = import.meta.env.DEV
   ? ''
@@ -197,6 +197,7 @@ export const BookingDetail = forwardRef<
   ref
 ) {
   const navigate = useNavigate()
+  const emailComposer = useEmailComposer(booking.id)
   const { mutate: updateBooking } = useUpdateBooking()
   const { mutate: deleteBookingMutation } = useDeleteBooking()
   const { mutate: duplicateBooking } = useDuplicateBooking()
@@ -608,6 +609,7 @@ export const BookingDetail = forwardRef<
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align='end' className='w-56'>
                         <SendEmailMenuItems
+                          onCompose={emailComposer.onCompose}
                           booking={{
                             id: booking.id,
                             event_date: booking.event_date,
@@ -683,6 +685,7 @@ export const BookingDetail = forwardRef<
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    {emailComposer.dialog}
                   </div>
 
                   {/* Created / Updated */}

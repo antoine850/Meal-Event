@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -8,6 +9,13 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from '@/components/ui/dropdown-menu'
+import { SendEmailDialog } from '@/features/emails/components/send-email-dialog'
+import { useGmailStatus } from '@/features/settings/hooks/use-gmail-account'
+import { useBookingStatuses, useUpdateBooking } from '../hooks/use-bookings'
+import {
+  useCurrentUserProfile,
+  useEmailTemplates,
+} from '../hooks/use-email-templates'
 import {
   buildGmailComposeUrl,
   buildTemplateVars,
@@ -15,14 +23,6 @@ import {
   type EmailTemplate,
   type TemplateInput,
 } from '../lib/email-templates'
-import {
-  useCurrentUserProfile,
-  useEmailTemplates,
-} from '../hooks/use-email-templates'
-import {
-  useBookingStatuses,
-  useUpdateBooking,
-} from '../hooks/use-bookings'
 
 export type SendEmailBooking = {
   id: string
@@ -40,20 +40,67 @@ export type SendEmailBooking = {
   } | null
 }
 
+export type ComposePayload = {
+  subject: string
+  body: string
+  onSent: () => void
+}
+
 type Props = {
   booking: SendEmailBooking
+  // Ouvre le composer integre (fourni par useEmailComposer). Le dialog doit
+  // vivre HORS du dropdown, sinon sa fermeture le demonte avant affichage.
+  onCompose?: (payload: ComposePayload) => void
 }
 
 const langLabel = (lang: 'fr' | 'en') =>
   lang === 'fr' ? 'Français' : 'English'
 
-export function SendEmailMenuItems({ booking }: Props) {
+// Etat + dialog du composer, a monter au niveau de l'appelant (hors dropdown).
+export function useEmailComposer(bookingId: string) {
+  const [composer, setComposer] = useState<ComposePayload | null>(null)
+  return {
+    onCompose: setComposer,
+    dialog: composer ? (
+      <SendEmailDialog
+        open
+        onOpenChange={(v) => !v && setComposer(null)}
+        bookingId={bookingId}
+        defaultSubject={composer.subject}
+        defaultMessage={composer.body}
+        onSent={composer.onSent}
+      />
+    ) : null,
+  }
+}
+
+export function SendEmailMenuItems({ booking, onCompose }: Props) {
   const { data: templates = [], isLoading } = useEmailTemplates()
   const { data: profile } = useCurrentUserProfile()
   const { data: statuses = [] } = useBookingStatuses()
   const { mutate: updateBooking } = useUpdateBooking()
+  const { data: gmailStatus } = useGmailStatus()
 
   const hasEmail = !!booking.contact?.email
+
+  const promoteIfNew = () => {
+    // Auto-promotion : si le lead est en "Nouveau", on le passe en "Qualification"
+    if (booking.status_slug === 'nouveau') {
+      const qualification = statuses.find((s) => s.slug === 'qualification')
+      if (qualification) {
+        updateBooking(
+          { id: booking.id, status_id: qualification.id },
+          {
+            onSuccess: () => toast.success('Statut passé en Qualification'),
+            onError: (e) =>
+              toast.error(
+                `Email envoyé mais maj statut KO : ${(e as Error).message}`
+              ),
+          }
+        )
+      }
+    }
+  }
 
   const groupedBySlug = templates.reduce<Record<string, EmailTemplate[]>>(
     (acc, t) => {
@@ -93,27 +140,16 @@ export function SendEmailMenuItems({ booking }: Props) {
     }
     const vars = buildTemplateVars(input, tpl.lang)
     const { subject, body } = renderTemplate(tpl, vars)
-    const url = buildGmailComposeUrl(booking.contact.email, subject, body)
 
-    // Gmail compose URL : vraie URL https, ouverture propre dans un nouvel onglet.
-    window.open(url, '_blank', 'noopener,noreferrer')
-
-    // Auto-promotion : si le lead est en "Nouveau", on le passe en "Qualification"
-    if (booking.status_slug === 'nouveau') {
-      const qualification = statuses.find((s) => s.slug === 'qualification')
-      if (qualification) {
-        updateBooking(
-          { id: booking.id, status_id: qualification.id },
-          {
-            onSuccess: () => toast.success('Statut passé en Qualification'),
-            onError: (e) =>
-              toast.error(
-                `Email envoyé mais maj statut KO : ${(e as Error).message}`
-              ),
-          }
-        )
-      }
+    if (gmailStatus?.integration_enabled && onCompose) {
+      onCompose({ subject, body, onSent: promoteIfNew })
+      return
     }
+    // Comportement historique (avant pilote, ou composer non cable) : Gmail
+    // compose dans un onglet.
+    const url = buildGmailComposeUrl(booking.contact.email, subject, body)
+    window.open(url, '_blank', 'noopener,noreferrer')
+    promoteIfNew()
   }
 
   return (
@@ -123,9 +159,7 @@ export function SendEmailMenuItems({ booking }: Props) {
         Envoyer un email
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className='w-56'>
-        {isLoading && (
-          <DropdownMenuItem disabled>Chargement…</DropdownMenuItem>
-        )}
+        {isLoading && <DropdownMenuItem disabled>Chargement…</DropdownMenuItem>}
         {!isLoading && slugOrder.length === 0 && (
           <DropdownMenuItem disabled>Aucun modèle</DropdownMenuItem>
         )}

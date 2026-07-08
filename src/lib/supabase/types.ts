@@ -1207,7 +1207,9 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          last_inbound_at: string | null
           last_message_at: string | null
+          last_read_at: string | null
           organization_id: string
           status: string
           subject: string | null
@@ -1218,7 +1220,9 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          last_inbound_at?: string | null
           last_message_at?: string | null
+          last_read_at?: string | null
           organization_id: string
           status?: string
           subject?: string | null
@@ -1229,7 +1233,9 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          last_inbound_at?: string | null
           last_message_at?: string | null
+          last_read_at?: string | null
           organization_id?: string
           status?: string
           subject?: string | null
