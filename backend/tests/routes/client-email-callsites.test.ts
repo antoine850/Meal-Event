@@ -92,6 +92,11 @@ describe('fil : sujet evenement et cc compta', () => {
     expect(lib).not.toContain('subject: params.subject')
   })
 
+  it('le sujet du fil ne s applique aux envois que si le master gmail est ON', () => {
+    // Master OFF = sujets historiques : le deploiement reste no-op cote client.
+    expect(lib).toContain('isGmailIntegrationEnabled() && thread')
+  })
+
   it('ccFacturation met la compta en cc sur le chemin gmail', () => {
     expect(lib).toContain('ccFacturation')
     expect(lib).toContain('params.facturationEmail]')

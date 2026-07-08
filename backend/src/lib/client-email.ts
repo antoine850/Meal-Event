@@ -9,6 +9,7 @@ import {
 } from './gmail-mime.js'
 import {
   gmailClient,
+  isGmailIntegrationEnabled,
   isGmailSendingEnabled,
   findByRfcMessageId,
   markAccountRevoked,
@@ -114,9 +115,11 @@ async function getBookingThreadSubject(bookingId: string): Promise<string | null
 export async function sendClientEmail(
   params: ClientEmailParams
 ): Promise<{ id: string; provider: 'gmail' | 'resend' }> {
-  // 1. Fil (best-effort : un echec degrade en envoi sans threading). Le sujet
-  // envoye suit le fil ("Re:" des le 2e message) sur les DEUX transports :
-  // un fil qui alterne Gmail/Resend reste coherent pour le client.
+  // 1. Fil (best-effort : un echec degrade en envoi sans threading). Le fil
+  // stocke toujours son libelle evenement (affichage phase 4), mais le sujet
+  // ENVOYE ne suit le fil ("Re:" des le 2e message, sur les DEUX transports)
+  // que si l'integration Gmail est active : master OFF = sujets historiques,
+  // le deploiement du merge reste un no-op visible client.
   const kind = params.threadKind ?? (params.bookingId ? 'booking' : 'contact')
   let thread: ThreadRef | null = null
   try {
@@ -134,11 +137,12 @@ export async function sendClientEmail(
   } catch (err) {
     console.error('[client-email] getOrCreateThread failed:', err)
   }
-  const effectiveSubject = thread
-    ? thread.isNew
-      ? thread.subject
-      : toReplySubject(thread.subject)
-    : params.subject
+  const effectiveSubject =
+    isGmailIntegrationEnabled() && thread
+      ? thread.isNew
+        ? thread.subject
+        : toReplySubject(thread.subject)
+      : params.subject
 
   const logBase = {
     organization_id: params.organizationId,
