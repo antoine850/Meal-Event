@@ -18,6 +18,7 @@ const clientRoutes = [
   'routes/quotes.ts',
   'routes/webhooks.ts',
   'routes/payments.ts',
+  'routes/emails.ts',
 ]
 
 describe('client emails go through sendClientEmail', () => {
@@ -74,6 +75,14 @@ describe('client emails go through sendClientEmail', () => {
         return code.includes("from('email_messages').insert")
       })
     expect(writers).toEqual(['email-threads.ts'])
+  })
+
+  it('la route reply passe par sendClientEmail et est montee requireAuth', () => {
+    const emails = read('routes/emails.ts')
+    expect(emails).toContain('sendClientEmail')
+    expect(emails).toContain("emailType: 'manual_reply'")
+    const index = read('index.ts')
+    expect(index).toContain("app.use('/api/emails', requireAuth, emailsRouter)")
   })
 })
 
