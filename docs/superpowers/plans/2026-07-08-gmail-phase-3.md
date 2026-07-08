@@ -592,9 +592,7 @@ export interface PollableAccount {
 }
 
 export interface PollSummary {
-  fetched: number
   inserted: number
-  resynced: boolean
 }
 
 async function saveCursor(
@@ -668,7 +666,6 @@ async function resyncAccount(
   console.warn(
     `[gmail-poll] historyId expire pour ${account.user_id}, resync de ${threadByGmailId.size} fil(s)`
   )
-  let fetched = 0
   let inserted = 0
   for (const [gmailThreadId, crmThreadId] of threadByGmailId) {
     let thread: any
@@ -688,7 +685,6 @@ async function resyncAccount(
     const fresh = await filterUnknownIds(messages.map((m) => m.id))
     for (const msg of messages) {
       if (!fresh.has(msg.id)) continue
-      fetched += 1
       if (await ingestMessage(msg, account, crmThreadId)) inserted += 1
     }
   }
@@ -697,7 +693,7 @@ async function resyncAccount(
     account.user_id,
     profile.historyId ? String(profile.historyId) : null
   )
-  return { fetched, inserted, resynced: true }
+  return { inserted }
 }
 
 // Poll d'une boite : history.list depuis le curseur, fetch limite aux fils
@@ -729,7 +725,7 @@ export async function pollAccount(
       account.user_id,
       profile.historyId ? String(profile.historyId) : null
     )
-    return { fetched: 0, inserted: 0, resynced: false }
+    return { inserted: 0 }
   }
 
   const pages: HistoryPage[] = []
@@ -774,7 +770,7 @@ export async function pollAccount(
     [...pages].reverse().find((p) => p.historyId)?.historyId ??
     account.history_id
   await saveCursor(account.user_id, String(newCursor))
-  return { fetched: stubs.length, inserted, resynced: false }
+  return { inserted }
 }
 ```
 
