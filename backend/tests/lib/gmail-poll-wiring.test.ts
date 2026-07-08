@@ -14,4 +14,21 @@ describe('gmail polling wiring', () => {
     expect(threads).toContain("'23505'")
     expect(threads).toContain('last_message_at')
   })
+
+  it('pollAccount ne liste que messageAdded et persiste le curseur apres le batch', () => {
+    const poll = read('lib/gmail-poll.ts')
+    expect(poll).toContain("historyTypes: ['messageAdded']")
+    expect(poll).toContain('saveCursor')
+    expect(poll).toContain('last_sync_at')
+    // Le fetch complet est reserve aux fils suivis et aux ids inconnus.
+    expect(poll).toContain('filterUnknownIds')
+    expect(poll).toContain("format: 'full'")
+  })
+
+  it('historyId expire (404) -> resync borne aux fils suivis puis re-seed', () => {
+    const poll = read('lib/gmail-poll.ts')
+    expect(poll).toContain('resyncAccount')
+    expect(poll).toContain('getProfile')
+    expect(poll).toContain('threads.get')
+  })
 })

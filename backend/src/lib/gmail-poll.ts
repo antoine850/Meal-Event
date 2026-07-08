@@ -1,6 +1,10 @@
 // Reception des reponses (phase 3) : helpers purs de parsing history/MIME,
 // puis orchestration du polling par boite (pollAccount/runGmailPoll).
 
+import { recordInbound } from './email-threads.js'
+import { gmailClient } from './gmail.js'
+import { supabase } from './supabase.js'
+
 export interface MessageStub {
   id: string
   threadId: string
@@ -125,4 +129,194 @@ export function extractBodies(payload: MimePart | undefined): {
   }
   walk(payload)
   return { html, text }
+}
+
+type GmailApi = NonNullable<Awaited<ReturnType<typeof gmailClient>>>
+
+export interface PollableAccount {
+  user_id: string
+  google_email: string | null
+  history_id: string | null
+}
+
+export interface PollSummary {
+  inserted: number
+}
+
+async function saveCursor(
+  userId: string,
+  historyId: string | null
+): Promise<void> {
+  await supabase
+    .from('user_gmail_accounts')
+    .update({
+      history_id: historyId,
+      last_sync_at: new Date().toISOString(),
+    } as never)
+    .eq('user_id', userId)
+}
+
+// Ids deja en base (nos propres envois CRM notamment) : evite un messages.get
+// inutile sur le scope restricted.
+async function filterUnknownIds(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set()
+  const { data } = await supabase
+    .from('email_messages')
+    .select('gmail_message_id')
+    .in('gmail_message_id', ids)
+  const known = new Set(((data ?? []) as any[]).map((r) => r.gmail_message_id))
+  return new Set(ids.filter((id) => !known.has(id)))
+}
+
+// Materialise un message Gmail complet dans le fil CRM. false si exclu par
+// labels (SPAM/TRASH/DRAFT, ceinture-bretelles : les labels peuvent changer
+// entre le stub et le fetch) ou deja en base (dedup 23505 dans recordInbound).
+async function ingestMessage(
+  full: any,
+  account: PollableAccount,
+  crmThreadId: string
+): Promise<boolean> {
+  if (isExcludedByLabels(full.labelIds ?? [])) return false
+  const headers = full.payload?.headers
+  const fromEmail = parseAddress(getHeader(headers, 'From'))
+  const direction = classifyDirection(fromEmail, account.google_email)
+  const bodies = extractBodies(full.payload)
+  return recordInbound({
+    threadId: crmThreadId,
+    direction,
+    // From == boite : reponse du commercial depuis Gmail hors CRM.
+    senderUserId: direction === 'outbound' ? account.user_id : null,
+    gmailThreadId: full.threadId ?? null,
+    gmailMessageId: full.id,
+    rfcMessageId: getHeader(headers, 'Message-ID'),
+    fromEmail,
+    toEmails: parseAddressList(getHeader(headers, 'To')),
+    cc: parseAddressList(getHeader(headers, 'Cc')),
+    subject: getHeader(headers, 'Subject'),
+    bodyHtml: bodies.html,
+    bodyText: bodies.text,
+    snippet: full.snippet ?? null,
+    sentAt: full.internalDate
+      ? new Date(Number(full.internalDate)).toISOString()
+      : null,
+    inReplyTo: getHeader(headers, 'In-Reply-To'),
+    references: getHeader(headers, 'References'),
+  })
+}
+
+// historyId expire (~1 semaine de retention Gmail) : re-liste chaque fil suivi
+// via threads.get, ingere les manquants, puis re-seme le curseur via getProfile.
+async function resyncAccount(
+  gmail: GmailApi,
+  account: PollableAccount,
+  threadByGmailId: Map<string, string>
+): Promise<PollSummary> {
+  console.warn(
+    `[gmail-poll] historyId expire pour ${account.user_id}, resync de ${threadByGmailId.size} fil(s)`
+  )
+  let inserted = 0
+  for (const [gmailThreadId, crmThreadId] of threadByGmailId) {
+    let thread: any
+    try {
+      const res = await gmail.users.threads.get({
+        userId: 'me',
+        id: gmailThreadId,
+        format: 'full',
+      })
+      thread = res.data
+    } catch (err) {
+      const status = (err as any)?.response?.status ?? (err as any)?.code
+      if (status === 404) continue // fil supprime cote Gmail : on saute
+      throw err
+    }
+    const messages = (thread.messages ?? []) as any[]
+    const fresh = await filterUnknownIds(messages.map((m) => m.id))
+    for (const msg of messages) {
+      if (!fresh.has(msg.id)) continue
+      if (await ingestMessage(msg, account, crmThreadId)) inserted += 1
+    }
+  }
+  const { data: profile } = await gmail.users.getProfile({ userId: 'me' })
+  await saveCursor(
+    account.user_id,
+    profile.historyId ? String(profile.historyId) : null
+  )
+  return { inserted }
+}
+
+// Poll d'une boite : history.list depuis le curseur, fetch limite aux fils
+// suivis et aux ids inconnus, ingestion, puis avance du curseur. Le curseur
+// n'est persiste qu'apres le batch complet : un echec => le tick suivant
+// reprend au meme point (at-least-once, rededuplique par gmail_message_id).
+export async function pollAccount(
+  gmail: GmailApi,
+  account: PollableAccount
+): Promise<PollSummary> {
+  // Fils suivis par cette boite : un fil nait toujours d'un envoi CRM de la
+  // boite, donc sender_user_id = boite suffit a retrouver ses gmail_thread_id.
+  const { data: tracked } = await supabase
+    .from('email_messages')
+    .select('gmail_thread_id, thread_id')
+    .eq('sender_user_id', account.user_id)
+    .not('gmail_thread_id', 'is', null)
+  const threadByGmailId = new Map<string, string>()
+  for (const row of (tracked ?? []) as any[]) {
+    if (!threadByGmailId.has(row.gmail_thread_id)) {
+      threadByGmailId.set(row.gmail_thread_id, row.thread_id)
+    }
+  }
+
+  // Pas de curseur (compte connecte avant le seed, ou seed en echec) : on seme.
+  if (!account.history_id) {
+    const { data: profile } = await gmail.users.getProfile({ userId: 'me' })
+    await saveCursor(
+      account.user_id,
+      profile.historyId ? String(profile.historyId) : null
+    )
+    return { inserted: 0 }
+  }
+
+  const pages: HistoryPage[] = []
+  try {
+    let pageToken: string | undefined
+    do {
+      const { data } = await gmail.users.history.list({
+        userId: 'me',
+        startHistoryId: account.history_id,
+        historyTypes: ['messageAdded'],
+        pageToken,
+      })
+      pages.push(data as HistoryPage)
+      pageToken = data.nextPageToken ?? undefined
+    } while (pageToken)
+  } catch (err) {
+    const status = (err as any)?.response?.status ?? (err as any)?.code
+    if (status === 404) return resyncAccount(gmail, account, threadByGmailId)
+    throw err
+  }
+
+  const stubs = collectAddedStubs(pages).filter((s) =>
+    threadByGmailId.has(s.threadId)
+  )
+  const fresh = await filterUnknownIds(stubs.map((s) => s.id))
+  let inserted = 0
+  for (const stub of stubs) {
+    if (!fresh.has(stub.id)) continue
+    const { data: full } = await gmail.users.messages.get({
+      userId: 'me',
+      id: stub.id,
+      format: 'full',
+    })
+    if (
+      await ingestMessage(full, account, threadByGmailId.get(stub.threadId)!)
+    ) {
+      inserted += 1
+    }
+  }
+
+  const newCursor =
+    [...pages].reverse().find((p) => p.historyId)?.historyId ??
+    account.history_id
+  await saveCursor(account.user_id, String(newCursor))
+  return { inserted }
 }
