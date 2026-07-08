@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
+import { UnreadDot } from '@/features/emails/components/unread-dot'
 import type { BookingWithRelations } from '../hooks/use-bookings'
 import { SendEmailMenuItems } from './send-email-menu'
 
@@ -55,20 +56,23 @@ export const buildBookingsColumns = (
     cell: ({ row }) => {
       const isUnread = !row.original.read_at
       return (
-        <div className='flex items-center gap-2'>
-          {isUnread && (
-            <div className='h-2 w-2 shrink-0 rounded-full bg-blue-500' />
-          )}
-          <div className='flex flex-col'>
-            <span className={cn(isUnread ? 'font-semibold' : 'font-medium')}>
-              {format(new Date(row.original.event_date), 'dd/MM/yyyy', {
-                locale: fr,
-              })}
-            </span>
-            <span className='text-xs text-muted-foreground'>
-              {row.original.start_time || ''}
-              {row.original.end_time ? ` - ${row.original.end_time}` : ''}
-            </span>
+        <div className='flex items-center gap-1.5'>
+          <UnreadDot bookingId={row.original.id} />
+          <div className='flex items-center gap-2'>
+            {isUnread && (
+              <div className='h-2 w-2 shrink-0 rounded-full bg-blue-500' />
+            )}
+            <div className='flex flex-col'>
+              <span className={cn(isUnread ? 'font-semibold' : 'font-medium')}>
+                {format(new Date(row.original.event_date), 'dd/MM/yyyy', {
+                  locale: fr,
+                })}
+              </span>
+              <span className='text-xs text-muted-foreground'>
+                {row.original.start_time || ''}
+                {row.original.end_time ? ` - ${row.original.end_time}` : ''}
+              </span>
+            </div>
           </div>
         </div>
       )

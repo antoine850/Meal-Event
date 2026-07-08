@@ -31,6 +31,7 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { useEmailLogsByBooking } from '@/features/emails/hooks/use-email-logs'
+import { useThreadMeta } from '@/features/emails/hooks/use-thread-unread'
 import {
   useBooking,
   useQuotesByBooking,
@@ -54,6 +55,7 @@ export function BookingDetailPage() {
   const { data: documents = [] } = useDocumentsByBooking(id)
   const { data: menuForms = [] } = useBookingMenuForms(id)
   const { data: emailLogs = [] } = useEmailLogsByBooking(id)
+  const { data: threadMeta } = useThreadMeta(id)
   const markAsRead = useMarkBookingAsRead()
   const [activeTab, setActiveTab] = useState(initialTab)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -192,6 +194,12 @@ export function BookingDetailPage() {
                   >
                     {emailLogs.length}
                   </Badge>
+                )}
+                {threadMeta?.unread && (
+                  <span
+                    className='h-1.5 w-1.5 rounded-full bg-red-500'
+                    aria-label='Non lu'
+                  />
                 )}
               </TabsTrigger>
               <TabsTrigger value='historique' className='gap-1.5'>
