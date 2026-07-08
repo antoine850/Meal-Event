@@ -222,7 +222,9 @@ describe('parsing adresses et headers', () => {
   })
 
   it('parseAddressList ecarte les fragments de display-name quotes', () => {
-    expect(parseAddressList('"Dupont, Jean" <jean@x.fr>')).toEqual(['jean@x.fr'])
+    expect(parseAddressList('"Dupont, Jean" <jean@x.fr>')).toEqual([
+      'jean@x.fr',
+    ])
   })
 })
 
@@ -302,7 +304,11 @@ export interface HistoryPage {
 }
 
 export function isExcludedByLabels(labels: string[]): boolean {
-  return labels.includes('SPAM') || labels.includes('TRASH') || labels.includes('DRAFT')
+  return (
+    labels.includes('SPAM') ||
+    labels.includes('TRASH') ||
+    labels.includes('DRAFT')
+  )
 }
 
 // Stubs messagesAdded des pages history.list : dedupliques entre pages
@@ -401,7 +407,11 @@ export function extractBodies(payload: MimePart | undefined): {
     if (!part) return
     if (part.body?.data && part.mimeType === 'text/html' && html === null) {
       html = decodePartBody(part)
-    } else if (part.body?.data && part.mimeType === 'text/plain' && text === null) {
+    } else if (
+      part.body?.data &&
+      part.mimeType === 'text/plain' &&
+      text === null
+    ) {
       text = decodePartBody(part)
     }
     for (const p of part.parts ?? []) walk(p)
@@ -838,7 +848,7 @@ Ajouter en fin de `backend/src/lib/gmail-poll.ts` :
 ```typescript
 // Un tick : toutes les boites connectees. Une boite en erreur n'empeche pas
 // les autres ; son curseur reste en place (le tick suivant reprend au meme
-// point — l'intervalle fait office de backoff sur 429/5xx).
+// point, l'intervalle fait office de backoff sur 429/5xx).
 export async function runGmailPoll(): Promise<{
   accounts: number
   inserted: number
@@ -859,6 +869,9 @@ export async function runGmailPoll(): Promise<{
       inserted += res.inserted
     } catch (err) {
       if (classifyGmailError(err) === 'revoked') {
+        console.warn(
+          `[gmail-poll] boite ${account.user_id} revoquee, polling coupe`
+        )
         await markAccountRevoked(account.user_id, err)
       } else {
         console.error(
