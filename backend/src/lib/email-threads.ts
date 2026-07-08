@@ -266,11 +266,14 @@ export async function recordInbound(msg: {
     console.error('[email-threads] recordInbound insert failed:', error)
     return false
   }
+  const now = msg.sentAt ?? new Date().toISOString()
   await supabase
     .from('email_threads')
-    .update({
-      last_message_at: msg.sentAt ?? new Date().toISOString(),
-    } as never)
+    .update(
+      (msg.direction === 'inbound'
+        ? { last_message_at: now, last_inbound_at: now }
+        : { last_message_at: now }) as never
+    )
     .eq('id', msg.threadId)
   return true
 }
