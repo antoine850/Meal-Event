@@ -547,6 +547,7 @@ quotesRouter.post('/:id/send-deposit', async (req: Request, res: Response) => {
             html,
             replyTo: commercial.email || restaurant?.email || undefined,
             facturationEmail: facturationEmail || undefined,
+            ccFacturation: true,
           })
 
           console.log(
@@ -704,6 +705,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
             html,
             replyTo: commercial.email || restaurant?.email || undefined,
             facturationEmail: facturationEmail || undefined,
+            ccFacturation: true,
           })
 
           console.log(
@@ -862,6 +864,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       html,
       replyTo: commercialEmail || restaurant?.email || undefined,
       facturationEmail: facturationEmail || undefined,
+      ccFacturation: true,
       attachments: [
         {
           filename: `facture-solde-${quoteData.quote_number}.pdf`,
@@ -1202,6 +1205,7 @@ quotesRouter.post(
         html,
         replyTo: commercial.email || restaurant?.email || undefined,
         facturationEmail: facturationEmail || undefined,
+        ccFacturation: true,
         attachments: [
           { filename: `avoir-${cn.avoir_number}.pdf`, content: pdfBuffer },
         ],

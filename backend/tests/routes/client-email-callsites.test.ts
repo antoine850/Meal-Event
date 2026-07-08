@@ -76,3 +76,35 @@ describe('client emails go through sendClientEmail', () => {
     expect(writers).toEqual(['email-threads.ts'])
   })
 })
+
+// Decisions du 08/07 : sujet du fil booking = libelle evenement (les sujets
+// sont figes par fil, un changement casserait les fils existants) ; compta en
+// cc sur les emails compta cote Gmail (pas de Reply-To possible).
+describe('fil : sujet evenement et cc compta', () => {
+  const lib = read('lib/client-email.ts')
+
+  it('le fil booking porte le sujet evenement, le sujet envoye suit le fil', () => {
+    expect(lib).toContain('getBookingThreadSubject')
+    expect(read('lib/email-templates.ts')).toContain(
+      'export function buildThreadSubject'
+    )
+    // Resend envoie aussi le sujet du fil (coherence Re: entre transports).
+    expect(lib).not.toContain('subject: params.subject')
+  })
+
+  it('ccFacturation met la compta en cc sur le chemin gmail', () => {
+    expect(lib).toContain('ccFacturation')
+    expect(lib).toContain('params.facturationEmail]')
+  })
+
+  it('les 7 emails compta activent ccFacturation, pas le devis', () => {
+    const all = [
+      'routes/quotes.ts',
+      'routes/payments.ts',
+      'lib/deposit-flow.ts',
+    ]
+      .map(read)
+      .join('')
+    expect(all.split('ccFacturation: true').length - 1).toBe(7)
+  })
+})

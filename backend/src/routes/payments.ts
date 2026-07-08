@@ -327,6 +327,7 @@ paymentsRouter.post('/create-link', async (req: Request, res: Response) => {
             html,
             replyTo: commercial.email || restaurantBranding.email || undefined,
             facturationEmail: facturationEmail || undefined,
+            ccFacturation: true,
           })
 
           emailSent = true
@@ -494,6 +495,7 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
             html,
             replyTo: commercial.email || restaurant?.email || undefined,
             facturationEmail: facturationEmail || undefined,
+            ccFacturation: true,
           })
           emailSent = true
         }

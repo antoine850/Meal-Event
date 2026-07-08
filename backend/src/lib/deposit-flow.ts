@@ -198,6 +198,7 @@ export async function createAndSendDeposit(
     html,
     replyTo: commercial.email || restaurant?.email || undefined,
     facturationEmail: facturationEmail || undefined,
+    ccFacturation: true,
     attachments: [
       {
         filename: `facture-acompte-${quoteData.quote_number}.pdf`,

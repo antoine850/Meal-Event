@@ -1,5 +1,6 @@
 import { sendEmail, SendEmailOptions } from './resend.js'
 import { supabase } from './supabase.js'
+import { buildThreadSubject } from './email-templates.js'
 import {
   buildRawMessage,
   classifyGmailError,
@@ -69,6 +70,10 @@ export interface ClientEmailParams {
   html: string
   replyTo?: string
   facturationEmail?: string
+  // Emails compta (factures, relance, avoir...) : met facturationEmail en cc
+  // sur le chemin Gmail, ou le Reply-To n'existe pas (la compta garderait
+  // sinon zero visibilite jusqu'a la phase 4). Resend garde son reply-to.
+  ccFacturation?: boolean
   attachments?: SendEmailOptions['attachments']
   actorUserId?: string | null
   threadKind?: 'booking' | 'contact' | 'facturation'
@@ -90,9 +95,51 @@ async function logEmail(row: Record<string, unknown>): Promise<void> {
 // (acteur -> commercial assigne -> aucune), envoie via Gmail si une boite pilote
 // existe et GMAIL_SENDING_ENABLED est ON, sinon Resend. Chaque envoi est
 // materialise dans email_messages + email_logs. Fallback Resend sur erreur franche.
+// Sujet du fil booking : libelle evenement stable (decision 08/07), pas le
+// sujet du 1er email. Degrade en null (=> sujet de l'email) si lookup KO.
+async function getBookingThreadSubject(bookingId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from('bookings')
+      .select('restaurant:restaurants(name)')
+      .eq('id', bookingId)
+      .single()
+    const name = (data as any)?.restaurant?.name
+    return name ? buildThreadSubject(name) : null
+  } catch {
+    return null
+  }
+}
+
 export async function sendClientEmail(
   params: ClientEmailParams
 ): Promise<{ id: string; provider: 'gmail' | 'resend' }> {
+  // 1. Fil (best-effort : un echec degrade en envoi sans threading). Le sujet
+  // envoye suit le fil ("Re:" des le 2e message) sur les DEUX transports :
+  // un fil qui alterne Gmail/Resend reste coherent pour le client.
+  const kind = params.threadKind ?? (params.bookingId ? 'booking' : 'contact')
+  let thread: ThreadRef | null = null
+  try {
+    const threadSubject =
+      kind === 'booking' && params.bookingId
+        ? ((await getBookingThreadSubject(params.bookingId)) ?? params.subject)
+        : params.subject
+    thread = await getOrCreateThread({
+      organizationId: params.organizationId,
+      kind,
+      bookingId: params.bookingId ?? null,
+      contactId: params.contactId ?? null,
+      subject: threadSubject,
+    })
+  } catch (err) {
+    console.error('[client-email] getOrCreateThread failed:', err)
+  }
+  const effectiveSubject = thread
+    ? thread.isNew
+      ? thread.subject
+      : toReplySubject(thread.subject)
+    : params.subject
+
   const logBase = {
     organization_id: params.organizationId,
     quote_id: params.quoteId || null,
@@ -100,25 +147,8 @@ export async function sendClientEmail(
     email_type: params.emailType,
     recipient_email: params.to,
     reply_to_email: params.replyTo || null,
-    subject: params.subject,
+    subject: effectiveSubject,
   }
-
-  // 1. Fil (best-effort : un echec degrade en envoi sans threading).
-  const kind = params.threadKind ?? (params.bookingId ? 'booking' : 'contact')
-  let thread: ThreadRef | null = null
-  try {
-    thread = await getOrCreateThread({
-      organizationId: params.organizationId,
-      kind,
-      bookingId: params.bookingId ?? null,
-      contactId: params.contactId ?? null,
-      subject: params.subject,
-    })
-  } catch (err) {
-    console.error('[client-email] getOrCreateThread failed:', err)
-  }
-  const effectiveSubject =
-    thread && !thread.isNew ? toReplySubject(thread.subject) : params.subject
 
   // 2. Boite d'envoi + tentative Gmail.
   const mailbox = await resolveSenderMailbox({
@@ -137,6 +167,12 @@ export async function sendClientEmail(
         : { lastRfcMessageId: null, gmailThreadIdForSender: null }
       const domain = mailbox.email.split('@')[1] || 'mealevent.fr'
       const rfcMessageId = generateRfcMessageId(domain)
+      // CC compta (decision 08/07) : pas de Reply-To cote Gmail, la copie
+      // garde la compta dans la boucle sur les emails compta.
+      const cc =
+        params.ccFacturation && params.facturationEmail
+          ? [...(params.cc ?? []), params.facturationEmail]
+          : params.cc
 
       const persistGmail = async (gmailMessageId: string, gmailThreadId: string | null) => {
         await recordOutbound(thread, {
@@ -147,7 +183,7 @@ export async function sendClientEmail(
           rfcMessageId,
           fromEmail: mailbox.email,
           toEmails: [params.to],
-          cc: params.cc ?? null,
+          cc: cc ?? null,
           subject: effectiveSubject,
           html: params.html,
           inReplyTo: tail.lastRfcMessageId,
@@ -166,7 +202,7 @@ export async function sendClientEmail(
         const raw = await buildRawMessage({
           from: mailbox.email,
           to: params.to,
-          cc: params.cc,
+          cc,
           subject: effectiveSubject,
           html: params.html,
           messageId: rfcMessageId,
@@ -206,7 +242,7 @@ export async function sendClientEmail(
   try {
     const result = await sendEmail({
       to: params.to,
-      subject: params.subject,
+      subject: effectiveSubject,
       html: params.html,
       replyTo: params.replyTo,
       facturationEmail: params.facturationEmail,
@@ -221,7 +257,7 @@ export async function sendClientEmail(
       fromEmail: null,
       toEmails: [params.to],
       cc: params.cc ?? null,
-      subject: params.subject,
+      subject: effectiveSubject,
       html: params.html,
       inReplyTo: null,
       references: null,

@@ -218,6 +218,18 @@ export function buildQuoteEmailSubject(
   return `Votre devis ${quoteNumber} — ${restaurantName}`
 }
 
+// Sujet du fil booking (decision 08/07) : libelle evenement stable plutot que
+// le sujet du 1er email (sinon tout le dossier vit sous "Re: Votre devis
+// DEV-1", devis v2 compris). Contraction francaise sur le nom du restaurant.
+export function buildThreadSubject(restaurantName: string): string {
+  const n = restaurantName.trim()
+  if (/^l'/i.test(n)) return `Votre événement à l'${n.slice(2)}`
+  if (/^le\s/i.test(n)) return `Votre événement au ${n.slice(3)}`
+  if (/^la\s/i.test(n)) return `Votre événement à la ${n.slice(3)}`
+  if (/^les\s/i.test(n)) return `Votre événement aux ${n.slice(4)}`
+  return `Votre événement au ${n}`
+}
+
 // ═══════════════════════════════════════════════
 // Template B: Facture d'acompte + Lien Stripe
 // ═══════════════════════════════════════════════
