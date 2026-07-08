@@ -24,13 +24,13 @@ Besoins couverts (ajouts du 04/07 en gras) :
 |---|---|
 | Boîte mail | Une par commercial : chaque commercial connecte son Gmail (OAuth par utilisateur). |
 | Granularité des fils | **Hybride** : un fil par booking (devis + acompte + solde), un fil par contact pour les ponctuels hors booking, un fil « facturation » séparé si le destinataire principal change (ex : compta@). |
-| Sujet du fil | Figé au premier message, envois suivants en `Re: …`. Fil booking ouvert au premier devis (sujet généré depuis l'événement, ex « Votre événement du 12/09 — Pasparisien ») ; fil contact ouvert au premier ponctuel (sujet saisi dans le composer). |
+| Sujet du fil | Figé au premier message, envois suivants en `Re: …`. Fil booking ouvert au premier devis, sujet généré depuis l'événement — format acté le 08/07 : « Votre événement au {restaurant} » (`buildThreadSubject`, contraction française Le/La/Les/L'), appliqué aux DEUX transports mais seulement quand `GMAIL_INTEGRATION_ENABLED` est ON (master OFF = sujets historiques, déploiement no-op côté client ; le fil stocke quand même son libellé événement). Fil contact ouvert au premier ponctuel (sujet saisi dans le composer). |
 | Expéditeur | **L'acteur connecté** (celui qui clique) s'il a un Gmail actif ; sinon le commercial assigné (`assigned_user_ids[0]`) s'il en a un ; sinon Resend. Les flux automatiques (acompte post-signature) partent du commercial assigné. |
 | Multi-boîtes | Un fil CRM peut traverser plusieurs boîtes (multi-acteur, réassignation) : le threading côté client repose sur `References`/`In-Reply-To` (Message-ID RFC 2822) + sujet en `Re:`, pas sur le threadId Gmail. On suit un `gmail_thread_id` par boîte impliquée. |
 | Capture des réponses | Polling ciblé (cron backend) via `history.list`, pas de Gmail watch/Pub-Sub. |
 | Envoi | Gmail API `messages.send`, MIME RFC 2822 construit via nodemailer/MailComposer (base64url), `threadId` + `In-Reply-To`/`References` depuis `rfc_message_id`. |
 | Fallback | Resend reste le défaut. Fallback **uniquement sur erreur franche avant envoi** (400/401/403). Sur timeout/5xx ambigu : vérification `rfc822msgid:` via gmail.readonly avant de décider. **Jamais** de fallback sur un échec de journalisation. |
-| Activation | Deux switches env distincts `GMAIL_SENDING_ENABLED` / `GMAIL_POLLING_ENABLED` (défaut OFF) + flag pilote `user_gmail_accounts.sending_enabled` (défaut false, activé à la main). |
+| Activation | **Master switch** `GMAIL_INTEGRATION_ENABLED` (défaut OFF, seule la valeur `'true'` active ; variable absente = OFF). Quand OFF : pas de connexion possible et `gmailClient()` renvoie `null`, donc **envoi et polling retombent sur Resend même si leurs propres flags sont ON**. Sous-switches, effectifs seulement si le master est ON : `GMAIL_SENDING_ENABLED` / `GMAIL_POLLING_ENABLED` (défaut OFF) + flag pilote `user_gmail_accounts.sending_enabled` (défaut false, activé à la main). Helper unique `isGmailIntegrationEnabled()` (backend/src/lib/gmail.ts). |
 | App Google | Écran de consentement **Internal** (mono-groupe, même Workspace) → aucun audit/CASA. |
 | Stockage tokens | Table dédiée `user_gmail_accounts`, refresh token **chiffré** (clé en env), accessible **service-role uniquement** (aucune policy SELECT client sur le token). Tranché : pas de stockage en clair. |
 | State OAuth | **Signé** (HMAC + expiration) et vérifié au callback — le pattern Calendar actuel (state brut) est vulnérable CSRF, à corriger au passage. |
@@ -203,9 +203,14 @@ Feature-folder `src/features/emails/`.
 
 - **Phase 0bis déployable seule** : 100 % Resend, aucun changement de comportement visible, mais
   envoi factorisé + journalisation complète + onglet trace déjà en prod.
-- **Deux kill switches** : `GMAIL_SENDING_ENABLED` OFF → tout repart en Resend instantanément ;
-  `GMAIL_POLLING_ENABLED` indépendant → couper l'envoi ne coupe pas la capture des réponses des
-  fils en cours (et vice-versa).
+- **Master switch `GMAIL_INTEGRATION_ENABLED`** (défaut OFF) : coupe tout Gmail d'un coup
+  (connexion, envoi, polling), quels que soient les sous-switches. `gmailClient()` renvoie `null`
+  quand OFF, donc l'envoi retombe sur Resend et le polling n'obtient aucun client. Le front gate
+  l'UI de connexion sur `integration_enabled` (renvoyé par `/api/gmail/status`) : carte « bientôt
+  disponible » désactivée tant que OFF, jamais de bouton qui échoue.
+- **Deux sous-kill-switches** (effectifs si le master est ON) : `GMAIL_SENDING_ENABLED` OFF → les
+  envois repartent en Resend ; `GMAIL_POLLING_ENABLED` indépendant → couper l'envoi ne coupe pas
+  la capture des réponses des fils en cours (et vice-versa).
 - **Pilote réel** : `sending_enabled` activé à la main pour un seul commercial (Thomas), les
   autres peuvent connecter leur boîte sans que leurs envois basculent.
 - **Fallback Resend** sur toute erreur franche → un devis part toujours ; les fallbacks sont

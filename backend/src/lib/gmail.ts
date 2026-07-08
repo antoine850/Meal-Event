@@ -11,10 +11,32 @@ export const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
 ]
 
+// Master switch de l'integration Gmail. Defaut OFF : seule la valeur exacte
+// 'true' active (variable absente/vide/autre => OFF). Gate le flux de connexion,
+// et gmailClient() renvoie null quand OFF (donc envoi/polling des phases 2-3
+// retombent sur Resend meme si leurs propres flags sont ON).
+export function isGmailIntegrationEnabled(): boolean {
+  return process.env.GMAIL_INTEGRATION_ENABLED === 'true'
+}
+
+// Sous-switch d'envoi. Effectif seulement si le master est ON.
+export function isGmailSendingEnabled(): boolean {
+  return isGmailIntegrationEnabled() && process.env.GMAIL_SENDING_ENABLED === 'true'
+}
+
+// Sous-switch de polling (phase 3). Effectif seulement si le master est ON.
+// Independant de l'envoi : couper l'envoi ne coupe pas la capture des reponses.
+export function isGmailPollingEnabled(): boolean {
+  return isGmailIntegrationEnabled() && process.env.GMAIL_POLLING_ENABLED === 'true'
+}
+
+// Client OAuth dedie a Gmail, distinct de Calendar (GOOGLE_CLIENT_*) : les
+// scopes gmail.send/readonly sont "restricted" et l'app vit sur son propre
+// ecran de consentement (Internal, mono-groupe) sans toucher Calendar.
 function getGmailOAuthClient() {
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GMAIL_CLIENT_ID,
+    process.env.GMAIL_CLIENT_SECRET,
     process.env.GMAIL_REDIRECT_URI
   )
 }
@@ -94,6 +116,8 @@ export async function handleGmailCallback(code: string, state: string) {
 // Client Gmail authentifie pour un utilisateur, ou null s'il n'a pas de compte
 // connecte. Utilise en phases 2-3 (envoi/polling).
 export async function gmailClient(userId: string) {
+  if (!isGmailIntegrationEnabled()) return null
+
   const { data: account } = await supabase
     .from('user_gmail_accounts')
     .select('refresh_token, status')
@@ -142,4 +166,33 @@ export async function disconnectGmail(userId: string) {
   }
 
   await supabase.from('user_gmail_accounts').delete().eq('user_id', userId)
+}
+
+// Verifie qu'un message qu'on croit avoir envoye existe bien (apres timeout ambigu).
+// Renvoie le gmail_message_id trouve, sinon null.
+export async function findByRfcMessageId(
+  client: NonNullable<Awaited<ReturnType<typeof gmailClient>>>,
+  rfcMessageId: string
+): Promise<string | null> {
+  try {
+    const bare = rfcMessageId.replace(/^<|>$/g, '')
+    const { data } = await client.users.messages.list({
+      userId: 'me',
+      q: `rfc822msgid:${bare}`,
+      maxResults: 1,
+    })
+    return data.messages?.[0]?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+// Marque un compte comme revoque (401/invalid_grant) : coupe les futurs envois
+// Gmail de cette boite et alimente le bandeau reglages. Best-effort.
+export async function markAccountRevoked(userId: string, err: unknown): Promise<void> {
+  const message = err instanceof Error ? err.message : String(err)
+  await supabase
+    .from('user_gmail_accounts')
+    .update({ status: 'revoked', last_error: message } as never)
+    .eq('user_id', userId)
 }

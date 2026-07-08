@@ -86,6 +86,14 @@ export function GmailSettings() {
           <div className='flex items-center justify-center py-6'>
             <Loader2 className='h-5 w-5 animate-spin text-muted-foreground' />
           </div>
+        ) : !status?.integration_enabled ? (
+          <div className='flex items-center justify-between'>
+            <p className='text-sm text-muted-foreground'>Bientôt disponible.</p>
+            <Button disabled className='gap-2'>
+              <Mail className='h-4 w-4' />
+              Connecter mon Gmail
+            </Button>
+          </div>
         ) : status?.connected ? (
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-2'>

@@ -4,28 +4,23 @@ import {
   handleGmailCallback,
   getGmailAccountStatus,
   disconnectGmail,
+  isGmailIntegrationEnabled,
 } from '../lib/gmail.js'
 
 export const gmailRouter = Router()
 export const gmailPublicRouter = Router()
 
-// Flag d'activation phase 1 : tant qu'il n'est pas 'true', le flux de connexion
-// est eteint (Google Cloud pas encore configure).
-function integrationEnabled(): boolean {
-  return process.env.GMAIL_INTEGRATION_ENABLED === 'true'
-}
-
 // GET /api/gmail/auth-url — genere l'URL de consentement pour l'utilisateur courant.
 gmailRouter.get('/auth-url', async (req: Request, res: Response) => {
   try {
-    if (!integrationEnabled()) {
+    if (!isGmailIntegrationEnabled()) {
       return res.status(503).json({ error: 'Gmail integration disabled' })
     }
     const userId = (req as any).user?.id as string | undefined
     if (!userId) return res.status(401).json({ error: 'Unauthenticated' })
     if (
-      !process.env.GOOGLE_CLIENT_ID ||
-      !process.env.GOOGLE_CLIENT_SECRET ||
+      !process.env.GMAIL_CLIENT_ID ||
+      !process.env.GMAIL_CLIENT_SECRET ||
       !process.env.GMAIL_REDIRECT_URI ||
       !process.env.GMAIL_OAUTH_STATE_SECRET ||
       !process.env.GMAIL_TOKEN_ENC_KEY
@@ -44,7 +39,9 @@ gmailRouter.get('/status', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id as string | undefined
     if (!userId) return res.status(401).json({ error: 'Unauthenticated' })
-    return res.json(await getGmailAccountStatus(userId))
+    const status = await getGmailAccountStatus(userId)
+    // Le front gate l'UI de connexion sur ce flag (bouton vs "bientot disponible").
+    return res.json({ ...status, integration_enabled: isGmailIntegrationEnabled() })
   } catch (error) {
     console.error('[Gmail] status error:', error)
     return res.status(500).json({ error: 'Failed to get status' })
@@ -69,6 +66,10 @@ gmailPublicRouter.get('/callback', async (req: Request, res: Response) => {
   const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.fr'
   const settingsUrl = `${frontendBase}/settings/integrations`
   try {
+    // Master switch OFF : ne jamais stocker de token (lien OAuth traînant, flag coupe en cours de flux).
+    if (!isGmailIntegrationEnabled()) {
+      return res.redirect(`${settingsUrl}?gmail_error=integration_disabled`)
+    }
     const code = req.query.code as string
     const state = req.query.state as string
     const error = req.query.error as string

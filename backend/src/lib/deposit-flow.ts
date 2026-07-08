@@ -192,11 +192,13 @@ export async function createAndSendDeposit(
     bookingId: booking?.id || null,
     quoteId,
     emailType: 'deposit_invoice',
+    actorUserId: opts.actorUserId ?? null,
     to: contact.email,
     subject,
     html,
     replyTo: commercial.email || restaurant?.email || undefined,
     facturationEmail: facturationEmail || undefined,
+    ccFacturation: true,
     attachments: [
       {
         filename: `facture-acompte-${quoteData.quote_number}.pdf`,

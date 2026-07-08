@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import dotenv from 'dotenv'
 
 import { requireAuth, requireOrgAdmin } from './lib/auth.js'
+import { startGmailPolling } from './lib/gmail-poll.js'
 import { organizationsRouter } from './routes/organizations.js'
 import { restaurantsRouter } from './routes/restaurants.js'
 import { contactsRouter } from './routes/contacts.js'
@@ -140,6 +141,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
+  startGmailPolling()
 })
 
 export default app

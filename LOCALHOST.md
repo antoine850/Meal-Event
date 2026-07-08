@@ -79,6 +79,17 @@ FRONTEND_URL=http://localhost:5173
 
 # Port
 PORT=3001
+
+# Gmail (optionnel) — laisser tout OFF tant que la console Google Cloud n'est pas prete
+GMAIL_CLIENT_ID=                                       # client OAuth dedie Gmail (app Internal, distinct de Calendar)
+GMAIL_CLIENT_SECRET=
+GMAIL_REDIRECT_URI=http://localhost:3001/api/gmail/callback
+GMAIL_TOKEN_ENC_KEY=                                   # cle hex 32 octets (openssl rand -hex 32) pour chiffrer les refresh tokens
+GMAIL_OAUTH_STATE_SECRET=                              # secret de signature du state OAuth
+GMAIL_INTEGRATION_ENABLED=false                        # master switch : coupe toute l'integration Gmail
+GMAIL_SENDING_ENABLED=false                            # phase 2 : envoi via la boite du commercial (effectif seulement si le master est ON)
+GMAIL_POLLING_ENABLED=false                            # phase 3 : polling des reponses (effectif seulement si le master est ON)
+GMAIL_POLLING_INTERVAL_MS=180000                       # intervalle du polling en ms (defaut 3 min)
 ```
 
 ### 2. Installation et lancement

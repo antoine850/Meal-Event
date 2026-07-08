@@ -6,6 +6,7 @@ type GmailStatus = {
   email: string | null
   status: string | null
   sending_enabled: boolean
+  integration_enabled: boolean
 }
 
 export function useGmailStatus() {
