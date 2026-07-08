@@ -31,4 +31,20 @@ describe('gmail polling wiring', () => {
     expect(poll).toContain('getProfile')
     expect(poll).toContain('threads.get')
   })
+
+  it('runGmailPoll gate sur le flag et isole les erreurs par boite', () => {
+    const poll = read('lib/gmail-poll.ts')
+    expect(poll).toContain('isGmailPollingEnabled()')
+    expect(poll).toContain('markAccountRevoked')
+    expect(poll).toContain('classifyGmailError')
+    expect(poll).toContain("eq('status', 'connected')")
+  })
+
+  it('startGmailPolling: setInterval avec garde in-flight', () => {
+    const poll = read('lib/gmail-poll.ts')
+    expect(poll).toContain('export function startGmailPolling')
+    expect(poll).toContain('setInterval')
+    expect(poll).toContain('GMAIL_POLLING_INTERVAL_MS')
+    expect(poll).toContain('pollInFlight')
+  })
 })

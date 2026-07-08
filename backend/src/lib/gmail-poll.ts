@@ -2,7 +2,12 @@
 // puis orchestration du polling par boite (pollAccount/runGmailPoll).
 
 import { recordInbound } from './email-threads.js'
-import { gmailClient } from './gmail.js'
+import { classifyGmailError } from './gmail-mime.js'
+import {
+  gmailClient,
+  isGmailPollingEnabled,
+  markAccountRevoked,
+} from './gmail.js'
 import { supabase } from './supabase.js'
 
 export interface MessageStub {
@@ -319,4 +324,70 @@ export async function pollAccount(
     account.history_id
   await saveCursor(account.user_id, String(newCursor))
   return { inserted }
+}
+
+// Un tick : toutes les boites connectees. Une boite en erreur n'empeche pas
+// les autres ; son curseur reste en place (le tick suivant reprend au meme
+// point, l'intervalle fait office de backoff sur 429/5xx).
+export async function runGmailPoll(): Promise<{
+  accounts: number
+  inserted: number
+}> {
+  if (!isGmailPollingEnabled()) return { accounts: 0, inserted: 0 }
+  const { data: accounts } = await supabase
+    .from('user_gmail_accounts')
+    .select('user_id, google_email, history_id')
+    .eq('status', 'connected')
+  let polled = 0
+  let inserted = 0
+  for (const account of (accounts ?? []) as PollableAccount[]) {
+    try {
+      const gmail = await gmailClient(account.user_id)
+      if (!gmail) continue
+      const res = await pollAccount(gmail, account)
+      polled += 1
+      inserted += res.inserted
+    } catch (err) {
+      if (classifyGmailError(err) === 'revoked') {
+        console.warn(`[gmail-poll] boite ${account.user_id} revoquee, polling coupe`)
+        await markAccountRevoked(account.user_id, err)
+      } else {
+        console.error(
+          `[gmail-poll] boite ${account.user_id}:`,
+          err instanceof Error ? err.message : err
+        )
+      }
+    }
+  }
+  return { accounts: polled, inserted }
+}
+
+let pollInFlight = false
+
+// Demarre la boucle si le flag est ON (lu au boot : flip = restart, Render
+// redemarre sur changement d'env). Garde in-flight : un tick lent ne s'empile
+// pas sur le suivant. Pas de verrou multi-instance : curseur idempotent +
+// dedup par gmail_message_id rendent le double-run inoffensif.
+export function startGmailPolling(): void {
+  if (!isGmailPollingEnabled()) return
+  const interval = Number(process.env.GMAIL_POLLING_INTERVAL_MS) || 180_000
+  setInterval(async () => {
+    if (pollInFlight) return
+    pollInFlight = true
+    try {
+      const { accounts, inserted } = await runGmailPoll()
+      if (inserted > 0) {
+        console.log(
+          `[gmail-poll] ${inserted} message(s) ingere(s) sur ${accounts} boite(s)`
+        )
+      }
+    } catch (err) {
+      console.error(
+        '[gmail-poll] tick en echec:',
+        err instanceof Error ? err.message : err
+      )
+    } finally {
+      pollInFlight = false
+    }
+  }, interval)
 }
