@@ -676,6 +676,11 @@ async function resyncAccount(
   console.warn(
     `[gmail-poll] historyId expire pour ${account.user_id}, resync de ${threadByGmailId.size} fil(s)`
   )
+  // Curseur capture AVANT la boucle : une reponse arrivant pendant le resync
+  // (apres le threads.get de son fil) est >= ce point, donc reprise au tick
+  // suivant, rededupliquee. Le semer apres la boucle raterait cette fenetre.
+  const { data: profile } = await gmail.users.getProfile({ userId: 'me' })
+  const cursor = profile.historyId ? String(profile.historyId) : null
   let inserted = 0
   for (const [gmailThreadId, crmThreadId] of threadByGmailId) {
     let thread: any
@@ -698,11 +703,7 @@ async function resyncAccount(
       if (await ingestMessage(msg, account, crmThreadId)) inserted += 1
     }
   }
-  const { data: profile } = await gmail.users.getProfile({ userId: 'me' })
-  await saveCursor(
-    account.user_id,
-    profile.historyId ? String(profile.historyId) : null
-  )
+  await saveCursor(account.user_id, cursor)
   return { inserted }
 }
 
