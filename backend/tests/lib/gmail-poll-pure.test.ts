@@ -11,7 +11,7 @@ import {
 const b64url = (s: string) => Buffer.from(s, 'utf-8').toString('base64url')
 
 describe('collectAddedStubs', () => {
-  it('extrait les messagesAdded, dedupe entre pages, exclut SPAM/TRASH', () => {
+  it('extrait les messagesAdded, dedupe entre pages, exclut SPAM/TRASH/DRAFT', () => {
     const pages = [
       {
         history: [
@@ -29,6 +29,7 @@ describe('collectAddedStubs', () => {
             messagesAdded: [
               { message: { id: 'm1', threadId: 't1', labelIds: ['INBOX'] } },
               { message: { id: 'm3', threadId: 't2', labelIds: ['TRASH'] } },
+              { message: { id: 'm5', threadId: 't1', labelIds: ['DRAFT'] } },
               { message: { id: 'm4', threadId: 't2' } },
             ],
           },
@@ -80,6 +81,10 @@ describe('parsing adresses et headers', () => {
     expect(parseAddressList('A <a@x.fr>, b@y.fr')).toEqual(['a@x.fr', 'b@y.fr'])
     expect(parseAddressList(null)).toEqual([])
   })
+
+  it('parseAddressList ecarte les fragments de display-name quotes', () => {
+    expect(parseAddressList('"Dupont, Jean" <jean@x.fr>')).toEqual(['jean@x.fr'])
+  })
 })
 
 describe('extractBodies', () => {
@@ -106,5 +111,16 @@ describe('extractBodies', () => {
 
   it('payload vide -> les deux null', () => {
     expect(extractBodies(undefined)).toEqual({ html: null, text: null })
+  })
+
+  it('respecte le charset declare par la partie (latin1/windows-1252)', () => {
+    const payload = {
+      mimeType: 'text/plain',
+      headers: [
+        { name: 'Content-Type', value: 'text/plain; charset=ISO-8859-1' },
+      ],
+      body: { data: Buffer.from('café prévu', 'latin1').toString('base64url') },
+    }
+    expect(extractBodies(payload)).toEqual({ html: null, text: 'café prévu' })
   })
 })
