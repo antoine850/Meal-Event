@@ -21,12 +21,15 @@ function formatDate(iso: string | null): string {
 
 function MessageBody({ message }: { message: EmailMessage }) {
   if (message.body_html) {
+    // FORBID style : une balise <style> d'un email hostile s'appliquerait a
+    // toute la page ; contain:paint clippe aussi les position:fixed du corps.
     const safeHtml = DOMPurify.sanitize(message.body_html, {
       USE_PROFILES: { html: true },
+      FORBID_TAGS: ['style'],
     })
     return (
       <div
-        className='max-h-96 overflow-auto text-sm [&_a]:text-primary [&_a]:underline'
+        className='max-h-96 overflow-auto text-sm [contain:paint] [&_a]:text-primary [&_a]:underline'
         dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
     )

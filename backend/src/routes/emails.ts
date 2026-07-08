@@ -21,17 +21,34 @@ emailsRouter.post('/reply', async (req: Request, res: Response) => {
     if (!bookingId || !message?.trim()) {
       return res.status(400).json({ error: 'bookingId et message requis' })
     }
+    if (!actorUserId) {
+      return res.status(401).json({ error: 'Unauthenticated' })
+    }
 
     const { data: booking } = await supabase
       .from('bookings')
       .select('id, organization_id, contact:contacts(email)')
       .eq('id', bookingId)
       .single()
+
+    // Garde multi-tenant : la route tourne en service-role et le corps du
+    // message est libre, un acteur d'une autre org ne doit ni ecrire dans ce
+    // fil ni apprendre que le booking existe (meme 404 dans les deux cas).
+    const { data: actor } = await supabase
+      .from('users')
+      .select('first_name, last_name, organization_id')
+      .eq('id', actorUserId)
+      .single()
+    if (
+      !booking ||
+      !actor ||
+      (actor as any).organization_id !== (booking as any).organization_id
+    ) {
+      return res.status(404).json({ error: 'Booking introuvable' })
+    }
     const contactEmail = (booking as any)?.contact?.email as string | undefined
-    if (!booking || !contactEmail) {
-      return res
-        .status(400)
-        .json({ error: 'Booking introuvable ou contact sans email' })
+    if (!contactEmail) {
+      return res.status(400).json({ error: 'Contact sans adresse email' })
     }
 
     // Destinataire : le From du dernier message entrant du fil, sinon le
@@ -57,16 +74,7 @@ emailsRouter.post('/reply', async (req: Request, res: Response) => {
       if ((lastIn as any)?.from_email) to = (lastIn as any).from_email
     }
 
-    let signature = ''
-    if (actorUserId) {
-      const { data: user } = await supabase
-        .from('users')
-        .select('first_name, last_name')
-        .eq('id', actorUserId)
-        .single()
-      if (user)
-        signature = `${(user as any).first_name} ${(user as any).last_name}`
-    }
+    const signature = `${(actor as any).first_name} ${(actor as any).last_name}`
     const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;">${esc(
       message.trim()
     ).replace(/\n/g, '<br/>')}${signature ? `<br/><br/>${esc(signature)}` : ''}</div>`

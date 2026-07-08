@@ -77,12 +77,18 @@ fiche contact et le remplacement du menu « envoyer un email » suivront.
 
 ## Sécurité
 
-- DOMPurify sur tout `body_html` entrant, profil html standard. Les images
-  distantes restent autorisées (v1, emails clients en contiennent rarement).
+- DOMPurify sur tout `body_html` entrant, profil html standard **+
+  `FORBID_TAGS: ['style']`** (une balise `<style>` s'appliquerait à toute la
+  page) et **`contain:paint`** sur le conteneur (clippe les `position:fixed`
+  d'un email hostile qui recouvriraient l'app). Les images distantes restent
+  autorisées (v1, emails clients en contiennent rarement).
 - Le html de la réponse est construit côté serveur à partir de texte
   échappé — pas de html libre depuis le front.
-- Multi-tenant : lecture via RLS `select_org` ; la route reply vérifie le
-  booking et passe par le plumbing service-role existant.
+- Multi-tenant : lecture via RLS `select_org` ; la route reply (service-role,
+  corps libre) vérifie que **l'acteur appartient à l'org du booking** et
+  renvoie le même 404 pour « inexistant » et « autre org » (pas de fuite
+  d'existence). Note : les routes d'envoi historiques (quotes/payments) n'ont
+  pas cette garde — chantier séparé signalé.
 
 ## Hors périmètre (itération 4b)
 

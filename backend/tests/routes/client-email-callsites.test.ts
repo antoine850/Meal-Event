@@ -81,6 +81,8 @@ describe('client emails go through sendClientEmail', () => {
     const emails = read('routes/emails.ts')
     expect(emails).toContain('sendClientEmail')
     expect(emails).toContain("emailType: 'manual_reply'")
+    // Garde multi-tenant : l'acteur doit appartenir a l'org du booking.
+    expect(emails).toContain('organization_id !==')
     const index = read('index.ts')
     expect(index).toContain("app.use('/api/emails', requireAuth, emailsRouter)")
   })
