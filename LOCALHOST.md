@@ -88,7 +88,8 @@ GMAIL_TOKEN_ENC_KEY=                                   # cle hex 32 octets (open
 GMAIL_OAUTH_STATE_SECRET=                              # secret de signature du state OAuth
 GMAIL_INTEGRATION_ENABLED=false                        # master switch : coupe toute l'integration Gmail
 GMAIL_SENDING_ENABLED=false                            # phase 2 : envoi via la boite du commercial (effectif seulement si le master est ON)
-GMAIL_POLLING_ENABLED=false                            # phase 3 : polling des reponses (declare ici, consomme en phase 3)
+GMAIL_POLLING_ENABLED=false                            # phase 3 : polling des reponses (effectif seulement si le master est ON)
+GMAIL_POLLING_INTERVAL_MS=180000                       # intervalle du polling en ms (defaut 3 min)
 ```
 
 ### 2. Installation et lancement

@@ -47,4 +47,9 @@ describe('gmail polling wiring', () => {
     expect(poll).toContain('GMAIL_POLLING_INTERVAL_MS')
     expect(poll).toContain('pollInFlight')
   })
+
+  it('index.ts demarre la boucle apres listen', () => {
+    const index = read('index.ts')
+    expect(index).toContain('startGmailPolling()')
+  })
 })
