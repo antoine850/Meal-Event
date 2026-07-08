@@ -44,7 +44,12 @@ export async function getOrCreateThread(input: {
       .eq('booking_id', input.bookingId)
       .eq('kind', input.kind)
       .maybeSingle()
-    if (existing) return { id: existing.id, subject: existing.subject ?? input.subject, isNew: false }
+    if (existing)
+      return {
+        id: existing.id,
+        subject: existing.subject ?? input.subject,
+        isNew: false,
+      }
   } else if (input.contactId) {
     const { data: existing } = await base
       .select('id, subject')
@@ -53,7 +58,12 @@ export async function getOrCreateThread(input: {
       .is('booking_id', null)
       .eq('status', 'open')
       .maybeSingle()
-    if (existing) return { id: existing.id, subject: existing.subject ?? input.subject, isNew: false }
+    if (existing)
+      return {
+        id: existing.id,
+        subject: existing.subject ?? input.subject,
+        isNew: false,
+      }
   }
 
   // Race select-then-insert : deux envois simultanes sur le meme (booking_id, kind)
@@ -70,7 +80,11 @@ export async function getOrCreateThread(input: {
     .select('id, subject')
     .single()
   if (error) throw new Error(`getOrCreateThread: ${error.message}`)
-  return { id: created.id, subject: created.subject ?? input.subject, isNew: true }
+  return {
+    id: created.id,
+    subject: created.subject ?? input.subject,
+    isNew: true,
+  }
 }
 
 // Dernier message du fil : rfc_message_id (In-Reply-To/References, toutes boites)
@@ -78,7 +92,10 @@ export async function getOrCreateThread(input: {
 export async function getThreadTail(
   threadId: string,
   senderUserId: string
-): Promise<{ lastRfcMessageId: string | null; gmailThreadIdForSender: string | null }> {
+): Promise<{
+  lastRfcMessageId: string | null
+  gmailThreadIdForSender: string | null
+}> {
   const { data: last } = await supabase
     .from('email_messages')
     .select('rfc_message_id')
@@ -118,7 +135,9 @@ export async function resolveSenderMailbox(input: {
       .select('assigned_user_ids')
       .eq('id', input.bookingId)
       .single()
-    const assigned = (booking as any)?.assigned_user_ids?.[0] as string | undefined
+    const assigned = (booking as any)?.assigned_user_ids?.[0] as
+      | string
+      | undefined
     if (assigned && assigned !== input.actorUserId) ids.push(assigned)
   }
   if (ids.length === 0) return null
@@ -194,4 +213,62 @@ export async function recordOutbound(
   } catch (err) {
     console.error('[email-threads] recordOutbound threw:', err)
   }
+}
+
+// Materialise un message capte par le polling (phase 3). Idempotent : l'index
+// unique partiel sur gmail_message_id fait la dedup (23505 = deja en base, pas
+// une erreur ; pas d'upsert onConflict car PostgREST ne cible pas un index
+// partiel). Contrairement a recordOutbound, un throw transport peut remonter :
+// le curseur n'avance pas et le tick suivant re-traite (at-least-once). Une
+// autre erreur {error} (FK/NOT NULL/RLS) est deterministe : on drope le message
+// (false) plutot que de bloquer le curseur a jamais sur un message empoisonne.
+export async function recordInbound(msg: {
+  threadId: string
+  direction: 'inbound' | 'outbound'
+  senderUserId: string | null
+  gmailThreadId: string | null
+  gmailMessageId: string
+  rfcMessageId: string | null
+  fromEmail: string | null
+  toEmails: string[]
+  cc: string[]
+  subject: string | null
+  bodyHtml: string | null
+  bodyText: string | null
+  snippet: string | null
+  sentAt: string | null
+  inReplyTo: string | null
+  references: string | null
+}): Promise<boolean> {
+  const { error } = await supabase.from('email_messages').insert({
+    thread_id: msg.threadId,
+    direction: msg.direction,
+    provider: 'gmail',
+    sender_user_id: msg.senderUserId,
+    gmail_thread_id: msg.gmailThreadId,
+    gmail_message_id: msg.gmailMessageId,
+    rfc_message_id: msg.rfcMessageId,
+    from_email: msg.fromEmail,
+    to_emails: msg.toEmails,
+    cc: msg.cc,
+    subject: msg.subject,
+    body_html: msg.bodyHtml,
+    body_text: msg.bodyText,
+    snippet: msg.snippet,
+    sent_at: msg.sentAt,
+    in_reply_to: msg.inReplyTo,
+    references_header: msg.references,
+  } as never)
+  if (error) {
+    if (error.code === '23505') return false
+    console.error('[email-threads] recordInbound insert failed:', error)
+    return false
+  }
+  await supabase
+    .from('email_threads')
+    .update({
+      last_message_at: msg.sentAt ?? new Date().toISOString(),
+    } as never)
+    .eq('id', msg.threadId)
+  return true
 }
