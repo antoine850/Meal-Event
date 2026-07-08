@@ -33,10 +33,14 @@ gérés. Phase 100 % backend : pas d'UI, pas de sous-système de notification.
   de l'envoi. Lu au démarrage de la boucle : flip = restart (Render redémarre
   sur changement d'env de toute façon).
 - `backend/src/lib/gmail-poll.ts` (nouveau) :
-  - helpers purs : `collectAddedStubs` (stubs `messagesAdded` hors SPAM/TRASH,
-    dédupliqués entre pages), `classifyDirection` (From == boîte ⇒ outbound),
-    `getHeader`, `parseAddress`, `parseAddressList`, `extractBodies` (walk du
-    payload MIME, base64url).
+  - helpers purs : `collectAddedStubs` (stubs `messagesAdded` hors
+    SPAM/TRASH/DRAFT — chaque autosave de brouillon crée un `messageAdded` à id
+    neuf qui ne se réconcilie jamais avec le message envoyé — dédupliqués entre
+    pages), `classifyDirection` (From == boîte ⇒ outbound), `getHeader`,
+    `parseAddress`, `parseAddressList`, `extractBodies` (walk du payload MIME,
+    base64url, charset du Content-Type respecté — Gmail décode le
+    transfer-encoding mais pas le charset, et windows-1252 reste courant chez
+    les expéditeurs français).
   - `pollAccount(gmail, account)` — poll d'une boîte, client injecté.
   - `resyncAccount(...)` — chemin 404 (historyId expiré).
   - `runGmailPoll()` — orchestrateur : gate flag, itère les boîtes
@@ -59,7 +63,7 @@ gérés. Phase 100 % backend : pas d'UI, pas de sous-système de notification.
 2. `history_id` null ? → seed via `getProfile`, fin du tick pour cette boîte.
 3. `history.list(startHistoryId, historyTypes=[messageAdded])` + pagination.
 4. Filtre **sur les stubs** (id + threadId + labelIds, pas de fetch) :
-   threadId ∈ fils suivis, labels sans SPAM/TRASH.
+   threadId ∈ fils suivis, labels sans SPAM/TRASH/DRAFT.
 5. Skip des ids déjà en base (nos propres envois CRM notamment) — pas de
    `messages.get` inutile, économie de quota sur le scope restricted.
 6. `messages.get(format=full)` sur les survivants → `recordInbound` + bump
@@ -79,7 +83,7 @@ cas bonus du spec général), sinon `inbound` (`sender_user_id = null`).
 | `history_id` expiré → **404**   | resync borné aux fils suivis de la boîte : `threads.get` par fil, ingestion des manquants, re-seed via `getProfile`. Un fil supprimé côté Gmail (404) est sauté. Jamais avalé en silence (warn loggé) |
 | **401 / invalid_grant**         | `classifyGmailError` ⇒ `markAccountRevoked` (existant) → bandeau réglages                                                                                                                             |
 | **429 / 5xx**                   | curseur inchangé, erreur loggée ; le tick suivant (3 min) reprend au même point — l'intervalle **est** le backoff                                                                                     |
-| SPAM / TRASH                    | exclus au filtre labelIds (stubs et resync)                                                                                                                                                           |
+| SPAM / TRASH / DRAFT            | exclus au filtre labelIds (stubs et resync)                                                                                                                                                           |
 | Expéditeur ≠ email du contact   | stocké tel quel (`from_email` brut) ; marqueur « autre adresse » = dérivation read-time en Phase 4, pas de colonne                                                                                    |
 | Boîte en erreur                 | isolée : ne bloque pas les autres boîtes du tick                                                                                                                                                      |
 | Échec en cours de batch         | curseur non avancé → re-traitement au tick suivant, redédupliqué par `gmail_message_id` (at-least-once)                                                                                               |

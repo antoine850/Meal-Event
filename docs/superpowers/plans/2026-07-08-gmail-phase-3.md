@@ -144,7 +144,7 @@ import {
 const b64url = (s: string) => Buffer.from(s, 'utf-8').toString('base64url')
 
 describe('collectAddedStubs', () => {
-  it('extrait les messagesAdded, dedupe entre pages, exclut SPAM/TRASH', () => {
+  it('extrait les messagesAdded, dedupe entre pages, exclut SPAM/TRASH/DRAFT', () => {
     const pages = [
       {
         history: [
@@ -162,6 +162,7 @@ describe('collectAddedStubs', () => {
             messagesAdded: [
               { message: { id: 'm1', threadId: 't1', labelIds: ['INBOX'] } },
               { message: { id: 'm3', threadId: 't2', labelIds: ['TRASH'] } },
+              { message: { id: 'm5', threadId: 't1', labelIds: ['DRAFT'] } },
               { message: { id: 'm4', threadId: 't2' } },
             ],
           },
@@ -219,6 +220,10 @@ describe('parsing adresses et headers', () => {
     expect(parseAddressList('A <a@x.fr>, b@y.fr')).toEqual(['a@x.fr', 'b@y.fr'])
     expect(parseAddressList(null)).toEqual([])
   })
+
+  it('parseAddressList ecarte les fragments de display-name quotes', () => {
+    expect(parseAddressList('"Dupont, Jean" <jean@x.fr>')).toEqual(['jean@x.fr'])
+  })
 })
 
 describe('extractBodies', () => {
@@ -244,6 +249,17 @@ describe('extractBodies', () => {
   it('message simple non multipart', () => {
     const payload = { mimeType: 'text/plain', body: { data: b64url('salut') } }
     expect(extractBodies(payload)).toEqual({ html: null, text: 'salut' })
+  })
+
+  it('respecte le charset declare par la partie (latin1/windows-1252)', () => {
+    const payload = {
+      mimeType: 'text/plain',
+      headers: [
+        { name: 'Content-Type', value: 'text/plain; charset=ISO-8859-1' },
+      ],
+      body: { data: Buffer.from('café prévu', 'latin1').toString('base64url') },
+    }
+    expect(extractBodies(payload)).toEqual({ html: null, text: 'café prévu' })
   })
 
   it('payload vide -> les deux null', () => {
@@ -285,8 +301,14 @@ export interface HistoryPage {
   historyId?: string | null
 }
 
+export function isExcludedByLabels(labels: string[]): boolean {
+  return labels.includes('SPAM') || labels.includes('TRASH') || labels.includes('DRAFT')
+}
+
 // Stubs messagesAdded des pages history.list : dedupliques entre pages
 // (Gmail repete un message present dans plusieurs entrees), hors SPAM/TRASH.
+// DRAFT aussi : chaque autosave de brouillon cree un messageAdded a id neuf
+// qui ne se reconcilie jamais avec le message finalement envoye.
 export function collectAddedStubs(pages: HistoryPage[]): MessageStub[] {
   const seen = new Set<string>()
   const stubs: MessageStub[] = []
@@ -296,7 +318,7 @@ export function collectAddedStubs(pages: HistoryPage[]): MessageStub[] {
         const msg = added.message
         if (!msg?.id || !msg.threadId || seen.has(msg.id)) continue
         const labels = msg.labelIds ?? []
-        if (labels.includes('SPAM') || labels.includes('TRASH')) continue
+        if (isExcludedByLabels(labels)) continue
         seen.add(msg.id)
         stubs.push({ id: msg.id, threadId: msg.threadId, labelIds: labels })
       }
@@ -334,21 +356,41 @@ export function parseAddress(raw: string | null): string | null {
   return email || null
 }
 
+// Le split virgule casse les display-names quotes ("Dupont, Jean") : on ne
+// garde que les fragments qui ressemblent a une adresse.
 export function parseAddressList(raw: string | null): string[] {
   if (!raw) return []
   return raw
     .split(',')
     .map((p) => parseAddress(p))
-    .filter((x): x is string => !!x)
+    .filter((x): x is string => !!x && x.includes('@'))
 }
 
 interface MimePart {
   mimeType?: string | null
+  headers?: Array<{ name?: string | null; value?: string | null }> | null
   body?: { data?: string | null } | null
   parts?: MimePart[] | null
 }
 
-// Premiere partie text/html et text/plain du payload (walk recursif, base64url).
+// Gmail decode le transfer-encoding mais pas le charset : les octets sont ceux
+// du Content-Type de la partie (windows-1252 courant chez les expediteurs
+// francais). Fallback utf-8 si charset absent ou inconnu de TextDecoder.
+function decodePartBody(part: MimePart): string {
+  const buf = Buffer.from(part.body?.data ?? '', 'base64url')
+  const ct = getHeader(part.headers ?? undefined, 'Content-Type')
+  const charset = ct?.match(/charset="?([^";]+)"?/i)?.[1]?.trim()
+  if (charset) {
+    try {
+      return new TextDecoder(charset).decode(buf)
+    } catch {
+      // charset inconnu -> utf-8
+    }
+  }
+  return buf.toString('utf-8')
+}
+
+// Premiere partie text/html et text/plain du payload (walk recursif).
 export function extractBodies(payload: MimePart | undefined): {
   html: string | null
   text: string | null
@@ -357,11 +399,10 @@ export function extractBodies(payload: MimePart | undefined): {
   let text: string | null = null
   const walk = (part: MimePart | undefined | null): void => {
     if (!part) return
-    const data = part.body?.data
-    if (data && part.mimeType === 'text/html' && html === null) {
-      html = Buffer.from(data, 'base64url').toString('utf-8')
-    } else if (data && part.mimeType === 'text/plain' && text === null) {
-      text = Buffer.from(data, 'base64url').toString('utf-8')
+    if (part.body?.data && part.mimeType === 'text/html' && html === null) {
+      html = decodePartBody(part)
+    } else if (part.body?.data && part.mimeType === 'text/plain' && text === null) {
+      text = decodePartBody(part)
     }
     for (const p of part.parts ?? []) walk(p)
   }
@@ -373,7 +414,7 @@ export function extractBodies(payload: MimePart | undefined): {
 - [ ] **Step 4: Vérifier le pass**
 
 Run: `cd backend && pnpm exec vitest run tests/lib/gmail-poll-pure.test.ts`
-Attendu : PASS (8 tests).
+Attendu : PASS (12 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -581,15 +622,15 @@ async function filterUnknownIds(ids: string[]): Promise<Set<string>> {
   return new Set(ids.filter((id) => !known.has(id)))
 }
 
-// Materialise un message Gmail complet dans le fil CRM. false si SPAM/TRASH
-// ou deja en base (dedup 23505 dans recordInbound).
+// Materialise un message Gmail complet dans le fil CRM. false si exclu par
+// labels (SPAM/TRASH/DRAFT, ceinture-bretelles : les labels peuvent changer
+// entre le stub et le fetch) ou deja en base (dedup 23505 dans recordInbound).
 async function ingestMessage(
   full: any,
   account: PollableAccount,
   crmThreadId: string
 ): Promise<boolean> {
-  const labels: string[] = full.labelIds ?? []
-  if (labels.includes('SPAM') || labels.includes('TRASH')) return false
+  if (isExcludedByLabels(full.labelIds ?? [])) return false
   const headers = full.payload?.headers
   const fromEmail = parseAddress(getHeader(headers, 'From'))
   const direction = classifyDirection(fromEmail, account.google_email)
