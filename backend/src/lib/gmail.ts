@@ -24,10 +24,13 @@ export function isGmailSendingEnabled(): boolean {
   return isGmailIntegrationEnabled() && process.env.GMAIL_SENDING_ENABLED === 'true'
 }
 
+// Client OAuth dedie a Gmail, distinct de Calendar (GOOGLE_CLIENT_*) : les
+// scopes gmail.send/readonly sont "restricted" et l'app vit sur son propre
+// ecran de consentement (Internal, mono-groupe) sans toucher Calendar.
 function getGmailOAuthClient() {
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GMAIL_CLIENT_ID,
+    process.env.GMAIL_CLIENT_SECRET,
     process.env.GMAIL_REDIRECT_URI
   )
 }

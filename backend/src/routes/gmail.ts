@@ -19,8 +19,8 @@ gmailRouter.get('/auth-url', async (req: Request, res: Response) => {
     const userId = (req as any).user?.id as string | undefined
     if (!userId) return res.status(401).json({ error: 'Unauthenticated' })
     if (
-      !process.env.GOOGLE_CLIENT_ID ||
-      !process.env.GOOGLE_CLIENT_SECRET ||
+      !process.env.GMAIL_CLIENT_ID ||
+      !process.env.GMAIL_CLIENT_SECRET ||
       !process.env.GMAIL_REDIRECT_URI ||
       !process.env.GMAIL_OAUTH_STATE_SECRET ||
       !process.env.GMAIL_TOKEN_ENC_KEY

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 
 beforeAll(() => {
-  process.env.GOOGLE_CLIENT_ID = 'test-client-id'
-  process.env.GOOGLE_CLIENT_SECRET = 'test-secret'
+  process.env.GMAIL_CLIENT_ID = 'test-client-id'
+  process.env.GMAIL_CLIENT_SECRET = 'test-secret'
   process.env.GMAIL_REDIRECT_URI = 'https://api.example.com/api/gmail/callback'
   process.env.GMAIL_OAUTH_STATE_SECRET = 'test-state-secret'
 })
