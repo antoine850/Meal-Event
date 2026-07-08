@@ -19,6 +19,7 @@ import { googleCalendarRouter, googleCalendarPublicRouter } from './routes/googl
 import { stripeConnectRouter, stripeConnectPublicRouter } from './routes/stripe-connect.js'
 import { exportsRouter } from './routes/exports.js'
 import { gmailRouter, gmailPublicRouter } from './routes/gmail.js'
+import { emailsRouter } from './routes/emails.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -129,6 +130,7 @@ app.use('/api/contacts', requireAuth, contactsRouter)
 app.use('/api/bookings', requireAuth, bookingsRouter)
 app.use('/api/quotes', requireAuth, quotesRouter)
 app.use('/api/payments', requireAuth, paymentsRouter)
+app.use('/api/emails', requireAuth, emailsRouter)
 app.use('/api/members', requireAuth, membersRouter)
 app.use('/api/exports', requireAuth, requireOrgAdmin, exportsRouter)
 app.use('/api/stripe-connect', stripeConnectRouter)

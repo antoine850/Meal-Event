@@ -3160,7 +3160,10 @@ export const BookingDetail = forwardRef<
 
               {/* ── Tab: Emails ── */}
               {activeTab === 'emails' && (
-                <BookingEmailsTab bookingId={booking.id} />
+                <BookingEmailsTab
+                  bookingId={booking.id}
+                  contactEmail={booking.contact?.email ?? null}
+                />
               )}
 
               {/* ── Tab: Historique ── */}
