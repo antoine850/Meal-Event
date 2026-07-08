@@ -86,6 +86,20 @@ describe('client emails go through sendClientEmail', () => {
     const index = read('index.ts')
     expect(index).toContain("app.use('/api/emails', requireAuth, emailsRouter)")
   })
+
+  it('la route send passe par sendClientEmail avec garde org (booking XOR contact)', () => {
+    const emails = read('routes/emails.ts')
+    expect(emails).toContain("emailType: 'manual_email'")
+    expect(emails).toContain('/send')
+    expect(emails).toContain("threadKind: 'contact'")
+    expect(emails).toContain('organization_id !==')
+  })
+
+  it('la route read marque le fil lu avec garde org', () => {
+    const emails = read('routes/emails.ts')
+    expect(emails).toContain("'/threads/:id/read'")
+    expect(emails).toContain('last_read_at')
+  })
 })
 
 // Decisions du 08/07 : sujet du fil booking = libelle evenement (les sujets
