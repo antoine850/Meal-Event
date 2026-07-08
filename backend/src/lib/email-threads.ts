@@ -218,7 +218,9 @@ export async function recordOutbound(
 // Materialise un message capte par le polling (phase 3). Idempotent : l'index
 // unique partiel sur gmail_message_id fait la dedup (23505 = deja en base, pas
 // une erreur ; pas d'upsert onConflict car PostgREST ne cible pas un index
-// partiel). Contrairement a recordOutbound, un throw transport peut remonter :
+// partiel). L'index (thread_id, rfc_message_id) dedupe en plus la copie du
+// meme email vue par une AUTRE boite (gmail_message_id different, meme RFC).
+// Contrairement a recordOutbound, un throw transport peut remonter :
 // le curseur n'avance pas et le tick suivant re-traite (at-least-once). Une
 // autre erreur {error} (FK/NOT NULL/RLS) est deterministe : on drope le message
 // (false) plutot que de bloquer le curseur a jamais sur un message empoisonne.

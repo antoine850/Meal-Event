@@ -87,6 +87,7 @@ cas bonus du spec général), sinon `inbound` (`sender_user_id = null`).
 | **429 / 5xx**                   | curseur inchangé, erreur loggée ; le tick suivant (3 min) reprend au même point — l'intervalle **est** le backoff                                                                                     |
 | SPAM / TRASH / DRAFT            | exclus au filtre labelIds (stubs et resync)                                                                                                                                                           |
 | Message supprimé avant le fetch | `messages.get` → 404 (cas documenté Gmail) : message sauté, le curseur avance (même pattern que `threads.get` au resync)                                                                              |
+| Même email vu par deux boîtes   | `gmail_message_id` est un id PAR boîte (répondre-à-tous, commercial en copie ⇒ deux ids pour un même email) : index unique `(thread_id, rfc_message_id)` (migration 20260708), la 2e ingestion rebondit en 23505 |
 | Expéditeur ≠ email du contact   | stocké tel quel (`from_email` brut) ; marqueur « autre adresse » = dérivation read-time en Phase 4, pas de colonne                                                                                    |
 | Boîte en erreur                 | isolée : ne bloque pas les autres boîtes du tick                                                                                                                                                      |
 | Échec en cours de batch         | curseur non avancé → re-traitement au tick suivant, redédupliqué par `gmail_message_id` (at-least-once)                                                                                               |
@@ -100,8 +101,10 @@ cas bonus du spec général), sinon `inbound` (`sender_user_id = null`).
 
 ## Migration & config
 
-- **Aucune migration.** `last_sync_at`, l'index unique `gmail_message_id`,
-  `body_text`/`snippet`/`in_reply_to`/`references_header` existent déjà.
+- **Une migration post-audit** : `20260708_email_messages_rfc_dedup.sql`
+  (index unique partiel `(thread_id, rfc_message_id)` — dédup inter-boîtes).
+  Le reste existait déjà : `last_sync_at`, l'index unique `gmail_message_id`,
+  `body_text`/`snippet`/`in_reply_to`/`references_header`.
   Le poller tourne en service-role comme le reste du stack email.
 - Config : `GMAIL_POLLING_ENABLED` (reader ajouté) ;
   `GMAIL_POLLING_INTERVAL_MS` (nouveau, défaut 180000 = 3 min).

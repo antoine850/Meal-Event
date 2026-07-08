@@ -53,6 +53,19 @@ describe('gmail polling wiring', () => {
     expect(index).toContain('startGmailPolling()')
   })
 
+  it('dedup inter-boites : index unique (thread_id, rfc_message_id) en migration', () => {
+    const migration = fs.readFileSync(
+      path.resolve(
+        __dirname,
+        '../../../supabase/migrations/20260708_email_messages_rfc_dedup.sql'
+      ),
+      'utf-8'
+    )
+    expect(migration).toContain('email_messages_thread_rfc_uidx')
+    expect(migration).toContain('(thread_id, rfc_message_id)')
+    expect(migration).toContain('WHERE rfc_message_id IS NOT NULL')
+  })
+
   it('polling pagine les fils suivis, chunke les ids connus, saute un message supprime (404)', () => {
     const poll = read('lib/gmail-poll.ts')
     expect(poll).toContain('loadTrackedThreads')
