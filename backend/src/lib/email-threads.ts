@@ -267,11 +267,14 @@ export async function recordInbound(msg: {
     return false
   }
   const now = msg.sentAt ?? new Date().toISOString()
+  // last_inbound_at suit l'ingestion (heure reelle), pas sent_at (passe) :
+  // une reponse polee apres la derniere lecture du fil doit rallumer la
+  // pastille. last_message_at garde sent_at pour l'ordre d'affichage.
   await supabase
     .from('email_threads')
     .update(
       (msg.direction === 'inbound'
-        ? { last_message_at: now, last_inbound_at: now }
+        ? { last_message_at: now, last_inbound_at: new Date().toISOString() }
         : { last_message_at: now }) as never
     )
     .eq('id', msg.threadId)

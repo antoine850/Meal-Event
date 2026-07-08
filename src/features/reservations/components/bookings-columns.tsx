@@ -14,7 +14,7 @@ import {
 import { DataTableColumnHeader } from '@/components/data-table'
 import { UnreadDot } from '@/features/emails/components/unread-dot'
 import type { BookingWithRelations } from '../hooks/use-bookings'
-import { SendEmailMenuItems } from './send-email-menu'
+import { SendEmailMenuItems, useEmailComposer } from './send-email-menu'
 
 type OrgUser = { id: string; first_name: string; last_name: string }
 
@@ -250,56 +250,65 @@ export const buildBookingsColumns = (
   },
   {
     id: 'actions',
-    cell: ({ row }) => {
-      const booking = row.original
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8'
-              onClick={(e) => e.stopPropagation()}
-              aria-label='Ouvrir le menu'
-            >
-              <MoreHorizontal className='h-4 w-4' />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align='end'
-            onClick={(e) => e.stopPropagation()}
-            className='w-56'
-          >
-            <SendEmailMenuItems
-              booking={{
-                id: booking.id,
-                event_date: booking.event_date,
-                guests_count: booking.guests_count,
-                status_slug: booking.status?.slug || null,
-                contact: booking.contact
-                  ? {
-                      first_name: booking.contact.first_name,
-                      last_name: booking.contact.last_name,
-                      email: booking.contact.email,
-                    }
-                  : null,
-                restaurant: booking.restaurant
-                  ? {
-                      name: booking.restaurant.name,
-                      min_revenue_privatization_eur:
-                        (
-                          booking.restaurant as {
-                            min_revenue_privatization_eur?: number | null
-                          }
-                        ).min_revenue_privatization_eur ?? null,
-                    }
-                  : null,
-              }}
-            />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    },
+    cell: ({ row }) => <BookingActionsCell booking={row.original} />,
     meta: { className: 'w-12' },
   },
 ]
+
+// Cellule d'actions : le composer (dialog) doit vivre HORS du dropdown (sinon
+// sa fermeture le demonte). useEmailComposer porte l'etat + le dialog ; on ne
+// peut pas appeler de hook dans un cell render, d'ou ce composant.
+function BookingActionsCell({ booking }: { booking: BookingWithRelations }) {
+  const { onCompose, dialog } = useEmailComposer(booking.id)
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='h-8 w-8'
+            onClick={(e) => e.stopPropagation()}
+            aria-label='Ouvrir le menu'
+          >
+            <MoreHorizontal className='h-4 w-4' />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align='end'
+          onClick={(e) => e.stopPropagation()}
+          className='w-56'
+        >
+          <SendEmailMenuItems
+            onCompose={onCompose}
+            booking={{
+              id: booking.id,
+              event_date: booking.event_date,
+              guests_count: booking.guests_count,
+              status_slug: booking.status?.slug || null,
+              contact: booking.contact
+                ? {
+                    first_name: booking.contact.first_name,
+                    last_name: booking.contact.last_name,
+                    email: booking.contact.email,
+                  }
+                : null,
+              restaurant: booking.restaurant
+                ? {
+                    name: booking.restaurant.name,
+                    min_revenue_privatization_eur:
+                      (
+                        booking.restaurant as {
+                          min_revenue_privatization_eur?: number | null
+                        }
+                      ).min_revenue_privatization_eur ?? null,
+                  }
+                : null,
+            }}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {dialog}
+    </>
+  )
+}

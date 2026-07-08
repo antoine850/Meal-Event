@@ -40,23 +40,46 @@ export type SendEmailBooking = {
   } | null
 }
 
+export type ComposePayload = {
+  subject: string
+  body: string
+  onSent: () => void
+}
+
 type Props = {
   booking: SendEmailBooking
+  // Ouvre le composer integre (fourni par useEmailComposer). Le dialog doit
+  // vivre HORS du dropdown, sinon sa fermeture le demonte avant affichage.
+  onCompose?: (payload: ComposePayload) => void
 }
 
 const langLabel = (lang: 'fr' | 'en') =>
   lang === 'fr' ? 'Français' : 'English'
 
-export function SendEmailMenuItems({ booking }: Props) {
+// Etat + dialog du composer, a monter au niveau de l'appelant (hors dropdown).
+export function useEmailComposer(bookingId: string) {
+  const [composer, setComposer] = useState<ComposePayload | null>(null)
+  return {
+    onCompose: setComposer,
+    dialog: composer ? (
+      <SendEmailDialog
+        open
+        onOpenChange={(v) => !v && setComposer(null)}
+        bookingId={bookingId}
+        defaultSubject={composer.subject}
+        defaultMessage={composer.body}
+        onSent={composer.onSent}
+      />
+    ) : null,
+  }
+}
+
+export function SendEmailMenuItems({ booking, onCompose }: Props) {
   const { data: templates = [], isLoading } = useEmailTemplates()
   const { data: profile } = useCurrentUserProfile()
   const { data: statuses = [] } = useBookingStatuses()
   const { mutate: updateBooking } = useUpdateBooking()
   const { data: gmailStatus } = useGmailStatus()
-  const [composer, setComposer] = useState<{
-    subject: string
-    body: string
-  } | null>(null)
 
   const hasEmail = !!booking.contact?.email
 
@@ -118,65 +141,52 @@ export function SendEmailMenuItems({ booking }: Props) {
     const vars = buildTemplateVars(input, tpl.lang)
     const { subject, body } = renderTemplate(tpl, vars)
 
-    if (gmailStatus?.integration_enabled) {
-      setComposer({ subject, body })
+    if (gmailStatus?.integration_enabled && onCompose) {
+      onCompose({ subject, body, onSent: promoteIfNew })
       return
     }
-    // Comportement historique (avant pilote) : Gmail compose dans un onglet.
+    // Comportement historique (avant pilote, ou composer non cable) : Gmail
+    // compose dans un onglet.
     const url = buildGmailComposeUrl(booking.contact.email, subject, body)
     window.open(url, '_blank', 'noopener,noreferrer')
     promoteIfNew()
   }
 
   return (
-    <>
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger disabled={!hasEmail}>
-          <Mail className='mr-2 h-4 w-4' />
-          Envoyer un email
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className='w-56'>
-          {isLoading && (
-            <DropdownMenuItem disabled>Chargement…</DropdownMenuItem>
-          )}
-          {!isLoading && slugOrder.length === 0 && (
-            <DropdownMenuItem disabled>Aucun modèle</DropdownMenuItem>
-          )}
-          {slugOrder.map(({ slug, label }, idx) => {
-            const list = groupedBySlug[slug]
-            return (
-              <div key={slug}>
-                {idx > 0 && <DropdownMenuSeparator />}
-                <DropdownMenuLabel className='text-xs text-muted-foreground'>
-                  {label}
-                </DropdownMenuLabel>
-                {(['fr', 'en'] as const).map((lang) => {
-                  const tpl = list.find((t) => t.lang === lang)
-                  if (!tpl) return null
-                  return (
-                    <DropdownMenuItem
-                      key={tpl.id}
-                      onClick={() => handlePick(tpl)}
-                    >
-                      {langLabel(lang)}
-                    </DropdownMenuItem>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
-      {composer && (
-        <SendEmailDialog
-          open={!!composer}
-          onOpenChange={(v) => !v && setComposer(null)}
-          bookingId={booking.id}
-          defaultSubject={composer.subject}
-          defaultMessage={composer.body}
-          onSent={promoteIfNew}
-        />
-      )}
-    </>
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={!hasEmail}>
+        <Mail className='mr-2 h-4 w-4' />
+        Envoyer un email
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className='w-56'>
+        {isLoading && <DropdownMenuItem disabled>Chargement…</DropdownMenuItem>}
+        {!isLoading && slugOrder.length === 0 && (
+          <DropdownMenuItem disabled>Aucun modèle</DropdownMenuItem>
+        )}
+        {slugOrder.map(({ slug, label }, idx) => {
+          const list = groupedBySlug[slug]
+          return (
+            <div key={slug}>
+              {idx > 0 && <DropdownMenuSeparator />}
+              <DropdownMenuLabel className='text-xs text-muted-foreground'>
+                {label}
+              </DropdownMenuLabel>
+              {(['fr', 'en'] as const).map((lang) => {
+                const tpl = list.find((t) => t.lang === lang)
+                if (!tpl) return null
+                return (
+                  <DropdownMenuItem
+                    key={tpl.id}
+                    onClick={() => handlePick(tpl)}
+                  >
+                    {langLabel(lang)}
+                  </DropdownMenuItem>
+                )
+              })}
+            </div>
+          )
+        })}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   )
 }
