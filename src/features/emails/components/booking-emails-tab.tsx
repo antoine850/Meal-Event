@@ -24,6 +24,7 @@ const EMAIL_TYPE_LABELS: Record<string, string> = {
   payment_reminder: 'Relance de paiement',
   credit_note: 'Avoir',
   manual_reply: 'Réponse',
+  manual_email: 'Email',
 }
 
 export function BookingEmailsTab({
