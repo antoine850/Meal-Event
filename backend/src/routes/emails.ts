@@ -17,13 +17,14 @@ function buildPlainHtml(message: string, signature: string): string {
 interface Actor {
   first_name: string
   last_name: string
+  email: string | null
   organization_id: string
 }
 
 async function loadActor(actorUserId: string): Promise<Actor | null> {
   const { data } = await supabase
     .from('users')
-    .select('first_name, last_name, organization_id')
+    .select('first_name, last_name, email, organization_id')
     .eq('id', actorUserId)
     .single()
   return (data as Actor) ?? null
@@ -91,6 +92,9 @@ emailsRouter.post('/reply', async (req: Request, res: Response) => {
       to,
       subject: 'Votre événement',
       html: buildPlainHtml(message, signatureOf(actor)),
+      // Chemin Resend (fallback ou boite non pilote) : From = noreply@, la
+      // reponse du client doit revenir a l'auteur. Ignore sur le chemin Gmail.
+      replyTo: actor.email || undefined,
     })
     return res.json({ success: true, provider: result.provider })
   } catch (error) {
@@ -178,6 +182,7 @@ emailsRouter.post('/send', async (req: Request, res: Response) => {
       to,
       subject: subject.trim(),
       html: buildPlainHtml(message, signatureOf(actor)),
+      replyTo: actor.email || undefined,
     })
     return res.json({ success: true, provider: result.provider })
   } catch (error) {

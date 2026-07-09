@@ -83,6 +83,8 @@ describe('client emails go through sendClientEmail', () => {
     expect(emails).toContain("emailType: 'manual_reply'")
     // Garde multi-tenant : l'acteur doit appartenir a l'org du booking.
     expect(emails).toContain('organization_id !==')
+    // Chemin Resend : sans reply-to, le client repondrait a noreply@.
+    expect(emails).toContain('replyTo: actor.email')
     const index = read('index.ts')
     expect(index).toContain("app.use('/api/emails', requireAuth, emailsRouter)")
   })
@@ -93,6 +95,7 @@ describe('client emails go through sendClientEmail', () => {
     expect(emails).toContain('/send')
     expect(emails).toContain("threadKind: 'contact'")
     expect(emails).toContain('organization_id !==')
+    expect(emails.split('replyTo: actor.email').length - 1).toBe(2)
   })
 
   it('la route read marque le fil lu avec garde org', () => {
