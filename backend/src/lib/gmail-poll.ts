@@ -197,13 +197,17 @@ async function loadTrackedThreads(
   const map = new Map<string, string>()
   const PAGE = 1000
   for (let from = 0; ; from += PAGE) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('email_messages')
       .select('gmail_thread_id, thread_id')
       .eq('sender_user_id', userId)
       .not('gmail_thread_id', 'is', null)
       .order('id')
       .range(from, from + PAGE - 1)
+    // Erreur NON toleree (contrairement a filterUnknownIds) : une map tronquee
+    // filtre des reponses pendant que le curseur avance = perte definitive.
+    // Le throw echoue la boite (isole dans runGmailPoll), curseur intact.
+    if (error) throw new Error(`loadTrackedThreads: ${error.message}`)
     const rows = (data ?? []) as any[]
     for (const row of rows) {
       if (!map.has(row.gmail_thread_id))
