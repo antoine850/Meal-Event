@@ -57,6 +57,30 @@ export function useThreadMeta(bookingId: string | null) {
   })
 }
 
+// Meta du fil contact-only (pastille onglet fiche contact + marquage lu).
+// Prefixe 'email_thread_meta' partage : invalide par useMarkThreadRead.
+export function useContactThreadMeta(contactId: string | null) {
+  return useQuery({
+    queryKey: ['email_thread_meta', 'contact', contactId],
+    enabled: !!contactId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('email_threads')
+        .select('id, last_inbound_at, last_read_at')
+        .eq('contact_id', contactId!)
+        .eq('kind', 'contact')
+        .is('booking_id', null)
+        .eq('status', 'open')
+        .maybeSingle()
+      if (!data) return null
+      return {
+        ...data,
+        unread: isUnread(data.last_inbound_at, data.last_read_at),
+      }
+    },
+  })
+}
+
 export function useMarkThreadRead() {
   const qc = useQueryClient()
   return useMutation({

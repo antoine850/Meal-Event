@@ -56,6 +56,9 @@ export function SendEmailDialog({
         qc.invalidateQueries({ queryKey: ['email_thread', bookingId] })
         qc.invalidateQueries({ queryKey: ['email_logs', bookingId] })
       }
+      if (contactId) {
+        qc.invalidateQueries({ queryKey: ['email_thread_contact', contactId] })
+      }
       onOpenChange(false)
       onSent?.()
     },

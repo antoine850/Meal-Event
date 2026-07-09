@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ContactEmailsTab } from '@/features/emails/components/contact-emails-tab'
 import { CreateBookingDialog } from '@/features/reservations/components/create-booking-dialog'
 import { useBookingsByContact } from '@/features/reservations/hooks/use-bookings'
 import {
@@ -615,6 +616,14 @@ export const ContactDetail = forwardRef<
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* ═══════ EMAILS TAB ═══════ */}
+        {activeTab === 'emails' && (
+          <ContactEmailsTab
+            contactId={contact.id}
+            contactEmail={contact.email}
+          />
         )}
       </form>
     </Form>

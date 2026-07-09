@@ -28,6 +28,7 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { SendEmailDialog } from '@/features/emails/components/send-email-dialog'
+import { useContactThreadMeta } from '@/features/emails/hooks/use-thread-unread'
 import { useBookingsByContact } from '@/features/reservations/hooks/use-bookings'
 import { useGmailStatus } from '@/features/settings/hooks/use-gmail-account'
 import { useContact } from '../hooks/use-contacts'
@@ -42,6 +43,7 @@ export function ContactDetailPage() {
   const [isDirty, setIsDirty] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
   const { data: gmailStatus } = useGmailStatus()
+  const { data: threadMeta } = useContactThreadMeta(id)
   const contactDetailRef = useRef<{
     submitForm: () => void
     deleteContact: () => void
@@ -81,7 +83,7 @@ export function ContactDetailPage() {
             </Link>
           </Button>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className='grid w-fit grid-cols-2'>
+            <TabsList className='grid w-fit grid-cols-3'>
               <TabsTrigger value='general' className='gap-1.5'>
                 <User className='h-4 w-4' />
                 Général
@@ -96,6 +98,16 @@ export function ContactDetailPage() {
                   >
                     {bookings.length}
                   </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value='emails' className='gap-1.5'>
+                <Mail className='h-4 w-4' />
+                Emails
+                {threadMeta?.unread && (
+                  <span
+                    className='h-1.5 w-1.5 rounded-full bg-red-500'
+                    aria-label='Non lu'
+                  />
                 )}
               </TabsTrigger>
             </TabsList>
