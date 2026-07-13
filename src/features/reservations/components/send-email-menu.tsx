@@ -19,7 +19,9 @@ import {
 import {
   buildGmailComposeUrl,
   buildTemplateVars,
+  hasEnVersion,
   renderTemplate,
+  templateContent,
   type EmailTemplate,
   type TemplateInput,
 } from '../lib/email-templates'
@@ -35,6 +37,7 @@ export type SendEmailBooking = {
     email: string | null
   } | null
   restaurant: {
+    id: string
     name: string
     min_revenue_privatization_eur?: number | null
   } | null
@@ -102,24 +105,15 @@ export function SendEmailMenuItems({ booking, onCompose }: Props) {
     }
   }
 
-  const groupedBySlug = templates.reduce<Record<string, EmailTemplate[]>>(
-    (acc, t) => {
-      acc[t.slug] = acc[t.slug] || []
-      acc[t.slug].push(t)
-      return acc
-    },
-    {}
+  const visibleTemplates = templates.filter(
+    (t) =>
+      t.is_active &&
+      (t.restaurant_ids.length === 0 ||
+        (booking.restaurant !== null &&
+          t.restaurant_ids.includes(booking.restaurant.id)))
   )
 
-  const slugOrder = Object.entries(groupedBySlug)
-    .map(([slug, list]) => ({
-      slug,
-      sort_order: Math.min(...list.map((t) => t.sort_order)),
-      label: (list.find((t) => t.lang === 'fr') || list[0])?.label || slug,
-    }))
-    .sort((a, b) => a.sort_order - b.sort_order)
-
-  const handlePick = (tpl: EmailTemplate) => {
+  const handlePick = (tpl: EmailTemplate, lang: 'fr' | 'en') => {
     if (!booking.contact?.email) {
       toast.error("Le contact n'a pas d'adresse email")
       return
@@ -138,8 +132,8 @@ export function SendEmailMenuItems({ booking, onCompose }: Props) {
           }
         : null,
     }
-    const vars = buildTemplateVars(input, tpl.lang)
-    const { subject, body } = renderTemplate(tpl, vars)
+    const vars = buildTemplateVars(input, lang)
+    const { subject, body } = renderTemplate(templateContent(tpl, lang), vars)
 
     if (gmailStatus?.integration_enabled && onCompose) {
       onCompose({ subject, body, onSent: promoteIfNew })
@@ -160,32 +154,25 @@ export function SendEmailMenuItems({ booking, onCompose }: Props) {
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className='w-56'>
         {isLoading && <DropdownMenuItem disabled>Chargement…</DropdownMenuItem>}
-        {!isLoading && slugOrder.length === 0 && (
+        {!isLoading && visibleTemplates.length === 0 && (
           <DropdownMenuItem disabled>Aucun modèle</DropdownMenuItem>
         )}
-        {slugOrder.map(({ slug, label }, idx) => {
-          const list = groupedBySlug[slug]
-          return (
-            <div key={slug}>
-              {idx > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuLabel className='text-xs text-muted-foreground'>
-                {label}
-              </DropdownMenuLabel>
-              {(['fr', 'en'] as const).map((lang) => {
-                const tpl = list.find((t) => t.lang === lang)
-                if (!tpl) return null
-                return (
-                  <DropdownMenuItem
-                    key={tpl.id}
-                    onClick={() => handlePick(tpl)}
-                  >
-                    {langLabel(lang)}
-                  </DropdownMenuItem>
-                )
-              })}
-            </div>
-          )
-        })}
+        {visibleTemplates.map((tpl, idx) => (
+          <div key={tpl.id}>
+            {idx > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuLabel className='text-xs text-muted-foreground'>
+              {tpl.name}
+            </DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => handlePick(tpl, 'fr')}>
+              {langLabel('fr')}
+            </DropdownMenuItem>
+            {hasEnVersion(tpl) && (
+              <DropdownMenuItem onClick={() => handlePick(tpl, 'en')}>
+                {langLabel('en')}
+              </DropdownMenuItem>
+            )}
+          </div>
+        ))}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )

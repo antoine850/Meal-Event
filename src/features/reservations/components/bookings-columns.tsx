@@ -295,6 +295,7 @@ function BookingActionsCell({ booking }: { booking: BookingWithRelations }) {
                 : null,
               restaurant: booking.restaurant
                 ? {
+                    id: booking.restaurant.id,
                     name: booking.restaurant.name,
                     min_revenue_privatization_eur:
                       (
