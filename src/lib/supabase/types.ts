@@ -1562,57 +1562,42 @@ export type Database = {
       }
       email_templates: {
         Row: {
-          body: string | null
           body_en: string | null
-          body_fr: string | null
+          body_fr: string
           created_at: string | null
           id: string
           is_active: boolean
-          label: string | null
-          lang: string | null
-          name: string | null
+          name: string
           organization_id: string
-          slug: string | null
           sort_order: number
-          subject: string | null
           subject_en: string | null
-          subject_fr: string | null
+          subject_fr: string
           updated_at: string | null
         }
         Insert: {
-          body?: string | null
           body_en?: string | null
-          body_fr?: string | null
+          body_fr: string
           created_at?: string | null
           id?: string
           is_active?: boolean
-          label?: string | null
-          lang?: string | null
-          name?: string | null
+          name: string
           organization_id: string
-          slug?: string | null
           sort_order?: number
-          subject?: string | null
           subject_en?: string | null
-          subject_fr?: string | null
+          subject_fr: string
           updated_at?: string | null
         }
         Update: {
-          body?: string | null
           body_en?: string | null
-          body_fr?: string | null
+          body_fr?: string
           created_at?: string | null
           id?: string
           is_active?: boolean
-          label?: string | null
-          lang?: string | null
-          name?: string | null
+          name?: string
           organization_id?: string
-          slug?: string | null
           sort_order?: number
-          subject?: string | null
           subject_en?: string | null
-          subject_fr?: string | null
+          subject_fr?: string
           updated_at?: string | null
         }
         Relationships: [
