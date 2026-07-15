@@ -54,6 +54,7 @@ import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_auth
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
 import { Route as AuthenticatedTasksContactIdRouteImport } from './routes/_authenticated/tasks/contact.$id'
 import { Route as AuthenticatedSettingsRestaurantIdRouteImport } from './routes/_authenticated/settings/restaurant.$id'
+import { Route as AuthenticatedSettingsEmailIdRouteImport } from './routes/_authenticated/settings/email.$id'
 import { Route as AuthenticatedReservationsBookingIdRouteImport } from './routes/_authenticated/reservations/booking.$id'
 import { Route as AuthenticatedEvenementsBookingIdRouteImport } from './routes/_authenticated/evenements/booking.$id'
 import { Route as AuthenticatedContactsContactIdRouteImport } from './routes/_authenticated/contacts/contact.$id'
@@ -303,6 +304,12 @@ const AuthenticatedSettingsRestaurantIdRoute =
     path: '/restaurant/$id',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsEmailIdRoute =
+  AuthenticatedSettingsEmailIdRouteImport.update({
+    id: '/email/$id',
+    path: '/email/$id',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedReservationsBookingIdRoute =
   AuthenticatedReservationsBookingIdRouteImport.update({
     id: '/reservations/booking/$id',
@@ -367,6 +374,7 @@ export interface FileRoutesByFullPath {
   '/contacts/contact/$id': typeof AuthenticatedContactsContactIdRoute
   '/evenements/booking/$id': typeof AuthenticatedEvenementsBookingIdRoute
   '/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
+  '/settings/email/$id': typeof AuthenticatedSettingsEmailIdRoute
   '/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
   '/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
 }
@@ -414,6 +422,7 @@ export interface FileRoutesByTo {
   '/contacts/contact/$id': typeof AuthenticatedContactsContactIdRoute
   '/evenements/booking/$id': typeof AuthenticatedEvenementsBookingIdRoute
   '/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
+  '/settings/email/$id': typeof AuthenticatedSettingsEmailIdRoute
   '/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
   '/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
 }
@@ -465,6 +474,7 @@ export interface FileRoutesById {
   '/_authenticated/contacts/contact/$id': typeof AuthenticatedContactsContactIdRoute
   '/_authenticated/evenements/booking/$id': typeof AuthenticatedEvenementsBookingIdRoute
   '/_authenticated/reservations/booking/$id': typeof AuthenticatedReservationsBookingIdRoute
+  '/_authenticated/settings/email/$id': typeof AuthenticatedSettingsEmailIdRoute
   '/_authenticated/settings/restaurant/$id': typeof AuthenticatedSettingsRestaurantIdRoute
   '/_authenticated/tasks/contact/$id': typeof AuthenticatedTasksContactIdRoute
 }
@@ -515,6 +525,7 @@ export interface FileRouteTypes {
     | '/contacts/contact/$id'
     | '/evenements/booking/$id'
     | '/reservations/booking/$id'
+    | '/settings/email/$id'
     | '/settings/restaurant/$id'
     | '/tasks/contact/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -562,6 +573,7 @@ export interface FileRouteTypes {
     | '/contacts/contact/$id'
     | '/evenements/booking/$id'
     | '/reservations/booking/$id'
+    | '/settings/email/$id'
     | '/settings/restaurant/$id'
     | '/tasks/contact/$id'
   id:
@@ -612,6 +624,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contacts/contact/$id'
     | '/_authenticated/evenements/booking/$id'
     | '/_authenticated/reservations/booking/$id'
+    | '/_authenticated/settings/email/$id'
     | '/_authenticated/settings/restaurant/$id'
     | '/_authenticated/tasks/contact/$id'
   fileRoutesById: FileRoutesById
@@ -946,6 +959,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRestaurantIdRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/email/$id': {
+      id: '/_authenticated/settings/email/$id'
+      path: '/email/$id'
+      fullPath: '/settings/email/$id'
+      preLoaderRoute: typeof AuthenticatedSettingsEmailIdRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/reservations/booking/$id': {
       id: '/_authenticated/reservations/booking/$id'
       path: '/reservations/booking/$id'
@@ -1008,6 +1028,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsRestaurantsRoute: typeof AuthenticatedSettingsRestaurantsRoute
   AuthenticatedSettingsStatusesRoute: typeof AuthenticatedSettingsStatusesRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+  AuthenticatedSettingsEmailIdRoute: typeof AuthenticatedSettingsEmailIdRoute
   AuthenticatedSettingsRestaurantIdRoute: typeof AuthenticatedSettingsRestaurantIdRoute
 }
 
@@ -1029,6 +1050,7 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsRestaurantsRoute,
     AuthenticatedSettingsStatusesRoute: AuthenticatedSettingsStatusesRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+    AuthenticatedSettingsEmailIdRoute: AuthenticatedSettingsEmailIdRoute,
     AuthenticatedSettingsRestaurantIdRoute:
       AuthenticatedSettingsRestaurantIdRoute,
   }

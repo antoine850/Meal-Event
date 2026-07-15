@@ -10,10 +10,325 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: '14.1'
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
+      _bak_tva_20260702_products: {
+        Row: {
+          _bak_at: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          margin: number | null
+          name: string | null
+          old_id: string | null
+          organization_id: string | null
+          price_per_person: boolean | null
+          tag: string | null
+          tva_rate: number | null
+          type: string | null
+          unit_price_ht: number | null
+          unit_price_ttc: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          _bak_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          margin?: number | null
+          name?: string | null
+          old_id?: string | null
+          organization_id?: string | null
+          price_per_person?: boolean | null
+          tag?: string | null
+          tva_rate?: number | null
+          type?: string | null
+          unit_price_ht?: number | null
+          unit_price_ttc?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          _bak_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          margin?: number | null
+          name?: string | null
+          old_id?: string | null
+          organization_id?: string | null
+          price_per_person?: boolean | null
+          tag?: string | null
+          tva_rate?: number | null
+          type?: string | null
+          unit_price_ht?: number | null
+          unit_price_ttc?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _bak_tva_20260702_quote_items: {
+        Row: {
+          _bak_at: string | null
+          booking_product_service_id: string | null
+          created_at: string | null
+          description: string | null
+          discount_amount: number | null
+          external_id: string | null
+          external_source: string | null
+          id: string | null
+          item_type: string | null
+          name: string | null
+          position: number | null
+          price_entry_mode: string | null
+          quantity: number | null
+          quote_id: string | null
+          total_ht: number | null
+          total_ttc: number | null
+          tva_rate: number | null
+          unit_price: number | null
+          unit_price_ttc: number | null
+        }
+        Insert: {
+          _bak_at?: string | null
+          booking_product_service_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string | null
+          item_type?: string | null
+          name?: string | null
+          position?: number | null
+          price_entry_mode?: string | null
+          quantity?: number | null
+          quote_id?: string | null
+          total_ht?: number | null
+          total_ttc?: number | null
+          tva_rate?: number | null
+          unit_price?: number | null
+          unit_price_ttc?: number | null
+        }
+        Update: {
+          _bak_at?: string | null
+          booking_product_service_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string | null
+          item_type?: string | null
+          name?: string | null
+          position?: number | null
+          price_entry_mode?: string | null
+          quantity?: number | null
+          quote_id?: string | null
+          total_ht?: number | null
+          total_ttc?: number | null
+          tva_rate?: number | null
+          unit_price?: number | null
+          unit_price_ttc?: number | null
+        }
+        Relationships: []
+      }
+      _bak_tva_20260702_quotes: {
+        Row: {
+          _bak_at: string | null
+          additional_conditions: string | null
+          balance_days: number | null
+          balance_label: string | null
+          balance_paid_at: string | null
+          balance_sent_at: string | null
+          booking_id: string | null
+          comments_en: string | null
+          comments_fr: string | null
+          conditions_acompte: string | null
+          conditions_devis: string | null
+          conditions_facture: string | null
+          conditions_solde: string | null
+          contact_id: string | null
+          created_at: string | null
+          date_end: string | null
+          date_start: string | null
+          deposit_amount_override: number | null
+          deposit_days: number | null
+          deposit_label: string | null
+          deposit_paid_at: string | null
+          deposit_percentage: number | null
+          deposit_sent_at: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          external_id: string | null
+          external_source: string | null
+          id: string | null
+          invoice_due_days: number | null
+          language: string | null
+          notes: string | null
+          order_number: string | null
+          organization_id: string | null
+          pdf_url: string | null
+          primary_quote: boolean | null
+          quote_date: string | null
+          quote_due_days: number | null
+          quote_number: string | null
+          quote_sent_at: string | null
+          quote_signed_at: string | null
+          signature_requested_at: string | null
+          signature_url: string | null
+          signed_at: string | null
+          signed_pdf_url: string | null
+          signer_email: string | null
+          signer_name: string | null
+          signnow_document_id: string | null
+          signnow_invite_id: string | null
+          status: string | null
+          stripe_balance_session_id: string | null
+          stripe_balance_url: string | null
+          stripe_deposit_session_id: string | null
+          stripe_deposit_url: string | null
+          terms: string | null
+          title: string | null
+          total_ht: number | null
+          total_ttc: number | null
+          total_tva: number | null
+          updated_at: string | null
+          valid_until: string | null
+          version: number | null
+        }
+        Insert: {
+          _bak_at?: string | null
+          additional_conditions?: string | null
+          balance_days?: number | null
+          balance_label?: string | null
+          balance_paid_at?: string | null
+          balance_sent_at?: string | null
+          booking_id?: string | null
+          comments_en?: string | null
+          comments_fr?: string | null
+          conditions_acompte?: string | null
+          conditions_devis?: string | null
+          conditions_facture?: string | null
+          conditions_solde?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          date_end?: string | null
+          date_start?: string | null
+          deposit_amount_override?: number | null
+          deposit_days?: number | null
+          deposit_label?: string | null
+          deposit_paid_at?: string | null
+          deposit_percentage?: number | null
+          deposit_sent_at?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string | null
+          invoice_due_days?: number | null
+          language?: string | null
+          notes?: string | null
+          order_number?: string | null
+          organization_id?: string | null
+          pdf_url?: string | null
+          primary_quote?: boolean | null
+          quote_date?: string | null
+          quote_due_days?: number | null
+          quote_number?: string | null
+          quote_sent_at?: string | null
+          quote_signed_at?: string | null
+          signature_requested_at?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          signed_pdf_url?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          signnow_document_id?: string | null
+          signnow_invite_id?: string | null
+          status?: string | null
+          stripe_balance_session_id?: string | null
+          stripe_balance_url?: string | null
+          stripe_deposit_session_id?: string | null
+          stripe_deposit_url?: string | null
+          terms?: string | null
+          title?: string | null
+          total_ht?: number | null
+          total_ttc?: number | null
+          total_tva?: number | null
+          updated_at?: string | null
+          valid_until?: string | null
+          version?: number | null
+        }
+        Update: {
+          _bak_at?: string | null
+          additional_conditions?: string | null
+          balance_days?: number | null
+          balance_label?: string | null
+          balance_paid_at?: string | null
+          balance_sent_at?: string | null
+          booking_id?: string | null
+          comments_en?: string | null
+          comments_fr?: string | null
+          conditions_acompte?: string | null
+          conditions_devis?: string | null
+          conditions_facture?: string | null
+          conditions_solde?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          date_end?: string | null
+          date_start?: string | null
+          deposit_amount_override?: number | null
+          deposit_days?: number | null
+          deposit_label?: string | null
+          deposit_paid_at?: string | null
+          deposit_percentage?: number | null
+          deposit_sent_at?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string | null
+          invoice_due_days?: number | null
+          language?: string | null
+          notes?: string | null
+          order_number?: string | null
+          organization_id?: string | null
+          pdf_url?: string | null
+          primary_quote?: boolean | null
+          quote_date?: string | null
+          quote_due_days?: number | null
+          quote_number?: string | null
+          quote_sent_at?: string | null
+          quote_signed_at?: string | null
+          signature_requested_at?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          signed_pdf_url?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          signnow_document_id?: string | null
+          signnow_invite_id?: string | null
+          status?: string | null
+          stripe_balance_session_id?: string | null
+          stripe_balance_url?: string | null
+          stripe_deposit_session_id?: string | null
+          stripe_deposit_url?: string | null
+          terms?: string | null
+          title?: string | null
+          total_ht?: number | null
+          total_ttc?: number | null
+          total_tva?: number | null
+          updated_at?: string | null
+          valid_until?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       activity_logs: {
         Row: {
           action_label: string
@@ -59,25 +374,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'activity_logs_actor_id_fkey'
-            columns: ['actor_id']
+            foreignKeyName: "activity_logs_actor_id_fkey"
+            columns: ["actor_id"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'activity_logs_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "activity_logs_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'activity_logs_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "activity_logs_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -186,18 +501,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'booking_events_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "booking_events_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'booking_events_space_id_fkey'
-            columns: ['space_id']
+            foreignKeyName: "booking_events_space_id_fkey"
+            columns: ["space_id"]
             isOneToOne: false
-            referencedRelation: 'spaces'
-            referencedColumns: ['id']
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -246,18 +561,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'booking_extras_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "booking_extras_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'booking_extras_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "booking_extras_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -300,18 +615,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'booking_menu_forms_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "booking_menu_forms_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'booking_menu_forms_menu_form_id_fkey'
-            columns: ['menu_form_id']
+            foreignKeyName: "booking_menu_forms_menu_form_id_fkey"
+            columns: ["menu_form_id"]
             isOneToOne: false
-            referencedRelation: 'menu_forms'
-            referencedColumns: ['id']
+            referencedRelation: "menu_forms"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -369,18 +684,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'booking_products_services_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "booking_products_services_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'booking_products_services_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "booking_products_services_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -564,32 +879,32 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'bookings_contact_id_fkey'
-            columns: ['contact_id']
+            foreignKeyName: "bookings_contact_id_fkey"
+            columns: ["contact_id"]
             isOneToOne: false
-            referencedRelation: 'contacts'
-            referencedColumns: ['id']
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'bookings_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "bookings_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'bookings_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "bookings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'bookings_status_id_fkey'
-            columns: ['status_id']
+            foreignKeyName: "bookings_status_id_fkey"
+            columns: ["status_id"]
             isOneToOne: false
-            referencedRelation: 'statuses'
-            referencedColumns: ['id']
+            referencedRelation: "statuses"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -668,11 +983,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'companies_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "companies_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -763,25 +1078,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'contacts_assigned_to_fkey'
-            columns: ['assigned_to']
+            foreignKeyName: "contacts_assigned_to_fkey"
+            columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'contacts_company_id_fkey'
-            columns: ['company_id']
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: 'companies'
-            referencedColumns: ['id']
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'contacts_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "contacts_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -830,11 +1145,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'credit_note_items_credit_note_id_fkey'
-            columns: ['credit_note_id']
+            foreignKeyName: "credit_note_items_credit_note_id_fkey"
+            columns: ["credit_note_id"]
             isOneToOne: false
-            referencedRelation: 'credit_notes'
-            referencedColumns: ['id']
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -895,39 +1210,39 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'credit_notes_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "credit_notes_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'credit_notes_created_by_fkey'
-            columns: ['created_by']
+            foreignKeyName: "credit_notes_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'credit_notes_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "credit_notes_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'credit_notes_quote_id_fkey'
-            columns: ['quote_id']
+            foreignKeyName: "credit_notes_quote_id_fkey"
+            columns: ["quote_id"]
             isOneToOne: false
-            referencedRelation: 'quotes'
-            referencedColumns: ['id']
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'credit_notes_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "credit_notes_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -958,11 +1273,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'document_counters_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "document_counters_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1020,32 +1335,32 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'documents_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "documents_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'documents_credit_note_id_fkey'
-            columns: ['credit_note_id']
+            foreignKeyName: "documents_credit_note_id_fkey"
+            columns: ["credit_note_id"]
             isOneToOne: false
-            referencedRelation: 'credit_notes'
-            referencedColumns: ['id']
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'documents_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "documents_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'documents_uploaded_by_fkey'
-            columns: ['uploaded_by']
+            foreignKeyName: "documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1055,8 +1370,11 @@ export type Database = {
           created_at: string | null
           email_type: string
           error_message: string | null
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
           id: string
           organization_id: string | null
+          provider: string
           quote_id: string | null
           recipient_email: string
           reply_to_email: string | null
@@ -1070,8 +1388,11 @@ export type Database = {
           created_at?: string | null
           email_type: string
           error_message?: string | null
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
           id?: string
           organization_id?: string | null
+          provider?: string
           quote_id?: string | null
           recipient_email: string
           reply_to_email?: string | null
@@ -1085,8 +1406,11 @@ export type Database = {
           created_at?: string | null
           email_type?: string
           error_message?: string | null
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
           id?: string
           organization_id?: string | null
+          provider?: string
           quote_id?: string | null
           recipient_email?: string
           reply_to_email?: string | null
@@ -1097,25 +1421,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'email_logs_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "email_logs_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'email_logs_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "email_logs_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'email_logs_quote_id_fkey'
-            columns: ['quote_id']
+            foreignKeyName: "email_logs_quote_id_fkey"
+            columns: ["quote_id"]
             isOneToOne: false
-            referencedRelation: 'quotes'
-            referencedColumns: ['id']
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1185,18 +1509,119 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'email_messages_thread_id_fkey'
-            columns: ['thread_id']
+            foreignKeyName: "email_messages_sender_user_id_fkey"
+            columns: ["sender_user_id"]
             isOneToOne: false
-            referencedRelation: 'email_threads'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'email_messages_sender_user_id_fkey'
-            columns: ['sender_user_id']
+            foreignKeyName: "email_messages_thread_id_fkey"
+            columns: ["thread_id"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_template_restaurants: {
+        Row: {
+          created_at: string
+          id: string
+          restaurant_id: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          restaurant_id: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          restaurant_id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_template_restaurants_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_template_restaurants_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          body: string | null
+          body_en: string | null
+          body_fr: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean
+          label: string | null
+          lang: string | null
+          name: string | null
+          organization_id: string
+          slug: string | null
+          sort_order: number
+          subject: string | null
+          subject_en: string | null
+          subject_fr: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          body?: string | null
+          body_en?: string | null
+          body_fr?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          lang?: string | null
+          name?: string | null
+          organization_id: string
+          slug?: string | null
+          sort_order?: number
+          subject?: string | null
+          subject_en?: string | null
+          subject_fr?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          body?: string | null
+          body_en?: string | null
+          body_fr?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          lang?: string | null
+          name?: string | null
+          organization_id?: string
+          slug?: string | null
+          sort_order?: number
+          subject?: string | null
+          subject_en?: string | null
+          subject_fr?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1242,75 +1667,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'email_threads_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "email_threads_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'email_threads_contact_id_fkey'
-            columns: ['contact_id']
+            foreignKeyName: "email_threads_contact_id_fkey"
+            columns: ["contact_id"]
             isOneToOne: false
-            referencedRelation: 'contacts'
-            referencedColumns: ['id']
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'email_threads_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "email_threads_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      email_templates: {
-        Row: {
-          body: string
-          created_at: string | null
-          id: string
-          is_active: boolean
-          label: string
-          lang: string
-          organization_id: string
-          slug: string
-          sort_order: number
-          subject: string
-          updated_at: string | null
-        }
-        Insert: {
-          body: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean
-          label: string
-          lang: string
-          organization_id: string
-          slug: string
-          sort_order?: number
-          subject: string
-          updated_at?: string | null
-        }
-        Update: {
-          body?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean
-          label?: string
-          lang?: string
-          organization_id?: string
-          slug?: string
-          sort_order?: number
-          subject?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'email_templates_organization_id_fkey'
-            columns: ['organization_id']
-            isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1356,25 +1731,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'invitations_invited_by_fkey'
-            columns: ['invited_by']
+            foreignKeyName: "invitations_invited_by_fkey"
+            columns: ["invited_by"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'invitations_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "invitations_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'invitations_role_id_fkey'
-            columns: ['role_id']
+            foreignKeyName: "invitations_role_id_fkey"
+            columns: ["role_id"]
             isOneToOne: false
-            referencedRelation: 'roles'
-            referencedColumns: ['id']
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1417,11 +1792,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'menu_form_fields_menu_form_id_fkey'
-            columns: ['menu_form_id']
+            foreignKeyName: "menu_form_fields_menu_form_id_fkey"
+            columns: ["menu_form_id"]
             isOneToOne: false
-            referencedRelation: 'menu_forms'
-            referencedColumns: ['id']
+            referencedRelation: "menu_forms"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1458,18 +1833,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'menu_form_responses_field_id_fkey'
-            columns: ['field_id']
+            foreignKeyName: "menu_form_responses_field_id_fkey"
+            columns: ["field_id"]
             isOneToOne: false
-            referencedRelation: 'menu_form_fields'
-            referencedColumns: ['id']
+            referencedRelation: "menu_form_fields"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'menu_form_responses_menu_form_id_fkey'
-            columns: ['menu_form_id']
+            foreignKeyName: "menu_form_responses_menu_form_id_fkey"
+            columns: ["menu_form_id"]
             isOneToOne: false
-            referencedRelation: 'menu_forms'
-            referencedColumns: ['id']
+            referencedRelation: "menu_forms"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1521,25 +1896,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'menu_forms_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "menu_forms_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'menu_forms_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "menu_forms_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'menu_forms_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "menu_forms_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1627,18 +2002,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'package_products_package_id_fkey'
-            columns: ['package_id']
+            foreignKeyName: "package_products_package_id_fkey"
+            columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: 'packages'
-            referencedColumns: ['id']
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'package_products_product_id_fkey'
-            columns: ['product_id']
+            foreignKeyName: "package_products_product_id_fkey"
+            columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: 'products'
-            referencedColumns: ['id']
+            referencedRelation: "products"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1660,18 +2035,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'package_restaurants_package_id_fkey'
-            columns: ['package_id']
+            foreignKeyName: "package_restaurants_package_id_fkey"
+            columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: 'packages'
-            referencedColumns: ['id']
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'package_restaurants_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "package_restaurants_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1714,11 +2089,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'packages_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "packages_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1770,18 +2145,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'payment_links_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "payment_links_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'payment_links_quote_id_fkey'
-            columns: ['quote_id']
+            foreignKeyName: "payment_links_quote_id_fkey"
+            columns: ["quote_id"]
             isOneToOne: false
-            referencedRelation: 'quotes'
-            referencedColumns: ['id']
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1824,18 +2199,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'payment_reminders_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "payment_reminders_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'payment_reminders_payment_id_fkey'
-            columns: ['payment_id']
+            foreignKeyName: "payment_reminders_payment_id_fkey"
+            columns: ["payment_id"]
             isOneToOne: false
-            referencedRelation: 'payments'
-            referencedColumns: ['id']
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1911,25 +2286,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'payments_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "payments_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'payments_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "payments_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'payments_quote_id_fkey'
-            columns: ['quote_id']
+            foreignKeyName: "payments_quote_id_fkey"
+            columns: ["quote_id"]
             isOneToOne: false
-            referencedRelation: 'quotes'
-            referencedColumns: ['id']
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1978,18 +2353,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'product_restaurants_product_id_fkey'
-            columns: ['product_id']
+            foreignKeyName: "product_restaurants_product_id_fkey"
+            columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: 'products'
-            referencedColumns: ['id']
+            referencedRelation: "products"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'product_restaurants_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "product_restaurants_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2050,11 +2425,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'products_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "products_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2121,18 +2496,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'quote_items_booking_product_service_id_fkey'
-            columns: ['booking_product_service_id']
+            foreignKeyName: "quote_items_booking_product_service_id_fkey"
+            columns: ["booking_product_service_id"]
             isOneToOne: false
-            referencedRelation: 'booking_products_services'
-            referencedColumns: ['id']
+            referencedRelation: "booking_products_services"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'quote_items_quote_id_fkey'
-            columns: ['quote_id']
+            foreignKeyName: "quote_items_quote_id_fkey"
+            columns: ["quote_id"]
             isOneToOne: false
-            referencedRelation: 'quotes'
-            referencedColumns: ['id']
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2325,25 +2700,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'quotes_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "quotes_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'quotes_contact_id_fkey'
-            columns: ['contact_id']
+            foreignKeyName: "quotes_contact_id_fkey"
+            columns: ["contact_id"]
             isOneToOne: false
-            referencedRelation: 'contacts'
-            referencedColumns: ['id']
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'quotes_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "quotes_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2392,25 +2767,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'receipts_booking_id_fkey'
-            columns: ['booking_id']
+            foreignKeyName: "receipts_booking_id_fkey"
+            columns: ["booking_id"]
             isOneToOne: false
-            referencedRelation: 'bookings'
-            referencedColumns: ['id']
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'receipts_submitted_by_fkey'
-            columns: ['submitted_by']
+            foreignKeyName: "receipts_submitted_by_fkey"
+            columns: ["submitted_by"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'receipts_validated_by_fkey'
-            columns: ['validated_by']
+            foreignKeyName: "receipts_validated_by_fkey"
+            columns: ["validated_by"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2636,18 +3011,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'restaurants_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "restaurants_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'restaurants_stripe_connected_by_fkey'
-            columns: ['stripe_connected_by']
+            foreignKeyName: "restaurants_stripe_connected_by_fkey"
+            columns: ["stripe_connected_by"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2672,18 +3047,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'role_permissions_permission_id_fkey'
-            columns: ['permission_id']
+            foreignKeyName: "role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
             isOneToOne: false
-            referencedRelation: 'permissions'
-            referencedColumns: ['id']
+            referencedRelation: "permissions"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'role_permissions_role_id_fkey'
-            columns: ['role_id']
+            foreignKeyName: "role_permissions_role_id_fkey"
+            columns: ["role_id"]
             isOneToOne: false
-            referencedRelation: 'roles'
-            referencedColumns: ['id']
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2717,11 +3092,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'roles_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "roles_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2788,11 +3163,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'settings_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "settings_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: true
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2838,18 +3213,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'spaces_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "spaces_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'spaces_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "spaces_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2889,11 +3264,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'statuses_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "statuses_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2930,25 +3305,85 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'stripe_oauth_states_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "stripe_oauth_states_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'stripe_oauth_states_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "stripe_oauth_states_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'stripe_oauth_states_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: "stripe_oauth_states_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_gmail_accounts: {
+        Row: {
+          connected_at: string
+          google_email: string | null
+          history_id: string | null
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          organization_id: string
+          refresh_token: string
+          scopes: string | null
+          sending_enabled: boolean
+          status: string
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string
+          google_email?: string | null
+          history_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          organization_id: string
+          refresh_token: string
+          scopes?: string | null
+          sending_enabled?: boolean
+          status?: string
+          user_id: string
+        }
+        Update: {
+          connected_at?: string
+          google_email?: string | null
+          history_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          organization_id?: string
+          refresh_token?: string
+          scopes?: string | null
+          sending_enabled?: boolean
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_gmail_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_gmail_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2973,18 +3408,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'user_restaurants_restaurant_id_fkey'
-            columns: ['restaurant_id']
+            foreignKeyName: "user_restaurants_restaurant_id_fkey"
+            columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: 'restaurants'
-            referencedColumns: ['id']
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'user_restaurants_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: "user_restaurants_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: 'users'
-            referencedColumns: ['id']
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3030,18 +3465,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'users_organization_id_fkey'
-            columns: ['organization_id']
+            foreignKeyName: "users_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
-            referencedRelation: 'organizations'
-            referencedColumns: ['id']
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'users_role_id_fkey'
-            columns: ['role_id']
+            foreignKeyName: "users_role_id_fkey"
+            columns: ["role_id"]
             isOneToOne: false
-            referencedRelation: 'roles'
-            referencedColumns: ['id']
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3124,8 +3559,8 @@ export type Database = {
           total_tva: number
         }
         SetofOptions: {
-          from: '*'
-          to: 'credit_notes'
+          from: "*"
+          to: "credit_notes"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3190,7 +3625,7 @@ export type Database = {
         }
         Returns: Json
       }
-      f_unaccent: { Args: { '': string }; Returns: string }
+      f_unaccent: { Args: { "": string }; Returns: string }
       matches_all_words: {
         Args: { haystack: string; search: string }
         Returns: boolean
@@ -3228,8 +3663,8 @@ export type Database = {
           website: string | null
         }[]
         SetofOptions: {
-          from: '*'
-          to: 'companies'
+          from: "*"
+          to: "companies"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -3265,15 +3700,15 @@ export type Database = {
           utm_term: string | null
         }[]
         SetofOptions: {
-          from: '*'
-          to: 'contacts'
+          from: "*"
+          to: "contacts"
           isOneToOne: false
           isSetofReturn: true
         }
       }
       show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { '': string }; Returns: string[] }
-      unaccent: { Args: { '': string }; Returns: string }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
@@ -3284,33 +3719,33 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] &
-        DefaultSchema['Views'])
-    ? (DefaultSchema['Tables'] &
-        DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -3319,23 +3754,23 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -3344,23 +3779,23 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -3369,36 +3804,36 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema['Enums']
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
-    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema['CompositeTypes']
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
-    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {

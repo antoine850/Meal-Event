@@ -4,13 +4,29 @@ import { enUS } from 'date-fns/locale'
 export type EmailTemplate = {
   id: string
   organization_id: string
-  slug: string
-  lang: 'fr' | 'en'
-  label: string
-  subject: string
-  body: string
+  name: string
   sort_order: number
   is_active: boolean
+  subject_fr: string
+  body_fr: string
+  subject_en: string | null
+  body_en: string | null
+  restaurant_ids: string[]
+}
+
+export function hasEnVersion(
+  t: EmailTemplate
+): t is EmailTemplate & { subject_en: string; body_en: string } {
+  return !!(t.subject_en && t.body_en)
+}
+
+export function templateContent(
+  t: EmailTemplate,
+  lang: 'fr' | 'en'
+): { subject: string; body: string } {
+  return lang === 'en' && hasEnVersion(t)
+    ? { subject: t.subject_en, body: t.body_en }
+    : { subject: t.subject_fr, body: t.body_fr }
 }
 
 export type TemplateVars = {
@@ -25,6 +41,19 @@ export type TemplateVars = {
   site_groupe: string
   signature: string
 }
+
+export const AVAILABLE_VARS = [
+  'prenom_client',
+  'nom_client',
+  'email_client',
+  'restaurant',
+  'date_evenement',
+  'nb_invites',
+  'min_ca',
+  'groupe',
+  'site_groupe',
+  'signature',
+] as const satisfies readonly (keyof TemplateVars)[]
 
 export type TemplateInput = {
   contact: {
