@@ -1,5 +1,38 @@
 import { supabase } from './supabase.js'
 
+// Nommage client des documents : Jourmoisannee_type_restaurant_nomclient
+// (ex: 15072026_facture_acompte_LeBistrot_Dupont). Date = date de génération.
+// Miroir côté frontend : src/features/reservations/lib/document-name.ts
+export function buildDocumentName(
+  docType: string,
+  restaurantName?: string | null,
+  clientName?: string | null
+): string {
+  const clean = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+  const d = new Date()
+  const date = `${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}`
+  return [date, docType, clean(restaurantName || ''), clean(clientName || '')]
+    .filter(Boolean)
+    .join('_')
+}
+
+// nomclient = nom du contact, fallback société
+export function clientNameOf(
+  contact:
+    | {
+        last_name?: string | null
+        company?: { name?: string | null } | null
+      }
+    | null
+    | undefined
+): string | null {
+  return contact?.last_name || contact?.company?.name || null
+}
+
 // Upload d'un PDF vers le bucket Storage 'documents' + insertion d'une ligne
 // dans la table documents. Lève en cas d'échec — à utiliser quand la ligne
 // documents est le livrable (ex: fiche de fonction).
@@ -19,7 +52,9 @@ export async function uploadPdfDocument(
     })
 
   if (uploadError) {
-    throw new Error(`Storage upload failed for ${docName}: ${uploadError.message}`)
+    throw new Error(
+      `Storage upload failed for ${docName}: ${uploadError.message}`
+    )
   }
 
   const { data: urlData } = supabase.storage
@@ -41,7 +76,9 @@ export async function uploadPdfDocument(
   } as any)
 
   if (docError) {
-    throw new Error(`Document record insert failed for ${docName}: ${docError.message}`)
+    throw new Error(
+      `Document record insert failed for ${docName}: ${docError.message}`
+    )
   }
 
   return { storagePath, fileUrl }

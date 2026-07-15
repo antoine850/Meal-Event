@@ -7,7 +7,11 @@ import {
 } from '../lib/client-email.js'
 import { notifyCommercialSignature } from '../lib/commercial-notifications.js'
 import { createAndSendDeposit, quoteDepositTtc } from '../lib/deposit-flow.js'
-import { savePdfAsDocument } from '../lib/documents.js'
+import {
+  buildDocumentName,
+  clientNameOf,
+  savePdfAsDocument,
+} from '../lib/documents.js'
 import {
   buildQuoteEmailHtml,
   buildQuoteEmailSubject,
@@ -312,6 +316,12 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       quoteData.organization_id
     )
 
+    const devisDocName = buildDocumentName(
+      'devis',
+      restaurant?.name,
+      clientNameOf(contact)
+    )
+
     // Send via Resend (journalisé par sendClientEmail)
     const emailResult = await sendClientEmail({
       organizationId: quoteData.organization_id,
@@ -326,7 +336,7 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
       facturationEmail: facturationEmail || undefined,
       attachments: [
         {
-          filename: `${quoteData.quote_number}.pdf`,
+          filename: `${devisDocName}.pdf`,
           content: pdfBuffer,
         },
       ],
@@ -335,11 +345,12 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
     // Save devis PDF to storage and documents table
     await savePdfAsDocument(
       pdfBuffer,
-      `${quoteData.quote_number}.pdf`,
+      `${devisDocName}.pdf`,
       `${quoteData.organization_id}/quotes/${quoteId}/devis-${quoteData.quote_number}.pdf`,
-      `Devis - ${quoteData.quote_number}`,
+      devisDocName,
       quoteData.organization_id,
-      booking?.id || null
+      booking?.id || null,
+      { doc_kind: 'devis' }
     )
 
     // Update quote status
@@ -403,7 +414,12 @@ quotesRouter.post(
           .status(500)
           .json({ error: 'Erreur lors de la génération du PDF' })
       }
-      const fileName = `${quoteData.quote_number}.pdf`
+      // Nom vu par le client dans le parcours de signature SignNow
+      const fileName = `${buildDocumentName(
+        'devis',
+        booking?.restaurant?.name,
+        clientNameOf(contact)
+      )}.pdf`
 
       // Upload to SignNow
       const { id: documentId, pageCount } = await uploadDocument(
@@ -862,6 +878,12 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       quoteData.organization_id
     )
 
+    const soldeDocName = buildDocumentName(
+      'facture_solde',
+      restaurant?.name,
+      clientNameOf(contact)
+    )
+
     // Send email (journalisé par sendClientEmail)
     await sendClientEmail({
       organizationId: quoteData.organization_id,
@@ -877,7 +899,7 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
       ccFacturation: true,
       attachments: [
         {
-          filename: `facture-solde-${quoteData.quote_number}.pdf`,
+          filename: `${soldeDocName}.pdf`,
           content: pdfBuffer,
         },
       ],
@@ -886,11 +908,12 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     // Save solde PDF to storage and documents table
     await savePdfAsDocument(
       pdfBuffer,
-      `facture-solde-${quoteData.quote_number}.pdf`,
+      `${soldeDocName}.pdf`,
       `${quoteData.organization_id}/quotes/${quoteId}/facture-solde-${quoteData.quote_number}.pdf`,
-      `Facture solde - ${quoteData.quote_number}`,
+      soldeDocName,
       quoteData.organization_id,
-      booking?.id || null
+      booking?.id || null,
+      { doc_kind: 'facture_solde' }
     )
 
     // Update quote
@@ -1002,7 +1025,9 @@ quotesRouter.post('/:id/credit-note', async (req: Request, res: Response) => {
   // 1. Charge devis + lignes + booking (restaurant) + paiements encaissés
   const { data: quote, error: qErr } = await supabase
     .from('quotes')
-    .select('*, quote_items(*), booking:bookings(id, restaurant_id)')
+    .select(
+      '*, quote_items(*), booking:bookings(id, restaurant_id, contact:contacts(last_name, company:companies(name)), restaurant:restaurants(name))'
+    )
     .eq('id', quoteId)
     .single()
   if (qErr || !quote) return res.status(404).json({ error: 'QUOTE_NOT_FOUND' })
@@ -1127,11 +1152,16 @@ quotesRouter.post('/:id/credit-note', async (req: Request, res: Response) => {
   try {
     const pdf = await generateCreditNotePdf(creditNote.id)
     const path = `${q.organization_id}/quotes/${quoteId}/avoir-${creditNote.avoir_number}.pdf`
+    const avoirDocName = buildDocumentName(
+      'avoir',
+      (booking as any)?.restaurant?.name,
+      clientNameOf((booking as any)?.contact)
+    )
     await savePdfAsDocument(
       pdf,
-      `avoir-${creditNote.avoir_number}.pdf`,
+      `${avoirDocName}.pdf`,
       path,
-      `Avoir - ${creditNote.avoir_number}`,
+      avoirDocName,
       q.organization_id,
       booking?.id ?? null,
       { doc_kind: 'avoir', credit_note_id: creditNote.id }
@@ -1179,7 +1209,9 @@ quotesRouter.post(
       const contact = quoteData?.booking?.contact
       const restaurant = quoteData?.booking?.restaurant
       if (!contact?.email) {
-        return res.status(400).json({ error: "Le contact n'a pas d'adresse email" })
+        return res
+          .status(400)
+          .json({ error: "Le contact n'a pas d'adresse email" })
       }
 
       const pdfBuffer = await generateCreditNotePdf(cn.id)
@@ -1217,7 +1249,10 @@ quotesRouter.post(
         facturationEmail: facturationEmail || undefined,
         ccFacturation: true,
         attachments: [
-          { filename: `avoir-${cn.avoir_number}.pdf`, content: pdfBuffer },
+          {
+            filename: `${buildDocumentName('avoir', restaurant?.name, clientNameOf(contact))}.pdf`,
+            content: pdfBuffer,
+          },
         ],
       })
 
@@ -1248,7 +1283,17 @@ quotesRouter.get('/:id/download-pdf', async (req: Request, res: Response) => {
   try {
     const pdfBuffer = await generateQuotePdf(quoteId, docType as any)
     const quoteData = await fetchQuoteFullData(quoteId)
-    const filename = `${quoteData.quote_number || 'devis'}-${docType}.pdf`
+    const typeLabel =
+      docType === 'acompte'
+        ? 'facture_acompte'
+        : docType === 'solde'
+          ? 'facture_solde'
+          : 'devis'
+    const filename = `${buildDocumentName(
+      typeLabel,
+      quoteData.booking?.restaurant?.name,
+      clientNameOf(quoteData.booking?.contact)
+    )}.pdf`
 
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)

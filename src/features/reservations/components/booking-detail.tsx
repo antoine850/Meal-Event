@@ -137,6 +137,7 @@ import {
   useSendBalance,
   useCreditNotesByBooking,
 } from '../hooks/use-quotes'
+import { buildDocumentName, clientNameOf } from '../lib/document-name'
 import { CreditNoteDialog } from './credit-note-dialog'
 import { FicheFonction } from './fiche-fonction'
 import { MenuFormBuilder } from './menu-form-builder'
@@ -155,6 +156,8 @@ function docKindLabel(doc: { doc_kind?: string | null; name?: string | null }) {
     facture_acompte: 'Facture acompte',
     facture_solde: 'Facture solde',
     devis: 'Devis',
+    devis_signe: 'Devis signé',
+    fiche_fonction: 'Fiche de fonction',
   }
   if (doc.doc_kind && byKind[doc.doc_kind]) return byKind[doc.doc_kind]
   const first = (doc.name || '').trim().split(/\s+/)[0]?.toLowerCase()
@@ -2285,7 +2288,11 @@ export const BookingDetail = forwardRef<
                                     const url = URL.createObjectURL(blob)
                                     const a = document.createElement('a')
                                     a.href = url
-                                    a.download = `${cn.avoir_number}.pdf`
+                                    a.download = `${buildDocumentName(
+                                      'avoir',
+                                      booking.restaurant?.name,
+                                      clientNameOf(booking.contact)
+                                    )}.pdf`
                                     document.body.appendChild(a)
                                     a.click()
                                     document.body.removeChild(a)

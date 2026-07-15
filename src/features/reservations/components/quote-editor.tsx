@@ -124,6 +124,7 @@ import {
   generateCGV,
   type RestaurantBillingInfo,
 } from '../hooks/use-quotes'
+import { buildDocumentName, clientNameOf } from '../lib/document-name'
 import { CreditNoteDialog } from './credit-note-dialog'
 import { QuotePreview, type DocumentType } from './quote-preview'
 import { SaveToCatalogDialog } from './save-to-catalog-dialog'
@@ -2829,7 +2830,15 @@ export function QuoteEditor({
                       const url = URL.createObjectURL(blob)
                       const a = document.createElement('a')
                       a.href = url
-                      a.download = `${quoteData.quote_number || 'devis'}-${documentType}.pdf`
+                      a.download = `${buildDocumentName(
+                        documentType === 'acompte'
+                          ? 'facture_acompte'
+                          : documentType === 'solde'
+                            ? 'facture_solde'
+                            : 'devis',
+                        restaurant?.name,
+                        clientNameOf(contact)
+                      )}.pdf`
                       document.body.appendChild(a)
                       a.click()
                       document.body.removeChild(a)

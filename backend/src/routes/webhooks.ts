@@ -5,6 +5,7 @@ import {
   notifyCommercialPayment,
 } from '../lib/commercial-notifications.js'
 import { createAndSendDeposit } from '../lib/deposit-flow.js'
+import { buildDocumentName, clientNameOf } from '../lib/documents.js'
 import {
   verifyWebhookSignature,
   downloadSignedDocument,
@@ -905,7 +906,7 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')
       .select(
-        'id, booking_id, organization_id, quote_number, total_ttc, deposit_percentage, title, date_start'
+        'id, booking_id, organization_id, quote_number, total_ttc, deposit_percentage, title, date_start, booking:bookings(contact:contacts(last_name, company:companies(name)), restaurant:restaurants(name))'
       )
       .eq('signnow_document_id', signnowDocumentId)
       .single()
@@ -957,7 +958,12 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
       const { error: docError } = await supabase.from('documents').insert({
         organization_id: quote.organization_id,
         booking_id: quote.booking_id,
-        name: `Devis signé - ${quote.quote_number}`,
+        name: buildDocumentName(
+          'devis_signe',
+          (quote as any).booking?.restaurant?.name,
+          clientNameOf((quote as any).booking?.contact)
+        ),
+        doc_kind: 'devis_signe',
         file_type: 'pdf',
         file_path: storagePath,
         file_url: signedPdfUrl,

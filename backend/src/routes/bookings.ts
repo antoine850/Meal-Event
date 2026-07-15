@@ -1,8 +1,12 @@
 import { Router, Request, Response } from 'express'
-import { supabase } from '../lib/supabase.js'
-import { syncBookingToCalendar } from '../lib/google-calendar.js'
-import { uploadPdfDocument } from '../lib/documents.js'
+import {
+  buildDocumentName,
+  clientNameOf,
+  uploadPdfDocument,
+} from '../lib/documents.js'
 import { generateFicheFonctionPdf } from '../lib/fiche-fonction-pdf.js'
+import { syncBookingToCalendar } from '../lib/google-calendar.js'
+import { supabase } from '../lib/supabase.js'
 
 export const bookingsRouter = Router()
 
@@ -18,14 +22,16 @@ bookingsRouter.get('/', async (req: Request, res: Response) => {
 
     let query = supabase
       .from('bookings')
-      .select(`
+      .select(
+        `
         *,
         contact:contacts (id, first_name, last_name, email, phone),
         restaurant:restaurants (id, name, color),
         status:statuses (*),
         space:spaces (id, name),
         time_slot:time_slots (id, name, start_time, end_time)
-      `)
+      `
+      )
       .order('event_date', { ascending: true })
 
     if (organizationId) query = query.eq('organization_id', organizationId)
@@ -50,7 +56,8 @@ bookingsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('bookings')
-      .select(`
+      .select(
+        `
         *,
         contact:contacts (*),
         restaurant:restaurants (*),
@@ -64,9 +71,13 @@ bookingsRouter.get('/:id', async (req: Request, res: Response) => {
         ),
         payments (*),
         receipts (*)
-      `)
+      `
+      )
       .eq('id', req.params.id)
-      .order('position', { referencedTable: 'quotes.quote_items', ascending: true })
+      .order('position', {
+        referencedTable: 'quotes.quote_items',
+        ascending: true,
+      })
       .single()
 
     if (error) throw error
@@ -129,7 +140,10 @@ bookingsRouter.delete('/:id', async (req: Request, res: Response) => {
 
     // Delete related records first (FK without CASCADE)
     await supabase.from('email_logs').delete().eq('booking_id', req.params.id)
-    await supabase.from('activity_logs').delete().eq('booking_id', req.params.id)
+    await supabase
+      .from('activity_logs')
+      .delete()
+      .eq('booking_id', req.params.id)
 
     const { error } = await supabase
       .from('bookings')
@@ -145,60 +159,75 @@ bookingsRouter.delete('/:id', async (req: Request, res: Response) => {
 })
 
 // POST /api/bookings/:id/products-services
-bookingsRouter.post('/:id/products-services', async (req: Request, res: Response) => {
-  try {
-    const { data, error } = await supabase
-      .from('booking_products_services')
-      .insert({ ...req.body, booking_id: req.params.id })
-      .select()
-      .single()
+bookingsRouter.post(
+  '/:id/products-services',
+  async (req: Request, res: Response) => {
+    try {
+      const { data, error } = await supabase
+        .from('booking_products_services')
+        .insert({ ...req.body, booking_id: req.params.id })
+        .select()
+        .single()
 
-    if (error) throw error
-    res.status(201).json(data)
-  } catch (error) {
-    console.error('Error adding product/service:', error)
-    res.status(500).json({ error: 'Failed to add product/service' })
+      if (error) throw error
+      res.status(201).json(data)
+    } catch (error) {
+      console.error('Error adding product/service:', error)
+      res.status(500).json({ error: 'Failed to add product/service' })
+    }
   }
-})
+)
 
 // POST /api/bookings/:id/fiche-fonction-pdf
 // Génère la fiche de fonction, la versionne (Fiche de fonction vN),
 // l'uploade dans Storage + table documents, et renvoie l'URL publique.
-bookingsRouter.post('/:id/fiche-fonction-pdf', async (req: Request, res: Response) => {
-  try {
-    const bookingId = req.params.id
+bookingsRouter.post(
+  '/:id/fiche-fonction-pdf',
+  async (req: Request, res: Response) => {
+    try {
+      const bookingId = req.params.id
 
-    const { data: existing, error: listError } = await supabase
-      .from('documents')
-      .select('name')
-      .eq('booking_id', bookingId)
-      .like('name', 'Fiche de fonction v%')
-    if (listError) throw listError
+      const { data: existing, error: listError } = await supabase
+        .from('documents')
+        .select('name')
+        .eq('booking_id', bookingId)
+      if (listError) throw listError
 
-    const maxVersion = (existing || []).reduce<number>((max, d) => {
-      const m = ((d as { name: string | null }).name || '').match(
-        /^Fiche de fonction v(\d+)$/
+      // Deux formats de nom coexistent : "Fiche de fonction vN" (historique)
+      // et "JJMMAAAA_fiche_fonction_Restaurant_Client_vN"
+      const maxVersion = (existing || []).reduce<number>((max, d) => {
+        const name = (d as { name: string | null }).name || ''
+        const m =
+          name.match(/^Fiche de fonction v(\d+)$/) ||
+          name.match(/_fiche_fonction.*_v(\d+)$/)
+        return m ? Math.max(max, parseInt(m[1], 10)) : max
+      }, 0)
+      const version = maxVersion + 1
+
+      const { buffer, booking } = await generateFicheFonctionPdf(bookingId)
+
+      const docName = `${buildDocumentName(
+        'fiche_fonction',
+        booking.restaurant?.name,
+        clientNameOf(booking.contact)
+      )}_v${version}`
+      const fileName = `${docName}.pdf`
+      const storagePath = `${booking.organization_id}/bookings/${bookingId}/fiche-fonction-v${version}.pdf`
+      const { fileUrl } = await uploadPdfDocument(
+        buffer,
+        storagePath,
+        docName,
+        booking.organization_id,
+        bookingId,
+        { doc_kind: 'fiche_fonction' }
       )
-      return m ? Math.max(max, parseInt(m[1], 10)) : max
-    }, 0)
-    const version = maxVersion + 1
 
-    const { buffer, booking } = await generateFicheFonctionPdf(bookingId)
-
-    const fileName = `Fiche-de-fonction-v${version}.pdf`
-    const storagePath = `${booking.organization_id}/bookings/${bookingId}/fiche-fonction-v${version}.pdf`
-    const { fileUrl } = await uploadPdfDocument(
-      buffer,
-      storagePath,
-      `Fiche de fonction v${version}`,
-      booking.organization_id,
-      bookingId
-    )
-
-    res.json({ fileUrl, fileName, version })
-  } catch (error) {
-    console.error('Error generating fiche de fonction PDF:', error)
-    res.status(500).json({ error: 'Failed to generate fiche de fonction PDF' })
+      res.json({ fileUrl, fileName, version })
+    } catch (error) {
+      console.error('Error generating fiche de fonction PDF:', error)
+      res
+        .status(500)
+        .json({ error: 'Failed to generate fiche de fonction PDF' })
+    }
   }
-})
-
+)

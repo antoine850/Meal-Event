@@ -4,7 +4,11 @@ import {
   getCommercialInfo,
   getOrgFacturationEmail,
 } from './client-email.js'
-import { savePdfAsDocument } from './documents.js'
+import {
+  buildDocumentName,
+  clientNameOf,
+  savePdfAsDocument,
+} from './documents.js'
 import {
   buildDepositEmailHtml,
   buildDepositEmailSubject,
@@ -187,6 +191,12 @@ export async function createAndSendDeposit(
     quoteData.organization_id
   )
 
+  const acompteDocName = buildDocumentName(
+    'facture_acompte',
+    restaurant?.name,
+    clientNameOf(contact)
+  )
+
   await sendClientEmail({
     organizationId: quoteData.organization_id,
     bookingId: booking?.id || null,
@@ -201,7 +211,7 @@ export async function createAndSendDeposit(
     ccFacturation: true,
     attachments: [
       {
-        filename: `facture-acompte-${quoteData.quote_number}.pdf`,
+        filename: `${acompteDocName}.pdf`,
         content: pdfBuffer,
       },
     ],
@@ -209,11 +219,12 @@ export async function createAndSendDeposit(
 
   await savePdfAsDocument(
     pdfBuffer,
-    `facture-acompte-${quoteData.quote_number}.pdf`,
+    `${acompteDocName}.pdf`,
     `${quoteData.organization_id}/quotes/${quoteId}/facture-acompte-${quoteData.quote_number}.pdf`,
-    `Facture acompte - ${quoteData.quote_number}`,
+    acompteDocName,
     quoteData.organization_id,
-    booking?.id || null
+    booking?.id || null,
+    { doc_kind: 'facture_acompte' }
   )
 
   await supabase
