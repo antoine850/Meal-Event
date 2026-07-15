@@ -4,16 +4,22 @@ import { Loader2, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
+import {
+  usePromoteToast,
+  type PromotableBooking,
+} from '../hooks/use-promote-toast'
 
 type Props = {
-  bookingId: string
+  booking: PromotableBooking
   // Sauvegarde la note de facturation en cours d'édition avant génération
   flushNotes: () => Promise<void>
 }
 
-export function FicheFonctionPdfButton({ bookingId, flushNotes }: Props) {
+export function FicheFonctionPdfButton({ booking, flushNotes }: Props) {
   const [isExporting, setIsExporting] = useState(false)
   const queryClient = useQueryClient()
+  const promoteToast = usePromoteToast()
+  const bookingId = booking.id
 
   const handleExport = async () => {
     setIsExporting(true)
@@ -54,7 +60,7 @@ export function FicheFonctionPdfButton({ bookingId, flushNotes }: Props) {
         setTimeout(() => URL.revokeObjectURL(downloadUrl), 300)
       }
 
-      toast.success(`Fiche v${version} enregistrée`)
+      promoteToast(`Fiche v${version} enregistrée`, booking, 'fonction_envoyee')
     } catch (err) {
       console.error('Fiche de fonction PDF export error:', err)
       toast.error("Erreur lors de l'export PDF")

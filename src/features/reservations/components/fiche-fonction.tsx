@@ -331,7 +331,7 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
           Récapitulatif d&apos;évènements
         </h2>
         <FicheFonctionPdfButton
-          bookingId={booking.id}
+          booking={booking}
           flushNotes={flushBillingNotes}
         />
       </div>

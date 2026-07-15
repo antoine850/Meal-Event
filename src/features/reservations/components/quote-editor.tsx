@@ -110,6 +110,7 @@ import {
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
 import type { BookingWithRelations } from '../hooks/use-bookings'
 import { usePaymentsByBooking } from '../hooks/use-bookings'
+import { usePromoteToast } from '../hooks/use-promote-toast'
 import {
   useUpdateQuote,
   useAddQuoteItem,
@@ -465,6 +466,7 @@ export function QuoteEditor({
   const { data: bookingPayments = [] } = usePaymentsByBooking(booking.id)
   const { mutate: updateCompany, isPending: isUpdatingCompany } =
     useUpdateCompany()
+  const promoteToast = usePromoteToast()
 
   // Extras state (using quote_items with item_type='extra')
   const [editingExtra, setEditingExtra] = useState<QuoteItem | null>(null)
@@ -2832,7 +2834,11 @@ export function QuoteEditor({
                       a.click()
                       document.body.removeChild(a)
                       URL.revokeObjectURL(url)
-                      toast.success('PDF téléchargé')
+                      if (documentType === 'devis') {
+                        promoteToast('PDF téléchargé', booking, 'proposition')
+                      } else {
+                        toast.success('PDF téléchargé')
+                      }
                     } catch {
                       toast.error("Erreur lors de l'export PDF")
                     }
