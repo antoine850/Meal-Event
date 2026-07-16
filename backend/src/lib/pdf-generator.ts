@@ -93,6 +93,7 @@ interface QuoteData {
     quantity: number
     unit_price: number
     unit_price_ttc: number | null
+    price_entry_mode?: string | null
     tva_rate: number
     discount_amount: number
     total_ht: number | null
@@ -181,6 +182,7 @@ const labels = {
     totalHt: 'Total HT',
     totalTtc: 'Total TTC',
     subtotalHt: 'Sous-total HT',
+    totalDiscounts: 'Total remises HT',
     totalTvaLabel: 'Total TVA',
     paymentSchedule: 'ÉCHÉANCIER DE PAIEMENT',
     bankDetails: 'COORDONNÉES BANCAIRES',
@@ -233,6 +235,7 @@ const labels = {
     totalHt: 'Total excl. VAT',
     totalTtc: 'Total incl. VAT',
     subtotalHt: 'Subtotal excl. VAT',
+    totalDiscounts: 'Total discounts excl. VAT',
     totalTvaLabel: 'Total VAT',
     paymentSchedule: 'PAYMENT SCHEDULE',
     bankDetails: 'BANK DETAILS',
@@ -346,6 +349,31 @@ function resolveBalancePctDisplay(
     return `${Math.round(((quote.total_ttc - quote.deposit_amount_override) / quote.total_ttc) * 100)}%`
   }
   return `${100 - quote.deposit_percentage}%`
+}
+
+// Remise stockée côté ancre (TTC si saisie TTC) : % sur la base ancre,
+// montant converti en HT pour l'affichage.
+function lineDiscount(item: {
+  quantity?: number | null
+  unit_price?: number | null
+  unit_price_ttc?: number | null
+  price_entry_mode?: string | null
+  tva_rate?: number | null
+  discount_amount?: number | null
+}): { pct: number; amountHt: number } {
+  const base =
+    (item.quantity || 1) *
+    (item.price_entry_mode === 'ttc'
+      ? item.unit_price_ttc || 0
+      : item.unit_price || 0)
+  const amount = item.discount_amount || 0
+  const pct =
+    amount > 0 && base > 0 ? Math.round((amount / base) * 1000) / 10 : 0
+  const amountHt =
+    item.price_entry_mode === 'ttc'
+      ? amount / (1 + (item.tva_rate ?? 20) / 100)
+      : amount
+  return { pct, amountHt }
 }
 
 // Helper to lighten a hex color
@@ -828,12 +856,7 @@ function buildDocDefinition(
 
       items.forEach((item, i) => {
         const rowColor = i % 2 === 0 ? '#ffffff' : '#f9fafb'
-        const base = (item.quantity || 1) * (item.unit_price || 0)
-        const discountAmt = item.discount_amount || 0
-        const discountPct =
-          discountAmt > 0 && base > 0
-            ? Math.round((discountAmt / base) * 1000) / 10
-            : 0
+        const { pct: discountPct, amountHt: discountAmt } = lineDiscount(item)
         const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
           {
@@ -1014,12 +1037,7 @@ function buildDocDefinition(
         {},
       ])
       items.forEach((item) => {
-        const base = (item.quantity || 1) * (item.unit_price || 0)
-        const discountAmt = item.discount_amount || 0
-        const discountPct =
-          discountAmt > 0 && base > 0
-            ? Math.round((discountAmt / base) * 1000) / 10
-            : 0
+        const { pct: discountPct, amountHt: discountAmt } = lineDiscount(item)
         const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
           {
@@ -1115,12 +1133,7 @@ function buildDocDefinition(
         {},
       ])
       extras.forEach((extra) => {
-        const base = (extra.quantity || 1) * (extra.unit_price || 0)
-        const discountAmt = extra.discount_amount || 0
-        const discountPct =
-          discountAmt > 0 && base > 0
-            ? Math.round((discountAmt / base) * 1000) / 10
-            : 0
+        const { pct: discountPct, amountHt: discountAmt } = lineDiscount(extra)
         const discountWord = lang === 'fr' ? 'Remise' : 'Discount'
         tableBody.push([
           {
@@ -1241,6 +1254,25 @@ function buildDocDefinition(
   if (documentType === 'devis') {
     const totalsStack: Content[] = []
     const discountPct = quote.discount_percentage || 0
+
+    // Somme HT des remises par ligne (informatif : les totaux de ligne sont déjà nets)
+    const itemDiscountsHt = round2(
+      items.reduce((s, i) => s + lineDiscount(i).amountHt, 0)
+    )
+    if (itemDiscountsHt > 0) {
+      totalsStack.push({
+        columns: [
+          { text: l.totalDiscounts, style: 'small', color: '#dc2626' },
+          {
+            text: `- ${formatEuroDecimal(itemDiscountsHt)}`,
+            alignment: 'right' as const,
+            style: 'small',
+            color: '#dc2626',
+          },
+        ],
+        margin: [0, 0, 0, 2] as [number, number, number, number],
+      })
+    }
 
     if (discountPct > 0) {
       // Show pre-discount subtotal, then discount line

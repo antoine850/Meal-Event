@@ -7,6 +7,7 @@ import {
   formatEuroAdaptive,
   formatEuroDecimal,
   formatUnitPriceEuro,
+  round2,
 } from '@/features/reservations/lib/quote-rounding'
 import type { Restaurant } from '@/features/settings/hooks/use-settings'
 import type { BookingWithRelations } from '../hooks/use-bookings'
@@ -133,6 +134,7 @@ const labels = {
     page: 'Page',
     orderNumber: 'N° commande',
     discount: 'Remise',
+    totalDiscounts: 'Total remises HT',
     comments: 'Commentaires',
     depositFor: 'Acompte pour le devis n°',
     depositsHt: 'Acompte(s) HT',
@@ -196,6 +198,7 @@ const labels = {
     page: 'Page',
     orderNumber: 'Order #',
     discount: 'Discount',
+    totalDiscounts: 'Total discounts excl. VAT',
     comments: 'Comments',
     depositFor: 'Deposit for quote #',
     depositsHt: 'Deposit(s) excl. VAT',
@@ -492,16 +495,29 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
       computeLineAmounts({ ...item, tva_rate: item.tva_rate ?? 20 }).totalHt
     )
   }
+  // Remise stockée côté ancre (TTC si saisie TTC) : % sur la base ancre,
+  // montant converti en HT pour l'affichage.
   function computeItemDiscount(item: {
     quantity?: number | null
     unit_price?: number | null
+    unit_price_ttc?: number | null
+    price_entry_mode?: string | null
+    tva_rate?: number | null
     discount_amount?: number | null
   }) {
-    const base = (item.quantity || 1) * (item.unit_price || 0)
+    const base =
+      (item.quantity || 1) *
+      (item.price_entry_mode === 'ttc'
+        ? item.unit_price_ttc || 0
+        : item.unit_price || 0)
     const amount = item.discount_amount || 0
     const pct =
       amount > 0 && base > 0 ? Math.round((amount / base) * 1000) / 10 : 0
-    return { amount, pct }
+    const amountHt =
+      item.price_entry_mode === 'ttc'
+        ? amount / (1 + (item.tva_rate ?? 20) / 100)
+        : amount
+    return { amount: amountHt, pct }
   }
 
   // Regroupement TVA par taux après remise globale. TVA = TTC - HT par ligne (verbatim),
@@ -517,6 +533,11 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
     tvaByRate[rate].ht += ht
     tvaByRate[rate].tva += tva
   }
+
+  // Somme HT des remises par ligne (informatif : les totaux de ligne sont déjà nets)
+  const itemDiscountsHt = round2(
+    data.items.reduce((s, i) => s + computeItemDiscount(i).amount, 0)
+  )
 
   const quoteNumber = data.quote?.quote_number || '—'
   const comments = data.language === 'en' ? data.commentsEn : data.commentsFr
@@ -696,6 +717,14 @@ export function QuotePreview({ data, documentType = 'devis' }: Props) {
           {/* Totals */}
           <div className='flex justify-end'>
             <div className='w-56 space-y-1'>
+              {itemDiscountsHt > 0 && (
+                <div className='flex justify-between text-[10px]'>
+                  <span className='text-red-600'>{l.totalDiscounts}</span>
+                  <span className='font-medium text-red-600'>
+                    - {formatEuroDecimal(itemDiscountsHt)}
+                  </span>
+                </div>
+              )}
               {data.discountPercentage > 0 && data.rawTotalHt ? (
                 <>
                   <div className='flex justify-between text-[10px]'>
