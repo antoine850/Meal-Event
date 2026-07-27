@@ -135,12 +135,18 @@ export function SendEmailMenuItems({ booking, onCompose }: Props) {
     const vars = buildTemplateVars(input, lang)
     const { subject, body } = renderTemplate(templateContent(tpl, lang), vars)
 
-    if (gmailStatus?.integration_enabled && onCompose) {
+    // Composer integre seulement si SA boite est connectee : les autres gardent
+    // l'onglet Gmail (PJ par glisser-deposer, envoi depuis leur adresse).
+    if (
+      gmailStatus?.integration_enabled &&
+      gmailStatus?.connected &&
+      onCompose
+    ) {
       onCompose({ subject, body, onSent: promoteIfNew })
       return
     }
-    // Comportement historique (avant pilote, ou composer non cable) : Gmail
-    // compose dans un onglet.
+    // Comportement historique (boite non connectee, ou composer non cable) :
+    // Gmail compose dans un onglet.
     const url = buildGmailComposeUrl(booking.contact.email, subject, body)
     window.open(url, '_blank', 'noopener,noreferrer')
     promoteIfNew()
