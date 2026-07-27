@@ -98,8 +98,9 @@ app.use('/api/v1', (req: express.Request, res: express.Response, next: express.N
   }
 })
 
-// All other routes use standard JSON parsing
-app.use(express.json())
+// All other routes use standard JSON parsing. Limite relevee pour les PJ du
+// composer (base64 dans le body JSON, cap metier 15 Mo valide cote route).
+app.use(express.json({ limit: '25mb' }))
 
 // Health check
 app.get('/health', (_req: express.Request, res: express.Response) => {

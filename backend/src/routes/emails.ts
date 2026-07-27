@@ -32,6 +32,58 @@ async function loadActor(actorUserId: string): Promise<Actor | null> {
 
 const signatureOf = (a: Actor) => `${a.first_name} ${a.last_name}`
 
+// PJ du composer : base64 dans le JSON, decodees ici. Caps alignes sur les
+// limites transport (Gmail 25 Mo total encode) : 5 fichiers, 10 Mo/fichier,
+// 15 Mo au total.
+const MAX_ATTACHMENTS = 5
+const MAX_FILE_BYTES = 10 * 1024 * 1024
+const MAX_TOTAL_BYTES = 15 * 1024 * 1024
+
+type ParsedAttachments =
+  | { ok: true; attachments: Array<{ filename: string; content: Buffer; contentType?: string }> }
+  | { ok: false; error: string }
+
+export function parseAttachments(input: unknown): ParsedAttachments {
+  if (input == null) return { ok: true, attachments: [] }
+  if (!Array.isArray(input)) return { ok: false, error: 'attachments doit être un tableau' }
+  if (input.length > MAX_ATTACHMENTS) {
+    return { ok: false, error: `${MAX_ATTACHMENTS} pièces jointes maximum` }
+  }
+  const attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = []
+  let total = 0
+  for (const item of input) {
+    const { filename, contentBase64, contentType } = (item ?? {}) as {
+      filename?: unknown
+      contentBase64?: unknown
+      contentType?: unknown
+    }
+    if (typeof filename !== 'string' || !filename.trim()) {
+      return { ok: false, error: 'Pièce jointe sans nom de fichier' }
+    }
+    if (typeof contentBase64 !== 'string' || !contentBase64) {
+      return { ok: false, error: `Contenu manquant pour ${filename}` }
+    }
+    const content = Buffer.from(contentBase64, 'base64')
+    if (content.length === 0) {
+      return { ok: false, error: `Contenu invalide pour ${filename}` }
+    }
+    if (content.length > MAX_FILE_BYTES) {
+      return { ok: false, error: `${filename} dépasse 10 Mo` }
+    }
+    total += content.length
+    if (total > MAX_TOTAL_BYTES) {
+      return { ok: false, error: 'Pièces jointes : 15 Mo maximum au total' }
+    }
+    attachments.push({
+      // basename : neutralise tout chemin glisse dans le nom
+      filename: filename.trim().split(/[\\/]/).pop()!,
+      content,
+      contentType: typeof contentType === 'string' && contentType ? contentType : undefined,
+    })
+  }
+  return { ok: true, attachments }
+}
+
 // POST /api/emails/reply — reponse libre dans le fil d'un booking.
 emailsRouter.post('/reply', async (req: Request, res: Response) => {
   try {
@@ -118,6 +170,8 @@ emailsRouter.post('/send', async (req: Request, res: Response) => {
     if (!subject?.trim() || !message?.trim()) {
       return res.status(400).json({ error: 'subject et message requis' })
     }
+    const parsed = parseAttachments((req.body as any).attachments)
+    if (!parsed.ok) return res.status(400).json({ error: parsed.error })
     if (!bookingId === !contactId) {
       return res
         .status(400)
@@ -183,6 +237,7 @@ emailsRouter.post('/send', async (req: Request, res: Response) => {
       subject: subject.trim(),
       html: buildPlainHtml(message, signatureOf(actor)),
       replyTo: actor.email || undefined,
+      attachments: parsed.attachments.length ? parsed.attachments : undefined,
     })
     return res.json({ success: true, provider: result.provider })
   } catch (error) {
