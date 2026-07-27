@@ -22,4 +22,22 @@ describe('buildThreadSubject (sujet du fil booking)', () => {
       'Votre événement au Bistrot'
     )
   })
+
+  it('date de l\'evenement ajoutee au sujet', () => {
+    expect(buildThreadSubject('Sapristi', '2026-09-12')).toBe(
+      'Votre événement au Sapristi le 12 septembre 2026'
+    )
+    expect(buildThreadSubject('La Coupole', '2027-01-05')).toBe(
+      'Votre événement à la Coupole le 05 janvier 2027'
+    )
+  })
+
+  it('date absente ou invalide -> sujet sans date', () => {
+    expect(buildThreadSubject('Sapristi', null)).toBe(
+      'Votre événement au Sapristi'
+    )
+    expect(buildThreadSubject('Sapristi', undefined)).toBe(
+      'Votre événement au Sapristi'
+    )
+  })
 })

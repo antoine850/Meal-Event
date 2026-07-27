@@ -102,11 +102,11 @@ async function getBookingThreadSubject(bookingId: string): Promise<string | null
   try {
     const { data } = await supabase
       .from('bookings')
-      .select('restaurant:restaurants(name)')
+      .select('event_date, restaurant:restaurants(name)')
       .eq('id', bookingId)
       .single()
     const name = (data as any)?.restaurant?.name
-    return name ? buildThreadSubject(name) : null
+    return name ? buildThreadSubject(name, (data as any)?.event_date) : null
   } catch {
     return null
   }

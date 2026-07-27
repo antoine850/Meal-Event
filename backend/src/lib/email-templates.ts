@@ -221,13 +221,19 @@ export function buildQuoteEmailSubject(
 // Sujet du fil booking (decision 08/07) : libelle evenement stable plutot que
 // le sujet du 1er email (sinon tout le dossier vit sous "Re: Votre devis
 // DEV-1", devis v2 compris). Contraction francaise sur le nom du restaurant.
-export function buildThreadSubject(restaurantName: string): string {
+export function buildThreadSubject(
+  restaurantName: string,
+  eventDate?: string | null
+): string {
   const n = restaurantName.trim()
-  if (/^l'/i.test(n)) return `Votre événement à l'${n.slice(2)}`
-  if (/^le\s/i.test(n)) return `Votre événement au ${n.slice(3)}`
-  if (/^la\s/i.test(n)) return `Votre événement à la ${n.slice(3)}`
-  if (/^les\s/i.test(n)) return `Votre événement aux ${n.slice(4)}`
-  return `Votre événement au ${n}`
+  // Date dans le sujet : distingue les fils d'un meme client au meme restaurant
+  // (sujets identiques sinon = conversations fusionnees cote client).
+  const suffix = eventDate ? ` le ${formatDate(eventDate)}` : ''
+  if (/^l'/i.test(n)) return `Votre événement à l'${n.slice(2)}${suffix}`
+  if (/^le\s/i.test(n)) return `Votre événement au ${n.slice(3)}${suffix}`
+  if (/^la\s/i.test(n)) return `Votre événement à la ${n.slice(3)}${suffix}`
+  if (/^les\s/i.test(n)) return `Votre événement aux ${n.slice(4)}${suffix}`
+  return `Votre événement au ${n}${suffix}`
 }
 
 // ═══════════════════════════════════════════════
