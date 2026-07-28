@@ -40,6 +40,12 @@ interface FichePayment {
   quote_id: string | null
 }
 
+export interface FicheAssignedUser {
+  name: string
+  phone: string | null
+  email: string | null
+}
+
 export interface FicheBookingData {
   id: string
   organization_id: string | null
@@ -77,7 +83,16 @@ export interface FicheBookingData {
     phone: string | null
     company: { name: string | null } | null
   } | null
-  restaurant: { id: string; name: string | null; color: string | null } | null
+  restaurant: {
+    id: string
+    name: string | null
+    color: string | null
+    logo_url: string | null
+    address: string | null
+    postal_code: string | null
+    city: string | null
+  } | null
+  status: { name: string | null; color: string | null } | null
   space: { name: string | null } | null
   quotes: FicheQuote[]
   payments: FichePayment[]
@@ -85,7 +100,7 @@ export interface FicheBookingData {
 
 export async function fetchBookingFullData(bookingId: string): Promise<{
   booking: FicheBookingData
-  assignedNames: string[]
+  assignedUsers: FicheAssignedUser[]
 }> {
   const { data, error } = await supabase
     .from('bookings')
@@ -93,7 +108,8 @@ export async function fetchBookingFullData(bookingId: string): Promise<{
       `
       *,
       contact:contacts(id, first_name, last_name, email, phone, company:companies(name)),
-      restaurant:restaurants(id, name, color),
+      restaurant:restaurants(id, name, color, logo_url, address, postal_code, city),
+      status:statuses(name, color),
       quotes(*, quote_items(*)),
       payments(*)
     `
@@ -120,18 +136,43 @@ export async function fetchBookingFullData(bookingId: string): Promise<{
   }
 
   const ids = booking.assigned_user_ids || []
-  let assignedNames: string[] = []
+  let assignedUsers: FicheAssignedUser[] = []
   if (ids.length > 0) {
     const { data: users } = await supabase
       .from('users')
-      .select('id, first_name, last_name')
+      .select('id, first_name, last_name, phone, email')
       .in('id', ids)
-    assignedNames = (users || [])
-      .map((u) => `${u.first_name || ''} ${u.last_name || ''}`.trim())
-      .filter(Boolean)
+    assignedUsers = (users || [])
+      .map((u) => ({
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+        phone: u.phone as string | null,
+        email: u.email as string | null,
+      }))
+      .filter((u) => u.name)
   }
 
-  return { booking, assignedNames }
+  return { booking, assignedUsers }
+}
+
+// Logos convertis en data URL pour pdfmake ; toute erreur réseau rend le logo
+// absent sans bloquer la génération (boundary externe)
+async function fetchImageDataUrl(url: string | null): Promise<string | null> {
+  if (!url) return null
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const type = (res.headers.get('content-type') || '').split(';')[0]
+    if (!/^image\/(png|jpeg)$/.test(type)) return null
+    const buf = Buffer.from(await res.arrayBuffer())
+    return `data:${type};base64,${buf.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
+export interface FicheImages {
+  orgLogo: string | null
+  restoLogo: string | null
 }
 
 // ── Helpers dupliqués de src/features/reservations/lib/booking-totals.ts ──
@@ -408,8 +449,11 @@ function textSection(
 
 export function buildFicheFonctionDocDefinition(
   booking: FicheBookingData,
-  assignedNames: string[]
+  assignedUsers: FicheAssignedUser[],
+  images: FicheImages
 ): TDocumentDefinitions {
+  const assignedNames = assignedUsers.map((u) => u.name)
+  void images
   const color = booking.restaurant?.color || '#0d7377'
   const bookingRef = formatBookingId(booking.id)
   const now = new Date()
@@ -850,8 +894,30 @@ export async function generateFicheFonctionPdf(bookingId: string): Promise<{
   buffer: Buffer
   booking: FicheBookingData
 }> {
-  const { booking, assignedNames } = await fetchBookingFullData(bookingId)
-  const docDefinition = buildFicheFonctionDocDefinition(booking, assignedNames)
+  const { booking, assignedUsers } = await fetchBookingFullData(bookingId)
+
+  let orgLogoUrl: string | null = null
+  if (booking.organization_id) {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('logo_url')
+      .eq('id', booking.organization_id)
+      .single()
+    orgLogoUrl = (org?.logo_url as string | null) ?? null
+  }
+  const [orgLogo, restoLogo] = await Promise.all([
+    fetchImageDataUrl(orgLogoUrl),
+    fetchImageDataUrl(booking.restaurant?.logo_url ?? null),
+  ])
+
+  const docDefinition = buildFicheFonctionDocDefinition(
+    booking,
+    assignedUsers,
+    {
+      orgLogo,
+      restoLogo,
+    }
+  )
   const buffer = await renderPdfToBuffer(docDefinition)
   return { buffer, booking }
 }
