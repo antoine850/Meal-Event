@@ -5,6 +5,7 @@ import type {
   TableCell,
   TDocumentDefinitions,
 } from 'pdfmake/interfaces'
+import sharp from 'sharp'
 import { renderPdfToBuffer } from './pdf-generator.js'
 import { formatEuroAdaptive, formatEuroDecimal } from './quote-rounding.js'
 import { supabase } from './supabase.js'
@@ -159,9 +160,16 @@ async function fetchImageDataUrl(url: string | null): Promise<string | null> {
     const res = await fetch(url)
     if (!res.ok) return null
     const type = (res.headers.get('content-type') || '').split(';')[0]
-    if (!/^image\/(png|jpeg)$/.test(type)) return null
     const buf = Buffer.from(await res.arrayBuffer())
-    return `data:${type};base64,${buf.toString('base64')}`
+    if (/^image\/(png|jpeg)$/.test(type)) {
+      return `data:${type};base64,${buf.toString('base64')}`
+    }
+    if (type === 'image/webp') {
+      // pdfmake ne lit que PNG/JPEG ; les logos uploadés sont stockés en webp
+      const png = await sharp(buf).png().toBuffer()
+      return `data:image/png;base64,${png.toString('base64')}`
+    }
+    return null
   } catch {
     return null
   }
@@ -1060,12 +1068,11 @@ export function buildFicheFonctionDocDefinition(
   return {
     content,
     footer: (currentPage: number, pageCount: number) => {
-      const addr = [
-        booking.restaurant?.address,
-        [booking.restaurant?.postal_code, booking.restaurant?.city]
-          .filter(Boolean)
-          .join(' '),
-      ]
+      const address = booking.restaurant?.address || ''
+      const cp = (booking.restaurant?.postal_code || '').trim()
+      const cpVille = [cp, booking.restaurant?.city].filter(Boolean).join(' ')
+      // certaines adresses en base contiennent déjà "CP Ville" : on ne l'ajoute que s'il manque
+      const addr = [address, cp && address.includes(cp) ? '' : cpVille]
         .filter(Boolean)
         .join(', ')
       return {
