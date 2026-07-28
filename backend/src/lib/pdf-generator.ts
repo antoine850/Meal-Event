@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs'
+import { join } from 'path'
 import type {
   TDocumentDefinitions,
   Content,
@@ -30,12 +31,21 @@ function robotoFile(name: string): Buffer {
   return readFileSync(require.resolve(`@fontsource/roboto/files/${name}`))
 }
 
+// IvyOra Display : fonte serif du template fiche de fonction (fournie par le client)
+const ivyoraDir = join(__dirname, '../../assets/fonts')
+
 const fonts = {
   Roboto: {
     normal: robotoFile('roboto-latin-400-normal.woff'),
     bold: robotoFile('roboto-latin-700-normal.woff'),
     italics: robotoFile('roboto-latin-400-italic.woff'),
     bolditalics: robotoFile('roboto-latin-700-italic.woff'),
+  },
+  IvyOra: {
+    normal: readFileSync(join(ivyoraDir, 'ivyora-display-500.ttf')),
+    bold: readFileSync(join(ivyoraDir, 'ivyora-display-700.ttf')),
+    italics: readFileSync(join(ivyoraDir, 'ivyora-display-400-italic.ttf')),
+    bolditalics: readFileSync(join(ivyoraDir, 'ivyora-display-700.ttf')),
   },
 }
 
