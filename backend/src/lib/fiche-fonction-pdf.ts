@@ -1,6 +1,7 @@
 import type {
   Column,
   Content,
+  ContentCanvas,
   TableCell,
   TDocumentDefinitions,
 } from 'pdfmake/interfaces'
@@ -239,34 +240,24 @@ function formatDateLong(v: string | null | undefined): string {
   }
 }
 
-function formatHorairesGlobal(
-  eventDate: string | null,
-  startTime: string | null,
-  endTime: string | null
-): string {
-  if (!eventDate) return DASH
-  try {
-    const dateStr = new Date(eventDate).toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
-    const start = (startTime || '').slice(0, 5)
-    const end = (endTime || '').slice(0, 5)
-    if (start && end) return `${dateStr} – ${start}–${end}`
-    if (start) return `${dateStr} – ${start}`
-    return dateStr
-  } catch {
-    return String(eventDate)
-  }
-}
-
 // ── Builders de sections ──
 
+// Palette du template client
+const INK = '#161412'
+const INK_SOFT = '#4A413A'
+const INK_MUTE = '#8A8278'
+const RULE = '#E0D8CB'
+const RULE_SOFT = '#ECE5DA'
+const OK = '#2D5F3F'
+const OK_BG = '#ECF1ED'
+const ALERT = '#B8341A'
+const ALERT_BG = '#FBE9E5'
+const CREAM = '#FBF9F5'
 const GRAY = '#6b7280'
 const LIGHT_GRAY = '#9ca3af'
 const BORDER = '#e5e7eb'
+// Largeur utile : A4 (595.28pt) moins marges latérales de 34pt
+const CONTENT_WIDTH = 595.28 - 2 * 34
 
 const ficheTableLayout = {
   hLineWidth: (i: number, node: any) =>
@@ -277,6 +268,296 @@ const ficheTableLayout = {
   paddingRight: () => 4,
   paddingTop: () => 3,
   paddingBottom: () => 3,
+}
+
+function hairline(color: string, width: number): ContentCanvas {
+  return {
+    canvas: [
+      {
+        type: 'line',
+        x1: 0,
+        y1: 0,
+        x2: CONTENT_WIDTH,
+        y2: 0,
+        lineWidth: width,
+        lineColor: color,
+      },
+    ],
+  }
+}
+
+// Entête de bloc numéroté : "01  CONTACTS" + filet noir
+function blockHead(num: string, title: string, accent: string): Content {
+  return {
+    stack: [
+      {
+        columns: [
+          {
+            width: 'auto',
+            text: num,
+            font: 'IvyOra',
+            italics: true,
+            fontSize: 9.5,
+            color: accent,
+          },
+          {
+            width: '*',
+            text: title.toUpperCase(),
+            fontSize: 7.5,
+            bold: true,
+            characterSpacing: 1.6,
+            margin: [8, 1.5, 0, 0] as [number, number, number, number],
+          },
+        ],
+      },
+      {
+        ...hairline(INK, 0.75),
+        margin: [0, 3, 0, 0] as [number, number, number, number],
+      },
+    ],
+    headlineLevel: 1,
+    margin: [0, 16, 0, 8] as [number, number, number, number],
+  }
+}
+
+function topstrip(orgLogo: string | null): Content {
+  return {
+    stack: [
+      {
+        columns: [
+          orgLogo
+            ? {
+                width: 'auto',
+                image: orgLogo,
+                fit: [150, 16] as [number, number],
+              }
+            : { width: 'auto', text: '' },
+          {
+            width: '*',
+            text: 'PÔLE ÉVÉNEMENTIEL',
+            fontSize: 6.5,
+            bold: true,
+            color: INK_MUTE,
+            characterSpacing: 1.6,
+            alignment: 'right' as const,
+            margin: [0, 5, 0, 0] as [number, number, number, number],
+          },
+        ] as Column[],
+      },
+      {
+        ...hairline(RULE, 0.5),
+        margin: [0, 6, 0, 0] as [number, number, number, number],
+      },
+    ],
+  }
+}
+
+function masthead(
+  booking: FicheBookingData,
+  restoLogo: string | null,
+  accent: string,
+  bookingRef: string
+): Content {
+  const statusName = booking.status?.name || null
+  // statuses.color est un hex (cf. defaults onboarding) ; garde-fou si autre format
+  const rawColor = booking.status?.color || ''
+  const badgeColor = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : accent
+
+  const identity: Content = {
+    columns: [
+      ...(restoLogo
+        ? [{ width: 58, image: restoLogo, fit: [52, 52] as [number, number] }]
+        : []),
+      {
+        width: '*',
+        stack: [
+          {
+            text: "L'ÉTABLISSEMENT",
+            fontSize: 6.5,
+            bold: true,
+            color: INK_MUTE,
+            characterSpacing: 1.6,
+          },
+          {
+            text: booking.restaurant?.name || 'Restaurant',
+            font: 'IvyOra',
+            bold: true,
+            fontSize: 21,
+            margin: [0, 3, 0, 0] as [number, number, number, number],
+          },
+        ],
+        margin: [restoLogo ? 10 : 0, 6, 0, 0] as [
+          number,
+          number,
+          number,
+          number,
+        ],
+      },
+    ],
+  }
+
+  const meta: Content = {
+    stack: [
+      {
+        text: 'FICHE DE FONCTION',
+        fontSize: 7.5,
+        bold: true,
+        characterSpacing: 1.6,
+        alignment: 'right' as const,
+      },
+      {
+        text: `RÉF · ${bookingRef}`,
+        fontSize: 7,
+        color: INK_MUTE,
+        characterSpacing: 0.5,
+        alignment: 'right' as const,
+        margin: [0, 3, 0, 0] as [number, number, number, number],
+      },
+      ...(statusName
+        ? [
+            {
+              columns: [
+                { width: '*', text: '' },
+                {
+                  width: 'auto',
+                  table: {
+                    body: [
+                      [
+                        {
+                          text: statusName.toUpperCase(),
+                          fontSize: 6.5,
+                          bold: true,
+                          color: 'white',
+                          characterSpacing: 1,
+                          fillColor: badgeColor,
+                          margin: [6, 3, 6, 3] as [
+                            number,
+                            number,
+                            number,
+                            number,
+                          ],
+                        },
+                      ],
+                    ],
+                  },
+                  layout: 'noBorders' as const,
+                },
+              ],
+              margin: [0, 8, 0, 0] as [number, number, number, number],
+            },
+          ]
+        : []),
+    ],
+  }
+
+  return {
+    stack: [
+      {
+        columns: [
+          { width: '*', ...identity } as Column,
+          { width: 'auto', ...meta } as Column,
+        ],
+      },
+      {
+        ...hairline(INK, 1),
+        margin: [0, 10, 0, 0] as [number, number, number, number],
+      },
+    ],
+    unbreakable: true,
+    margin: [0, 12, 0, 0] as [number, number, number, number],
+  }
+}
+
+function essentialCell(
+  labelText: string,
+  value: string | null,
+  sub: string | null
+): TableCell {
+  return {
+    stack: [
+      {
+        text: labelText.toUpperCase(),
+        fontSize: 6.5,
+        bold: true,
+        color: INK_MUTE,
+        characterSpacing: 1.2,
+        margin: [0, 0, 0, 4] as [number, number, number, number],
+      },
+      { text: value || DASH, font: 'IvyOra', bold: true, fontSize: 13 },
+      ...(sub
+        ? [
+            {
+              text: sub,
+              fontSize: 7.5,
+              color: INK_SOFT,
+              margin: [0, 2, 0, 0] as [number, number, number, number],
+            },
+          ]
+        : []),
+    ],
+  }
+}
+
+function essentialGrid(booking: FicheBookingData): Content {
+  let dateMain: string | null = null
+  let dateSub: string | null = null
+  if (booking.event_date) {
+    const d = new Date(booking.event_date)
+    const s = d.toLocaleDateString('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'long',
+    })
+    dateMain = s.charAt(0).toUpperCase() + s.slice(1)
+    dateSub = String(d.getFullYear())
+  }
+  const start = (booking.start_time || '').slice(0, 5)
+  const end = (booking.end_time || '').slice(0, 5)
+  const contactName = booking.contact
+    ? [booking.contact.first_name, booking.contact.last_name]
+        .filter(Boolean)
+        .join(' ')
+    : null
+
+  return {
+    table: {
+      widths: ['*', '*', '*', '*'],
+      body: [
+        [
+          essentialCell('Date', dateMain, dateSub),
+          essentialCell(
+            'Arrivée',
+            start || null,
+            end ? `jusqu'à ${end}` : null
+          ),
+          essentialCell(
+            'Invités',
+            booking.guests_count != null ? `${booking.guests_count} pax` : null,
+            contactName
+          ),
+          essentialCell(
+            'Occasion',
+            booking.occasion,
+            booking.source ? `Source · ${booking.source}` : null
+          ),
+        ],
+      ],
+    },
+    layout: {
+      hLineWidth: (i: number, node: any) =>
+        i === node.table.body.length ? 0.5 : 0,
+      vLineWidth: (i: number, node: any) =>
+        i === 0 || i === node.table.widths.length ? 0 : 0.5,
+      hLineColor: () => RULE,
+      vLineColor: () => RULE_SOFT,
+      paddingLeft: (i: number) => (i === 0 ? 0 : 10),
+      paddingRight: () => 10,
+      paddingTop: () => 8,
+      paddingBottom: () => 10,
+    },
+    unbreakable: true,
+    margin: [0, 10, 0, 0] as [number, number, number, number],
+  }
 }
 
 function sectionTitle(text: string, color: string): Content {
@@ -453,7 +734,6 @@ export function buildFicheFonctionDocDefinition(
   images: FicheImages
 ): TDocumentDefinitions {
   const assignedNames = assignedUsers.map((u) => u.name)
-  void images
   const color = booking.restaurant?.color || '#0d7377'
   const bookingRef = formatBookingId(booking.id)
   const now = new Date()
@@ -479,78 +759,9 @@ export function buildFicheFonctionDocDefinition(
 
   const content: Content[] = []
 
-  // ── Bandeau header (même style que les autres documents) ──
-  content.push({
-    table: {
-      widths: ['*', 'auto'],
-      body: [
-        [
-          {
-            stack: [
-              {
-                text: booking.restaurant?.name || 'Restaurant',
-                style: 'headerTitle',
-                color: 'white',
-              },
-            ],
-            fillColor: color,
-            margin: [12, 10, 12, 10] as [number, number, number, number],
-          },
-          {
-            stack: [
-              {
-                text: `FICHE DE FONCTION n°${bookingRef}`,
-                style: 'headerDocTitle',
-                color: 'white',
-                alignment: 'right' as const,
-              },
-              {
-                text: `Imprimé le ${printedAt}`,
-                style: 'headerSmall',
-                color: 'white',
-                alignment: 'right' as const,
-              },
-            ],
-            fillColor: color,
-            margin: [12, 10, 12, 10] as [number, number, number, number],
-          },
-        ],
-      ],
-    },
-    layout: 'noBorders',
-    margin: [0, 0, 0, 10] as [number, number, number, number],
-  })
-
-  // ── Horaires ──
-  content.push(
-    infoRow([
-      labelValue(
-        'Horaires (Global)',
-        formatHorairesGlobal(
-          booking.event_date,
-          booking.start_time,
-          booking.end_time
-        )
-      ),
-    ])
-  )
-
-  // ── Compte / Contact / Coordonnées ──
-  const contactName = booking.contact
-    ? [booking.contact.first_name, booking.contact.last_name]
-        .filter(Boolean)
-        .join(' ')
-    : ''
-  const coordonnees = [booking.contact?.phone, booking.contact?.email]
-    .filter(Boolean)
-    .join('\n')
-  content.push(
-    infoRow([
-      labelValue('Nom du compte', booking.contact?.company?.name),
-      labelValue('Contact', contactName),
-      labelValue('Coordonnées', coordonnees),
-    ])
-  )
+  content.push(topstrip(images.orgLogo))
+  content.push(masthead(booking, images.restoLogo, color, bookingRef))
+  content.push(essentialGrid(booking))
 
   // ── Devis : items / Total / Acomptes / Reste ──
   if (!activeQuote) {
@@ -884,9 +1095,9 @@ export function buildFicheFonctionDocDefinition(
       ficheDesc: { fontSize: 8 },
       ficheTableHeader: { fontSize: 8, bold: true },
       ficheTableCell: { fontSize: 8 },
-      footer: { fontSize: 7, color: LIGHT_GRAY },
+      footer: { fontSize: 6.5, color: INK_MUTE },
     },
-    pageMargins: [30, 30, 30, 50] as [number, number, number, number],
+    pageMargins: [34, 28, 34, 48] as [number, number, number, number],
   }
 }
 
