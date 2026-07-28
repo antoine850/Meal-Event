@@ -16,10 +16,6 @@ interface FicheQuoteItem {
   name: string
   description: string | null
   quantity: number | null
-  unit_price: number | null
-  unit_price_ttc: number | null
-  tva_rate: number | null
-  total_ht: number | null
   total_ttc: number | null
 }
 
@@ -223,6 +219,15 @@ function formatDateLong(v: string | null | undefined): string {
   }
 }
 
+function contactFullName(booking: FicheBookingData): string | null {
+  if (!booking.contact) return null
+  return (
+    [booking.contact.first_name, booking.contact.last_name]
+      .filter(Boolean)
+      .join(' ') || null
+  )
+}
+
 // ── Builders de sections ──
 
 // Palette du template client
@@ -239,14 +244,18 @@ const CREAM = '#FBF9F5'
 // Largeur utile : A4 (595.28pt) moins marges latérales de 34pt
 const CONTENT_WIDTH = 595.28 - 2 * 34
 
-function hairline(color: string, width: number): ContentCanvas {
+function hairline(
+  color: string,
+  width: number,
+  length = CONTENT_WIDTH
+): ContentCanvas {
   return {
     canvas: [
       {
         type: 'line',
         x1: 0,
         y1: 0,
-        x2: CONTENT_WIDTH,
+        x2: length,
         y2: 0,
         lineWidth: width,
         lineColor: color,
@@ -328,9 +337,7 @@ function masthead(
   bookingRef: string
 ): Content {
   const statusName = booking.status?.name || null
-  // statuses.color est un hex (cf. defaults onboarding) ; garde-fou si autre format
-  const rawColor = booking.status?.color || ''
-  const badgeColor = /^#[0-9a-fA-F]{3,8}$/.test(rawColor) ? rawColor : accent
+  const badgeColor = booking.status?.color || accent
 
   const identity: Content = {
     columns: [
@@ -482,11 +489,7 @@ function essentialGrid(booking: FicheBookingData): Content {
   }
   const start = (booking.start_time || '').slice(0, 5)
   const end = (booking.end_time || '').slice(0, 5)
-  const contactName = booking.contact
-    ? [booking.contact.first_name, booking.contact.last_name]
-        .filter(Boolean)
-        .join(' ')
-    : null
+  const contactName = contactFullName(booking)
 
   return {
     table: {
@@ -562,11 +565,7 @@ function contactsBlock(
   commercial: FicheAssignedUser | null,
   accent: string
 ): Content {
-  const contactName = booking.contact
-    ? [booking.contact.first_name, booking.contact.last_name]
-        .filter(Boolean)
-        .join(' ')
-    : null
+  const contactName = contactFullName(booking)
   const cards: Content[] = [
     contactCard('Client référent', contactName, [
       booking.contact?.phone,
@@ -682,7 +681,6 @@ function allergiesBanner(text: string | null): Content {
       ],
     },
     layout: 'noBorders',
-    unbreakable: true,
     margin: [0, 12, 0, 0] as [number, number, number, number],
   }
 }
@@ -895,7 +893,7 @@ function signatureBlock(): Content {
               color: INK_SOFT,
               margin: [0, 0, 0, 2] as [number, number, number, number],
             },
-            hairline(RULE, 0.5),
+            hairline(RULE, 0.5, (CONTENT_WIDTH - 2 * 14) / 3),
           ],
         })),
         columnGap: 14,
