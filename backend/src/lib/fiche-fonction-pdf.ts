@@ -560,6 +560,179 @@ function essentialGrid(booking: FicheBookingData): Content {
   }
 }
 
+function contactCard(
+  role: string,
+  name: string | null,
+  infoLines: (string | null | undefined)[]
+): Content {
+  return {
+    stack: [
+      {
+        text: role.toUpperCase(),
+        fontSize: 6.5,
+        bold: true,
+        color: INK_MUTE,
+        characterSpacing: 1.2,
+        margin: [0, 0, 0, 3] as [number, number, number, number],
+      },
+      { text: name || DASH, font: 'IvyOra', bold: true, fontSize: 11.5 },
+      {
+        text: infoLines.filter(Boolean).join('\n'),
+        fontSize: 8.5,
+        color: INK_SOFT,
+        lineHeight: 1.4,
+        margin: [0, 3, 0, 0] as [number, number, number, number],
+      },
+    ],
+  }
+}
+
+// Grille de cartes 2 colonnes
+function contactsBlock(
+  booking: FicheBookingData,
+  commercial: FicheAssignedUser | null,
+  accent: string
+): Content {
+  const contactName = booking.contact
+    ? [booking.contact.first_name, booking.contact.last_name]
+        .filter(Boolean)
+        .join(' ')
+    : null
+  const cards: Content[] = [
+    contactCard('Client référent', contactName, [
+      booking.contact?.phone,
+      booking.contact?.email,
+    ]),
+    contactCard('Société', booking.contact?.company?.name || null, []),
+    contactCard('Commercial', commercial?.name || null, [
+      commercial?.phone,
+      commercial?.email,
+    ]),
+  ]
+  if (
+    booking.contact_sur_place_nom ||
+    booking.contact_sur_place_tel ||
+    booking.contact_sur_place_societe
+  ) {
+    cards.push(
+      contactCard('Contact sur place', booking.contact_sur_place_nom, [
+        booking.contact_sur_place_tel,
+        booking.contact_sur_place_societe,
+      ])
+    )
+  }
+  const rows: Content[] = []
+  for (let i = 0; i < cards.length; i += 2) {
+    rows.push({
+      columns: cards
+        .slice(i, i + 2)
+        .map((c) => ({ width: '*', ...(c as object) })) as Column[],
+      columnGap: 24,
+      margin: [0, i === 0 ? 0 : 10, 0, 0] as [number, number, number, number],
+    })
+  }
+  return {
+    stack: [blockHead('01', 'Client & contacts', accent), ...rows],
+    unbreakable: true,
+  }
+}
+
+function menuBlock(booking: FicheBookingData, accent: string): Content {
+  const courses: [string, string | null][] = [
+    ['Apéritif', booking.menu_aperitif],
+    ['Entrée', booking.menu_entree],
+    ['Plat', booking.menu_plat],
+    ['Dessert', booking.menu_dessert],
+  ]
+  return {
+    stack: [
+      blockHead('02', 'Menu', accent),
+      {
+        table: {
+          widths: [95, '*'],
+          dontBreakRows: true,
+          body: courses.map(([course, value]) => [
+            {
+              text: course.toUpperCase(),
+              fontSize: 7,
+              bold: true,
+              color: accent,
+              characterSpacing: 1.4,
+              margin: [0, 2, 0, 0] as [number, number, number, number],
+            },
+            {
+              text: value || DASH,
+              font: 'IvyOra',
+              fontSize: 10.5,
+              lineHeight: 1.3,
+            },
+          ]),
+        },
+        layout: {
+          hLineWidth: () => 0,
+          vLineWidth: () => 0,
+          paddingLeft: () => 0,
+          paddingRight: () => 8,
+          paddingTop: () => 0,
+          paddingBottom: () => 6,
+        },
+      },
+    ],
+  }
+}
+
+function allergiesBanner(text: string | null): Content {
+  const filled = !!(text && text.trim())
+  const bar = filled ? ALERT : OK
+  const bg = filled ? ALERT_BG : OK_BG
+  return {
+    table: {
+      widths: [3, 'auto', '*'],
+      body: [
+        [
+          { text: '', fillColor: bar },
+          {
+            text: 'ALLERGIES & RÉGIMES',
+            fontSize: 7,
+            bold: true,
+            color: bar,
+            characterSpacing: 1.4,
+            fillColor: bg,
+            margin: [8, 8, 4, 8] as [number, number, number, number],
+          },
+          {
+            text: filled
+              ? text!.trim()
+              : "Aucune allergie déclarée. À reconfirmer à l'accueil le jour J.",
+            fontSize: 9,
+            fillColor: bg,
+            lineHeight: 1.4,
+            margin: [4, 7, 8, 7] as [number, number, number, number],
+          },
+        ],
+      ],
+    },
+    layout: 'noBorders',
+    unbreakable: true,
+    margin: [0, 12, 0, 0] as [number, number, number, number],
+  }
+}
+
+// Bloc titre + texte libre (sécable : les TEXT longs ne doivent pas être unbreakable)
+function freetextBlock(
+  num: string,
+  title: string,
+  text: string | null,
+  accent: string
+): Content {
+  return {
+    stack: [
+      blockHead(num, title, accent),
+      { text: text || DASH, fontSize: 9, lineHeight: 1.55 },
+    ],
+  }
+}
+
 function sectionTitle(text: string, color: string): Content {
   return {
     text: text.toUpperCase(),
@@ -763,6 +936,29 @@ export function buildFicheFonctionDocDefinition(
   content.push(masthead(booking, images.restoLogo, color, bookingRef))
   content.push(essentialGrid(booking))
 
+  content.push(contactsBlock(booking, assignedUsers[0] || null, color))
+  content.push(menuBlock(booking, color))
+  content.push(allergiesBanner(booking.allergies_regimes))
+  content.push(freetextBlock('03', 'Boissons', booking.menu_boissons, color))
+  content.push({
+    stack: [
+      blockHead('04', 'Mise en place', color),
+      ...(booking.space?.name
+        ? [
+            {
+              text: `Espace · ${booking.space.name}`,
+              fontSize: 8.5,
+              bold: true,
+              color: INK_SOFT,
+              margin: [0, 0, 0, 6] as [number, number, number, number],
+            },
+          ]
+        : []),
+      { text: booking.mise_en_place || DASH, fontSize: 9, lineHeight: 1.55 },
+    ],
+  })
+  content.push(freetextBlock('05', 'Déroulé', booking.deroulement, color))
+
   // ── Devis : items / Total / Acomptes / Reste ──
   if (!activeQuote) {
     content.push({
@@ -914,60 +1110,6 @@ export function buildFicheFonctionDocDefinition(
   content.push(
     textSection('Commentaires facturation', booking.internal_notes, color)
   )
-  content.push(
-    infoRow([
-      labelValue('Espace', booking.space?.name),
-      labelValue(
-        'Nombre de personnes',
-        booking.guests_count != null ? String(booking.guests_count) : null
-      ),
-    ])
-  )
-  content.push(textSection('Mise en place', booking.mise_en_place, color))
-  content.push(textSection('Déroulé', booking.deroulement, color))
-
-  // Menu : 2 colonnes (plats / boissons)
-  content.push({
-    stack: [
-      sectionTitle('Menu', color),
-      {
-        columns: [
-          {
-            width: '*',
-            stack: [
-              labelValue('Apéritif', booking.menu_aperitif),
-              labelValue('Entrée', booking.menu_entree),
-              labelValue('Plat', booking.menu_plat),
-              labelValue('Dessert', booking.menu_dessert),
-            ].map((c, i) => ({
-              ...(c as object),
-              margin: [0, i === 0 ? 0 : 4, 0, 0] as [
-                number,
-                number,
-                number,
-                number,
-              ],
-            })),
-          },
-          {
-            width: '*',
-            ...(labelValue('Boissons', booking.menu_boissons) as object),
-          },
-        ] as Column[],
-        columnGap: 14,
-      },
-    ],
-  })
-
-  // Champs TEXT illimités : pas d'unbreakable (pdfmake tronque les blocs insécables > 1 page)
-  content.push({
-    columns: [
-      labelValue('Allergies et Régimes', booking.allergies_regimes),
-      labelValue('Prestations souhaitées', booking.prestations_souhaitees),
-    ].map((c) => ({ width: '*', ...(c as object) })) as Column[],
-    columnGap: 10,
-    margin: [0, 4, 0, 0] as [number, number, number, number],
-  })
 
   // Commentaires combinés (commentaires + instructions spéciales + contact sur place)
   const contactSurPlaceLines: string[] = []
