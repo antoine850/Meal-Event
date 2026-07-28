@@ -198,23 +198,6 @@ function getActiveQuote(quotes: FicheQuote[]): FicheQuote | null {
   )
 }
 
-function computeVatBreakdown(items: FicheQuoteItem[]) {
-  let totalHt = 0
-  let totalTtc = 0
-  let vat10 = 0
-  let vat20 = 0
-  for (const item of items) {
-    const ht = item.total_ht || 0
-    const ttc = item.total_ttc || 0
-    totalHt += ht
-    totalTtc += ttc
-    const tva = ttc - ht
-    if (item.tva_rate === 10) vat10 += tva
-    else if (item.tva_rate === 20) vat20 += tva
-  }
-  return { totalHt, vat10, vat20, totalTtc }
-}
-
 function getRemainingBalance(
   totalTtc: number,
   payments: FichePayment[]
@@ -253,22 +236,8 @@ const OK_BG = '#ECF1ED'
 const ALERT = '#B8341A'
 const ALERT_BG = '#FBE9E5'
 const CREAM = '#FBF9F5'
-const GRAY = '#6b7280'
-const LIGHT_GRAY = '#9ca3af'
-const BORDER = '#e5e7eb'
 // Largeur utile : A4 (595.28pt) moins marges latérales de 34pt
 const CONTENT_WIDTH = 595.28 - 2 * 34
-
-const ficheTableLayout = {
-  hLineWidth: (i: number, node: any) =>
-    i === 0 || i === 1 || i === node.table.body.length ? 0.5 : 0.25,
-  vLineWidth: () => 0,
-  hLineColor: () => BORDER,
-  paddingLeft: () => 4,
-  paddingRight: () => 4,
-  paddingTop: () => 3,
-  paddingBottom: () => 3,
-}
 
 function hairline(color: string, width: number): ContentCanvas {
   return {
@@ -733,170 +702,222 @@ function freetextBlock(
   }
 }
 
-function sectionTitle(text: string, color: string): Content {
+const CGV_TEXT =
+  'Le client signataire reconnaît avoir pris connaissance et accepté les conditions générales de privatisation jointes au devis, et valide le présent brief comme bon à exécuter. Toute modification du nombre de couverts ou du menu doit être communiquée au commercial au plus tard 48 heures avant la prestation.'
+
+function facturationBlock(
+  quote: FicheQuote | null,
+  quotes: FicheQuote[],
+  payments: FichePayment[],
+  accent: string
+): Content {
+  if (!quote) {
+    return {
+      stack: [
+        blockHead('06', 'Facturation', accent),
+        {
+          text: 'Aucun devis associé',
+          alignment: 'center',
+          color: INK_MUTE,
+          margin: [0, 6, 0, 6] as [number, number, number, number],
+        },
+      ],
+    }
+  }
+
+  const items = quote.quote_items || []
+  const totalTtc =
+    quote.total_ttc ?? items.reduce((s, i) => s + (i.total_ttc || 0), 0)
+  const deposits = payments.filter(
+    (p) => p.payment_modality === 'acompte' || p.payment_type === 'deposit'
+  )
+  const quoteNumberById = new Map<string, string>()
+  for (const q of quotes) {
+    if (q.id && q.quote_number) quoteNumberById.set(q.id, q.quote_number)
+  }
+  const remaining = getRemainingBalance(totalTtc, payments)
+
+  const body: TableCell[][] = items.map((item) => [
+    {
+      stack: [
+        { text: item.name, fontSize: 9, color: INK_SOFT },
+        ...(item.description
+          ? [
+              {
+                text: item.description,
+                fontSize: 7.5,
+                color: INK_MUTE,
+                margin: [0, 1, 0, 0] as [number, number, number, number],
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      text: item.quantity != null ? `×${item.quantity}` : '',
+      fontSize: 8,
+      color: INK_MUTE,
+      alignment: 'right' as const,
+    },
+    {
+      text: formatEuroDecimal(item.total_ttc || 0),
+      fontSize: 9,
+      bold: true,
+      alignment: 'right' as const,
+    },
+  ])
+  if (items.length === 0) {
+    body.push([
+      {
+        text: 'Aucune ligne',
+        colSpan: 3,
+        alignment: 'center' as const,
+        color: INK_MUTE,
+      },
+      {},
+      {},
+    ])
+  }
+
+  const totalIdx = body.length
+  body.push([
+    {
+      text: 'TOTAL TTC',
+      fontSize: 8,
+      bold: true,
+      characterSpacing: 1,
+      margin: [0, 4, 0, 0] as [number, number, number, number],
+    },
+    { text: '' },
+    {
+      text: formatEuroDecimal(totalTtc),
+      font: 'IvyOra',
+      bold: true,
+      fontSize: 14,
+      alignment: 'right' as const,
+    },
+  ])
+
+  for (const p of deposits) {
+    const isPaid = p.status === 'paid' || p.status === 'completed'
+    const num = p.quote_id ? quoteNumberById.get(p.quote_id) : null
+    const label = ['Acompte', num, isPaid ? 'payé' : 'en attente']
+      .filter(Boolean)
+      .join(' · ')
+    body.push([
+      { text: label, fontSize: 9, color: isPaid ? OK : INK_MUTE },
+      { text: '' },
+      {
+        text: `${isPaid ? '− ' : ''}${formatEuroDecimal(p.amount || 0)}`,
+        fontSize: 9,
+        bold: true,
+        color: isPaid ? OK : INK_MUTE,
+        alignment: 'right' as const,
+      },
+    ])
+  }
+
+  const soldeIdx = body.length
+  body.push([
+    { text: 'Solde', fontSize: 9, bold: true },
+    { text: '' },
+    {
+      text: formatEuroDecimal(remaining),
+      font: 'IvyOra',
+      bold: true,
+      fontSize: 11,
+      color: accent,
+      alignment: 'right' as const,
+    },
+  ])
+
   return {
-    text: text.toUpperCase(),
-    style: 'ficheSectionTitle',
-    color,
-    headlineLevel: 1,
-    margin: [0, 8, 0, 3] as [number, number, number, number],
+    stack: [
+      blockHead('06', 'Facturation', accent),
+      {
+        table: { widths: ['*', 30, 78], body, dontBreakRows: true },
+        layout: {
+          hLineWidth: (i: number) => {
+            if (i === 0 || i === body.length) return 0.75
+            if (i === totalIdx) return 0.75
+            if (i === soldeIdx) return 0.5
+            return 0
+          },
+          hLineColor: (i: number) => (i === totalIdx ? INK : RULE),
+          vLineWidth: (i: number, node: any) =>
+            i === 0 || i === node.table.widths.length ? 0.75 : 0,
+          vLineColor: () => RULE,
+          fillColor: () => CREAM,
+          paddingLeft: () => 12,
+          paddingRight: () => 12,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
+        },
+      },
+    ],
+  }
+}
+
+function signatureBlock(): Content {
+  return {
+    stack: [
+      hairline(INK, 1.5),
+      {
+        text: CGV_TEXT,
+        fontSize: 8,
+        color: INK_SOFT,
+        lineHeight: 1.45,
+        margin: [0, 8, 0, 14] as [number, number, number, number],
+      },
+      hairline(INK, 0.75),
+      {
+        text: 'BON POUR ACCORD · LE CLIENT',
+        fontSize: 7.5,
+        bold: true,
+        characterSpacing: 1.4,
+        margin: [0, 8, 0, 0] as [number, number, number, number],
+      },
+      {
+        text: 'Mention « lu et approuvé » manuscrite, date et signature',
+        font: 'IvyOra',
+        italics: true,
+        fontSize: 8,
+        color: INK_MUTE,
+        margin: [0, 2, 0, 48] as [number, number, number, number],
+      },
+      {
+        columns: ['Fait à', 'Le', 'Signature'].map((t) => ({
+          width: '*' as const,
+          stack: [
+            {
+              text: t,
+              fontSize: 8,
+              color: INK_SOFT,
+              margin: [0, 0, 0, 2] as [number, number, number, number],
+            },
+            hairline(RULE, 0.5),
+          ],
+        })),
+        columnGap: 14,
+      },
+    ],
+    unbreakable: true,
+    margin: [0, 20, 0, 0] as [number, number, number, number],
   }
 }
 
 function labelValue(label: string, value: string | null | undefined): Content {
   return {
     stack: [
-      { text: label.toUpperCase(), style: 'ficheLabel' },
-      { text: value || DASH, style: 'ficheValue' },
-    ],
-  }
-}
-
-// Ligne d'infos en 2-3 colonnes, insécable
-function infoRow(cells: Content[]): Content {
-  return {
-    columns: cells.map((c) => ({ width: '*', ...(c as object) })) as Column[],
-    columnGap: 10,
-    unbreakable: true,
-    margin: [0, 4, 0, 0] as [number, number, number, number],
-  }
-}
-
-function headerCell(
-  text: string,
-  color: string,
-  alignment?: 'right'
-): TableCell {
-  return {
-    text,
-    style: 'ficheTableHeader',
-    fillColor: color,
-    color: 'white',
-    ...(alignment ? { alignment } : {}),
-  }
-}
-
-function itemsTable(
-  title: string,
-  items: FicheQuoteItem[],
-  color: string
-): Content {
-  const body: TableCell[][] = [
-    [
-      headerCell('Titre', color),
-      headerCell('Qté', color, 'right'),
-      headerCell('TVA', color, 'right'),
-      headerCell('Prix U HT', color, 'right'),
-      headerCell('Prix U TTC', color, 'right'),
-      headerCell('Total HT', color, 'right'),
-      headerCell('Total TTC', color, 'right'),
-    ],
-  ]
-
-  if (items.length === 0) {
-    body.push([
-      { text: 'Aucune ligne', colSpan: 7, alignment: 'center', color: GRAY },
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-    ])
-  } else {
-    for (const item of items) {
-      const tvaRate = item.tva_rate || 0
-      // PU TTC stocké en priorité (cf. fix 66803d4), dérivé en secours
-      const unitTtc =
-        item.unit_price_ttc ?? (item.unit_price || 0) * (1 + tvaRate / 100)
-      body.push([
-        {
-          stack: [
-            { text: item.name, bold: true },
-            ...(item.description
-              ? [
-                  {
-                    text: item.description,
-                    style: 'ficheDesc' as const,
-                    color: GRAY,
-                  },
-                ]
-              : []),
-          ],
-        },
-        {
-          text: item.quantity != null ? String(item.quantity) : DASH,
-          alignment: 'right',
-        },
-        { text: `${tvaRate.toFixed(2)}%`, alignment: 'right' },
-        { text: formatEuroDecimal(item.unit_price || 0), alignment: 'right' },
-        { text: formatEuroDecimal(unitTtc), alignment: 'right' },
-        { text: formatEuroDecimal(item.total_ht || 0), alignment: 'right' },
-        { text: formatEuroDecimal(item.total_ttc || 0), alignment: 'right' },
-      ])
-    }
-  }
-
-  return {
-    stack: [
-      sectionTitle(title, color),
       {
-        table: {
-          headerRows: 1,
-          dontBreakRows: true,
-          keepWithHeaderRows: 1,
-          widths: ['*', 28, 38, 56, 56, 56, 56],
-          body,
-        },
-        layout: ficheTableLayout,
-        style: 'ficheTableCell',
+        text: label.toUpperCase(),
+        fontSize: 6.5,
+        bold: true,
+        color: INK_MUTE,
+        characterSpacing: 1.2,
+        margin: [0, 0, 0, 2] as [number, number, number, number],
       },
-    ],
-  }
-}
-
-// Petite table de montants (Total / Reste / Acomptes), insécable avec son titre
-function amountsTable(
-  title: string,
-  headers: string[],
-  rows: TableCell[][],
-  color: string
-): Content {
-  return {
-    stack: [
-      sectionTitle(title, color),
-      {
-        table: {
-          headerRows: 1,
-          widths: headers.map(() => '*'),
-          body: [
-            headers.map((h, i) =>
-              headerCell(
-                h,
-                color,
-                i >= headers.length - 4 ? 'right' : undefined
-              )
-            ),
-            ...rows,
-          ],
-        },
-        layout: ficheTableLayout,
-        style: 'ficheTableCell',
-      },
-    ],
-    unbreakable: true,
-  }
-}
-
-function textSection(
-  title: string,
-  text: string | null | undefined,
-  color: string
-): Content {
-  return {
-    stack: [
-      sectionTitle(title, color),
-      { text: text || DASH, style: 'ficheText' },
+      { text: value || DASH, fontSize: 9, lineHeight: 1.4 },
     ],
   }
 }
@@ -925,10 +946,6 @@ export function buildFicheFonctionDocDefinition(
   const quotes = booking.quotes || []
   const payments = booking.payments || []
   const activeQuote = getActiveQuote(quotes)
-  const items = activeQuote?.quote_items || []
-  const totals = computeVatBreakdown(items)
-  const foodItems = items.filter((i) => i.tva_rate === 10)
-  const prestationItems = items.filter((i) => i.tva_rate !== 10)
 
   const content: Content[] = []
 
@@ -959,188 +976,40 @@ export function buildFicheFonctionDocDefinition(
   })
   content.push(freetextBlock('05', 'Déroulé', booking.deroulement, color))
 
-  // ── Devis : items / Total / Acomptes / Reste ──
-  if (!activeQuote) {
-    content.push({
-      text: 'Aucun devis associé',
-      alignment: 'center',
-      color: GRAY,
-      margin: [0, 14, 0, 14] as [number, number, number, number],
-    })
-  } else {
-    if (prestationItems.length > 0) {
-      content.push(itemsTable('Prestations', prestationItems, color))
-    }
-    if (foodItems.length > 0) {
-      content.push(itemsTable('Food', foodItems, color))
-    }
-    if (prestationItems.length === 0 && foodItems.length === 0) {
-      content.push(itemsTable('Prestations', [], color))
-    }
+  content.push(facturationBlock(activeQuote, quotes, payments, color))
 
-    // Total
-    content.push(
-      amountsTable(
-        'Total',
-        ['Total HT', 'TVA 10%', 'TVA 20%', 'Total TTC'],
-        [
-          [
-            { text: formatEuroDecimal(totals.totalHt), alignment: 'right' },
-            { text: formatEuroDecimal(totals.vat10), alignment: 'right' },
-            { text: formatEuroDecimal(totals.vat20), alignment: 'right' },
-            {
-              text: formatEuroDecimal(totals.totalTtc),
-              alignment: 'right',
-              bold: true,
-            },
-          ],
-        ],
-        color
-      )
-    )
-
-    // Acomptes (payés + en attente, prorata HT/TVA par ratio TTC — comme l'écran)
-    const allDeposits = payments.filter(
-      (p) => p.payment_modality === 'acompte' || p.payment_type === 'deposit'
-    )
-    const quoteNumberById = new Map<string, string>()
-    for (const q of quotes) {
-      if (q.id && q.quote_number) quoteNumberById.set(q.id, q.quote_number)
-    }
-    const depositRows: TableCell[][] =
-      allDeposits.length === 0
-        ? [
-            [
-              {
-                text: 'Aucun acompte',
-                colSpan: 6,
-                alignment: 'center',
-                color: GRAY,
-              },
-              {},
-              {},
-              {},
-              {},
-              {},
-            ],
-          ]
-        : allDeposits.map((p) => {
-            const isPaid = p.status === 'paid' || p.status === 'completed'
-            const totalRatio =
-              (activeQuote.total_ttc || 0) > 0
-                ? (p.amount || 0) / (activeQuote.total_ttc || 1)
-                : 0
-            const quoteNum = p.quote_id
-              ? quoteNumberById.get(p.quote_id) || DASH
-              : DASH
-            return [
-              {
-                text: isPaid ? 'Payé' : 'En attente',
-                color: isPaid ? '#15803d' : GRAY,
-              },
-              { text: quoteNum },
-              {
-                text: formatEuroDecimal(totals.totalHt * totalRatio),
-                alignment: 'right',
-              },
-              {
-                text: formatEuroDecimal(totals.vat10 * totalRatio),
-                alignment: 'right',
-              },
-              {
-                text: formatEuroDecimal(totals.vat20 * totalRatio),
-                alignment: 'right',
-              },
-              {
-                text: formatEuroDecimal(p.amount || 0),
-                alignment: 'right',
-                bold: true,
-              },
-            ]
-          })
-    content.push(
-      amountsTable(
-        'Acomptes',
-        ['Statut', 'Facture', 'Total HT', 'TVA 10%', 'TVA 20%', 'Total TTC'],
-        depositRows,
-        color
-      )
-    )
-
-    // Reste (ventilation TVA au prorata du ratio restant — comme l'écran)
-    const remainingTtc =
-      activeQuote.total_ttc != null
-        ? getRemainingBalance(activeQuote.total_ttc || 0, payments)
-        : 0
-    const ratio =
-      (activeQuote.total_ttc || 0) > 0
-        ? remainingTtc / (activeQuote.total_ttc || 1)
-        : 0
-    content.push(
-      amountsTable(
-        'Reste',
-        ['Total HT', 'TVA 10%', 'TVA 20%', 'Total TTC'],
-        [
-          [
-            {
-              text: formatEuroDecimal(totals.totalHt * ratio),
-              alignment: 'right',
-            },
-            {
-              text: formatEuroDecimal(totals.vat10 * ratio),
-              alignment: 'right',
-            },
-            {
-              text: formatEuroDecimal(totals.vat20 * ratio),
-              alignment: 'right',
-            },
-            {
-              text: formatEuroDecimal(remainingTtc),
-              alignment: 'right',
-              bold: true,
-            },
-          ],
-        ],
-        color
-      )
-    )
-  }
-
-  // ── Textes libres ──
-  content.push(
-    textSection('Commentaires facturation', booking.internal_notes, color)
-  )
-
-  // Commentaires combinés (commentaires + instructions spéciales + contact sur place)
-  const contactSurPlaceLines: string[] = []
-  if (booking.contact_sur_place_nom)
-    contactSurPlaceLines.push(
-      `Contact sur place : ${booking.contact_sur_place_nom}`
-    )
-  if (booking.contact_sur_place_tel)
-    contactSurPlaceLines.push(`Tél : ${booking.contact_sur_place_tel}`)
-  if (booking.contact_sur_place_societe)
-    contactSurPlaceLines.push(`Société : ${booking.contact_sur_place_societe}`)
+  // Bloc 07 : textes internes conservés
   const commentairesBlocks: string[] = []
   if (booking.commentaires) commentairesBlocks.push(booking.commentaires)
   if (booking.instructions_speciales)
     commentairesBlocks.push(
       `Instructions spéciales :\n${booking.instructions_speciales}`
     )
-  if (contactSurPlaceLines.length > 0)
-    commentairesBlocks.push(contactSurPlaceLines.join('\n'))
-  content.push(
-    textSection(
-      'Commentaires',
-      commentairesBlocks.join('\n\n').trim() || null,
-      color
-    )
-  )
-
-  // Suivi commercial (2 colonnes, insécable)
   content.push({
     stack: [
-      sectionTitle('Suivi commercial', color),
+      blockHead('07', 'Commentaires', color),
+      labelValue('Commentaires facturation', booking.internal_notes),
+      {
+        ...(labelValue(
+          'Commentaires',
+          commentairesBlocks.join('\n\n').trim() || null
+        ) as object),
+        margin: [0, 6, 0, 0] as [number, number, number, number],
+      },
+      {
+        ...(labelValue(
+          'Prestations souhaitées',
+          booking.prestations_souhaitees
+        ) as object),
+        margin: [0, 6, 0, 0] as [number, number, number, number],
+      },
+    ] as Content[],
+  })
+
+  // Bloc 08 : suivi commercial
+  content.push({
+    stack: [
+      blockHead('08', 'Suivi commercial', color),
       {
         columns: [
           {
@@ -1151,15 +1020,10 @@ export function buildFicheFonctionDocDefinition(
                 assignedNames.join(', ') || null
               ),
               {
-                ...(labelValue('Occasion', booking.occasion) as object),
-                margin: [0, 4, 0, 0],
-              },
-              {
                 ...(labelValue('Relance', booking.relance) as object),
-                margin: [0, 4, 0, 0],
+                margin: [0, 6, 0, 0] as [number, number, number, number],
               },
               {
-                // budget_client : numérique ou texte libre selon la source (import BS)
                 ...(labelValue(
                   'Budget client',
                   typeof booking.budget_client === 'number' &&
@@ -1169,51 +1033,65 @@ export function buildFicheFonctionDocDefinition(
                       ? String(booking.budget_client).trim()
                       : null
                 ) as object),
-                margin: [0, 4, 0, 0],
+                margin: [0, 6, 0, 0] as [number, number, number, number],
               },
             ],
           },
           {
             width: '*',
             stack: [
-              labelValue('Source', booking.source),
-              {
-                ...(labelValue('Option', booking.option) as object),
-                margin: [0, 4, 0, 0],
-              },
+              labelValue('Option', booking.option),
               {
                 ...(labelValue(
                   'Date signature devis',
                   formatDateLong(booking.date_signature_devis)
                 ) as object),
-                margin: [0, 4, 0, 0],
+                margin: [0, 6, 0, 0] as [number, number, number, number],
               },
             ],
           },
         ] as Column[],
-        columnGap: 14,
+        columnGap: 24,
       },
     ],
     unbreakable: true,
   })
 
+  content.push(signatureBlock())
+
   return {
     content,
-    footer: (currentPage: number, pageCount: number) => ({
-      columns: [
-        {
-          text: `Fiche de fonction n°${bookingRef} — imprimé le ${printedAt}`,
-          style: 'footer',
-        },
-        {
-          text: `Page ${currentPage}/${pageCount}`,
-          style: 'footer',
-          alignment: 'right' as const,
-        },
-      ],
-      style: 'footer',
-      margin: [30, 8, 30, 0] as [number, number, number, number],
-    }),
+    footer: (currentPage: number, pageCount: number) => {
+      const addr = [
+        booking.restaurant?.address,
+        [booking.restaurant?.postal_code, booking.restaurant?.city]
+          .filter(Boolean)
+          .join(' '),
+      ]
+        .filter(Boolean)
+        .join(', ')
+      return {
+        columns: [
+          {
+            text: [
+              {
+                text: (booking.restaurant?.name || '').toUpperCase(),
+                bold: true,
+              },
+              { text: addr ? ` · ${addr}` : '' },
+            ],
+            style: 'footer',
+          },
+          {
+            text: `Émis le ${printedAt} · Page ${currentPage}/${pageCount}`,
+            style: 'footer',
+            alignment: 'right' as const,
+          },
+        ],
+        style: 'footer',
+        margin: [34, 10, 34, 0] as [number, number, number, number],
+      }
+    },
     // Un titre de section ne reste jamais seul en bas de page.
     // Les nœuds du footer figurent dans followingNodesOnPage sur chaque page : on les ignore via leur style.
     // Cast : @types/pdfmake 0.3 déclare (currentNode, nodeQueries) mais le runtime 0.2.23 passe des arguments positionnels, on garde la signature positionnelle.
@@ -1227,16 +1105,6 @@ export function buildFicheFonctionDocDefinition(
       lineHeight: 1.35,
     },
     styles: {
-      headerTitle: { fontSize: 14, bold: true },
-      headerDocTitle: { fontSize: 10, bold: true },
-      headerSmall: { fontSize: 8 },
-      ficheSectionTitle: { fontSize: 9, bold: true },
-      ficheLabel: { fontSize: 7, bold: true, color: LIGHT_GRAY },
-      ficheValue: { fontSize: 9 },
-      ficheText: { fontSize: 9 },
-      ficheDesc: { fontSize: 8 },
-      ficheTableHeader: { fontSize: 8, bold: true },
-      ficheTableCell: { fontSize: 8 },
       footer: { fontSize: 6.5, color: INK_MUTE },
     },
     pageMargins: [34, 28, 34, 48] as [number, number, number, number],
