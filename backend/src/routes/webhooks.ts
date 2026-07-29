@@ -961,7 +961,8 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
         name: buildDocumentName(
           'devis_signe',
           (quote as any).booking?.restaurant?.name,
-          clientNameOf((quote as any).booking?.contact)
+          clientNameOf((quote as any).booking?.contact),
+          (quote as any).date_start
         ),
         doc_kind: 'devis_signe',
         file_type: 'pdf',

@@ -2291,7 +2291,8 @@ export const BookingDetail = forwardRef<
                                     a.download = `${buildDocumentName(
                                       'avoir',
                                       booking.restaurant?.name,
-                                      clientNameOf(booking.contact)
+                                      clientNameOf(booking.contact),
+                                      booking.event_date
                                     )}.pdf`
                                     document.body.appendChild(a)
                                     a.click()

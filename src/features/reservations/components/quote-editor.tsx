@@ -2837,7 +2837,8 @@ export function QuoteEditor({
                             ? 'facture_solde'
                             : 'devis',
                         restaurant?.name,
-                        clientNameOf(contact)
+                        clientNameOf(contact),
+                        booking.event_date
                       )}.pdf`
                       document.body.appendChild(a)
                       a.click()

@@ -209,7 +209,8 @@ bookingsRouter.post(
       const docName = `${buildDocumentName(
         'fiche_fonction',
         booking.restaurant?.name,
-        clientNameOf(booking.contact)
+        clientNameOf(booking.contact),
+        booking.event_date
       )}_v${version}`
       const fileName = `${docName}.pdf`
       const storagePath = `${booking.organization_id}/bookings/${bookingId}/fiche-fonction-v${version}.pdf`

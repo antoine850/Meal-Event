@@ -1,19 +1,22 @@
 import { supabase } from './supabase.js'
 
 // Nommage client des documents : Jourmoisannee_type_restaurant_nomclient
-// (ex: 15072026_facture_acompte_LeBistrot_Dupont). Date = date de génération.
+// (ex: 15072026_facture_acompte_LeBistrot_Dupont). Date = date de l'événement,
+// repli sur la date de génération si absente.
 // Miroir côté frontend : src/features/reservations/lib/document-name.ts
 export function buildDocumentName(
   docType: string,
   restaurantName?: string | null,
-  clientName?: string | null
+  clientName?: string | null,
+  eventDate?: string | null
 ): string {
   const clean = (s: string) =>
     s
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-zA-Z0-9]/g, '')
-  const d = new Date()
+  const parsed = eventDate ? new Date(eventDate) : null
+  const d = parsed && !Number.isNaN(parsed.getTime()) ? parsed : new Date()
   const date = `${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}`
   return [date, docType, clean(restaurantName || ''), clean(clientName || '')]
     .filter(Boolean)

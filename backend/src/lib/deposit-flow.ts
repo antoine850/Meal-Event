@@ -194,7 +194,8 @@ export async function createAndSendDeposit(
   const acompteDocName = buildDocumentName(
     'facture_acompte',
     restaurant?.name,
-    clientNameOf(contact)
+    clientNameOf(contact),
+    quoteData.date_start || booking?.event_date
   )
 
   await sendClientEmail({

@@ -319,7 +319,8 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
     const devisDocName = buildDocumentName(
       'devis',
       restaurant?.name,
-      clientNameOf(contact)
+      clientNameOf(contact),
+      quoteData.date_start || booking?.event_date
     )
 
     // Send via Resend (journalisé par sendClientEmail)
@@ -418,7 +419,8 @@ quotesRouter.post(
       const fileName = `${buildDocumentName(
         'devis',
         booking?.restaurant?.name,
-        clientNameOf(contact)
+        clientNameOf(contact),
+        quoteData.date_start || booking?.event_date
       )}.pdf`
 
       // Upload to SignNow
@@ -881,7 +883,8 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     const soldeDocName = buildDocumentName(
       'facture_solde',
       restaurant?.name,
-      clientNameOf(contact)
+      clientNameOf(contact),
+      quoteData.date_start || booking?.event_date
     )
 
     // Send email (journalisé par sendClientEmail)
@@ -1155,7 +1158,8 @@ quotesRouter.post('/:id/credit-note', async (req: Request, res: Response) => {
     const avoirDocName = buildDocumentName(
       'avoir',
       (booking as any)?.restaurant?.name,
-      clientNameOf((booking as any)?.contact)
+      clientNameOf((booking as any)?.contact),
+      q.date_start
     )
     await savePdfAsDocument(
       pdf,
@@ -1250,7 +1254,7 @@ quotesRouter.post(
         ccFacturation: true,
         attachments: [
           {
-            filename: `${buildDocumentName('avoir', restaurant?.name, clientNameOf(contact))}.pdf`,
+            filename: `${buildDocumentName('avoir', restaurant?.name, clientNameOf(contact), quoteData?.date_start || quoteData?.booking?.event_date)}.pdf`,
             content: pdfBuffer,
           },
         ],
@@ -1292,7 +1296,8 @@ quotesRouter.get('/:id/download-pdf', async (req: Request, res: Response) => {
     const filename = `${buildDocumentName(
       typeLabel,
       quoteData.booking?.restaurant?.name,
-      clientNameOf(quoteData.booking?.contact)
+      clientNameOf(quoteData.booking?.contact),
+      quoteData.date_start || quoteData.booking?.event_date
     )}.pdf`
 
     res.setHeader('Content-Type', 'application/pdf')
