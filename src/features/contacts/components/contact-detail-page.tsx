@@ -114,7 +114,9 @@ export function ContactDetailPage() {
           </Tabs>
         </div>
         <div className='ms-auto flex items-center space-x-2'>
-          {gmailStatus?.integration_enabled && contact.email && (
+          {gmailStatus?.integration_enabled &&
+            gmailStatus.connected &&
+            contact.email && (
             <Button
               variant='outline'
               size='sm'
