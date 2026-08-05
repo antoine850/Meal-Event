@@ -102,16 +102,20 @@ applySignature(html: string, raw: string | null): string
 esc(s: string): string                         // remonté depuis routes/emails.ts:7
 ```
 
-- `signatureBlock` produit **exactement** le markup existant (`<p ...>Cordialement,</p>` +
-  `<p ...>{nom}</p>`, mêmes styles inline), encadré des deux marqueurs.
+- `signatureBlock` produit **exactement** le markup existant du nom (`<p ...>{nom}</p>`, mêmes
+  styles inline), encadré des deux marqueurs. Le `<p>Cordialement,</p>` reste **hors** du bloc,
+  dans le gabarit : la signature personnelle remplace le nom, pas la formule de politesse. Les
+  emails libres, qui n'ont pas de formule de politesse aujourd'hui, n'en gagnent donc pas une.
 - `applySignature` renvoie le HTML **inchangé** si la signature est vide/nulle ou si les marqueurs
   sont absents. Sinon elle remplace le bloc entier, marqueurs compris, par `renderSignature(raw)`.
   Remplacement global : un gabarit ne pose qu'un bloc, mais aucun marqueur ne doit survivre.
 - Marqueurs en commentaires HTML (`<!--mev:sig-->` / `<!--/mev:sig-->`) : invisibles chez le
   destinataire, et supprimés par DOMPurify à l'affichage du fil dans le CRM.
 
-Conséquence directe : **signature vide = email identique à aujourd'hui, au caractère près**. Le
-déploiement est invisible tant que personne n'a rempli son champ.
+Conséquence directe : **signature vide = email identique à aujourd'hui à l'affichage** (le source
+HTML change d'indentation, sans effet visible). Le déploiement reste invisible pour le client tant
+que personne n'a rempli son champ, à la seule exception du gras signalé plus bas sur les emails
+libres.
 
 ### Qui signe
 
@@ -148,6 +152,9 @@ et séparateurs. Le bloc reprend la typographie du bloc actuel (14px, gris fonc�
 `esc` est importé du nouveau module. Ces emails passent par `sendClientEmail`, donc ils héritent du
 même arbitrage : si l'acteur n'a pas de boîte connectée et que l'email part de celle du commercial
 attribué, c'est ce dernier qui signe -- cohérent avec le `From` que verra le client.
+
+Seul écart de rendu à signature vide, assumé : sur ces emails libres le nom passe en gras, puisque
+les deux chemins partagent désormais le même markup de repli.
 
 ### Réglages
 
