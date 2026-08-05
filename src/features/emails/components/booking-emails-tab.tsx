@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Link } from '@tanstack/react-router'
 import { Loader2, Mail } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -88,11 +89,23 @@ export function BookingEmailsTab({
             </Card>
           )}
 
-          {/* Zone de reponse : uniquement quand l'integration Gmail est active
-              (les reponses clients ne remontent pas sans polling). */}
-          {gmailStatus?.integration_enabled && (
-            <EmailReplyComposer bookingId={bookingId} />
-          )}
+          {/* Zone de reponse : uniquement pour une boite connectee. Sans boite,
+              l'envoi partirait de noreply@ hors du fil et la reponse du client
+              ne reviendrait jamais dans le CRM. */}
+          {gmailStatus?.integration_enabled &&
+            (gmailStatus.connected ? (
+              <EmailReplyComposer bookingId={bookingId} />
+            ) : (
+              <p className='text-sm text-muted-foreground'>
+                <Link
+                  to='/settings/integrations'
+                  className='underline underline-offset-4'
+                >
+                  Connectez votre Gmail
+                </Link>{' '}
+                pour répondre depuis votre adresse.
+              </p>
+            ))}
 
           {logs.length > 0 && (
             <Collapsible>

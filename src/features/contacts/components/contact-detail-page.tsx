@@ -30,6 +30,7 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { SendEmailDialog } from '@/features/emails/components/send-email-dialog'
 import { useContactThreadMeta } from '@/features/emails/hooks/use-thread-unread'
 import { useBookingsByContact } from '@/features/reservations/hooks/use-bookings'
+import { buildGmailComposeUrl } from '@/features/reservations/lib/email-templates'
 import { useGmailStatus } from '@/features/settings/hooks/use-gmail-account'
 import { useContact } from '../hooks/use-contacts'
 import { ContactDetail } from './contact-detail'
@@ -70,6 +71,17 @@ export function ContactDetailPage() {
         </Main>
       </>
     )
+  }
+
+  // Boite connectee : composer integre. Sinon Gmail dans un onglet, comme le
+  // menu de la liste : les comptes hors Workspace ne peuvent pas se connecter.
+  const handleSendEmail = () => {
+    if (gmailStatus?.connected) {
+      setEmailOpen(true)
+      return
+    }
+    const url = buildGmailComposeUrl(contact.email!, '', '')
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -115,11 +127,7 @@ export function ContactDetailPage() {
         </div>
         <div className='ms-auto flex items-center space-x-2'>
           {gmailStatus?.integration_enabled && contact.email && (
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => setEmailOpen(true)}
-            >
+            <Button variant='outline' size='sm' onClick={handleSendEmail}>
               <Mail className='mr-2 h-4 w-4' />
               Envoyer un email
             </Button>

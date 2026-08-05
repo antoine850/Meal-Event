@@ -1,6 +1,7 @@
 // ── Email Templates for MealEvent CRM ──
 // All templates are in French, HTML inline-styled, responsive
 // Dynamic branding: restaurant logo, color, legal footer
+import { signatureBlock } from './email-signature.js'
 import { formatEuroAdaptive } from './quote-rounding.js'
 
 interface RestaurantBranding {
@@ -203,9 +204,7 @@ export function buildQuoteEmailHtml(params: {
     <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#444;">
       Cordialement,
     </p>
-    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">
-      ${commercialName || restaurant.name}
-    </p>
+    ${signatureBlock(commercialName || restaurant.name)}
   `
 
   return buildEmailWrapper(restaurant, body)
@@ -333,9 +332,7 @@ export function buildDepositEmailHtml(params: {
     <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#444;">
       Cordialement,
     </p>
-    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">
-      ${commercialName || restaurant.name}
-    </p>
+    ${signatureBlock(commercialName || restaurant.name)}
   `
 
   return buildEmailWrapper(restaurant, body)
@@ -448,9 +445,7 @@ export function buildBalanceEmailHtml(params: {
     <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#444;">
       Cordialement,
     </p>
-    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">
-      ${commercialName || restaurant.name}
-    </p>
+    ${signatureBlock(commercialName || restaurant.name)}
   `
 
   return buildEmailWrapper(restaurant, body)
@@ -570,9 +565,7 @@ export function buildPaymentLinkEmailHtml(params: {
     <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#444;">
       Cordialement,
     </p>
-    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">
-      ${commercialName || restaurant.name}
-    </p>
+    ${signatureBlock(commercialName || restaurant.name)}
   `
 
   return buildEmailWrapper(restaurant, body)
@@ -834,7 +827,7 @@ export function buildReminderEmailHtml(params: {
     </p>
     <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#444;white-space:pre-line;">${message}</p>
     <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#444;">Cordialement,</p>
-    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">${commercialName || restaurant.name}</p>
+    ${signatureBlock(commercialName || restaurant.name)}
   `
   return buildEmailWrapper(restaurant, body)
 }
@@ -857,7 +850,14 @@ export function buildCreditNoteEmailHtml(params: {
   quoteNumber?: string | null
   commercialName?: string | null
 }): string {
-  const { restaurant, contact, avoirNumber, totalTtc, quoteNumber, commercialName } = params
+  const {
+    restaurant,
+    contact,
+    avoirNumber,
+    totalTtc,
+    quoteNumber,
+    commercialName,
+  } = params
   const color = restaurant.color || '#0d7377'
   const body = `
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
@@ -873,11 +873,14 @@ export function buildCreditNoteEmailHtml(params: {
       </td></tr>
     </table>
     <p style="margin:0 0 4px;font-size:14px;line-height:1.6;color:#444;">Cordialement,</p>
-    <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">${commercialName || restaurant.name}</p>
+    ${signatureBlock(commercialName || restaurant.name)}
   `
   return buildEmailWrapper(restaurant, body)
 }
 
-export function buildCreditNoteEmailSubject(avoirNumber: string, restaurantName: string): string {
+export function buildCreditNoteEmailSubject(
+  avoirNumber: string,
+  restaurantName: string
+): string {
   return `Avoir ${avoirNumber} -- ${restaurantName}`
 }

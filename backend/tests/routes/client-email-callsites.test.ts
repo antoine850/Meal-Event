@@ -141,3 +141,28 @@ describe('fil : sujet evenement et cc compta', () => {
     expect(all.split('ccFacturation: true').length - 1).toBe(7)
   })
 })
+
+// Verrou signature (spec du 05/08) : le nom de l'expediteur n'est plus code en
+// dur dans les gabarits, il passe par le bloc balise que sendClientEmail
+// substitue. Un gabarit qui reviendrait au nom en dur enverrait la signature
+// d'une autre personne que la boite expeditrice.
+describe('signature des emails client', () => {
+  it('aucun gabarit ne code le nom du commercial en dur', () => {
+    expect(read('lib/email-templates.ts')).not.toContain(
+      '${commercialName || restaurant.name}'
+    )
+  })
+
+  it('les 6 gabarits client passent par signatureBlock', () => {
+    const calls = read('lib/email-templates.ts').match(/signatureBlock\(/g)
+    expect(calls?.length).toBe(6)
+  })
+
+  it('client-email.ts substitue la signature avant tout usage du HTML', () => {
+    const src = read('lib/client-email.ts')
+    expect(src).toContain('applySignature(params.html')
+    // params.html ne doit plus etre lu ailleurs : l'envoi Gmail, l'envoi
+    // Resend et les deux recordOutbound utilisent le HTML substitue.
+    expect(src.match(/params\.html/g)?.length).toBe(1)
+  })
+})

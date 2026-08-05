@@ -1,17 +1,16 @@
 import { Router, type Request, type Response } from 'express'
 import { sendClientEmail } from '../lib/client-email.js'
+import { esc, renderSignature, signatureBlock } from '../lib/email-signature.js'
 import { supabase } from '../lib/supabase.js'
 
 export const emailsRouter = Router()
 
-const esc = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
-// Email personnel brut (decision 08/07) : texte echappe (nl2br) + signature.
+// Email personnel brut (decision 08/07) : texte echappe (nl2br) + bloc
+// signature balise, que sendClientEmail remplace par la signature de la boite
+// expeditrice.
 function buildPlainHtml(message: string, signature: string): string {
   const body = esc(message.trim()).replace(/\n/g, '<br/>')
-  const sig = signature ? `<br/><br/>${esc(signature)}` : ''
-  return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;">${body}${sig}</div>`
+  return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;">${body}<br/><br/>${signature}</div>`
 }
 
 interface Actor {
@@ -30,7 +29,8 @@ async function loadActor(actorUserId: string): Promise<Actor | null> {
   return (data as Actor) ?? null
 }
 
-const signatureOf = (a: Actor) => `${a.first_name} ${a.last_name}`
+const signatureOf = (a: Actor) =>
+  signatureBlock(`${a.first_name} ${a.last_name}`)
 
 // PJ du composer : base64 dans le JSON, decodees ici. Caps alignes sur les
 // limites transport (Gmail 25 Mo total encode) : 5 fichiers, 10 Mo/fichier,
@@ -271,6 +271,63 @@ emailsRouter.post('/threads/:id/read', async (req: Request, res: Response) => {
     return res.json({ success: true })
   } catch (error) {
     console.error('[emails] read error:', error)
+    return res.status(500).json({ error: 'Échec' })
+  }
+})
+
+// Signature personnelle de l'utilisateur courant. preview_html est rendu ici
+// (et pas cote front) pour que l'apercu des reglages soit exactement ce que
+// recevra le client, sans dupliquer le rendu.
+const MAX_SIGNATURE_CHARS = 2000
+
+emailsRouter.get('/signature', async (req: Request, res: Response) => {
+  try {
+    const actorUserId = (req as any).user?.id as string | undefined
+    if (!actorUserId) return res.status(401).json({ error: 'Unauthenticated' })
+    const { data } = await supabase
+      .from('users')
+      .select('email_signature')
+      .eq('id', actorUserId)
+      .single()
+    const signature = ((data as any)?.email_signature as string | null) ?? null
+    return res.json({
+      signature,
+      preview_html: signature ? renderSignature(signature) : '',
+    })
+  } catch (error) {
+    console.error('[emails] get signature error:', error)
+    return res.status(500).json({ error: 'Échec' })
+  }
+})
+
+emailsRouter.put('/signature', async (req: Request, res: Response) => {
+  try {
+    const actorUserId = (req as any).user?.id as string | undefined
+    if (!actorUserId) return res.status(401).json({ error: 'Unauthenticated' })
+    const { signature } = req.body as { signature?: unknown }
+    if (signature != null && typeof signature !== 'string') {
+      return res.status(400).json({ error: 'signature invalide' })
+    }
+    const value = typeof signature === 'string' ? signature.trim() : ''
+    if (value.length > MAX_SIGNATURE_CHARS) {
+      return res
+        .status(400)
+        .json({ error: `Signature : ${MAX_SIGNATURE_CHARS} caractères maximum` })
+    }
+    const { error } = await supabase
+      .from('users')
+      .update({ email_signature: value || null } as never)
+      .eq('id', actorUserId)
+    if (error) {
+      console.error('[emails] put signature error:', error)
+      return res.status(500).json({ error: 'Échec' })
+    }
+    return res.json({
+      signature: value || null,
+      preview_html: value ? renderSignature(value) : '',
+    })
+  } catch (error) {
+    console.error('[emails] put signature error:', error)
     return res.status(500).json({ error: 'Échec' })
   }
 })

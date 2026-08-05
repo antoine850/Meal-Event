@@ -52,7 +52,6 @@ export const AVAILABLE_VARS = [
   'min_ca',
   'groupe',
   'site_groupe',
-  'signature',
 ] as const satisfies readonly (keyof TemplateVars)[]
 
 export type TemplateInput = {
@@ -109,10 +108,9 @@ export function buildTemplateVars(
   const date = new Date(input.event_date)
   const dateStr = lang === 'fr' ? formatDateFr(date) : formatDateEn(date)
 
-  const signature = input.user
-    ? `${input.user.first_name || ''} ${input.user.last_name || ''}`.trim() ||
-      input.user.email
-    : ''
+  // Le backend accroche la vraie signature de l'expediteur en bas du message :
+  // la variable de gabarit ne rend plus rien, sinon le nom sort deux fois.
+  const signature = ''
 
   const minCa = input.restaurant?.min_revenue_privatization_eur
     ? input.restaurant.min_revenue_privatization_eur.toLocaleString(

@@ -1,6 +1,12 @@
-import { sendEmail, SendEmailOptions } from './resend.js'
-import { supabase } from './supabase.js'
+import { applySignature } from './email-signature.js'
 import { buildThreadSubject } from './email-templates.js'
+import {
+  getOrCreateThread,
+  getThreadTail,
+  resolveSenderMailbox,
+  recordOutbound,
+  type ThreadRef,
+} from './email-threads.js'
 import {
   buildRawMessage,
   classifyGmailError,
@@ -14,13 +20,8 @@ import {
   findByRfcMessageId,
   markAccountRevoked,
 } from './gmail.js'
-import {
-  getOrCreateThread,
-  getThreadTail,
-  resolveSenderMailbox,
-  recordOutbound,
-  type ThreadRef,
-} from './email-threads.js'
+import { sendEmail, SendEmailOptions } from './resend.js'
+import { supabase } from './supabase.js'
 
 // Helper partage : email de facturation de l'organisation (reply-to secondaire)
 export async function getOrgFacturationEmail(
@@ -57,6 +58,17 @@ export async function getCommercialInfo(
     }
   }
   return { name: null, email: null }
+}
+
+// Signature personnelle d'un utilisateur (vide = le bloc de repli du gabarit
+// reste en place).
+async function loadSignature(userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('email_signature')
+    .eq('id', userId)
+    .single()
+  return (data as any)?.email_signature ?? null
 }
 
 export interface ClientEmailParams {
@@ -98,7 +110,9 @@ async function logEmail(row: Record<string, unknown>): Promise<void> {
 // materialise dans email_messages + email_logs. Fallback Resend sur erreur franche.
 // Sujet du fil booking : libelle evenement stable (decision 08/07), pas le
 // sujet du 1er email. Degrade en null (=> sujet de l'email) si lookup KO.
-async function getBookingThreadSubject(bookingId: string): Promise<string | null> {
+async function getBookingThreadSubject(
+  bookingId: string
+): Promise<string | null> {
   try {
     const { data } = await supabase
       .from('bookings')
@@ -160,6 +174,14 @@ export async function sendClientEmail(
     bookingId: params.bookingId ?? null,
   })
 
+  // Signataire = la boite qui envoie vraiment, sinon la personne qui a clique.
+  // Sans l'un ni l'autre, le bloc de repli du gabarit (commercial attribue)
+  // reste en place. Substitution ici, avant l'envoi ET avant l'archivage : le
+  // corps stocke dans email_messages porte la vraie signature.
+  const signerUserId = mailbox?.userId ?? params.actorUserId ?? null
+  const signature = signerUserId ? await loadSignature(signerUserId) : null
+  const html = applySignature(params.html, signature)
+
   if (mailbox && isGmailSendingEnabled()) {
     const client = await gmailClient(mailbox.userId)
     if (client) {
@@ -178,7 +200,10 @@ export async function sendClientEmail(
           ? [...(params.cc ?? []), params.facturationEmail]
           : params.cc
 
-      const persistGmail = async (gmailMessageId: string, gmailThreadId: string | null) => {
+      const persistGmail = async (
+        gmailMessageId: string,
+        gmailThreadId: string | null
+      ) => {
         await recordOutbound(thread, {
           provider: 'gmail',
           senderUserId: mailbox.userId,
@@ -189,7 +214,7 @@ export async function sendClientEmail(
           toEmails: [params.to],
           cc: cc ?? null,
           subject: effectiveSubject,
-          html: params.html,
+          html,
           inReplyTo: tail.lastRfcMessageId,
           references: tail.lastRfcMessageId,
         })
@@ -208,7 +233,7 @@ export async function sendClientEmail(
           to: params.to,
           cc,
           subject: effectiveSubject,
-          html: params.html,
+          html,
           messageId: rfcMessageId,
           inReplyTo: tail.lastRfcMessageId || undefined,
           references: tail.lastRfcMessageId || undefined,
@@ -247,7 +272,7 @@ export async function sendClientEmail(
     const result = await sendEmail({
       to: params.to,
       subject: effectiveSubject,
-      html: params.html,
+      html,
       replyTo: params.replyTo,
       facturationEmail: params.facturationEmail,
       attachments: params.attachments,
@@ -262,15 +287,25 @@ export async function sendClientEmail(
       toEmails: [params.to],
       cc: params.cc ?? null,
       subject: effectiveSubject,
-      html: params.html,
+      html,
       inReplyTo: null,
       references: null,
     })
-    await logEmail({ ...logBase, provider: 'resend', resend_message_id: result.id, status: 'sent' })
+    await logEmail({
+      ...logBase,
+      provider: 'resend',
+      resend_message_id: result.id,
+      status: 'sent',
+    })
     return { id: result.id, provider: 'resend' }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    await logEmail({ ...logBase, provider: 'resend', status: 'failed', error_message: message })
+    await logEmail({
+      ...logBase,
+      provider: 'resend',
+      status: 'failed',
+      error_message: message,
+    })
     throw err
   }
 }
