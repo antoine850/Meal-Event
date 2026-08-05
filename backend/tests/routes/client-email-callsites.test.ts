@@ -157,4 +157,12 @@ describe('signature des emails client', () => {
     const calls = read('lib/email-templates.ts').match(/signatureBlock\(/g)
     expect(calls?.length).toBe(6)
   })
+
+  it('client-email.ts substitue la signature avant tout usage du HTML', () => {
+    const src = read('lib/client-email.ts')
+    expect(src).toContain('applySignature(params.html')
+    // params.html ne doit plus etre lu ailleurs : l'envoi Gmail, l'envoi
+    // Resend et les deux recordOutbound utilisent le HTML substitue.
+    expect(src.match(/params\.html/g)?.length).toBe(1)
+  })
 })
