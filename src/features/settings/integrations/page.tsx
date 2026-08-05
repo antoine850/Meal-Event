@@ -1,4 +1,5 @@
 import { Main } from '@/components/layout/main'
+import { EmailSignatureSettings } from './components/email-signature-settings'
 import { GmailSettings } from './components/gmail-settings'
 
 export function IntegrationsPage() {
@@ -10,8 +11,9 @@ export function IntegrationsPage() {
           Connectez vos outils personnels au CRM.
         </p>
       </div>
-      <div className='mt-6 max-w-2xl'>
+      <div className='mt-6 max-w-2xl space-y-6'>
         <GmailSettings />
+        <EmailSignatureSettings />
       </div>
     </Main>
   )
