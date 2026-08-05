@@ -1,17 +1,16 @@
 import { Router, type Request, type Response } from 'express'
 import { sendClientEmail } from '../lib/client-email.js'
+import { esc, signatureBlock } from '../lib/email-signature.js'
 import { supabase } from '../lib/supabase.js'
 
 export const emailsRouter = Router()
 
-const esc = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
-// Email personnel brut (decision 08/07) : texte echappe (nl2br) + signature.
+// Email personnel brut (decision 08/07) : texte echappe (nl2br) + bloc
+// signature balise, que sendClientEmail remplace par la signature de la boite
+// expeditrice.
 function buildPlainHtml(message: string, signature: string): string {
   const body = esc(message.trim()).replace(/\n/g, '<br/>')
-  const sig = signature ? `<br/><br/>${esc(signature)}` : ''
-  return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;">${body}${sig}</div>`
+  return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;">${body}<br/><br/>${signature}</div>`
 }
 
 interface Actor {
@@ -30,7 +29,8 @@ async function loadActor(actorUserId: string): Promise<Actor | null> {
   return (data as Actor) ?? null
 }
 
-const signatureOf = (a: Actor) => `${a.first_name} ${a.last_name}`
+const signatureOf = (a: Actor) =>
+  signatureBlock(`${a.first_name} ${a.last_name}`)
 
 // PJ du composer : base64 dans le JSON, decodees ici. Caps alignes sur les
 // limites transport (Gmail 25 Mo total encode) : 5 fichiers, 10 Mo/fichier,
