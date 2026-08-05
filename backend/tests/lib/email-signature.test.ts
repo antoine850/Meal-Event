@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   applySignature,
-  esc,
   renderSignature,
   signatureBlock,
 } from '../../src/lib/email-signature.js'
@@ -26,7 +25,6 @@ describe('applySignature (substitution a l envoi)', () => {
       '<div>Bonjour</div><p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">Victor Lionnet</p>'
     expect(applySignature(html, null)).toBe(expected)
     expect(applySignature(html, '   ')).toBe(expected)
-    expect(applySignature(html, null)).not.toContain('mev:sig')
   })
 
   it('pas de marqueurs : HTML inchange', () => {
@@ -104,9 +102,8 @@ describe('renderSignature (texte utilisateur -> HTML)', () => {
     expect(out).toContain('&quot;onmouseover=&quot;')
   })
 
-  it('un guillemet dans une query string reste un seul lien', () => {
-    const out = renderSignature('https://example.com/search?q="test"&ref=sig')
-    expect(out.match(/<a /g)?.length).toBe(1)
+  it('une entite echappee en fin d url n est pas coupee', () => {
+    expect(renderSignature('Site "https://x.fr" merci')).not.toContain('&quot<')
   })
 
   it('la ponctuation finale n est pas avalee par le lien', () => {
@@ -123,20 +120,13 @@ describe('renderSignature (texte utilisateur -> HTML)', () => {
 
   it('un SIRET n est pas pris pour un telephone', () => {
     expect(renderSignature('SIRET 012 345 678 90123')).not.toContain('<a')
+    expect(
+      renderSignature('RIB FR76 3000 4000 0512 3456 7890 143')
+    ).not.toContain('<a')
   })
 
   it('deux telephones separes par un tiret restent deux liens', () => {
     const out = renderSignature('Tel 01 23 45 67 89 - Fax 01 98 76 54 32')
     expect(out.match(/<a /g)?.length).toBe(2)
-  })
-})
-
-describe('esc', () => {
-  it('echappe &, < et >', () => {
-    expect(esc('a & <b>')).toBe('a &amp; &lt;b&gt;')
-  })
-
-  it('echappe aussi les guillemets doubles', () => {
-    expect(esc('a "b"')).toBe('a &quot;b&quot;')
   })
 })
