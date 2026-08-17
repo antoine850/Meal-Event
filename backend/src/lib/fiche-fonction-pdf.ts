@@ -17,6 +17,9 @@ interface FicheQuoteItem {
   name: string
   description: string | null
   quantity: number | null
+  unit_price: number | null
+  unit_price_ttc: number | null
+  tva_rate: number | null
   total_ttc: number | null
 }
 
@@ -743,43 +746,75 @@ function facturationBlock(
   }
   const remaining = getRemainingBalance(totalTtc, payments)
 
-  const body: TableCell[][] = items.map((item) => [
-    {
-      stack: [
-        { text: item.name, fontSize: 9, color: INK_SOFT },
-        ...(item.description
-          ? [
-              {
-                text: item.description,
-                fontSize: 7.5,
-                color: INK_MUTE,
-                margin: [0, 1, 0, 0] as [number, number, number, number],
-              },
-            ]
-          : []),
-      ],
-    },
-    {
-      text: item.quantity != null ? `×${item.quantity}` : '',
-      fontSize: 8,
-      color: INK_MUTE,
-      alignment: 'right' as const,
-    },
-    {
-      text: formatEuroDecimal(item.total_ttc || 0),
-      fontSize: 9,
-      bold: true,
-      alignment: 'right' as const,
-    },
-  ])
+  const headCell = (
+    text: string,
+    alignment: 'left' | 'right' = 'right'
+  ): TableCell => ({
+    text,
+    fontSize: 7,
+    bold: true,
+    characterSpacing: 1,
+    color: INK_MUTE,
+    alignment,
+  })
+  const body: TableCell[][] = [
+    [
+      headCell('', 'left'),
+      headCell('QTÉ'),
+      headCell('P.U. TTC'),
+      headCell('TOTAL TTC'),
+    ],
+  ]
+  for (const item of items) {
+    // PU TTC stocké en priorité, dérivé du PU HT en secours (lignes à ancre HT)
+    const unitTtc =
+      item.unit_price_ttc ??
+      (item.unit_price || 0) * (1 + (item.tva_rate || 0) / 100)
+    body.push([
+      {
+        stack: [
+          { text: item.name, fontSize: 9, color: INK_SOFT },
+          ...(item.description
+            ? [
+                {
+                  text: item.description,
+                  fontSize: 7.5,
+                  color: INK_MUTE,
+                  margin: [0, 1, 0, 0] as [number, number, number, number],
+                },
+              ]
+            : []),
+        ],
+      },
+      {
+        text: item.quantity != null ? `×${item.quantity}` : '',
+        fontSize: 8,
+        color: INK_MUTE,
+        alignment: 'right' as const,
+      },
+      {
+        text: formatEuroDecimal(unitTtc),
+        fontSize: 8,
+        color: INK_MUTE,
+        alignment: 'right' as const,
+      },
+      {
+        text: formatEuroDecimal(item.total_ttc || 0),
+        fontSize: 9,
+        bold: true,
+        alignment: 'right' as const,
+      },
+    ])
+  }
   if (items.length === 0) {
     body.push([
       {
         text: 'Aucune ligne',
-        colSpan: 3,
+        colSpan: 4,
         alignment: 'center' as const,
         color: INK_MUTE,
       },
+      {},
       {},
       {},
     ])
@@ -794,6 +829,7 @@ function facturationBlock(
       characterSpacing: 1,
       margin: [0, 4, 0, 0] as [number, number, number, number],
     },
+    { text: '' },
     { text: '' },
     {
       text: formatEuroDecimal(totalTtc),
@@ -813,6 +849,7 @@ function facturationBlock(
     body.push([
       { text: label, fontSize: 9, color: isPaid ? OK : INK_MUTE },
       { text: '' },
+      { text: '' },
       {
         text: `${isPaid ? '− ' : ''}${formatEuroDecimal(p.amount || 0)}`,
         fontSize: 9,
@@ -826,6 +863,7 @@ function facturationBlock(
   const soldeIdx = body.length
   body.push([
     { text: 'Solde', fontSize: 9, bold: true },
+    { text: '' },
     { text: '' },
     {
       text: formatEuroDecimal(remaining),
@@ -841,10 +879,16 @@ function facturationBlock(
     stack: [
       blockHead('06', 'Facturation', accent),
       {
-        table: { widths: ['*', 30, 78], body, dontBreakRows: true },
+        table: {
+          widths: ['*', 30, 60, 78],
+          body,
+          headerRows: 1,
+          dontBreakRows: true,
+        },
         layout: {
           hLineWidth: (i: number) => {
             if (i === 0 || i === body.length) return 0.75
+            if (i === 1) return 0.5
             if (i === totalIdx) return 0.75
             if (i === soldeIdx) return 0.5
             return 0
