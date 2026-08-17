@@ -55,33 +55,55 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
       ?.split(',')
       .filter(Boolean)
 
-    let query = supabase
-      .from('bookings')
-      .select(
-        `
+    // Pas de FK bookings->spaces cote PostgREST : l'espace se resout a part (comme le frontend).
+    const baseQuery = () => {
+      let q = supabase
+        .from('bookings')
+        .select(
+          `
         event_date, start_time, end_time, event_type, occasion, guests_count,
-        internal_notes, assigned_user_ids, status_id, restaurant_id,
+        internal_notes, assigned_user_ids, status_id, restaurant_id, space_id,
         contact:contacts (first_name, last_name, email, phone,
           company:companies (name, billing_address, billing_city, billing_postal_code, siret, tva_number)),
         restaurant:restaurants (name),
         status:statuses (name),
-        space:spaces (name),
         quotes (quote_number, status, total_ht, total_ttc, discount_percentage,
           deposit_amount_override, deposit_percentage, quote_sent_at, quote_signed_at, primary_quote)
       `
+        )
+        .eq('organization_id', organizationId)
+
+      if (from) q = q.gte('event_date', from)
+      if (to) q = q.lte('event_date', to)
+      if (statusIds?.length) q = q.in('status_id', statusIds)
+      if (restaurantIds?.length) q = q.in('restaurant_id', restaurantIds)
+      if (commercialIds?.length) q = q.overlaps('assigned_user_ids', commercialIds)
+
+      // event_date + id : sans l'id les bornes de tranches ne sont pas deterministes
+      // (beaucoup d'evenements partagent la meme date).
+      return q
+        .order('event_date', { ascending: true })
+        .order('id', { ascending: true })
+    }
+
+    // PostgREST plafonne a 1000 lignes par requete, l'org en compte plus de 15 000.
+    const pageSize = 1000
+    const bookings: any[] = []
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await baseQuery().range(
+        offset,
+        offset + pageSize - 1
       )
+      if (error) throw error
+      bookings.push(...(data || []))
+      if (!data || data.length < pageSize) break
+    }
+
+    const { data: spaces } = await supabase
+      .from('spaces')
+      .select('id, name')
       .eq('organization_id', organizationId)
-      .order('event_date', { ascending: true })
-
-    if (from) query = query.gte('event_date', from)
-    if (to) query = query.lte('event_date', to)
-    if (statusIds?.length) query = query.in('status_id', statusIds)
-    if (restaurantIds?.length) query = query.in('restaurant_id', restaurantIds)
-    if (commercialIds?.length)
-      query = query.overlaps('assigned_user_ids', commercialIds)
-
-    const { data: bookings, error } = await query
-    if (error) throw error
+    const spaceName = new Map((spaces || []).map((s: any) => [s.id, s.name]))
 
     // assigned_user_ids = tableau d'IDs -> on resout les noms via la table users.
     const { data: users } = await supabase
@@ -105,7 +127,7 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
         'Convives',
         (b) => (b.guests_count != null ? String(b.guests_count) : ''),
       ],
-      ['Espace', (b) => b.space?.name || ''],
+      ['Espace', (b) => spaceName.get(b.space_id) || ''],
       ['Statut', (b) => b.status?.name || ''],
       ['Notes internes', (b) => b.internal_notes || ''],
       ['Prénom client', (b) => b.contact?.first_name || ''],
@@ -154,7 +176,7 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
     ]
 
     const header = columns.map(([label]) => csvField(label)).join(';')
-    const rows = (bookings || []).map((b: any) =>
+    const rows = bookings.map((b: any) =>
       columns.map(([, fn]) => csvField(fn(b))).join(';')
     )
     const csv = [header, ...rows].join('\r\n')

@@ -57,7 +57,7 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { useAllCompanies } from '@/features/companies/hooks/use-companies'
-import { useContacts } from '@/features/contacts/hooks/use-contacts'
+import { useAllContacts } from '@/features/contacts/hooks/use-contacts'
 import {
   useBookings,
   useRestaurants,
@@ -88,10 +88,16 @@ function getPaidAmount(b: BookingWithRelations) {
     .reduce((sum, p) => sum + (p.amount || 0), 0)
 }
 
+// Echappement CSV : guillemets si le champ contient le separateur, un guillemet
+// ou un saut de ligne (memes regles que le backend, exports.ts).
+function csvField(v: string): string {
+  return /[";\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v
+}
+
 function downloadCsv(filename: string, headers: string[], rows: string[][]) {
   const bom = '\uFEFF'
   const csv =
-    bom + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
+    bom + [headers, ...rows].map((r) => r.map(csvField).join(';')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -159,7 +165,7 @@ export function Contracts() {
     setClientsPage(0)
   }, [search])
   const { data: bookings = [], isLoading: bookingsLoading } = useBookings()
-  const { data: contacts = [], isLoading: contactsLoading } = useContacts()
+  const { data: contacts = [], isLoading: contactsLoading } = useAllContacts()
   const { data: companies = [], isLoading: companiesLoading } =
     useAllCompanies()
   const { data: restaurants = [] } = useRestaurants()
@@ -424,6 +430,8 @@ export function Contracts() {
   }, [bookings])
 
   // ─── Exports ───
+  // Devis et historique exportent ce que la page affiche (recherche + filtres,
+  // toutes pages confondues) ; contacts et societes restent exhaustifs.
   const exportQuotes = useCallback(() => {
     const headers = [
       'N° Devis',
@@ -435,7 +443,7 @@ export function Contracts() {
       'Montant TTC',
       'Statut',
     ]
-    const rows = allQuotes.map((q) => [
+    const rows = filteredQuotes.map((q) => [
       q.quoteNumber,
       q.contactName,
       q.companyName,
@@ -446,7 +454,7 @@ export function Contracts() {
       statusConfig[q.status].label,
     ])
     downloadCsv(`devis_${format(new Date(), 'yyyy-MM-dd')}.csv`, headers, rows)
-  }, [allQuotes])
+  }, [filteredQuotes])
 
   const exportClients = useCallback(() => {
     const headers = [
@@ -459,7 +467,7 @@ export function Contracts() {
       'CA Encaissé',
       'Dernier événement',
     ]
-    const rows = clientHistory.map((c) => [
+    const rows = filteredClients.map((c) => [
       c.contactName,
       c.contactEmail,
       c.companyName,
@@ -474,7 +482,7 @@ export function Contracts() {
       headers,
       rows
     )
-  }, [clientHistory])
+  }, [filteredClients])
 
   const exportContacts = useCallback(() => {
     const headers = [

@@ -33,6 +33,34 @@ export function useContacts() {
   })
 }
 
+// Charge tous les contacts en paginant au-dela de la limite PostgREST de 1000
+// lignes. Pour les pages qui parcourent/exportent l'ensemble (CSV).
+export function useAllContacts() {
+  return useQuery({
+    queryKey: ['contacts', 'all'],
+    queryFn: async () => {
+      const orgId = await getCurrentOrganizationId()
+      if (!orgId) throw new Error('No organization found')
+
+      const all: ContactWithRelations[] = []
+      const pageSize = 1000
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from('contacts')
+          .select(contactSelect)
+          .eq('organization_id', orgId)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, from + pageSize - 1)
+        if (error) throw error
+        all.push(...((data as ContactWithRelations[]) || []))
+        if (!data || data.length < pageSize) break
+      }
+      return all
+    },
+  })
+}
+
 // Recherche cote serveur : la table depasse la limite PostgREST de 1000 lignes,
 // donc le filtre client sur useContacts() rate la plupart des fiches.
 // RPC search_contacts (insensible aux accents/espaces via unaccent, cherche aussi
