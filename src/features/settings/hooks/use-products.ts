@@ -125,6 +125,7 @@ export function useProductsPaged(params: ProductsQueryParams) {
             .from('product_restaurants')
             .select('product_id')
             .in('restaurant_id', params.restaurantIds)
+            .order('product_id')
             .range(fromRow, fromRow + 999)
           if (linksError) throw linksError
           linkedIds.push(...(links ?? []).map((l) => l.product_id))
