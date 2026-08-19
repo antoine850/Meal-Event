@@ -31,6 +31,8 @@ export type QuotePreviewData = {
       billing_address?: string | null
       billing_city?: string | null
       billing_postal_code?: string | null
+      siret?: string | null
+      tva_number?: string | null
     } | null
   } | null
   title: string
@@ -363,6 +365,16 @@ function IssuerClientBlock({
           <p className='text-gray-600'>
             {contact?.company?.billing_postal_code}{' '}
             {contact?.company?.billing_city}
+          </p>
+        )}
+        {contact?.company?.siret && (
+          <p className='text-gray-600'>
+            {l.siretSiren} – {contact.company.siret}
+          </p>
+        )}
+        {contact?.company?.tva_number && (
+          <p className='text-gray-600'>
+            {l.vatNumber} – {contact.company.tva_number}
           </p>
         )}
       </div>

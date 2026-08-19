@@ -681,6 +681,24 @@ function buildDocDefinition(
                 },
               ]
             : []),
+          ...(contact?.company?.siret
+            ? [
+                {
+                  text: `${l.siretSiren} – ${contact.company.siret}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(contact?.company?.tva_number
+            ? [
+                {
+                  text: `${l.vatNumber} – ${contact.company.tva_number}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
         ],
       },
     ],
@@ -2216,6 +2234,24 @@ function buildCreditNoteDocDefinition(
             ? [
                 {
                   text: `${l.billingAddress} – ${contact.company.billing_address}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(contact?.company?.siret
+            ? [
+                {
+                  text: `${l.siretSiren} – ${contact.company.siret}`,
+                  style: 'small' as const,
+                  color: '#666',
+                },
+              ]
+            : []),
+          ...(contact?.company?.tva_number
+            ? [
+                {
+                  text: `${l.vatNumber} – ${contact.company.tva_number}`,
                   style: 'small' as const,
                   color: '#666',
                 },
