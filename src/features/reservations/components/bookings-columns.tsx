@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import { type ColumnDef } from '@tanstack/react-table'
 import { fr } from 'date-fns/locale'
 import { MoreHorizontal } from 'lucide-react'
+import { formatEventDateShort } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -64,9 +65,7 @@ export const buildBookingsColumns = (
             )}
             <div className='flex flex-col'>
               <span className={cn(isUnread ? 'font-semibold' : 'font-medium')}>
-                {format(new Date(row.original.event_date), 'dd/MM/yyyy', {
-                  locale: fr,
-                })}
+                {formatEventDateShort(row.original.event_date)}
               </span>
               <span className='text-xs text-muted-foreground'>
                 {row.original.start_time || ''}

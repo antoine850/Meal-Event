@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
-import { format, parseISO } from 'date-fns'
 import { Link, useSearch } from '@tanstack/react-router'
-import { fr } from 'date-fns/locale'
 import {
   Euro,
   TrendingUp,
@@ -14,6 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from 'recharts'
+import { formatEventDateShort } from '@/lib/dates'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -89,7 +88,7 @@ export function GeneralTab({
   )
 
   const fmtDate = (d: string | null | undefined) =>
-    d ? format(parseISO(d), 'd MMM yyyy', { locale: fr }) : null
+    d ? formatEventDateShort(d) : null
 
   const actionItems = actionLists?.action_items ?? []
   const ACTIONS_PER_PAGE = 20

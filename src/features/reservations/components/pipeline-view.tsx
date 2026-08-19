@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
-import { format } from 'date-fns'
 import { useNavigate } from '@tanstack/react-router'
-import { fr } from 'date-fns/locale'
 import { Users, CalendarDays } from 'lucide-react'
+import { formatEventDateShort } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import {
   Select,
@@ -205,11 +204,7 @@ export function PipelineView({ bookings, statuses }: PipelineViewProps) {
                       {/* Event info row */}
                       <div className='flex items-center gap-2 text-xs text-muted-foreground'>
                         <CalendarDays className='h-3 w-3 flex-shrink-0' />
-                        <span>
-                          {format(new Date(booking.event_date), 'dd MMM yyyy', {
-                            locale: fr,
-                          })}
-                        </span>
+                        <span>{formatEventDateShort(booking.event_date)}</span>
                         {booking.start_time && (
                           <span>• {booking.start_time.slice(0, 5)}</span>
                         )}

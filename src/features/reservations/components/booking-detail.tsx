@@ -1154,6 +1154,7 @@ export const BookingDetail = forwardRef<
                             onChange={(value) =>
                               updateEventField('event_date', value)
                             }
+                            formatStr='EEEE d MMMM yyyy'
                           />
                         </div>
                         <div>
@@ -3680,7 +3681,7 @@ export const BookingDetail = forwardRef<
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
               onClick={() => {
                 if (deleteQuoteId) {
                   deleteQuoteMutation(
