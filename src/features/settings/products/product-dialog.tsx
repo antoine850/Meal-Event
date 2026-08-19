@@ -65,6 +65,7 @@ export function ProductDialog({
   const [tvaRate, setTvaRate] = useState('20')
   const [margin, setMargin] = useState('0')
   const [isActive, setIsActive] = useState(true)
+  const [allRestaurants, setAllRestaurants] = useState(false)
   const [selectedRestaurants, setSelectedRestaurants] = useState<string[]>([])
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export function ProductDialog({
         setTvaRate(String(source.tva_rate))
         setMargin(String(source.margin))
         setIsActive(source.is_active)
+        setAllRestaurants(source.all_restaurants ?? false)
         setSelectedRestaurants(
           source.product_restaurants?.map((pr) => pr.restaurant_id) || []
         )
@@ -98,6 +100,7 @@ export function ProductDialog({
         setTvaRate('20')
         setMargin('0')
         setIsActive(true)
+        setAllRestaurants(false)
         setSelectedRestaurants([])
       }
     }
@@ -125,7 +128,8 @@ export function ProductDialog({
       tva_rate: normalizeTvaRate(parseFloat(tvaRate) || 20),
       margin: parseFloat(margin) || 0,
       is_active: isActive,
-      restaurant_ids: selectedRestaurants,
+      all_restaurants: allRestaurants,
+      restaurant_ids: allRestaurants ? [] : selectedRestaurants,
     }
 
     if (isEdit) {
@@ -284,36 +288,52 @@ export function ProductDialog({
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
 
-          <div>
-            <Label className='mb-2 block'>Restaurants</Label>
-            <div className='flex flex-wrap gap-2'>
-              {restaurants.map((r) => (
-                <button
-                  key={r.id}
-                  type='button'
-                  onClick={() => toggleRestaurant(r.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                    selectedRestaurants.includes(r.id)
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-input bg-background hover:bg-muted'
-                  }`}
-                >
-                  {r.color && (
-                    <div
-                      className='h-2 w-2 rounded-full'
-                      style={{ backgroundColor: r.color }}
-                    />
-                  )}
-                  {r.name}
-                </button>
-              ))}
-              {restaurants.length === 0 && (
-                <p className='text-xs text-muted-foreground'>
-                  Aucun restaurant
+          <div className='flex items-center justify-between'>
+            <Label>Tous les restaurants</Label>
+            <Switch
+              checked={allRestaurants}
+              onCheckedChange={setAllRestaurants}
+            />
+          </div>
+
+          {!allRestaurants && (
+            <div>
+              <Label className='mb-2 block'>Restaurants</Label>
+              <div className='flex flex-wrap gap-2'>
+                {restaurants.map((r) => (
+                  <button
+                    key={r.id}
+                    type='button'
+                    onClick={() => toggleRestaurant(r.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      selectedRestaurants.includes(r.id)
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-input bg-background hover:bg-muted'
+                    }`}
+                  >
+                    {r.color && (
+                      <div
+                        className='h-2 w-2 rounded-full'
+                        style={{ backgroundColor: r.color }}
+                      />
+                    )}
+                    {r.name}
+                  </button>
+                ))}
+                {restaurants.length === 0 && (
+                  <p className='text-xs text-muted-foreground'>
+                    Aucun restaurant
+                  </p>
+                )}
+              </div>
+              {selectedRestaurants.length === 0 && (
+                <p className='mt-2 text-xs text-muted-foreground'>
+                  Aucun restaurant coché : le produit n'apparaîtra dans aucun
+                  devis.
                 </p>
               )}
             </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter>

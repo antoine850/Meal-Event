@@ -1302,25 +1302,50 @@ export function useProductsByRestaurant(restaurantId: string | null) {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return []
 
-      const { data, error } = await supabase
-        .from('products')
-        .select(
-          `
+      const [linked, global] = await Promise.all([
+        supabase
+          .from('products')
+          .select(
+            `
           *,
           product_restaurants!inner(
             restaurant_id,
             restaurant:restaurants(id, name, color)
           )
         `
-        )
-        .eq('organization_id', orgId)
-        .eq('is_active', true)
-        .eq('product_restaurants.restaurant_id', restaurantId)
-        .order('name', { ascending: true })
+          )
+          .eq('organization_id', orgId)
+          .eq('is_active', true)
+          .eq('product_restaurants.restaurant_id', restaurantId)
+          .order('name', { ascending: true }),
+        supabase
+          .from('products')
+          .select(
+            `
+          *,
+          product_restaurants(
+            restaurant_id,
+            restaurant:restaurants(id, name, color)
+          )
+        `
+          )
+          .eq('organization_id', orgId)
+          .eq('is_active', true)
+          .eq('all_restaurants', true)
+          .order('name', { ascending: true }),
+      ])
+      if (linked.error) throw linked.error
+      if (global.error) throw global.error
 
-      if (error) throw error
-
-      return data as unknown as ProductWithRestaurants[]
+      const seen = new Set<string>()
+      return (
+        [
+          ...(linked.data ?? []),
+          ...(global.data ?? []),
+        ] as unknown as ProductWithRestaurants[]
+      )
+        .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
+        .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
     },
     enabled: !!restaurantId,
   })

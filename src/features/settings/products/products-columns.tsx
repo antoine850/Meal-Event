@@ -154,6 +154,8 @@ export function getProductsColumns({
         <DataTableColumnHeader column={column} title='Restaurants' />
       ),
       cell: ({ row }) => {
+        if (row.original.all_restaurants)
+          return <span className='text-xs font-medium'>Tous</span>
         const prs = row.original.product_restaurants
         if (!prs || prs.length === 0)
           return <span className='text-muted-foreground'>—</span>
@@ -171,6 +173,7 @@ export function getProductsColumns({
         )
       },
       filterFn: (row, _id, value) => {
+        if (row.original.all_restaurants) return true
         const restaurantIds =
           row.original.product_restaurants?.map((pr) => pr.restaurant_id) || []
         return value.some((v: string) => restaurantIds.includes(v))

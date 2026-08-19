@@ -26,6 +26,7 @@ export type Product = {
   price_entry_mode: 'ht' | 'ttc'
   margin: number
   is_active: boolean
+  all_restaurants: boolean
   old_id: string | null
   created_at: string
   updated_at: string
@@ -115,21 +116,38 @@ export function useProductsPaged(params: ProductsQueryParams) {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) return { rows: [] as ProductWithRestaurants[], total: 0 }
 
-      const restoJoin = params.restaurantIds?.length
-        ? 'product_restaurants!inner(restaurant_id, restaurant:restaurants(id, name, color))'
-        : 'product_restaurants(restaurant_id, restaurant:restaurants(id, name, color))'
+      // Un produit "tous les restaurants" n'a aucune jonction : le filtre resto
+      // passe par un OR parent (flag ou id lie), pas par un embed !inner.
+      let linkedIds: string[] = []
+      if (params.restaurantIds?.length) {
+        for (let fromRow = 0; ; fromRow += 1000) {
+          const { data: links, error: linksError } = await supabase
+            .from('product_restaurants')
+            .select('product_id')
+            .in('restaurant_id', params.restaurantIds)
+            .range(fromRow, fromRow + 999)
+          if (linksError) throw linksError
+          linkedIds.push(...(links ?? []).map((l) => l.product_id))
+          if (!links || links.length < 1000) break
+        }
+        linkedIds = [...new Set(linkedIds)]
+      }
 
       let query = supabase
         .from('products')
-        .select(`*, ${restoJoin}`, { count: 'exact' })
+        .select(
+          `*, product_restaurants(restaurant_id, restaurant:restaurants(id, name, color))`,
+          { count: 'exact' }
+        )
         .eq('organization_id', orgId)
 
       if (params.types?.length) query = query.in('type', params.types)
-      if (params.restaurantIds?.length)
-        query = query.in(
-          'product_restaurants.restaurant_id',
-          params.restaurantIds
+      if (params.restaurantIds?.length) {
+        const NIL = '00000000-0000-0000-0000-000000000000'
+        query = query.or(
+          `all_restaurants.eq.true,id.in.(${linkedIds.length ? linkedIds.join(',') : NIL})`
         )
+      }
       if (params.active !== undefined)
         query = query.eq('is_active', params.active)
       if (params.search) {
