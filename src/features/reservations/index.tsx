@@ -325,6 +325,7 @@ export function Reservations() {
             b.contact?.last_name,
             b.contact?.email,
             b.event_type,
+            b.numero_dossier,
             b.restaurant?.name
           )
         )
@@ -469,7 +470,7 @@ export function Reservations() {
         {/* Ligne 1 : recherche (s'étire sur l'espace dispo) + tri / bascule de vue / création (droite) */}
         <div className='flex flex-wrap items-center gap-2'>
           <Input
-            placeholder='Rechercher par contact, type, restaurant...'
+            placeholder='Rechercher par contact, type, restaurant, n° dossier...'
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className='h-8 min-w-[180px] flex-1'

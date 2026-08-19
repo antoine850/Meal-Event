@@ -53,6 +53,7 @@ export type BookingWithRelations = {
   contact_sur_place_societe: string | null
   instructions_speciales: string | null
   commentaires: string | null
+  numero_dossier: string | null
   date_signature_devis: string | null
   assigned_user_ids: string[] | null
   read_at: string | null
@@ -260,6 +261,7 @@ export function useBookingsPaged(params: BookingsQueryParams) {
             `contact_sur_place_societe.ilike."${like}"`,
             `contact_sur_place_nom.ilike."${like}"`,
             `event_type.ilike."${like}"`,
+            `numero_dossier.ilike."${like}"`,
           ]
           if (contactIds.length)
             parts.push(`contact_id.in.(${contactIds.join(',')})`)
@@ -446,7 +448,9 @@ export function useBookingSearch(term: string, enabled = true) {
         .from('bookings')
         .select(select)
         .eq('organization_id', orgId)
-        .or(`occasion.ilike."%${t}%",event_type.ilike."%${t}%"`)
+        .or(
+          `occasion.ilike."%${t}%",event_type.ilike."%${t}%",numero_dossier.ilike."%${t}%"`
+        )
       if (restaurantFilter !== null) q = q.in('restaurant_id', restaurantFilter)
       const { data, error } = await q
         .order('event_date', { ascending: false })
@@ -672,6 +676,7 @@ export function useDuplicateBooking() {
           space_id: sourceBooking.space_id,
           occasion: sourceBooking.occasion,
           option: sourceBooking.option,
+          numero_dossier: sourceBooking.numero_dossier,
           source: sourceBooking.source,
           event_date: sourceBooking.event_date,
           start_time: sourceBooking.start_time,

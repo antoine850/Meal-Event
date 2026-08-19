@@ -739,6 +739,7 @@ export type Database = {
           menu_entree: string | null
           menu_plat: string | null
           mise_en_place: string | null
+          numero_dossier: string | null
           occasion: string | null
           option: string | null
           organization_id: string | null
@@ -798,6 +799,7 @@ export type Database = {
           menu_entree?: string | null
           menu_plat?: string | null
           mise_en_place?: string | null
+          numero_dossier?: string | null
           occasion?: string | null
           option?: string | null
           organization_id?: string | null
@@ -857,6 +859,7 @@ export type Database = {
           menu_entree?: string | null
           menu_plat?: string | null
           mise_en_place?: string | null
+          numero_dossier?: string | null
           occasion?: string | null
           option?: string | null
           organization_id?: string | null

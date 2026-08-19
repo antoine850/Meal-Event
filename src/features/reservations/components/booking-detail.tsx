@@ -173,6 +173,7 @@ const bookingDetailSchema = z.object({
   status_id: z.string().optional(),
   occasion: z.string().optional(),
   option: z.string().optional(),
+  numero_dossier: z.string().optional(),
   relance: z.string().optional().nullable(),
   source: z.string().optional(),
   is_table_blocked: z.boolean().optional(),
@@ -297,6 +298,7 @@ export const BookingDetail = forwardRef<
       status_id: booking.status_id || '',
       occasion: booking.occasion || '',
       option: booking.option || '',
+      numero_dossier: booking.numero_dossier || '',
       relance: booking.relance || '',
       source: booking.source || '',
       is_table_blocked: booking.is_table_blocked || false,
@@ -454,6 +456,7 @@ export const BookingDetail = forwardRef<
       status_id: data.status_id || null,
       occasion: data.occasion || null,
       option: data.option || null,
+      numero_dossier: data.numero_dossier || null,
       relance: data.relance || null,
       source: data.source || null,
       is_table_blocked: data.is_table_blocked || false,
@@ -987,6 +990,29 @@ export const BookingDetail = forwardRef<
                           <FormControl>
                             <Input
                               placeholder='Option commerciale'
+                              className='h-8 text-sm'
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Separator />
+
+                    {/* Numero de dossier (agences) */}
+                    <FormField
+                      control={form.control}
+                      name='numero_dossier'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className='text-xs'>
+                            N° de dossier
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='Réf. agence (Réjolt, Cactus...)'
                               className='h-8 text-sm'
                               {...field}
                             />
