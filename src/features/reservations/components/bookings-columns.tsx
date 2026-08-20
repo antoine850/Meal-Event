@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { UnreadDot } from '@/features/emails/components/unread-dot'
+import { BADGE_CONFIG } from '../data/badges'
 import type { BookingWithRelations } from '../hooks/use-bookings'
 import { SendEmailMenuItems, useEmailComposer } from './send-email-menu'
 
@@ -133,6 +134,34 @@ export const buildBookingsColumns = (
     filterFn: (row, _id, value) => {
       return value.includes(row.original.status?.slug)
     },
+  },
+  {
+    id: 'badges',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Action' />
+    ),
+    cell: ({ row }) => {
+      const badges = row.original.badges
+      if (!badges?.length) return null
+      return (
+        <div className='flex flex-wrap gap-1'>
+          {badges.map((b) => {
+            const cfg = BADGE_CONFIG[b.badge_type]
+            if (!cfg) return null
+            return (
+              <Badge
+                key={b.badge_type}
+                variant='outline'
+                className={cn('text-[10px]', cfg.className)}
+              >
+                {cfg.label}
+              </Badge>
+            )
+          })}
+        </div>
+      )
+    },
+    enableSorting: false,
   },
   {
     accessorKey: 'event_type',

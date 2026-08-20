@@ -12,15 +12,17 @@ export type BookingBadge = {
 // Badges des lignes affichees : la vue booking_badges calcule l'eligibilite
 // cote SQL (source de verite unique des regles), on ne fait que grouper.
 export function useBookingBadges(bookingIds: string[]) {
+  // Trie pour une cle stable quelle que soit l'ordre d'entree.
+  const sorted = [...bookingIds].sort()
   return useQuery({
-    queryKey: ['booking-badges', bookingIds],
+    queryKey: ['booking-badges', sorted],
     queryFn: async () => {
       const map = new Map<string, BookingBadge[]>()
-      if (!bookingIds.length) return map
+      if (!sorted.length) return map
       const { data, error } = await supabase
         .from('booking_badges')
         .select('booking_id, badge_type, depuis')
-        .in('booking_id', bookingIds)
+        .in('booking_id', sorted)
       if (error) throw error
       for (const row of (data ?? []) as BookingBadge[]) {
         const list = map.get(row.booking_id) ?? []
@@ -29,7 +31,7 @@ export function useBookingBadges(bookingIds: string[]) {
       }
       return map
     },
-    enabled: bookingIds.length > 0,
+    enabled: sorted.length > 0,
   })
 }
 
@@ -41,7 +43,8 @@ function useMarkBadge(
   const { mutate: logActivity } = useLogActivity()
   return useMutation({
     mutationFn: async (bookingId: string) => {
-      const { error } = await (supabase.from('bookings') as any)
+      const { error } = await supabase
+        .from('bookings')
         .update({ [column]: new Date().toISOString() })
         .eq('id', bookingId)
       if (error) throw error

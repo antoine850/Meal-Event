@@ -207,6 +207,7 @@ export type BookingsQueryParams = {
   toImport?: string // created_at <= (ISO)
   source?: string // contact.source
   stale?: boolean // propositions sans reponse > 3j
+  actionRequired?: boolean // au moins un badge action requise (vue booking_badges)
 }
 
 export function useBookingsPaged(params: BookingsQueryParams) {
@@ -356,6 +357,26 @@ export function useBookingsPaged(params: BookingsQueryParams) {
         bookingIdFilter = signBookingIds
       } else if (staleBookingIds !== null) {
         bookingIdFilter = staleBookingIds
+      }
+
+      // Filtre "action requise" : ids de la vue booking_badges, intersectes
+      // avec les autres drill-downs avant le .in('id', ...) unique.
+      if (params.actionRequired) {
+        const { data: badgeRows, error: badgeError } = await supabase
+          .from('booking_badges')
+          .select('booking_id')
+          .eq('organization_id', orgId)
+          .limit(5000)
+        if (badgeError) throw badgeError
+        const badgeIds = Array.from(
+          new Set((badgeRows || []).map((r) => r.booking_id))
+        )
+        if (bookingIdFilter === null) {
+          bookingIdFilter = badgeIds
+        } else {
+          const badgeSet = new Set(badgeIds)
+          bookingIdFilter = bookingIdFilter.filter((id) => badgeSet.has(id))
+        }
       }
 
       let query = supabase
