@@ -26,11 +26,28 @@ export async function apiClient<T = any>(
     headers['Authorization'] = `Bearer ${session.access_token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  // 90s : au-dela du pire envoi Gmail legitime, mais fini ; sans ca un backend
+  // muet laisse l'UI en "envoi..." pour toujours.
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 90_000)
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        'Le serveur ne répond pas. Si vous envoyiez un email, vérifiez le fil de conversation avant de réessayer.'
+      )
+    }
+    throw err
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!response.ok) {
     const errorData = await response
