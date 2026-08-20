@@ -3,8 +3,9 @@
 -- badge visible si depuis <= now(). Le rearmement et l'extinction au
 -- changement de statut tombent de la formule, aucun etat stocke.
 -- current_date est en UTC : bascule a 1-2 h pres de minuit Paris, acceptable.
-create or replace view public.booking_badges as
-with base as (
+create or replace view public.booking_badges
+with (security_invoker = true) as
+with base as not materialized (
   select
     b.id as booking_id,
     b.organization_id,
@@ -47,6 +48,8 @@ badges as (
                            '-infinity'::timestamptz))
   from base b
   where b.event_date >= current_date
+    -- hors annulees : un acompte pending residuel ne relance pas un dossier annule
+    and b.slug <> 'cancelled'
     and exists (
       select 1 from public.payments p
       where p.booking_id = b.booking_id
