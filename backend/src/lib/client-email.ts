@@ -92,9 +92,10 @@ export interface ClientEmailParams {
   threadKind?: 'booking' | 'contact' | 'facturation'
 }
 
-// Journalisation email_logs best-effort. DOIT etre non-throwing : supabase-js
-// rejette (throw) sur erreur transport, pas seulement via {error} ; un throw ici
-// re-rentrerait dans le catch Gmail et pourrait declencher un double envoi.
+// Journalisation email_logs best-effort, appelee en fire-and-forget (void) :
+// la reponse HTTP n'attend pas l'insert. DOIT rester non-throwing : supabase-js
+// rejette (throw) sur erreur transport, pas seulement via {error} ; un rejet
+// non gere ici finirait en unhandledRejection.
 async function logEmail(row: Record<string, unknown>): Promise<void> {
   try {
     const { error } = await supabase.from('email_logs').insert(row as never)
@@ -179,11 +180,13 @@ export async function sendClientEmail(
   // reste en place. Substitution ici, avant l'envoi ET avant l'archivage : le
   // corps stocke dans email_messages porte la vraie signature.
   const signerUserId = mailbox?.userId ?? params.actorUserId ?? null
-  const signature = signerUserId ? await loadSignature(signerUserId) : null
+  const [signature, client] = await Promise.all([
+    signerUserId ? loadSignature(signerUserId) : null,
+    mailbox && isGmailSendingEnabled() ? gmailClient(mailbox.userId) : null,
+  ])
   const html = applySignature(params.html, signature)
 
   if (mailbox && isGmailSendingEnabled()) {
-    const client = await gmailClient(mailbox.userId)
     if (client) {
       // In-Reply-To/References = seulement le dernier message (phase 2). Pas la
       // chaine References complete : le threading reste bon pour un aller-retour
@@ -218,7 +221,7 @@ export async function sendClientEmail(
           inReplyTo: tail.lastRfcMessageId,
           references: tail.lastRfcMessageId,
         })
-        await logEmail({
+        void logEmail({
           ...logBase,
           provider: 'gmail',
           gmail_message_id: gmailMessageId,
@@ -291,7 +294,7 @@ export async function sendClientEmail(
       inReplyTo: null,
       references: null,
     })
-    await logEmail({
+    void logEmail({
       ...logBase,
       provider: 'resend',
       resend_message_id: result.id,
@@ -300,7 +303,7 @@ export async function sendClientEmail(
     return { id: result.id, provider: 'resend' }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    await logEmail({
+    void logEmail({
       ...logBase,
       provider: 'resend',
       status: 'failed',

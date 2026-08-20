@@ -96,24 +96,25 @@ export async function getThreadTail(
   lastRfcMessageId: string | null
   gmailThreadIdForSender: string | null
 }> {
-  const { data: last } = await supabase
-    .from('email_messages')
-    .select('rfc_message_id')
-    .eq('thread_id', threadId)
-    .not('rfc_message_id', 'is', null)
-    .order('sent_at', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle()
-
-  const { data: mine } = await supabase
-    .from('email_messages')
-    .select('gmail_thread_id')
-    .eq('thread_id', threadId)
-    .eq('sender_user_id', senderUserId)
-    .not('gmail_thread_id', 'is', null)
-    .order('sent_at', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle()
+  const [{ data: last }, { data: mine }] = await Promise.all([
+    supabase
+      .from('email_messages')
+      .select('rfc_message_id')
+      .eq('thread_id', threadId)
+      .not('rfc_message_id', 'is', null)
+      .order('sent_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('email_messages')
+      .select('gmail_thread_id')
+      .eq('thread_id', threadId)
+      .eq('sender_user_id', senderUserId)
+      .not('gmail_thread_id', 'is', null)
+      .order('sent_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   return {
     lastRfcMessageId: (last as any)?.rfc_message_id ?? null,

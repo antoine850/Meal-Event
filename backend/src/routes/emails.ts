@@ -97,12 +97,14 @@ emailsRouter.post('/reply', async (req: Request, res: Response) => {
     }
     if (!actorUserId) return res.status(401).json({ error: 'Unauthenticated' })
 
-    const { data: booking } = await supabase
-      .from('bookings')
-      .select('id, organization_id, contact:contacts(email)')
-      .eq('id', bookingId)
-      .single()
-    const actor = await loadActor(actorUserId)
+    const [{ data: booking }, actor] = await Promise.all([
+      supabase
+        .from('bookings')
+        .select('id, organization_id, contact:contacts(email)')
+        .eq('id', bookingId)
+        .single(),
+      loadActor(actorUserId),
+    ])
     if (
       !booking ||
       !actor ||
@@ -178,7 +180,22 @@ emailsRouter.post('/send', async (req: Request, res: Response) => {
         .json({ error: 'bookingId OU contactId (exactement un)' })
     }
     if (!actorUserId) return res.status(401).json({ error: 'Unauthenticated' })
-    const actor = await loadActor(actorUserId)
+    // La cible (booking ou contact) ne depend pas de l'acteur : lookup en
+    // parallele, le controle d'organisation reste fait apres.
+    const [actor, lookup] = await Promise.all([
+      loadActor(actorUserId),
+      bookingId
+        ? supabase
+            .from('bookings')
+            .select('id, organization_id, contact:contacts(email)')
+            .eq('id', bookingId)
+            .single()
+        : supabase
+            .from('contacts')
+            .select('id, organization_id, email')
+            .eq('id', contactId!)
+            .single(),
+    ])
     if (!actor) return res.status(401).json({ error: 'Unauthenticated' })
 
     let orgId: string
@@ -190,11 +207,7 @@ emailsRouter.post('/send', async (req: Request, res: Response) => {
     }
 
     if (bookingId) {
-      const { data: booking } = await supabase
-        .from('bookings')
-        .select('id, organization_id, contact:contacts(email)')
-        .eq('id', bookingId)
-        .single()
+      const booking = lookup.data
       const email = (booking as any)?.contact?.email as string | undefined
       if (
         !booking ||
@@ -209,11 +222,7 @@ emailsRouter.post('/send', async (req: Request, res: Response) => {
       to = email
       sendArgs = { bookingId, threadKind: 'booking' }
     } else {
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('id, organization_id, email')
-        .eq('id', contactId!)
-        .single()
+      const contact = lookup.data
       if (
         !contact ||
         actor.organization_id !== (contact as any).organization_id
