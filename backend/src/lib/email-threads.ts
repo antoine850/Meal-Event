@@ -123,10 +123,16 @@ export async function getThreadTail(
 }
 
 // Acteur connecte (celui qui clique) prioritaire, sinon commercial assigne.
+// refreshToken (chiffre, tel qu'en base) accompagne la boite retenue pour que
+// gmailClient n'ait pas a relire user_gmail_accounts.
 export async function resolveSenderMailbox(input: {
   actorUserId?: string | null
   bookingId?: string | null
-}): Promise<{ userId: string; email: string } | null> {
+}): Promise<{
+  userId: string
+  email: string
+  refreshToken: string | null
+} | null> {
   const ids: string[] = []
   if (input.actorUserId) ids.push(input.actorUserId)
 
@@ -145,7 +151,7 @@ export async function resolveSenderMailbox(input: {
 
   const { data: accounts } = await supabase
     .from('user_gmail_accounts')
-    .select('user_id, google_email, status, sending_enabled')
+    .select('user_id, google_email, status, sending_enabled, refresh_token')
     .in('user_id', ids)
 
   const byId = new Map((accounts ?? []).map((a: any) => [a.user_id, a]))
@@ -158,7 +164,12 @@ export async function resolveSenderMailbox(input: {
       sendingEnabled: a?.sending_enabled === true,
     }
   })
-  return pickMailbox(candidates)
+  const picked = pickMailbox(candidates)
+  if (!picked) return null
+  return {
+    ...picked,
+    refreshToken: byId.get(picked.userId)?.refresh_token ?? null,
+  }
 }
 
 // Materialise un envoi dans le fil. Best-effort : jamais throw (un echec DB ne

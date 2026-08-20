@@ -110,25 +110,49 @@ export async function handleGmailCallback(code: string, state: string) {
   // meme si l'echange OAuth a reussi (sinon on afficherait "connecte" a tort).
   if (error) throw new Error(`Echec d'enregistrement du compte Gmail: ${error.message}`)
 
+  oauthClientCache.delete(userId)
   return { userId, googleEmail }
 }
 
+// Un client OAuth par utilisateur, reutilise entre les envois : googleapis
+// garde l'access token sur l'instance et le renouvelle tout seul, ce qui evite
+// un refresh OAuth complet a chaque envoi. Comparaison sur le refresh token
+// CHIFFRE tel qu'en base (stable tant que le compte n'est pas reconnecte).
+const oauthClientCache = new Map<
+  string,
+  { refreshToken: string; client: ReturnType<typeof getGmailOAuthClient> }
+>()
+
 // Client Gmail authentifie pour un utilisateur, ou null s'il n'a pas de compte
-// connecte. Utilise en phases 2-3 (envoi/polling).
-export async function gmailClient(userId: string) {
+// connecte. Utilise en phases 2-3 (envoi/polling). `account` (chemin envoi)
+// evite de relire user_gmail_accounts quand resolveSenderMailbox a deja la
+// ligne ; sans lui (polling), lecture en base comme avant.
+export async function gmailClient(
+  userId: string,
+  account?: { refreshToken: string | null }
+) {
   if (!isGmailIntegrationEnabled()) return null
 
-  const { data: account } = await supabase
-    .from('user_gmail_accounts')
-    .select('refresh_token, status')
-    .eq('user_id', userId)
-    .single()
+  let refreshToken = account?.refreshToken ?? null
+  if (!account) {
+    const { data } = await supabase
+      .from('user_gmail_accounts')
+      .select('refresh_token, status')
+      .eq('user_id', userId)
+      .single()
+    if (!data?.refresh_token || data.status !== 'connected') return null
+    refreshToken = data.refresh_token
+  }
+  if (!refreshToken) return null
 
-  if (!account?.refresh_token || account.status !== 'connected') return null
-
-  const client = getGmailOAuthClient()
-  client.setCredentials({ refresh_token: decryptToken(account.refresh_token) })
-  return google.gmail({ version: 'v1', auth: client })
+  let cached = oauthClientCache.get(userId)
+  if (!cached || cached.refreshToken !== refreshToken) {
+    const client = getGmailOAuthClient()
+    client.setCredentials({ refresh_token: decryptToken(refreshToken) })
+    cached = { refreshToken, client }
+    oauthClientCache.set(userId, cached)
+  }
+  return google.gmail({ version: 'v1', auth: cached.client })
 }
 
 export async function getGmailAccountStatus(userId: string) {
@@ -166,6 +190,7 @@ export async function disconnectGmail(userId: string) {
   }
 
   await supabase.from('user_gmail_accounts').delete().eq('user_id', userId)
+  oauthClientCache.delete(userId)
 }
 
 // Verifie qu'un message qu'on croit avoir envoye existe bien (apres timeout ambigu).
@@ -190,6 +215,7 @@ export async function findByRfcMessageId(
 // Marque un compte comme revoque (401/invalid_grant) : coupe les futurs envois
 // Gmail de cette boite et alimente le bandeau reglages. Best-effort.
 export async function markAccountRevoked(userId: string, err: unknown): Promise<void> {
+  oauthClientCache.delete(userId)
   const message = err instanceof Error ? err.message : String(err)
   await supabase
     .from('user_gmail_accounts')

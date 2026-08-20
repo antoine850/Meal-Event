@@ -182,7 +182,9 @@ export async function sendClientEmail(
   const signerUserId = mailbox?.userId ?? params.actorUserId ?? null
   const [signature, client] = await Promise.all([
     signerUserId ? loadSignature(signerUserId) : null,
-    mailbox && isGmailSendingEnabled() ? gmailClient(mailbox.userId) : null,
+    mailbox && isGmailSendingEnabled()
+      ? gmailClient(mailbox.userId, { refreshToken: mailbox.refreshToken })
+      : null,
   ])
   const html = applySignature(params.html, signature)
 
