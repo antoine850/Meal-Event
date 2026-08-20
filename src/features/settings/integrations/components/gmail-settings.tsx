@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Mail, Loader2, Unplug, CheckCircle2, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -32,10 +33,12 @@ export function GmailSettings() {
   const { mutateAsync: getAuthUrl, isPending: authPending } = useGmailAuthUrl()
   const { mutateAsync: disconnect, isPending: disconnectPending } =
     useDisconnectGmail()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('gmail_connected') === 'true') {
+      queryClient.invalidateQueries({ queryKey: ['gmail-status'] })
       toast.success('Compte Gmail connecté.')
       const url = new URL(window.location.href)
       url.searchParams.delete('gmail_connected')
@@ -47,7 +50,7 @@ export function GmailSettings() {
       url.searchParams.delete('gmail_error')
       window.history.replaceState({}, '', url.toString())
     }
-  }, [])
+  }, [queryClient])
 
   const handleConnect = async () => {
     try {

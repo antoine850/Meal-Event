@@ -13,6 +13,9 @@ export function useGmailStatus() {
   return useQuery({
     queryKey: ['gmail-status'],
     queryFn: () => apiClient<GmailStatus>('/api/gmail/status'),
+    // Statut quasi statique : evite un aller-retour backend a chaque ouverture
+    // du menu d'envoi. Connexion/deconnexion invalident la cle.
+    staleTime: 5 * 60 * 1000,
   })
 }
 
