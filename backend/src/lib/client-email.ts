@@ -209,6 +209,15 @@ export async function sendClientEmail(
         gmailMessageId: string,
         gmailThreadId: string | null
       ) => {
+        // Lance avant recordOutbound : l'insert email_logs prend une longueur
+        // d'avance sur l'invalidation du journal cote UI.
+        void logEmail({
+          ...logBase,
+          provider: 'gmail',
+          gmail_message_id: gmailMessageId,
+          gmail_thread_id: gmailThreadId,
+          status: 'sent',
+        })
         await recordOutbound(thread, {
           provider: 'gmail',
           senderUserId: mailbox.userId,
@@ -222,13 +231,6 @@ export async function sendClientEmail(
           html,
           inReplyTo: tail.lastRfcMessageId,
           references: tail.lastRfcMessageId,
-        })
-        void logEmail({
-          ...logBase,
-          provider: 'gmail',
-          gmail_message_id: gmailMessageId,
-          gmail_thread_id: gmailThreadId,
-          status: 'sent',
         })
       }
 
@@ -282,6 +284,12 @@ export async function sendClientEmail(
       facturationEmail: params.facturationEmail,
       attachments: params.attachments,
     })
+    void logEmail({
+      ...logBase,
+      provider: 'resend',
+      resend_message_id: result.id,
+      status: 'sent',
+    })
     await recordOutbound(thread, {
       provider: 'resend',
       senderUserId: null,
@@ -295,12 +303,6 @@ export async function sendClientEmail(
       html,
       inReplyTo: null,
       references: null,
-    })
-    void logEmail({
-      ...logBase,
-      provider: 'resend',
-      resend_message_id: result.id,
-      status: 'sent',
     })
     return { id: result.id, provider: 'resend' }
   } catch (err) {
