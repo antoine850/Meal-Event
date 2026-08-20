@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
 import type { Quote, Payment } from '@/lib/supabase/types'
+import type { BookingBadge } from './use-booking-badges'
 
 const NIL_UUID = '00000000-0000-0000-0000-000000000000'
 
@@ -53,6 +54,10 @@ export type BookingWithRelations = {
   contact_sur_place_societe: string | null
   instructions_speciales: string | null
   commentaires: string | null
+  status_changed_at: string
+  relance_traitee_le: string | null
+  retour_experience_fait_le: string | null
+  badges?: BookingBadge[]
   numero_dossier: string | null
   date_signature_devis: string | null
   assigned_user_ids: string[] | null

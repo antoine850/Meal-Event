@@ -746,11 +746,14 @@ export type Database = {
           prestations_souhaitees: string | null
           read_at: string | null
           relance: string | null
+          relance_traitee_le: string | null
           reservation_type: string | null
           restaurant_id: string | null
+          retour_experience_fait_le: string | null
           source: string | null
           space_id: string | null
           start_time: string | null
+          status_changed_at: string
           status_id: string | null
           total_amount: number | null
           updated_at: string | null
@@ -806,11 +809,14 @@ export type Database = {
           prestations_souhaitees?: string | null
           read_at?: string | null
           relance?: string | null
+          relance_traitee_le?: string | null
           reservation_type?: string | null
           restaurant_id?: string | null
+          retour_experience_fait_le?: string | null
           source?: string | null
           space_id?: string | null
           start_time?: string | null
+          status_changed_at?: string
           status_id?: string | null
           total_amount?: number | null
           updated_at?: string | null
@@ -866,11 +872,14 @@ export type Database = {
           prestations_souhaitees?: string | null
           read_at?: string | null
           relance?: string | null
+          relance_traitee_le?: string | null
           reservation_type?: string | null
           restaurant_id?: string | null
+          retour_experience_fait_le?: string | null
           source?: string | null
           space_id?: string | null
           start_time?: string | null
+          status_changed_at?: string
           status_id?: string | null
           total_amount?: number | null
           updated_at?: string | null
@@ -3473,7 +3482,15 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      booking_badges: {
+        Row: {
+          booking_id: string
+          organization_id: string
+          badge_type: string
+          depuis: string
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _dashboard_booking_ids: {
