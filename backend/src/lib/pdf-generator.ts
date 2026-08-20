@@ -148,6 +148,7 @@ interface QuoteData {
       iban: string | null
       bic: string | null
       bank_name: string | null
+      company_name: string | null
       legal_name: string | null
       legal_form: string | null
       share_capital: string | null
@@ -575,10 +576,10 @@ function buildDocDefinition(
         width: '50%',
         stack: [
           { text: l.issuer, style: 'sectionLabel' },
-          ...(restaurant?.legal_name
+          ...(restaurant?.company_name || restaurant?.legal_name
             ? [
                 {
-                  text: `${l.companyName} – ${restaurant.legal_name}`,
+                  text: `${l.companyName} – ${restaurant.company_name || restaurant.legal_name}`,
                   style: 'small' as const,
                   color: '#666',
                 },
@@ -1936,8 +1937,10 @@ function buildDocDefinition(
   // FOOTER
   // ══════════════════════════════════════════════════════════════════
   const footerLine1Parts: string[] = []
-  if (restaurant?.legal_name || restaurant?.name)
-    footerLine1Parts.push(restaurant.legal_name || restaurant.name || '')
+  if (restaurant?.company_name || restaurant?.legal_name || restaurant?.name)
+    footerLine1Parts.push(
+      restaurant.company_name || restaurant.legal_name || restaurant.name || ''
+    )
   if (restaurant?.legal_form) footerLine1Parts.push(restaurant.legal_form)
   if (restaurant?.share_capital)
     footerLine1Parts.push(`${l.shareCapital} ${restaurant.share_capital}`)
@@ -2152,10 +2155,10 @@ function buildCreditNoteDocDefinition(
         width: '50%',
         stack: [
           { text: l.issuer, style: 'sectionLabel' },
-          ...(restaurant?.legal_name
+          ...(restaurant?.company_name || restaurant?.legal_name
             ? [
                 {
-                  text: `${l.companyName} – ${restaurant.legal_name}`,
+                  text: `${l.companyName} – ${restaurant.company_name || restaurant.legal_name}`,
                   style: 'small' as const,
                   color: '#666',
                 },
@@ -2514,8 +2517,10 @@ function buildCreditNoteDocDefinition(
 
   // ── FOOTER (légal émetteur, identique aux autres documents) ──
   const footerLine1Parts: string[] = []
-  if (restaurant?.legal_name || restaurant?.name)
-    footerLine1Parts.push(restaurant.legal_name || restaurant.name || '')
+  if (restaurant?.company_name || restaurant?.legal_name || restaurant?.name)
+    footerLine1Parts.push(
+      restaurant.company_name || restaurant.legal_name || restaurant.name || ''
+    )
   if (restaurant?.legal_form) footerLine1Parts.push(restaurant.legal_form)
   if (restaurant?.share_capital)
     footerLine1Parts.push(`${l.shareCapital} ${restaurant.share_capital}`)
