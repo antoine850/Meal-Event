@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import DOMPurify from 'dompurify'
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import type { EmailMessage } from '@/lib/supabase/types'
@@ -20,13 +21,19 @@ function formatDate(iso: string | null): string {
 }
 
 function MessageBody({ message }: { message: EmailMessage }) {
+  // FORBID style : une balise <style> d'un email hostile s'appliquerait a
+  // toute la page ; contain:paint clippe aussi les position:fixed du corps.
+  const safeHtml = useMemo(
+    () =>
+      message.body_html
+        ? DOMPurify.sanitize(message.body_html, {
+            USE_PROFILES: { html: true },
+            FORBID_TAGS: ['style'],
+          })
+        : '',
+    [message.body_html]
+  )
   if (message.body_html) {
-    // FORBID style : une balise <style> d'un email hostile s'appliquerait a
-    // toute la page ; contain:paint clippe aussi les position:fixed du corps.
-    const safeHtml = DOMPurify.sanitize(message.body_html, {
-      USE_PROFILES: { html: true },
-      FORBID_TAGS: ['style'],
-    })
     return (
       <div
         className='max-h-96 overflow-auto text-sm [contain:paint] [&_a]:text-primary [&_a]:underline'
@@ -40,7 +47,7 @@ function MessageBody({ message }: { message: EmailMessage }) {
   return <p className='text-sm whitespace-pre-wrap'>{text}</p>
 }
 
-function MessageCard({
+const MessageCard = memo(function MessageCard({
   message,
   contactEmail,
 }: {
@@ -81,7 +88,7 @@ function MessageCard({
       <MessageBody message={message} />
     </div>
   )
-}
+})
 
 export function EmailThreadView({
   subject,
