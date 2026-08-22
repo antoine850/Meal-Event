@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -43,6 +44,7 @@ import { ConfigDrawer } from '@/components/config-drawer'
 import {
   DataTableBulkActions as BulkActionsToolbar,
   DataTablePagination,
+  FacetedFilter,
 } from '@/components/data-table'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -51,6 +53,7 @@ import { Search as SearchIcon } from '@/components/search'
 import { SortSelect, parseSortValue } from '@/components/sort-select'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { CompanyDialog } from './company-dialog'
+import { CATEGORY_LABELS, COMPANY_CATEGORIES } from './data/categories'
 import { useAllCompanies, type Company } from './hooks/use-companies'
 
 const companiesColumns: ColumnDef<Company>[] = [
@@ -84,6 +87,19 @@ const companiesColumns: ColumnDef<Company>[] = [
     accessorKey: 'name',
     header: 'Nom',
     cell: ({ row }) => <span className='font-medium'>{row.original.name}</span>,
+  },
+  {
+    accessorKey: 'category',
+    header: 'Catégorie',
+    cell: ({ row }) => {
+      const c = row.original.category
+      if (!c) return '-'
+      return (
+        <Badge variant='outline' className='text-xs'>
+          {CATEGORY_LABELS[c] ?? c}
+        </Badge>
+      )
+    },
   },
   {
     accessorKey: 'phone',
@@ -195,15 +211,24 @@ export function CompaniesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [rowSelection, setRowSelection] = useState({})
   const [search, setSearch] = useState('')
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
+    new Set()
+  )
   const [sortValue, setSortValue] = useState('created_at:desc')
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ])
 
   const filteredCompanies = useMemo(() => {
-    if (!search.trim()) return companies
-    return companies.filter((c) => matchesSearch(search, c.name))
-  }, [companies, search])
+    let result = companies
+    if (search.trim())
+      result = result.filter((c) => matchesSearch(search, c.name))
+    if (selectedCategories.size)
+      result = result.filter(
+        (c) => c.category && selectedCategories.has(c.category)
+      )
+    return result
+  }, [companies, search, selectedCategories])
 
   const companySortOptions = [
     { label: 'Date de création (récent)', value: 'created_at:desc' },
@@ -259,13 +284,21 @@ export function CompaniesPage() {
       </Header>
 
       <Main className='flex flex-1 flex-col space-y-4'>
-        <div className='flex items-center justify-between gap-2'>
-          <Input
-            placeholder='Rechercher une société...'
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className='max-w-xs'
-          />
+        <div className='flex flex-wrap items-center justify-between gap-2'>
+          <div className='flex items-center gap-2'>
+            <Input
+              placeholder='Rechercher une société...'
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className='max-w-xs'
+            />
+            <FacetedFilter
+              title='Catégorie'
+              options={COMPANY_CATEGORIES}
+              selected={selectedCategories}
+              onSelectionChange={setSelectedCategories}
+            />
+          </div>
           <div className='flex gap-2'>
             <SortSelect
               options={companySortOptions}
