@@ -12,6 +12,8 @@ export type ActivityActionType =
   | 'booking.duplicated'
   | 'booking.status_changed'
   | 'booking.assigned'
+  | 'booking.relance_traitee'
+  | 'booking.retour_experience_fait'
   // Quote actions
   | 'quote.created'
   | 'quote.updated'
@@ -67,6 +69,8 @@ export const ACTION_LABELS: Record<ActivityActionType, string> = {
   'booking.duplicated': 'Événement dupliqué',
   'booking.status_changed': 'Statut modifié',
   'booking.assigned': 'Assignation modifiée',
+  'booking.relance_traitee': 'Relance traitée',
+  'booking.retour_experience_fait': "Retour d'expérience fait",
   // Quote
   'quote.created': 'Devis créé',
   'quote.updated': 'Devis modifié',
@@ -101,6 +105,8 @@ export const ACTION_ICONS: Record<ActivityActionType, string> = {
   'booking.duplicated': 'Copy',
   'booking.status_changed': 'RefreshCw',
   'booking.assigned': 'UserPlus',
+  'booking.relance_traitee': 'CheckCircle',
+  'booking.retour_experience_fait': 'ClipboardCheck',
   'quote.created': 'FileText',
   'quote.updated': 'FileEdit',
   'quote.deleted': 'FileX',

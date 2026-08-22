@@ -30,12 +30,14 @@ import {
   CreditCard,
   Receipt,
   CheckCircle,
+  ClipboardCheck,
   Building,
   ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import type { Payment, Quote } from '@/lib/supabase/types'
+import { cn } from '@/lib/utils'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,6 +96,7 @@ import { useOrganizationUsers } from '@/features/contacts/hooks/use-contacts'
 import { BookingEmailsTab } from '@/features/emails/components/booking-emails-tab'
 import { formatEuroAdaptive } from '@/features/reservations/lib/quote-rounding'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
+import { BADGE_CONFIG } from '../data/badges'
 import {
   useActivityLogs,
   useLogActivity,
@@ -101,6 +104,11 @@ import {
   ACTION_ICONS,
   type ActivityActionType,
 } from '../hooks/use-activity-logs'
+import {
+  useBookingBadges,
+  useMarkRelanceTraitee,
+  useMarkRetourExperienceFait,
+} from '../hooks/use-booking-badges'
 import {
   useUpdateBooking,
   useDeleteBooking,
@@ -214,6 +222,12 @@ export const BookingDetail = forwardRef<
   const { data: payments = [] } = usePaymentsByBooking(booking.id)
   const { data: creditNotes = [] } = useCreditNotesByBooking(booking.id)
   const { data: documents = [] } = useDocumentsByBooking(booking.id)
+  const { data: badgesMap } = useBookingBadges([booking.id])
+  const bookingBadges = badgesMap?.get(booking.id) ?? []
+  const { mutate: markRelanceTraitee, isPending: isMarkingRelance } =
+    useMarkRelanceTraitee()
+  const { mutate: markRetourFait, isPending: isMarkingRetour } =
+    useMarkRetourExperienceFait()
   const { mutate: uploadDocument } = useUploadDocument()
   const { mutate: deleteDocument, isPending: isDeletingDocument } =
     useDeleteDocument()
@@ -731,6 +745,57 @@ export const BookingDetail = forwardRef<
                         ? "Aujourd'hui"
                         : `${daysUntilEvent} Jours`}
                   </Badge>
+
+                  {/* Badges action requise */}
+                  {bookingBadges.length > 0 && (
+                    <div className='mt-2 flex flex-col gap-1.5'>
+                      {bookingBadges.map((b) => {
+                        const cfg = BADGE_CONFIG[b.badge_type]
+                        if (!cfg) return null
+                        const isRetour = b.badge_type === 'retour_experience'
+                        return (
+                          <div
+                            key={b.badge_type}
+                            className='flex items-center justify-between gap-2'
+                          >
+                            <Badge
+                              variant='outline'
+                              className={cn('text-[10px]', cfg.className)}
+                            >
+                              {cfg.label}
+                            </Badge>
+                            <Button
+                              size='sm'
+                              variant='ghost'
+                              className='h-6 px-2 text-xs'
+                              disabled={
+                                isRetour ? isMarkingRetour : isMarkingRelance
+                              }
+                              aria-label={cfg.label}
+                              onClick={() => {
+                                const opts = {
+                                  onSuccess: () =>
+                                    toast.success(
+                                      isRetour
+                                        ? "Retour d'expérience fait"
+                                        : 'Relance traitée'
+                                    ),
+                                  onError: () =>
+                                    toast.error(
+                                      "Impossible d'enregistrer l'action"
+                                    ),
+                                }
+                                if (isRetour) markRetourFait(booking.id, opts)
+                                else markRelanceTraitee(booking.id, opts)
+                              }}
+                            >
+                              {isRetour ? 'Fait' : 'Traitée'}
+                            </Button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -3308,6 +3373,9 @@ export const BookingDetail = forwardRef<
                                     {iconName === 'CheckCircle' && (
                                       <CheckCircle className='h-4 w-4' />
                                     )}
+                                    {iconName === 'ClipboardCheck' && (
+                                      <ClipboardCheck className='h-4 w-4' />
+                                    )}
                                     {iconName === 'CreditCard' && (
                                       <CreditCard className='h-4 w-4' />
                                     )}
@@ -3323,6 +3391,7 @@ export const BookingDetail = forwardRef<
                                       'FileText',
                                       'FileSignature',
                                       'CheckCircle',
+                                      'ClipboardCheck',
                                       'CreditCard',
                                       'History',
                                     ].includes(iconName) && (
@@ -3707,7 +3776,7 @@ export const BookingDetail = forwardRef<
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              className='text-destructive-foreground bg-destructive hover:bg-destructive/90'
               onClick={() => {
                 if (deleteQuoteId) {
                   deleteQuoteMutation(

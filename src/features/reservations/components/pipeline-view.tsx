@@ -111,7 +111,7 @@ export function PipelineView({ bookings, statuses }: PipelineViewProps) {
       <div
         className='hidden w-full gap-2 sm:grid'
         style={{
-          gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
         }}
       >
         {columns.map((col) => (
@@ -140,14 +140,17 @@ export function PipelineView({ bookings, statuses }: PipelineViewProps) {
       </div>
 
       {/* Pipeline columns with booking cards */}
-      <div
-        className='grid min-h-[400px] gap-3'
-        style={{
-          gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))`,
-        }}
-      >
+      {/* Scroll horizontal : 9 colonnes ne tiennent pas en largeur d'ecran, et
+          les repartir en 1fr les rend trop etroites pour leur contenu. */}
+      <div className='flex min-h-[400px] gap-3 overflow-x-auto pb-2'>
         {visibleColumns.map((col) => (
-          <div key={col.slug} className='space-y-2'>
+          <div
+            key={col.slug}
+            className={cn(
+              'space-y-2',
+              visibleColumns.length === 1 ? 'w-full' : 'w-[260px] shrink-0'
+            )}
+          >
             {/* Column header */}
             <div
               className='flex items-center justify-between rounded-t-lg border-b-2 px-3 py-2'
@@ -202,18 +205,22 @@ export function PipelineView({ bookings, statuses }: PipelineViewProps) {
                       </p>
 
                       {/* Event info row */}
-                      <div className='flex items-center gap-2 text-xs text-muted-foreground'>
-                        <CalendarDays className='h-3 w-3 flex-shrink-0' />
-                        <span>{formatEventDateShort(booking.event_date)}</span>
-                        {booking.start_time && (
-                          <span>• {booking.start_time.slice(0, 5)}</span>
-                        )}
+                      <div className='flex min-w-0 items-start gap-2 text-xs text-muted-foreground'>
+                        <CalendarDays className='mt-0.5 h-3 w-3 flex-shrink-0' />
+                        <div className='min-w-0'>
+                          <p className='truncate'>
+                            {formatEventDateShort(booking.event_date)}
+                          </p>
+                          {booking.start_time && (
+                            <p>{booking.start_time.slice(0, 5)}</p>
+                          )}
+                        </div>
                       </div>
 
                       {/* Guests + Amount */}
-                      <div className='flex items-center gap-3 text-xs text-muted-foreground'>
+                      <div className='flex min-w-0 items-center gap-3 text-xs text-muted-foreground'>
                         {booking.guests_count && (
-                          <span className='flex items-center gap-1'>
+                          <span className='flex flex-shrink-0 items-center gap-1'>
                             <Users className='h-3 w-3' />
                             {booking.guests_count}
                           </span>
@@ -225,7 +232,7 @@ export function PipelineView({ bookings, statuses }: PipelineViewProps) {
 
                       {/* Restaurant badge */}
                       {booking.restaurant && (
-                        <div className='flex items-center gap-1.5'>
+                        <div className='flex min-w-0 items-center gap-1.5'>
                           <div
                             className='h-2 w-2 flex-shrink-0 rounded-full'
                             style={{

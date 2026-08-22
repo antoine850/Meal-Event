@@ -2,7 +2,13 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { type SortingState } from '@tanstack/react-table'
-import { Calendar as CalendarIcon, Columns3, List, Loader2 } from 'lucide-react'
+import {
+  BellRing,
+  Calendar as CalendarIcon,
+  Columns3,
+  List,
+  Loader2,
+} from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
 import { matchesSearch } from '@/lib/search'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -27,6 +33,7 @@ import { CalendarView } from './components/calendar-view'
 import { CreateBookingDialog } from './components/create-booking-dialog'
 import { ExportEventsDialog } from './components/export-events-dialog'
 import { PipelineView } from './components/pipeline-view'
+import { useBookingBadges } from './hooks/use-booking-badges'
 import {
   useBookings,
   useBookingsPaged,
@@ -39,6 +46,8 @@ type MainView = 'calendar' | 'list' | 'pipeline'
 type CalendarMode = 'month' | 'week' | 'day'
 
 const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+
+const PIPELINE_HIDDEN_SLUGS = ['cloture', 'cancelled']
 
 export function Reservations() {
   const search = useSearch({ from: '/_authenticated/evenements/' })
@@ -156,6 +165,13 @@ export function Reservations() {
   const { data: users = [] } = useOrganizationUsers()
   const { data: restaurants = [] } = useRestaurants()
 
+  // Kanban : les dossiers termines ne sont ni charges ni affiches. Ils pesent
+  // 84% du stock, et "Annulee" (position 3) coupait le pipeline en deux.
+  const pipelineStatuses = useMemo(
+    () => statuses.filter((s) => !PIPELINE_HIDDEN_SLUGS.includes(s.slug)),
+    [statuses]
+  )
+
   const [pageIndex, setPageIndex] = useState(0)
   const pageSize = 50
 
@@ -224,6 +240,7 @@ export function Reservations() {
         : undefined,
       source: search.source || undefined,
       stale: search.stale === '1' || undefined,
+      actionRequired: search.action === '1' || undefined,
     }
   }, [
     pageIndex,
@@ -240,12 +257,23 @@ export function Reservations() {
     importDateRange,
     search.source,
     search.stale,
+    search.action,
   ])
 
   const listQuery = useBookingsPaged(pagedParams)
+  const pageIds = useMemo(
+    () =>
+      mainView === 'list' ? (listQuery.data?.rows ?? []).map((b) => b.id) : [],
+    [mainView, listQuery.data]
+  )
+  const badgesQuery = useBookingBadges(pageIds)
   // Jeu complet (lourd : ~15k lignes paginées) seulement pour calendrier /
   // pipeline ; la vue liste est servie par la requête paginée serveur.
-  const allQuery = useBookings({ enabled: mainView !== 'list' })
+  const allQuery = useBookings({
+    enabled: mainView !== 'list',
+    excludeStatusSlugs:
+      mainView === 'pipeline' ? PIPELINE_HIDDEN_SLUGS : undefined,
+  })
   const bookings =
     mainView === 'list' ? (listQuery.data?.rows ?? []) : (allQuery.data ?? [])
   const totalCount = listQuery.data?.total ?? 0
@@ -268,6 +296,7 @@ export function Reservations() {
     search.toImport,
     search.source,
     search.stale,
+    search.action,
   ])
 
   // Reset visible uniquement si au moins un filtre est explicitement présent
@@ -287,6 +316,7 @@ export function Reservations() {
     search.restaurant ||
     search.signed ||
     search.stale ||
+    search.action ||
     search.source
   )
 
@@ -305,6 +335,7 @@ export function Reservations() {
       restaurant: undefined,
       signed: undefined,
       stale: undefined,
+      action: undefined,
       source: undefined,
       allDates: undefined,
     })
@@ -437,6 +468,15 @@ export function Reservations() {
     search.stale,
     search.source,
   ])
+
+  const listRowsWithBadges = useMemo(() => {
+    const byBooking = badgesQuery.data
+    if (!byBooking?.size) return filteredBookings
+    return filteredBookings.map((b) => {
+      const badges = byBooking.get(b.id)
+      return badges?.length ? { ...b, badges } : b
+    })
+  }, [filteredBookings, badgesQuery.data])
 
   const reservations = useMemo(() => {
     return filteredBookings.map(bookingToReservation)
@@ -590,6 +630,19 @@ export function Reservations() {
               })
             }
           />
+          {mainView === 'list' && (
+            <Button
+              variant={search.action === '1' ? 'default' : 'outline'}
+              size='sm'
+              className='h-8'
+              onClick={() =>
+                setSearch({ action: search.action === '1' ? undefined : '1' })
+              }
+            >
+              <BellRing className='me-2 h-4 w-4' />
+              Action requise
+            </Button>
+          )}
           {hasActiveFilters && (
             <Button
               variant='ghost'
@@ -643,7 +696,7 @@ export function Reservations() {
 
         {mainView === 'list' && (
           <BookingsTable
-            data={filteredBookings}
+            data={listRowsWithBadges}
             users={users}
             sorting={tableSorting}
             pageCount={Math.max(1, Math.ceil(totalCount / pageSize))}
@@ -664,7 +717,10 @@ export function Reservations() {
           </div>
         )}
         {mainView === 'pipeline' && (
-          <PipelineView bookings={filteredBookings} statuses={statuses} />
+          <PipelineView
+            bookings={filteredBookings}
+            statuses={pipelineStatuses}
+          />
         )}
       </Main>
     </>

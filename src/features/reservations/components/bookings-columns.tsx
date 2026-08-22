@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { UnreadDot } from '@/features/emails/components/unread-dot'
+import { BADGE_CONFIG } from '../data/badges'
 import type { BookingWithRelations } from '../hooks/use-bookings'
 import { SendEmailMenuItems, useEmailComposer } from './send-email-menu'
 
@@ -124,10 +125,26 @@ export const buildBookingsColumns = (
     cell: ({ row }) => {
       const status = row.original.status
       if (!status) return <span className='text-muted-foreground'>-</span>
+      // Badges action requise empiles sous le statut : pas de colonne en plus.
       return (
-        <Badge variant='outline' className={cn('text-xs', status.color)}>
-          {status.name}
-        </Badge>
+        <div className='flex flex-col items-start gap-1'>
+          <Badge variant='outline' className={cn('text-xs', status.color)}>
+            {status.name}
+          </Badge>
+          {row.original.badges?.map((b) => {
+            const cfg = BADGE_CONFIG[b.badge_type]
+            if (!cfg) return null
+            return (
+              <Badge
+                key={b.badge_type}
+                variant='outline'
+                className={cn('text-[10px]', cfg.className)}
+              >
+                {cfg.label}
+              </Badge>
+            )
+          })}
+        </div>
       )
     },
     filterFn: (row, _id, value) => {

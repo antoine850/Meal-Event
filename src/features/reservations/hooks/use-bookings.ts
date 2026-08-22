@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
 import type { Quote, Payment } from '@/lib/supabase/types'
+import type { BookingBadge } from './use-booking-badges'
 
 const NIL_UUID = '00000000-0000-0000-0000-000000000000'
 
@@ -53,6 +54,10 @@ export type BookingWithRelations = {
   contact_sur_place_societe: string | null
   instructions_speciales: string | null
   commentaires: string | null
+  status_changed_at: string
+  relance_traitee_le: string | null
+  retour_experience_fait_le: string | null
+  badges?: BookingBadge[]
   numero_dossier: string | null
   date_signature_devis: string | null
   assigned_user_ids: string[] | null
@@ -124,9 +129,13 @@ const BOOKING_SELECT = `
 // event_date + id rend les bornes de tranches déterministes. Lourd (~15k
 // lignes avec embeds) : réservé aux vues qui agrègent tout (facturation,
 // calendrier, pipeline) ; passer enabled=false tant qu'elles n'en ont pas besoin.
-export function useBookings(opts?: { enabled?: boolean }) {
+export function useBookings(opts?: {
+  enabled?: boolean
+  excludeStatusSlugs?: string[]
+}) {
+  const excludeStatusSlugs = opts?.excludeStatusSlugs
   return useQuery({
-    queryKey: ['bookings'],
+    queryKey: ['bookings', excludeStatusSlugs ?? null],
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
@@ -135,6 +144,21 @@ export function useBookings(opts?: { enabled?: boolean }) {
       if (restaurantFilter !== null && restaurantFilter.length === 0)
         return [] as BookingWithRelations[]
 
+      // Statuts exclus resolus en ids : filtrer cote serveur evite de charger
+      // ce que la vue n'affichera pas (kanban : 84% du stock est termine).
+      let excludedIds: string[] = []
+      if (excludeStatusSlugs?.length) {
+        const { data: excluded, error: excludedError } = await supabase
+          .from('statuses')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('type', 'booking')
+          .in('slug', excludeStatusSlugs)
+        if (excludedError) throw excludedError
+        excludedIds = (excluded ?? []).map((s) => s.id)
+      }
+      const excludeFilter = `(${excludedIds.join(',')})`
+
       const baseQuery = () => {
         let q = supabase
           .from('bookings')
@@ -142,6 +166,7 @@ export function useBookings(opts?: { enabled?: boolean }) {
           .eq('organization_id', orgId)
         if (restaurantFilter !== null)
           q = q.in('restaurant_id', restaurantFilter)
+        if (excludedIds.length) q = q.not('status_id', 'in', excludeFilter)
         return q
           .order('event_date', { ascending: true })
           .order('id', { ascending: true })
@@ -153,6 +178,8 @@ export function useBookings(opts?: { enabled?: boolean }) {
         .eq('organization_id', orgId)
       if (restaurantFilter !== null)
         countQuery = countQuery.in('restaurant_id', restaurantFilter)
+      if (excludedIds.length)
+        countQuery = countQuery.not('status_id', 'in', excludeFilter)
       const { count, error: countError } = await countQuery
       if (countError) throw countError
 
@@ -202,6 +229,7 @@ export type BookingsQueryParams = {
   toImport?: string // created_at <= (ISO)
   source?: string // contact.source
   stale?: boolean // propositions sans reponse > 3j
+  actionRequired?: boolean // au moins un badge action requise (vue booking_badges)
 }
 
 export function useBookingsPaged(params: BookingsQueryParams) {
@@ -351,6 +379,26 @@ export function useBookingsPaged(params: BookingsQueryParams) {
         bookingIdFilter = signBookingIds
       } else if (staleBookingIds !== null) {
         bookingIdFilter = staleBookingIds
+      }
+
+      // Filtre "action requise" : ids de la vue booking_badges, intersectes
+      // avec les autres drill-downs avant le .in('id', ...) unique.
+      if (params.actionRequired) {
+        const { data: badgeRows, error: badgeError } = await supabase
+          .from('booking_badges')
+          .select('booking_id')
+          .eq('organization_id', orgId)
+          .limit(5000)
+        if (badgeError) throw badgeError
+        const badgeIds = Array.from(
+          new Set((badgeRows || []).map((r) => r.booking_id))
+        )
+        if (bookingIdFilter === null) {
+          bookingIdFilter = badgeIds
+        } else {
+          const badgeSet = new Set(badgeIds)
+          bookingIdFilter = bookingIdFilter.filter((id) => badgeSet.has(id))
+        }
       }
 
       let query = supabase
