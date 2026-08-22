@@ -2,14 +2,17 @@
 
 Contexte 20/08 : les agences (Rejolt, Business Profilers, Amex GBT, Naboo...) n'existent pas
 comme entite ; elles sont dans le nom des societes ("Business Profilers pour le compte de TOTAL
-ENERGIE"). 75 societes sur 6919 portent un des deux motifs retenus.
+ENERGIE"). 72 societes sur 6919 portent un des deux motifs retenus.
 Motifs ecartes, tous les deux parce qu'ils designent le CLIENT et pas l'agence :
   - " via " (35 cas) : le nom commence par le client ("EDF VIA KACTUS", "SAINT GOBAIN VIA
     KACTUS"). 32 des 35 sont "via kactus", qui est un canal d'acquisition (cf. lib.py, il
     alimente contacts.source), pas une agence. Tagger aurait catalogue EDF, Nestle ou KPMG
     en agences.
-  - " pour " seul : trop de faux positifs ("Marsh SAS - reservation au nom de Mde X" est
-    deja couvert par "au nom").
+  - " pour " seul et "au nom" seul : reservations nominatives ("Marsh SAS - reservation
+    au nom de Mde X", "Reservation au nom de M. Salih HAMDI") et consignes de facturation
+    ("WINNCARE mais toute facturation doit se faire au nom de WINNINVEST"). D'ou la
+    formule complete "au nom et pour", qui garde au passage "NABOO au nom et pour el
+    compte de Axa Partners" (faute de frappe sur "le compte").
 Ne touche jamais une societe dont la categorie est deja renseignee : re-lancable tel quel
 apres un echec, sans effet apres un succes.
 Dry-run par defaut ; --apply ecrit un snapshot puis PATCH une par une.
@@ -21,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import load_env, Supa, ORG_ID, section, line
 
-MOTIFS = ("pour le compte", "au nom")
+MOTIFS = ("pour le compte", "au nom et pour")
 CATEGORY = "agence"
 
 apply = "--apply" in sys.argv
