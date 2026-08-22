@@ -125,27 +125,13 @@ export const buildBookingsColumns = (
     cell: ({ row }) => {
       const status = row.original.status
       if (!status) return <span className='text-muted-foreground'>-</span>
+      // Badges action requise empiles sous le statut : pas de colonne en plus.
       return (
-        <Badge variant='outline' className={cn('text-xs', status.color)}>
-          {status.name}
-        </Badge>
-      )
-    },
-    filterFn: (row, _id, value) => {
-      return value.includes(row.original.status?.slug)
-    },
-  },
-  {
-    id: 'badges',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Action' />
-    ),
-    cell: ({ row }) => {
-      const badges = row.original.badges
-      if (!badges?.length) return null
-      return (
-        <div className='flex flex-wrap gap-1'>
-          {badges.map((b) => {
+        <div className='flex flex-col items-start gap-1'>
+          <Badge variant='outline' className={cn('text-xs', status.color)}>
+            {status.name}
+          </Badge>
+          {row.original.badges?.map((b) => {
             const cfg = BADGE_CONFIG[b.badge_type]
             if (!cfg) return null
             return (
@@ -161,7 +147,9 @@ export const buildBookingsColumns = (
         </div>
       )
     },
-    enableSorting: false,
+    filterFn: (row, _id, value) => {
+      return value.includes(row.original.status?.slug)
+    },
   },
   {
     accessorKey: 'event_type',
