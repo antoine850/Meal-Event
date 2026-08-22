@@ -919,6 +919,7 @@ export type Database = {
           billing_country: string | null
           billing_email: string | null
           billing_postal_code: string | null
+          category: string | null
           city: string | null
           country: string | null
           created_at: string | null
@@ -943,6 +944,7 @@ export type Database = {
           billing_country?: string | null
           billing_email?: string | null
           billing_postal_code?: string | null
+          category?: string | null
           city?: string | null
           country?: string | null
           created_at?: string | null
@@ -967,6 +969,7 @@ export type Database = {
           billing_country?: string | null
           billing_email?: string | null
           billing_postal_code?: string | null
+          category?: string | null
           city?: string | null
           country?: string | null
           created_at?: string | null
