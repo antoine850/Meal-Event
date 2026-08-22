@@ -94,11 +94,7 @@ const companiesColumns: ColumnDef<Company>[] = [
     cell: ({ row }) => {
       const c = row.original.category
       if (!c) return '-'
-      return (
-        <Badge variant='outline' className='text-xs'>
-          {CATEGORY_LABELS[c] ?? c}
-        </Badge>
-      )
+      return <Badge variant='outline'>{CATEGORY_LABELS[c] ?? c}</Badge>
     },
   },
   {
@@ -245,6 +241,9 @@ export function CompaniesPage() {
   const table = useReactTable({
     data: filteredCompanies,
     columns: companiesColumns,
+    // Sans getRowId la selection est indexee par position : filtrer apres avoir
+    // coche une ligne ferait porter la suppression groupee sur une autre societe.
+    getRowId: (row) => row.id,
     state: {
       sorting,
       rowSelection,

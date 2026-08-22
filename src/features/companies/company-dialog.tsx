@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -188,6 +189,8 @@ export function CompanyDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Catégorie</FormLabel>
+                    {/* Sentinelle 'none' : Radix interdit une SelectItem de
+                        valeur vide, le champ est optionnel. */}
                     <Select
                       value={field.value || 'none'}
                       onValueChange={(v) =>
@@ -195,8 +198,12 @@ export function CompanyDialog({
                       }
                     >
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Non renseignée' />
+                        <SelectTrigger
+                          className={cn(
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          <SelectValue />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
