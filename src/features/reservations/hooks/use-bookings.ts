@@ -129,9 +129,13 @@ const BOOKING_SELECT = `
 // event_date + id rend les bornes de tranches déterministes. Lourd (~15k
 // lignes avec embeds) : réservé aux vues qui agrègent tout (facturation,
 // calendrier, pipeline) ; passer enabled=false tant qu'elles n'en ont pas besoin.
-export function useBookings(opts?: { enabled?: boolean }) {
+export function useBookings(opts?: {
+  enabled?: boolean
+  excludeStatusSlugs?: string[]
+}) {
+  const excludeStatusSlugs = opts?.excludeStatusSlugs
   return useQuery({
-    queryKey: ['bookings'],
+    queryKey: ['bookings', excludeStatusSlugs ?? null],
     queryFn: async () => {
       const orgId = await getCurrentOrganizationId()
       if (!orgId) throw new Error('No organization found')
@@ -140,6 +144,21 @@ export function useBookings(opts?: { enabled?: boolean }) {
       if (restaurantFilter !== null && restaurantFilter.length === 0)
         return [] as BookingWithRelations[]
 
+      // Statuts exclus resolus en ids : filtrer cote serveur evite de charger
+      // ce que la vue n'affichera pas (kanban : 84% du stock est termine).
+      let excludedIds: string[] = []
+      if (excludeStatusSlugs?.length) {
+        const { data: excluded, error: excludedError } = await supabase
+          .from('statuses')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('type', 'booking')
+          .in('slug', excludeStatusSlugs)
+        if (excludedError) throw excludedError
+        excludedIds = (excluded ?? []).map((s) => s.id)
+      }
+      const excludeFilter = `(${excludedIds.join(',')})`
+
       const baseQuery = () => {
         let q = supabase
           .from('bookings')
@@ -147,6 +166,7 @@ export function useBookings(opts?: { enabled?: boolean }) {
           .eq('organization_id', orgId)
         if (restaurantFilter !== null)
           q = q.in('restaurant_id', restaurantFilter)
+        if (excludedIds.length) q = q.not('status_id', 'in', excludeFilter)
         return q
           .order('event_date', { ascending: true })
           .order('id', { ascending: true })
@@ -158,6 +178,8 @@ export function useBookings(opts?: { enabled?: boolean }) {
         .eq('organization_id', orgId)
       if (restaurantFilter !== null)
         countQuery = countQuery.in('restaurant_id', restaurantFilter)
+      if (excludedIds.length)
+        countQuery = countQuery.not('status_id', 'in', excludeFilter)
       const { count, error: countError } = await countQuery
       if (countError) throw countError
 

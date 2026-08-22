@@ -47,6 +47,8 @@ type CalendarMode = 'month' | 'week' | 'day'
 
 const NIL_UUID = '00000000-0000-0000-0000-000000000000'
 
+const PIPELINE_HIDDEN_SLUGS = ['cloture', 'cancelled']
+
 export function Reservations() {
   const search = useSearch({ from: '/_authenticated/evenements/' })
   const navigate = useNavigate({ from: '/evenements' })
@@ -163,6 +165,13 @@ export function Reservations() {
   const { data: users = [] } = useOrganizationUsers()
   const { data: restaurants = [] } = useRestaurants()
 
+  // Kanban : les dossiers termines ne sont ni charges ni affiches. Ils pesent
+  // 84% du stock, et "Annulee" (position 3) coupait le pipeline en deux.
+  const pipelineStatuses = useMemo(
+    () => statuses.filter((s) => !PIPELINE_HIDDEN_SLUGS.includes(s.slug)),
+    [statuses]
+  )
+
   const [pageIndex, setPageIndex] = useState(0)
   const pageSize = 50
 
@@ -260,7 +269,11 @@ export function Reservations() {
   const badgesQuery = useBookingBadges(pageIds)
   // Jeu complet (lourd : ~15k lignes paginées) seulement pour calendrier /
   // pipeline ; la vue liste est servie par la requête paginée serveur.
-  const allQuery = useBookings({ enabled: mainView !== 'list' })
+  const allQuery = useBookings({
+    enabled: mainView !== 'list',
+    excludeStatusSlugs:
+      mainView === 'pipeline' ? PIPELINE_HIDDEN_SLUGS : undefined,
+  })
   const bookings =
     mainView === 'list' ? (listQuery.data?.rows ?? []) : (allQuery.data ?? [])
   const totalCount = listQuery.data?.total ?? 0
@@ -704,7 +717,10 @@ export function Reservations() {
           </div>
         )}
         {mainView === 'pipeline' && (
-          <PipelineView bookings={filteredBookings} statuses={statuses} />
+          <PipelineView
+            bookings={filteredBookings}
+            statuses={pipelineStatuses}
+          />
         )}
       </Main>
     </>
