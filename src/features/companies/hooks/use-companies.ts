@@ -6,6 +6,7 @@ export type Company = {
   id: string
   organization_id: string
   name: string
+  category: string | null
   phone: string | null
   billing_address: string | null
   billing_postal_code: string | null

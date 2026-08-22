@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,6 +24,14 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { COMPANY_CATEGORIES } from './data/categories'
+import {
   useCreateCompany,
   useUpdateCompany,
   type Company,
@@ -30,6 +39,7 @@ import {
 
 const companySchema = z.object({
   name: z.string().min(1, 'Le nom est requis'),
+  category: z.string().optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
   billing_address: z.string().optional().or(z.literal('')),
   billing_postal_code: z.string().optional().or(z.literal('')),
@@ -65,6 +75,7 @@ export function CompanyDialog({
     resolver: zodResolver(companySchema),
     defaultValues: {
       name: '',
+      category: '',
       phone: '',
       billing_address: '',
       billing_postal_code: '',
@@ -80,6 +91,7 @@ export function CompanyDialog({
     if (open && company) {
       form.reset({
         name: company.name,
+        category: company.category || '',
         phone: company.phone || '',
         billing_address: company.billing_address || '',
         billing_postal_code: company.billing_postal_code || '',
@@ -92,6 +104,7 @@ export function CompanyDialog({
     } else if (open && !company) {
       form.reset({
         name: '',
+        category: '',
         phone: '',
         billing_address: '',
         billing_postal_code: '',
@@ -107,6 +120,7 @@ export function CompanyDialog({
   const onSubmit = (data: CompanyFormData) => {
     const payload = {
       ...data,
+      category: data.category || null,
       phone: data.phone || null,
       billing_address: data.billing_address || null,
       billing_postal_code: data.billing_postal_code || null,
@@ -165,6 +179,42 @@ export function CompanyDialog({
                     <FormControl>
                       <Input placeholder='Ex: MealEvent SAS' {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='category'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Catégorie</FormLabel>
+                    {/* Sentinelle 'none' : Radix interdit une SelectItem de
+                        valeur vide, le champ est optionnel. */}
+                    <Select
+                      value={field.value || 'none'}
+                      onValueChange={(v) =>
+                        field.onChange(v === 'none' ? '' : v)
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger
+                          className={cn(
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value='none'>Non renseignée</SelectItem>
+                        {COMPANY_CATEGORIES.map((c) => (
+                          <SelectItem key={c.value} value={c.value}>
+                            {c.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
