@@ -57,6 +57,8 @@ export type BookingWithRelations = {
   status_changed_at: string
   relance_traitee_le: string | null
   retour_experience_fait_le: string | null
+  cancellation_reason: string | null
+  cancellation_comment: string | null
   badges?: BookingBadge[]
   numero_dossier: string | null
   date_signature_devis: string | null
