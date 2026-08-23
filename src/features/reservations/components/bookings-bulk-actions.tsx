@@ -49,7 +49,7 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
   const handleBulkStatusChange = async (
     statusId: string,
     statusName: string,
-    cancellation?: { reason: string; comment: string | null }
+    cancellation?: { reason: string | null; comment: string | null }
   ) => {
     const ids = selectedRows.map((row) => row.original.id)
     const count = ids.length
@@ -138,7 +138,12 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
                     })
                     return
                   }
-                  handleBulkStatusChange(status.id, status.name)
+                  // Sortie d'annulation : un motif sur un dossier vivant
+                  // ressortirait dans les exports.
+                  handleBulkStatusChange(status.id, status.name, {
+                    reason: null,
+                    comment: null,
+                  })
                 }}
               >
                 <div
