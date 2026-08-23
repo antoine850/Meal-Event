@@ -203,7 +203,7 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
         onOpenChange={(open) => {
           if (!open) setCancelTarget(null)
         }}
-        count={count}
+        count={cancelTarget?.ids.length ?? 0}
         onConfirm={(reason, comment) => {
           if (cancelTarget) {
             handleBulkStatusChange(
