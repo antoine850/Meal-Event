@@ -455,8 +455,9 @@ export const BookingDetail = forwardRef<
       space_id: eventForm.space_id === '' ? null : eventForm.space_id,
     }
 
-    // Check if anything actually changed
-    const hasChanges = form.formState.isDirty || isEventFormDirty
+    // Le motif ne passe ni par le form ni par eventForm : sans ca, corriger
+    // un motif seul ne declencherait aucun enregistrement.
+    const hasChanges = form.formState.isDirty || isEventFormDirty || !!cancellation
     if (!hasChanges) {
       return
     }
