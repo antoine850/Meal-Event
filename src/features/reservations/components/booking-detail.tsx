@@ -280,8 +280,6 @@ export const BookingDetail = forwardRef<
 
   // Motif d'annulation : intercepte le submit avant tout enregistrement
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
-  const [pendingCancelData, setPendingCancelData] =
-    useState<BookingDetailFormData | null>(null)
 
   // Menu forms state (using booking_menu_forms junction table)
   const { data: bookingMenuForms = [] } = useBookingMenuForms(booking.id)
@@ -568,7 +566,6 @@ export const BookingDetail = forwardRef<
 
     // Passage en annule : le motif est demande avant tout enregistrement.
     if (newSlug === CANCELLED_SLUG && !wasCancelled) {
-      setPendingCancelData(data)
       setCancelDialogOpen(true)
       return
     }
@@ -1042,32 +1039,37 @@ export const BookingDetail = forwardRef<
                               )
                             </div>
                           )}
-                          {booking.status?.slug === CANCELLED_SLUG &&
-                            booking.cancellation_reason && (
-                              <div className='space-y-0.5 text-xs'>
-                                <div>
-                                  Motif :{' '}
-                                  {CANCELLATION_REASON_LABELS[
-                                    booking.cancellation_reason
-                                  ] ?? booking.cancellation_reason}
-                                </div>
-                                {booking.cancellation_comment && (
-                                  <div className='text-muted-foreground'>
-                                    {booking.cancellation_comment}
+                          {statuses.find((s) => s.id === field.value)?.slug ===
+                            CANCELLED_SLUG && (
+                            <div className='space-y-0.5 text-xs'>
+                              {booking.cancellation_reason && (
+                                <>
+                                  <div>
+                                    Motif :{' '}
+                                    {CANCELLATION_REASON_LABELS[
+                                      booking.cancellation_reason
+                                    ] ?? booking.cancellation_reason}
                                   </div>
-                                )}
-                                <button
-                                  type='button'
-                                  className='text-muted-foreground underline'
-                                  onClick={() => {
-                                    setPendingCancelData(form.getValues())
-                                    setCancelDialogOpen(true)
-                                  }}
-                                >
-                                  Modifier le motif
-                                </button>
-                              </div>
-                            )}
+                                  {booking.cancellation_comment && (
+                                    <div className='text-muted-foreground'>
+                                      {booking.cancellation_comment}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              <Button
+                                type='button'
+                                variant='link'
+                                size='sm'
+                                className='h-auto px-0 text-xs'
+                                onClick={() => setCancelDialogOpen(true)}
+                              >
+                                {booking.cancellation_reason
+                                  ? 'Modifier le motif'
+                                  : 'Ajouter un motif'}
+                              </Button>
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -3870,16 +3872,11 @@ export const BookingDetail = forwardRef<
 
       <CancelBookingDialog
         open={cancelDialogOpen}
-        onOpenChange={(open) => {
-          setCancelDialogOpen(open)
-          if (!open) setPendingCancelData(null)
-        }}
+        onOpenChange={setCancelDialogOpen}
         defaultReason={booking.cancellation_reason}
         defaultComment={booking.cancellation_comment}
         onConfirm={(reason, comment) => {
-          if (pendingCancelData)
-            submitUpdate(pendingCancelData, { reason, comment })
-          setPendingCancelData(null)
+          form.handleSubmit((d) => submitUpdate(d, { reason, comment }))()
         }}
       />
     </>
