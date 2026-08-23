@@ -45,6 +45,7 @@ import {
   signedSearch,
   type DashboardSearch,
 } from '../lib/events-drill-down'
+import { CANCELLATION_REASON_LABELS } from '@/features/reservations/data/cancellation-reasons'
 
 function KpiTooltip({ text }: { text: string }) {
   return (
@@ -116,6 +117,25 @@ export function CommercialTab({
       percent: total > 0 ? (i.value / total) * 100 : 0,
     }))
   }, [commercialStats])
+
+  const cancellationData = useMemo(() => {
+    const rows = aggregates?.by_cancellation_reason ?? []
+    const total = rows.reduce((s, r) => s + r.value, 0)
+    return rows.map((r) => ({
+      name: r.name
+        ? (CANCELLATION_REASON_LABELS[r.name] ?? r.name)
+        : 'Non renseigné',
+      value: r.value,
+      // Gris neutre pour la part non renseignee : ce n'est pas un motif.
+      color: r.name ? undefined : '#9ca3af',
+      percent: total > 0 ? (r.value / total) * 100 : 0,
+    }))
+  }, [aggregates])
+
+  const cancellationTotal = cancellationData.reduce((s, r) => s + r.value, 0)
+  const cancellationKnown = cancellationData
+    .filter((r) => r.name !== 'Non renseigné')
+    .reduce((s, r) => s + r.value, 0)
 
   const commercialNames = useMemo(
     () => commercialStats.map((c) => c.name),
@@ -490,6 +510,67 @@ export function CommercialTab({
                 />
               </PieChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className='col-span-1 lg:col-span-7'>
+          <CardHeader>
+            <CardTitle>Motifs d'annulation</CardTitle>
+            <CardDescription>
+              {cancellationKnown} annulation{cancellationKnown > 1 ? 's' : ''}{' '}
+              motivée{cancellationKnown > 1 ? 's' : ''} sur {cancellationTotal}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {cancellationTotal === 0 ? (
+              <p className='py-8 text-center text-sm text-muted-foreground'>
+                Aucune annulation sur la période.
+              </p>
+            ) : (
+              <ResponsiveContainer width='100%' height={300}>
+                <PieChart>
+                  <Pie
+                    data={cancellationData}
+                    cx='50%'
+                    cy='45%'
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={5}
+                    dataKey='value'
+                  >
+                    {cancellationData.map((entry, index) => (
+                      <Cell
+                        key={`cancel-cell-${index}`}
+                        fill={entry.color ?? COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => [
+                      `${Number(value ?? 0)} dossier${Number(value ?? 0) > 1 ? 's' : ''}`,
+                      'Annulations',
+                    ]}
+                  />
+                  <Legend
+                    verticalAlign='bottom'
+                    align='center'
+                    iconType='circle'
+                    iconSize={10}
+                    formatter={(value, entry) => {
+                      const percent = (
+                        (entry.payload as { percent?: number })?.percent ?? 0
+                      ).toFixed(0)
+                      return (
+                        <span style={{ color: entry.color, fontSize: 13 }}>
+                          {value} {percent}%
+                        </span>
+                      )
+                    }}
+                    wrapperStyle={{ paddingTop: 16 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
