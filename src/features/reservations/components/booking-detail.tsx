@@ -98,6 +98,10 @@ import { formatEuroAdaptive } from '@/features/reservations/lib/quote-rounding'
 import { useSpaces } from '@/features/settings/hooks/use-settings'
 import { BADGE_CONFIG } from '../data/badges'
 import {
+  CANCELLATION_REASON_LABELS,
+  CANCELLED_SLUG,
+} from '../data/cancellation-reasons'
+import {
   useActivityLogs,
   useLogActivity,
   createActivityLogger,
@@ -146,6 +150,7 @@ import {
   useCreditNotesByBooking,
 } from '../hooks/use-quotes'
 import { buildDocumentName, clientNameOf } from '../lib/document-name'
+import { CancelBookingDialog } from './cancel-booking-dialog'
 import { CreditNoteDialog } from './credit-note-dialog'
 import { FicheFonction } from './fiche-fonction'
 import { MenuFormBuilder } from './menu-form-builder'
@@ -272,6 +277,11 @@ export const BookingDetail = forwardRef<
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
+
+  // Motif d'annulation : intercepte le submit avant tout enregistrement
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [pendingCancelData, setPendingCancelData] =
+    useState<BookingDetailFormData | null>(null)
 
   // Menu forms state (using booking_menu_forms junction table)
   const { data: bookingMenuForms = [] } = useBookingMenuForms(booking.id)
@@ -424,7 +434,10 @@ export const BookingDetail = forwardRef<
     setEventForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  const onSubmit = (data: BookingDetailFormData) => {
+  const submitUpdate = (
+    data: BookingDetailFormData,
+    cancellation?: { reason: string | null; comment: string | null }
+  ) => {
     // Convert empty strings to null for numeric and date/time fields
     const cleanEventForm = {
       ...eventForm,
@@ -476,6 +489,12 @@ export const BookingDetail = forwardRef<
       is_table_blocked: data.is_table_blocked || false,
       has_extra_provider: data.has_extra_provider || false,
       ...cleanEventForm,
+      ...(cancellation
+        ? {
+            cancellation_reason: cancellation.reason,
+            cancellation_comment: cancellation.comment,
+          }
+        : {}),
     }
 
     updateBooking(updateData as never, {
@@ -494,7 +513,11 @@ export const BookingDetail = forwardRef<
           activityLogger.bookingStatusChanged(
             booking.id,
             oldStatusName,
-            newStatusName
+            newStatusName,
+            cancellation?.reason
+              ? (CANCELLATION_REASON_LABELS[cancellation.reason] ??
+                  cancellation.reason)
+              : undefined
           )
         }
         // Log assignment change
@@ -536,6 +559,27 @@ export const BookingDetail = forwardRef<
       },
       onError: () => toast.error('Erreur lors de la mise à jour'),
     })
+  }
+
+  const onSubmit = (data: BookingDetailFormData) => {
+    const newSlug = statuses.find((s) => s.id === data.status_id)?.slug
+    const wasCancelled = booking.status?.slug === CANCELLED_SLUG
+
+    // Passage en annule : le motif est demande avant tout enregistrement.
+    if (newSlug === CANCELLED_SLUG && !wasCancelled) {
+      setPendingCancelData(data)
+      setCancelDialogOpen(true)
+      return
+    }
+
+    // Sortie d'annulation : un motif sur un dossier vivant est une donnee
+    // fantome qui ressortirait dans les exports.
+    if (wasCancelled && newSlug !== CANCELLED_SLUG) {
+      submitUpdate(data, { reason: null, comment: null })
+      return
+    }
+
+    submitUpdate(data)
   }
 
   const handleDelete = () => {
@@ -997,6 +1041,32 @@ export const BookingDetail = forwardRef<
                               )
                             </div>
                           )}
+                          {booking.status?.slug === CANCELLED_SLUG &&
+                            booking.cancellation_reason && (
+                              <div className='space-y-0.5 text-xs'>
+                                <div>
+                                  Motif :{' '}
+                                  {CANCELLATION_REASON_LABELS[
+                                    booking.cancellation_reason
+                                  ] ?? booking.cancellation_reason}
+                                </div>
+                                {booking.cancellation_comment && (
+                                  <div className='text-muted-foreground'>
+                                    {booking.cancellation_comment}
+                                  </div>
+                                )}
+                                <button
+                                  type='button'
+                                  className='text-muted-foreground underline'
+                                  onClick={() => {
+                                    setPendingCancelData(form.getValues())
+                                    setCancelDialogOpen(true)
+                                  }}
+                                >
+                                  Modifier le motif
+                                </button>
+                              </div>
+                            )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -3796,6 +3866,21 @@ export const BookingDetail = forwardRef<
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CancelBookingDialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open)
+          if (!open) setPendingCancelData(null)
+        }}
+        defaultReason={booking.cancellation_reason}
+        defaultComment={booking.cancellation_comment}
+        onConfirm={(reason, comment) => {
+          if (pendingCancelData)
+            submitUpdate(pendingCancelData, { reason, comment })
+          setPendingCancelData(null)
+        }}
+      />
     </>
   )
 })

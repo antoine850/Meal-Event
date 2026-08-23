@@ -243,15 +243,22 @@ export function createActivityLogger(
     bookingStatusChanged: (
       bookingId: string,
       oldStatus: string,
-      newStatus: string
+      newStatus: string,
+      reason?: string
     ) => {
       logActivity({
         bookingId,
         actionType: 'booking.status_changed',
-        actionLabel: `Statut: "${oldStatus}" → "${newStatus}"`,
+        actionLabel: reason
+          ? `Statut: "${oldStatus}" → "${newStatus}" (${reason})`
+          : `Statut: "${oldStatus}" → "${newStatus}"`,
         entityType: 'booking',
         entityId: bookingId,
-        metadata: { old_status: oldStatus, new_status: newStatus },
+        metadata: {
+          old_status: oldStatus,
+          new_status: newStatus,
+          ...(reason ? { cancellation_reason: reason } : {}),
+        },
       })
     },
 
