@@ -39,12 +39,14 @@ export function CancelBookingDialog({
   const [reason, setReason] = useState('')
   const [comment, setComment] = useState('')
 
+  // Ne pas mettre defaultReason/defaultComment en dep : un refetch cote
+  // parent pendant que la modale est ouverte ecraserait la saisie en cours.
   useEffect(() => {
     if (open) {
       setReason(defaultReason || '')
       setComment(defaultComment || '')
     }
-  }, [open, defaultReason, defaultComment])
+  }, [open])
 
   // "Autre" sans commentaire devient la case fourre-tout qu'on coche pour
   // passer, et la repartition ne vaut plus rien.
@@ -81,7 +83,7 @@ export function CancelBookingDialog({
 
           <div className='space-y-2'>
             <Label htmlFor='cancel-comment'>
-              Commentaire {reason === 'autre' ? '' : '(facultatif)'}
+              Commentaire {reason === 'autre' ? '(obligatoire)' : '(facultatif)'}
             </Label>
             <Textarea
               id='cancel-comment'
