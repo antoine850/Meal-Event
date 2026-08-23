@@ -27,8 +27,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
+import { CANCELLED_SLUG } from '../data/cancellation-reasons'
 import { useBookingStatuses } from '../hooks/use-bookings'
 import type { BookingWithRelations } from '../hooks/use-bookings'
+import { CancelBookingDialog } from './cancel-booking-dialog'
 
 type BookingsBulkActionsProps = {
   table: Table<BookingWithRelations>
@@ -39,10 +41,15 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
   const { data: statuses = [] } = useBookingStatuses()
   const selectedRows = table.getFilteredSelectedRowModel().rows
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [cancelTarget, setCancelTarget] = useState<{
+    statusId: string
+    statusName: string
+  } | null>(null)
 
   const handleBulkStatusChange = async (
     statusId: string,
-    statusName: string
+    statusName: string,
+    cancellation?: { reason: string; comment: string | null }
   ) => {
     const ids = selectedRows.map((row) => row.original.id)
     const count = ids.length
@@ -50,7 +57,15 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
     try {
       const { error } = await supabase
         .from('bookings')
-        .update({ status_id: statusId } as never)
+        .update({
+          status_id: statusId,
+          ...(cancellation
+            ? {
+                cancellation_reason: cancellation.reason,
+                cancellation_comment: cancellation.comment,
+              }
+            : {}),
+        } as never)
         .in('id', ids)
 
       if (error) throw error
@@ -115,7 +130,16 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
             {statuses.map((status) => (
               <DropdownMenuItem
                 key={status.id}
-                onClick={() => handleBulkStatusChange(status.id, status.name)}
+                onClick={() => {
+                  if (status.slug === CANCELLED_SLUG) {
+                    setCancelTarget({
+                      statusId: status.id,
+                      statusName: status.name,
+                    })
+                    return
+                  }
+                  handleBulkStatusChange(status.id, status.name)
+                }}
               >
                 <div
                   className='h-2 w-2 shrink-0 rounded-full'
@@ -165,6 +189,24 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CancelBookingDialog
+        open={cancelTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setCancelTarget(null)
+        }}
+        count={count}
+        onConfirm={(reason, comment) => {
+          if (cancelTarget) {
+            handleBulkStatusChange(
+              cancelTarget.statusId,
+              cancelTarget.statusName,
+              { reason, comment }
+            )
+          }
+          setCancelTarget(null)
+        }}
+      />
     </>
   )
 }
