@@ -44,15 +44,17 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
   const [cancelTarget, setCancelTarget] = useState<{
     statusId: string
     statusName: string
+    ids: string[]
   } | null>(null)
 
   const handleBulkStatusChange = async (
     statusId: string,
     statusName: string,
-    cancellation?: { reason: string | null; comment: string | null }
+    cancellation?: { reason: string | null; comment: string | null },
+    ids?: string[]
   ) => {
-    const ids = selectedRows.map((row) => row.original.id)
-    const count = ids.length
+    const targetIds = ids ?? selectedRows.map((row) => row.original.id)
+    const count = targetIds.length
 
     try {
       const { error } = await supabase
@@ -66,7 +68,7 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
               }
             : {}),
         } as never)
-        .in('id', ids)
+        .in('id', targetIds)
 
       if (error) throw error
 
@@ -135,11 +137,12 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
                     setCancelTarget({
                       statusId: status.id,
                       statusName: status.name,
+                      ids: selectedRows.map((row) => row.original.id),
                     })
                     return
                   }
-                  // Sortie d'annulation : un motif sur un dossier vivant
-                  // ressortirait dans les exports.
+                  // Tout statut non annule efface le motif : idempotent, et
+                  // un motif sur un dossier vivant ressortirait dans les exports.
                   handleBulkStatusChange(status.id, status.name, {
                     reason: null,
                     comment: null,
@@ -206,7 +209,8 @@ export function BookingsBulkActions({ table }: BookingsBulkActionsProps) {
             handleBulkStatusChange(
               cancelTarget.statusId,
               cancelTarget.statusName,
-              { reason, comment }
+              { reason, comment },
+              cancelTarget.ids
             )
           }
           setCancelTarget(null)

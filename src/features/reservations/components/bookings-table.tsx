@@ -68,6 +68,10 @@ export function BookingsTable({
     initialState: manualPagination
       ? undefined
       : { pagination: { pageSize: 50, pageIndex: 0 } },
+    // Sans getRowId la selection est indexee par position : un refetch entre
+    // le clic et la confirmation ferait porter l'action groupee sur d'autres
+    // evenements.
+    getRowId: (row) => row.id,
     state: {
       sorting,
       columnVisibility,
