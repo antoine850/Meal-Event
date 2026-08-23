@@ -3876,7 +3876,16 @@ export const BookingDetail = forwardRef<
         defaultReason={booking.cancellation_reason}
         defaultComment={booking.cancellation_comment}
         onConfirm={(reason, comment) => {
-          form.handleSubmit((d) => submitUpdate(d, { reason, comment }))()
+          form.handleSubmit((d) => {
+            // Un refetch peut avoir reinitialise le formulaire pendant que la
+            // modale etait ouverte : un motif ne part qu'avec un statut annule.
+            if (
+              statuses.find((s) => s.id === d.status_id)?.slug !==
+              CANCELLED_SLUG
+            )
+              return
+            submitUpdate(d, { reason, comment })
+          })()
         }}
       />
     </>
