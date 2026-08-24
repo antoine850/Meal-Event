@@ -335,9 +335,9 @@ export const BookingDetail = forwardRef<
   const form = useForm<BookingDetailFormData>({
     resolver: zodResolver(bookingDetailSchema),
     values: formValues,
-    // `values` reinitialise le formulaire des que le booking est refetche
-    // (11 invalidations de ['bookings'] dans l'app, plus le retour d'onglet) :
-    // sans ce garde, une saisie en cours partait a la poubelle.
+    // `values` reinitialise le formulaire a chaque refetch du booking
+    // (invalidations de ['bookings'], retour d'onglet) : sans ceci, une saisie
+    // en cours partait a la poubelle.
     resetOptions: { keepDirtyValues: true },
   })
 
@@ -380,12 +380,11 @@ export const BookingDetail = forwardRef<
     buildEventFormValues(booking)
   )
 
-  // Meme raison que le keepDirtyValues ci-dessus. Sans le garde, le refetch
-  // ecrasait les champs ET la reference de comparaison, donc la saisie perdue
-  // ne laissait aucune trace, pas meme un formulaire marque comme modifie.
   const isEventFormDirtyRef = useRef(false)
 
   useEffect(() => {
+    // Le refetch ecrasait les champs ET leur reference de comparaison : la
+    // saisie disparaissait sans laisser le formulaire marque comme modifie.
     if (isEventFormDirtyRef.current) return
     const vals = buildEventFormValues(booking)
     initialEventFormRef.current = vals
@@ -404,10 +403,6 @@ export const BookingDetail = forwardRef<
       return a !== b
     })
   }, [eventForm])
-
-  useEffect(() => {
-    isEventFormDirtyRef.current = isEventFormDirty
-  }, [isEventFormDirty])
 
   const isDirty = form.formState.isDirty || isEventFormDirty
 
@@ -446,6 +441,7 @@ export const BookingDetail = forwardRef<
   }, [isDirty])
 
   const updateEventField = (key: string, value: unknown) => {
+    isEventFormDirtyRef.current = true
     setEventForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -520,6 +516,7 @@ export const BookingDetail = forwardRef<
         form.reset(data, { keepValues: true })
         // Mark current eventForm as the new baseline
         initialEventFormRef.current = { ...eventForm }
+        isEventFormDirtyRef.current = false
 
         // Log status change
         if (statusChanged) {
