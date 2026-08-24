@@ -52,6 +52,7 @@ export type DashboardAggregates = {
   by_commercial: CommercialRow[]
   by_day_of_week: DayRow[]
   by_type: TypeRow[]
+  by_cancellation_reason: TypeRow[]
   monthly_trend: MonthTrendRow[]
   monthly_revenue_by_restaurant: MonthRestaurantRow[]
   monthly_revenue_by_commercial: MonthCommercialRow[]

@@ -704,6 +704,8 @@ export type Database = {
           allergies_regimes: string | null
           assigned_user_ids: string[] | null
           budget_client: string | null
+          cancellation_comment: string | null
+          cancellation_reason: string | null
           client_preferred_time: string | null
           commentaires: string | null
           contact_id: string | null
@@ -767,6 +769,8 @@ export type Database = {
           allergies_regimes?: string | null
           assigned_user_ids?: string[] | null
           budget_client?: string | null
+          cancellation_comment?: string | null
+          cancellation_reason?: string | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_id?: string | null
@@ -830,6 +834,8 @@ export type Database = {
           allergies_regimes?: string | null
           assigned_user_ids?: string[] | null
           budget_client?: string | null
+          cancellation_comment?: string | null
+          cancellation_reason?: string | null
           client_preferred_time?: string | null
           commentaires?: string | null
           contact_id?: string | null

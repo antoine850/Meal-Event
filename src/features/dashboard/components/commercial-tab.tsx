@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import { Link, useSearch } from '@tanstack/react-router'
+import { fr } from 'date-fns/locale'
 import {
   Euro,
   Target,
@@ -39,6 +39,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { CANCELLATION_REASON_LABELS } from '@/features/reservations/data/cancellation-reasons'
 import { type DashboardTabProps } from '../hooks/use-dashboard-data'
 import {
   buildEventsSearch,
@@ -116,6 +117,26 @@ export function CommercialTab({
       percent: total > 0 ? (i.value / total) * 100 : 0,
     }))
   }, [commercialStats])
+
+  const cancellationRows = aggregates?.by_cancellation_reason ?? []
+  const cancellationTotal = cancellationRows.reduce((s, r) => s + r.value, 0)
+  const cancellationKnown = cancellationRows.reduce(
+    (s, r) => s + (r.name ? r.value : 0),
+    0
+  )
+
+  const cancellationData = useMemo(
+    () =>
+      (aggregates?.by_cancellation_reason ?? []).map((r) => ({
+        name: r.name
+          ? (CANCELLATION_REASON_LABELS[r.name] ?? r.name)
+          : 'Non renseigné',
+        value: r.value,
+        // Gris neutre pour la part non renseignee : ce n'est pas un motif.
+        color: r.name ? undefined : '#9ca3af',
+      })),
+    [aggregates]
+  )
 
   const commercialNames = useMemo(
     () => commercialStats.map((c) => c.name),
@@ -490,6 +511,70 @@ export function CommercialTab({
                 />
               </PieChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className='col-span-1 lg:col-span-7'>
+          <CardHeader>
+            <CardTitle>Motifs d'annulation</CardTitle>
+            <CardDescription>
+              {cancellationKnown.toLocaleString('fr-FR')} annulation
+              {cancellationKnown > 1 ? 's' : ''} motivée
+              {cancellationKnown > 1 ? 's' : ''} sur{' '}
+              {cancellationTotal.toLocaleString('fr-FR')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {cancellationTotal === 0 ? (
+              <p className='py-8 text-center text-sm text-muted-foreground'>
+                Aucune annulation sur la période.
+              </p>
+            ) : (
+              <ResponsiveContainer width='100%' height={300}>
+                <PieChart>
+                  <Pie
+                    data={cancellationData}
+                    cx='50%'
+                    cy='45%'
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={5}
+                    dataKey='value'
+                  >
+                    {cancellationData.map((entry, index) => (
+                      <Cell
+                        key={`cancel-cell-${index}`}
+                        fill={entry.color ?? COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, name) => [
+                      `${Number(value ?? 0).toLocaleString('fr-FR')} dossier${
+                        Number(value ?? 0) > 1 ? 's' : ''
+                      }`,
+                      name,
+                    ]}
+                  />
+                  <Legend
+                    verticalAlign='bottom'
+                    align='center'
+                    iconType='circle'
+                    iconSize={10}
+                    formatter={(value, entry) => {
+                      const count =
+                        (entry.payload as { value?: number })?.value ?? 0
+                      return (
+                        <span style={{ color: entry.color, fontSize: 13 }}>
+                          {value} {count.toLocaleString('fr-FR')}
+                        </span>
+                      )
+                    }}
+                    wrapperStyle={{ paddingTop: 16 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

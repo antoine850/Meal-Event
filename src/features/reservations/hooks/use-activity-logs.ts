@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { ActivityLog } from '@/lib/supabase/types'
+import { CANCELLATION_REASON_LABELS } from '../data/cancellation-reasons'
 
 // ── Types ──
 
@@ -243,15 +244,25 @@ export function createActivityLogger(
     bookingStatusChanged: (
       bookingId: string,
       oldStatus: string,
-      newStatus: string
+      newStatus: string,
+      reason?: string
     ) => {
+      const label = reason
+        ? (CANCELLATION_REASON_LABELS[reason] ?? reason)
+        : undefined
       logActivity({
         bookingId,
         actionType: 'booking.status_changed',
-        actionLabel: `Statut: "${oldStatus}" → "${newStatus}"`,
+        actionLabel: label
+          ? `Statut: "${oldStatus}" → "${newStatus}" (${label})`
+          : `Statut: "${oldStatus}" → "${newStatus}"`,
         entityType: 'booking',
         entityId: bookingId,
-        metadata: { old_status: oldStatus, new_status: newStatus },
+        metadata: {
+          old_status: oldStatus,
+          new_status: newStatus,
+          ...(reason ? { cancellation_reason: reason } : {}),
+        },
       })
     },
 
