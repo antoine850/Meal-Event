@@ -150,6 +150,7 @@ import {
   useCreditNotesByBooking,
 } from '../hooks/use-quotes'
 import { buildDocumentName, clientNameOf } from '../lib/document-name'
+import { BookingKeyFacts } from './booking-key-facts'
 import { CancelBookingDialog } from './cancel-booking-dialog'
 import { CreditNoteDialog } from './credit-note-dialog'
 import { FicheFonction } from './fiche-fonction'
@@ -455,7 +456,8 @@ export const BookingDetail = forwardRef<
 
     // Le motif ne passe ni par le form ni par eventForm : sans ca, corriger
     // un motif seul ne declencherait aucun enregistrement.
-    const hasChanges = form.formState.isDirty || isEventFormDirty || !!cancellation
+    const hasChanges =
+      form.formState.isDirty || isEventFormDirty || !!cancellation
     if (!hasChanges) {
       return
     }
@@ -628,6 +630,13 @@ export const BookingDetail = forwardRef<
     <>
       <Form {...form}>
         <form id='booking-form' onSubmit={form.handleSubmit(onSubmit)}>
+          <BookingKeyFacts
+            eventDate={(eventForm.event_date as string) || null}
+            guests={(eventForm.guests_count as number) || null}
+            budget={(eventForm.budget_client as number) || null}
+            format={(eventForm.format_souhaite as string) || null}
+            isB2B={!!booking.contact?.company}
+          />
           <div className='grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]'>
             {/* ═══════ LEFT SIDEBAR ═══════ */}
             <div className='space-y-4'>
