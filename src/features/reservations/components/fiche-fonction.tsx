@@ -85,9 +85,13 @@ function formatDate(v: string | null | undefined): string {
   }
 }
 
-function formatNumber(v: number | null | undefined, suffix = ''): string {
-  if (v == null || !Number.isFinite(v)) return DASH
-  return `${normalizeFrenchSpaces(new Intl.NumberFormat('fr-FR').format(v))}${suffix}`
+// budget_client est une colonne texte : 2 budgets sur 3 sont du texte libre
+// ("40€/personne"), on ne formate que ce qui est reellement un nombre.
+function formatBudget(v: string | number | null | undefined): string {
+  if (v == null || v === '') return DASH
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n)) return String(v)
+  return `${normalizeFrenchSpaces(new Intl.NumberFormat('fr-FR').format(n))} €`
 }
 
 function ItemsTable({ title, items }: { title: string; items: QuoteItem[] }) {
@@ -788,7 +792,7 @@ export function FicheFonction({ booking, quotes, payments, spaceName }: Props) {
                   Budget client
                 </div>
                 <div className='font-medium'>
-                  {formatNumber(booking.budget_client, ' €')}
+                  {formatBudget(booking.budget_client)}
                 </div>
               </div>
             </div>
