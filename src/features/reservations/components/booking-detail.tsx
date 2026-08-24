@@ -8,7 +8,7 @@ import {
 } from 'react'
 import { z } from 'zod'
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns'
-import { useForm } from 'react-hook-form'
+import { useForm, type FieldErrors } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link, useBlocker } from '@tanstack/react-router'
 import { fr } from 'date-fns/locale'
@@ -581,10 +581,13 @@ export const BookingDetail = forwardRef<
     submitUpdate(data)
   }
 
-  // Un champ invalide qui n'est rendu nulle part dans la fiche faisait echouer
+  // Un champ invalide qui n'est rendu nulle part dans la fiche faisait échouer
   // l'enregistrement sans le moindre message.
-  const onInvalid = (errors: Record<string, unknown>) => {
-    toast.error(`Enregistrement bloqué : ${Object.keys(errors).join(', ')}`)
+  const onInvalid = (errors: FieldErrors<BookingDetailFormData>) => {
+    const causes = Object.values(errors)
+      .map((e) => e?.message)
+      .filter(Boolean)
+    toast.error(`Enregistrement bloqué : ${causes.join(', ')}`)
   }
 
   const handleDelete = () => {
@@ -3906,7 +3909,7 @@ export const BookingDetail = forwardRef<
             )
               return
             submitUpdate(d, { reason, comment })
-          })()
+          }, onInvalid)()
         }}
       />
     </>

@@ -86,7 +86,7 @@ function formatDate(v: string | null | undefined): string {
 }
 
 // budget_client est une colonne texte : 2 budgets sur 3 sont du texte libre
-// ("40€/personne"), on ne formate que ce qui est reellement un nombre.
+// ("40€/personne"), on ne formate que ce qui est réellement un nombre.
 function formatBudget(v: string | number | null | undefined): string {
   if (v == null || v === '') return DASH
   const n = typeof v === 'number' ? v : Number(v)
