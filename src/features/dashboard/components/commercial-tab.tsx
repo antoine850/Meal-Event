@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import { Link, useSearch } from '@tanstack/react-router'
+import { fr } from 'date-fns/locale'
 import {
   Euro,
   Target,
@@ -39,13 +39,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { CANCELLATION_REASON_LABELS } from '@/features/reservations/data/cancellation-reasons'
 import { type DashboardTabProps } from '../hooks/use-dashboard-data'
 import {
   buildEventsSearch,
   signedSearch,
   type DashboardSearch,
 } from '../lib/events-drill-down'
-import { CANCELLATION_REASON_LABELS } from '@/features/reservations/data/cancellation-reasons'
 
 function KpiTooltip({ text }: { text: string }) {
   return (
@@ -118,24 +118,25 @@ export function CommercialTab({
     }))
   }, [commercialStats])
 
-  const cancellationData = useMemo(() => {
-    const rows = aggregates?.by_cancellation_reason ?? []
-    const total = rows.reduce((s, r) => s + r.value, 0)
-    return rows.map((r) => ({
-      name: r.name
-        ? (CANCELLATION_REASON_LABELS[r.name] ?? r.name)
-        : 'Non renseigné',
-      value: r.value,
-      // Gris neutre pour la part non renseignee : ce n'est pas un motif.
-      color: r.name ? undefined : '#9ca3af',
-      percent: total > 0 ? (r.value / total) * 100 : 0,
-    }))
-  }, [aggregates])
+  const cancellationRows = aggregates?.by_cancellation_reason ?? []
+  const cancellationTotal = cancellationRows.reduce((s, r) => s + r.value, 0)
+  const cancellationKnown = cancellationRows.reduce(
+    (s, r) => s + (r.name ? r.value : 0),
+    0
+  )
 
-  const cancellationTotal = cancellationData.reduce((s, r) => s + r.value, 0)
-  const cancellationKnown = cancellationData
-    .filter((r) => r.name !== 'Non renseigné')
-    .reduce((s, r) => s + r.value, 0)
+  const cancellationData = useMemo(
+    () =>
+      (aggregates?.by_cancellation_reason ?? []).map((r) => ({
+        name: r.name
+          ? (CANCELLATION_REASON_LABELS[r.name] ?? r.name)
+          : 'Non renseigné',
+        value: r.value,
+        // Gris neutre pour la part non renseignee : ce n'est pas un motif.
+        color: r.name ? undefined : '#9ca3af',
+      })),
+    [aggregates]
+  )
 
   const commercialNames = useMemo(
     () => commercialStats.map((c) => c.name),
@@ -517,8 +518,10 @@ export function CommercialTab({
           <CardHeader>
             <CardTitle>Motifs d'annulation</CardTitle>
             <CardDescription>
-              {cancellationKnown} annulation{cancellationKnown > 1 ? 's' : ''}{' '}
-              motivée{cancellationKnown > 1 ? 's' : ''} sur {cancellationTotal}
+              {cancellationKnown.toLocaleString('fr-FR')} annulation
+              {cancellationKnown > 1 ? 's' : ''} motivée
+              {cancellationKnown > 1 ? 's' : ''} sur{' '}
+              {cancellationTotal.toLocaleString('fr-FR')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -546,9 +549,11 @@ export function CommercialTab({
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value) => [
-                      `${Number(value ?? 0)} dossier${Number(value ?? 0) > 1 ? 's' : ''}`,
-                      'Annulations',
+                    formatter={(value, name) => [
+                      `${Number(value ?? 0).toLocaleString('fr-FR')} dossier${
+                        Number(value ?? 0) > 1 ? 's' : ''
+                      }`,
+                      name,
                     ]}
                   />
                   <Legend
@@ -557,12 +562,11 @@ export function CommercialTab({
                     iconType='circle'
                     iconSize={10}
                     formatter={(value, entry) => {
-                      const percent = (
-                        (entry.payload as { percent?: number })?.percent ?? 0
-                      ).toFixed(0)
+                      const count =
+                        (entry.payload as { value?: number })?.value ?? 0
                       return (
                         <span style={{ color: entry.color, fontSize: 13 }}>
-                          {value} {percent}%
+                          {value} {count.toLocaleString('fr-FR')}
                         </span>
                       )
                     }}
