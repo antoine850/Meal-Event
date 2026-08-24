@@ -262,6 +262,9 @@ export function BookingDetailPage() {
 
       <Main className='flex flex-1 flex-col'>
         <BookingDetail
+          // Sans elle, passer a un dossier deja en cache ne remonte pas le
+          // composant : la saisie du precedent resterait a l'ecran, et en base.
+          key={booking.id}
           booking={booking}
           activeTab={activeTab}
           onTabChange={changeTab}
