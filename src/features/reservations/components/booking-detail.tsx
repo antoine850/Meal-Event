@@ -182,7 +182,9 @@ function docKindLabel(doc: { doc_kind?: string | null; name?: string | null }) {
 }
 
 const bookingDetailSchema = z.object({
-  contact_id: z.string().min(1, 'Le contact est requis'),
+  // Nullable en base, et la fiche n'expose aucun champ pour le renseigner :
+  // l'exiger bloquait l'enregistrement des dossiers sans contact.
+  contact_id: z.string().optional(),
   restaurant_id: z.string().min(1, 'Le restaurant est requis'),
   status_id: z.string().optional(),
   occasion: z.string().optional(),
@@ -479,7 +481,7 @@ export const BookingDetail = forwardRef<
 
     const updateData = {
       id: booking.id,
-      contact_id: data.contact_id,
+      contact_id: data.contact_id || null,
       restaurant_id: data.restaurant_id,
       status_id: data.status_id || null,
       occasion: data.occasion || null,
@@ -579,6 +581,12 @@ export const BookingDetail = forwardRef<
     submitUpdate(data)
   }
 
+  // Un champ invalide qui n'est rendu nulle part dans la fiche faisait echouer
+  // l'enregistrement sans le moindre message.
+  const onInvalid = (errors: Record<string, unknown>) => {
+    toast.error(`Enregistrement bloqué : ${Object.keys(errors).join(', ')}`)
+  }
+
   const handleDelete = () => {
     deleteBookingMutation(booking.id, {
       onSuccess: () => {
@@ -606,7 +614,7 @@ export const BookingDetail = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
-      submitForm: () => form.handleSubmit(onSubmit)(),
+      submitForm: () => form.handleSubmit(onSubmit, onInvalid)(),
       deleteBooking: () => handleDelete(),
       getIsDirty: () => form.formState.isDirty || isEventFormDirty,
     }),
@@ -629,7 +637,10 @@ export const BookingDetail = forwardRef<
   return (
     <>
       <Form {...form}>
-        <form id='booking-form' onSubmit={form.handleSubmit(onSubmit)}>
+        <form
+          id='booking-form'
+          onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+        >
           <BookingKeyFacts
             eventDate={(eventForm.event_date as string) || null}
             guests={(eventForm.guests_count as number) || null}
