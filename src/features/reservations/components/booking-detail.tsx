@@ -150,6 +150,7 @@ import {
   useCreditNotesByBooking,
 } from '../hooks/use-quotes'
 import { buildDocumentName, clientNameOf } from '../lib/document-name'
+import { BookingKeyFacts } from './booking-key-facts'
 import { CancelBookingDialog } from './cancel-booking-dialog'
 import { CreditNoteDialog } from './credit-note-dialog'
 import { FicheFonction } from './fiche-fonction'
@@ -455,7 +456,8 @@ export const BookingDetail = forwardRef<
 
     // Le motif ne passe ni par le form ni par eventForm : sans ca, corriger
     // un motif seul ne declencherait aucun enregistrement.
-    const hasChanges = form.formState.isDirty || isEventFormDirty || !!cancellation
+    const hasChanges =
+      form.formState.isDirty || isEventFormDirty || !!cancellation
     if (!hasChanges) {
       return
     }
@@ -628,6 +630,13 @@ export const BookingDetail = forwardRef<
     <>
       <Form {...form}>
         <form id='booking-form' onSubmit={form.handleSubmit(onSubmit)}>
+          <BookingKeyFacts
+            eventDate={(eventForm.event_date as string) || null}
+            guests={(eventForm.guests_count as number) || null}
+            budget={(eventForm.budget_client as string | number) ?? null}
+            format={(eventForm.format_souhaite as string) || null}
+            isB2B={booking.contact ? !!booking.contact.company : null}
+          />
           <div className='grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]'>
             {/* ═══════ LEFT SIDEBAR ═══════ */}
             <div className='space-y-4'>
@@ -1305,7 +1314,9 @@ export const BookingDetail = forwardRef<
               {activeTab === 'evenementiel' && (
                 <div className='space-y-4'>
                   <Card>
-                    <CardContent className='space-y-3 pt-1'>
+                    <CardContent className='space-y-3 pt-3'>
+                      <p className='text-sm font-semibold'>Brief</p>
+
                       {/* Date / Espace */}
                       <div className='grid gap-3 md:grid-cols-2'>
                         <div>
@@ -1436,7 +1447,43 @@ export const BookingDetail = forwardRef<
                         </label>
                       </div>
 
+                      {/* Prestations souhaitées */}
+                      <div>
+                        <label className='text-xs font-medium'>
+                          Prestations souhaitées
+                        </label>
+                        <Textarea
+                          value={
+                            (eventForm.prestations_souhaitees as string) || ''
+                          }
+                          onChange={(e) =>
+                            updateEventField(
+                              'prestations_souhaitees',
+                              e.target.value
+                            )
+                          }
+                          className='min-h-[60px] text-sm'
+                        />
+                      </div>
+
+                      {/* Date signature devis */}
+                      <div className='max-w-xs'>
+                        <label className='text-xs font-medium'>
+                          Date signature devis
+                        </label>
+                        <DatePicker
+                          value={
+                            (eventForm.date_signature_devis as string) || ''
+                          }
+                          onChange={(value) =>
+                            updateEventField('date_signature_devis', value)
+                          }
+                        />
+                      </div>
+
                       <Separator />
+
+                      <p className='pt-2 text-sm font-semibold'>Opérationnel</p>
 
                       {/* Menu */}
                       <div className='space-y-2'>
@@ -1536,42 +1583,21 @@ export const BookingDetail = forwardRef<
                         </div>
                       </div>
 
-                      {/* Allergies / Prestations */}
-                      <div className='grid gap-3 md:grid-cols-2'>
-                        <div>
-                          <label className='text-xs font-medium'>
-                            Allergies / Régimes
-                          </label>
-                          <Textarea
-                            value={
-                              (eventForm.allergies_regimes as string) || ''
-                            }
-                            onChange={(e) =>
-                              updateEventField(
-                                'allergies_regimes',
-                                e.target.value
-                              )
-                            }
-                            className='min-h-[60px] text-sm'
-                          />
-                        </div>
-                        <div>
-                          <label className='text-xs font-medium'>
-                            Prestations souhaitées
-                          </label>
-                          <Textarea
-                            value={
-                              (eventForm.prestations_souhaitees as string) || ''
-                            }
-                            onChange={(e) =>
-                              updateEventField(
-                                'prestations_souhaitees',
-                                e.target.value
-                              )
-                            }
-                            className='min-h-[60px] text-sm'
-                          />
-                        </div>
+                      {/* Allergies */}
+                      <div>
+                        <label className='text-xs font-medium'>
+                          Allergies / Régimes
+                        </label>
+                        <Textarea
+                          value={(eventForm.allergies_regimes as string) || ''}
+                          onChange={(e) =>
+                            updateEventField(
+                              'allergies_regimes',
+                              e.target.value
+                            )
+                          }
+                          className='min-h-[60px] text-sm'
+                        />
                       </div>
 
                       <Separator />
@@ -1639,7 +1665,7 @@ export const BookingDetail = forwardRef<
 
                       <Separator />
 
-                      {/* Instructions / Commentaires / Date signature */}
+                      {/* Instructions / Commentaires */}
                       <div>
                         <label className='text-xs font-medium'>
                           Instructions spéciales
@@ -1667,19 +1693,6 @@ export const BookingDetail = forwardRef<
                             updateEventField('commentaires', e.target.value)
                           }
                           className='min-h-[60px] text-sm'
-                        />
-                      </div>
-                      <div className='max-w-xs'>
-                        <label className='text-xs font-medium'>
-                          Date signature devis
-                        </label>
-                        <DatePicker
-                          value={
-                            (eventForm.date_signature_devis as string) || ''
-                          }
-                          onChange={(value) =>
-                            updateEventField('date_signature_devis', value)
-                          }
                         />
                       </div>
                     </CardContent>
