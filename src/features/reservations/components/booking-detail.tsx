@@ -1314,8 +1314,8 @@ export const BookingDetail = forwardRef<
               {activeTab === 'evenementiel' && (
                 <div className='space-y-4'>
                   <Card>
-                    <CardContent className='space-y-3 pt-1'>
-                      <p className='text-sm font-medium'>Brief</p>
+                    <CardContent className='space-y-3 pt-3'>
+                      <p className='text-sm font-semibold'>Brief</p>
 
                       {/* Date / Espace */}
                       <div className='grid gap-3 md:grid-cols-2'>
@@ -1447,42 +1447,43 @@ export const BookingDetail = forwardRef<
                         </label>
                       </div>
 
-                      <div className='grid gap-3 md:grid-cols-2'>
-                        <div>
-                          <label className='text-xs font-medium'>
-                            Prestations souhaitées
-                          </label>
-                          <Textarea
-                            value={
-                              (eventForm.prestations_souhaitees as string) || ''
-                            }
-                            onChange={(e) =>
-                              updateEventField(
-                                'prestations_souhaitees',
-                                e.target.value
-                              )
-                            }
-                            className='min-h-[60px] text-sm'
-                          />
-                        </div>
-                        <div>
-                          <label className='text-xs font-medium'>
-                            Date signature devis
-                          </label>
-                          <DatePicker
-                            value={
-                              (eventForm.date_signature_devis as string) || ''
-                            }
-                            onChange={(value) =>
-                              updateEventField('date_signature_devis', value)
-                            }
-                          />
-                        </div>
+                      {/* Prestations souhaitées */}
+                      <div>
+                        <label className='text-xs font-medium'>
+                          Prestations souhaitées
+                        </label>
+                        <Textarea
+                          value={
+                            (eventForm.prestations_souhaitees as string) || ''
+                          }
+                          onChange={(e) =>
+                            updateEventField(
+                              'prestations_souhaitees',
+                              e.target.value
+                            )
+                          }
+                          className='min-h-[60px] text-sm'
+                        />
+                      </div>
+
+                      {/* Date signature devis */}
+                      <div className='max-w-xs'>
+                        <label className='text-xs font-medium'>
+                          Date signature devis
+                        </label>
+                        <DatePicker
+                          value={
+                            (eventForm.date_signature_devis as string) || ''
+                          }
+                          onChange={(value) =>
+                            updateEventField('date_signature_devis', value)
+                          }
+                        />
                       </div>
 
                       <Separator />
 
-                      <p className='text-sm font-medium'>Opérationnel</p>
+                      <p className='pt-2 text-sm font-semibold'>Opérationnel</p>
 
                       {/* Menu */}
                       <div className='space-y-2'>
