@@ -30,12 +30,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useBookingStatuses } from '@/features/reservations/hooks/use-bookings'
 import { type DashboardTabProps } from '../hooks/use-dashboard-data'
 import {
   buildEventsSearch,
   signedSearch,
   type DashboardSearch,
 } from '../lib/events-drill-down'
+
+// Sorties de parcours, toujours affichees en dernier dans cet ordre.
+const TERMINAL_SLUGS = ['cloture', 'cancelled']
 
 function KpiTooltip({ text }: { text: string }) {
   return (
@@ -71,6 +75,7 @@ export function GeneralTab({
 }: DashboardTabProps) {
   // Filtres actuels du dashboard, propagés à chaque drill-down vers /evenements
   const dash = useSearch({ strict: false }) as DashboardSearch
+  const { data: statuses = [] } = useBookingStatuses()
 
   const total = aggregates?.total ?? 0
   const signedRevenue = aggregates?.signed_revenue ?? 0
@@ -81,7 +86,20 @@ export function GeneralTab({
   const conversionRate = aggregates?.conversion_rate ?? 0
   const outstanding = aggregates?.outstanding ?? 0
 
-  const pipeline = aggregates?.pipeline ?? []
+  // La RPC renvoie le pipeline trie par montant : on le remet dans l'ordre du
+  // parcours commercial, cloture et annule fermant la marche (ce ne sont pas
+  // des etapes). Le tri par position ne suffit pas, cancelled est en 3 en base.
+  const pipeline = useMemo(() => {
+    const rank = new Map(statuses.map((s, i) => [s.slug, i]))
+    const orderOf = (slug: string) => {
+      const terminal = TERMINAL_SLUGS.indexOf(slug)
+      return terminal === -1 ? (rank.get(slug) ?? 998) : 1000 + terminal
+    }
+    return [...(aggregates?.pipeline ?? [])].sort(
+      (a, b) => orderOf(a.slug) - orderOf(b.slug)
+    )
+  }, [aggregates, statuses])
+
   const restaurantKPIs = useMemo(
     () => aggregates?.by_restaurant ?? [],
     [aggregates]
