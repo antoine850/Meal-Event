@@ -126,11 +126,13 @@ export function SendEmailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
+      {/* Colonne flex plutot que le scroll global du DialogContent : l'objet et
+          le message defilent, le bouton d'envoi reste visible. */}
+      <DialogContent className='flex max-h-[calc(100dvh-2rem)] flex-col overflow-y-hidden'>
+        <DialogHeader className='shrink-0'>
           <DialogTitle>Envoyer un email</DialogTitle>
         </DialogHeader>
-        <div className='space-y-3'>
+        <div className='min-h-0 flex-1 space-y-3 overflow-y-auto'>
           <Input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
@@ -183,7 +185,7 @@ export function SendEmailDialog({
             Joindre un fichier
           </Button>
         </div>
-        <DialogFooter>
+        <DialogFooter className='shrink-0'>
           <Button
             disabled={!subject.trim() || !message.trim() || send.isPending}
             onClick={() => send.mutate()}
