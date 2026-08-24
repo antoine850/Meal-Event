@@ -633,7 +633,7 @@ export const BookingDetail = forwardRef<
           <BookingKeyFacts
             eventDate={(eventForm.event_date as string) || null}
             guests={(eventForm.guests_count as number) || null}
-            budget={(eventForm.budget_client as string | number) || null}
+            budget={(eventForm.budget_client as string | number) ?? null}
             format={(eventForm.format_souhaite as string) || null}
             isB2B={booking.contact ? !!booking.contact.company : null}
           />

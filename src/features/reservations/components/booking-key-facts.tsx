@@ -29,11 +29,12 @@ export function BookingKeyFacts({
   isB2B,
 }: Props) {
   // Colonne texte en base : 2 budgets sur 3 sont du texte libre
-  // ("40€/personne"), on ne formate que les vraies valeurs numeriques.
+  // ("40€/personne"), on ne formate que ce qui est reellement un nombre.
+  const n = typeof budget === 'number' ? budget : Number(budget)
   const budgetLabel =
-    typeof budget === 'number'
-      ? `${budget.toLocaleString('fr-FR')} €`
-      : budget || '—'
+    budget !== null && budget !== '' && Number.isFinite(n)
+      ? `${n.toLocaleString('fr-FR')} €`
+      : `${budget || '—'}`
 
   return (
     <div
