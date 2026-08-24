@@ -513,10 +513,7 @@ export const BookingDetail = forwardRef<
             booking.id,
             oldStatusName,
             newStatusName,
-            cancellation?.reason
-              ? (CANCELLATION_REASON_LABELS[cancellation.reason] ??
-                  cancellation.reason)
-              : undefined
+            cancellation?.reason ?? undefined
           )
         }
         // Log assignment change
