@@ -335,6 +335,10 @@ export const BookingDetail = forwardRef<
   const form = useForm<BookingDetailFormData>({
     resolver: zodResolver(bookingDetailSchema),
     values: formValues,
+    // `values` reinitialise le formulaire des que le booking est refetche
+    // (11 invalidations de ['bookings'] dans l'app, plus le retour d'onglet) :
+    // sans ce garde, une saisie en cours partait a la poubelle.
+    resetOptions: { keepDirtyValues: true },
   })
 
   // ── Event form state (right panel fields) ──
@@ -376,7 +380,13 @@ export const BookingDetail = forwardRef<
     buildEventFormValues(booking)
   )
 
+  // Meme raison que le keepDirtyValues ci-dessus. Sans le garde, le refetch
+  // ecrasait les champs ET la reference de comparaison, donc la saisie perdue
+  // ne laissait aucune trace, pas meme un formulaire marque comme modifie.
+  const isEventFormDirtyRef = useRef(false)
+
   useEffect(() => {
+    if (isEventFormDirtyRef.current) return
     const vals = buildEventFormValues(booking)
     initialEventFormRef.current = vals
     setEventForm(vals)
@@ -394,6 +404,10 @@ export const BookingDetail = forwardRef<
       return a !== b
     })
   }, [eventForm])
+
+  useEffect(() => {
+    isEventFormDirtyRef.current = isEventFormDirty
+  }, [isEventFormDirty])
 
   const isDirty = form.formState.isDirty || isEventFormDirty
 
