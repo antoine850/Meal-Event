@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
+import { toIsoDate } from '@/lib/dates'
 import { getCurrentOrganizationId } from '@/lib/get-current-org'
 import { supabase } from '@/lib/supabase'
 import type { Quote, QuoteItem, Tables } from '@/lib/supabase/types'
@@ -755,7 +756,7 @@ export function useCreateQuote() {
           title: title || null,
           date_start: dateStart || null,
           date_end: dateEnd || null,
-          quote_date: now.toISOString().split('T')[0],
+          quote_date: toIsoDate(now),
           deposit_percentage: depositPercentage ?? 80,
           deposit_label: depositLabel ?? 'Acompte à signature',
           deposit_days: depositDays ?? 7,
@@ -908,7 +909,7 @@ export function useDuplicateQuote() {
           language: (original as any).language || 'fr',
           date_start: (original as any).date_start,
           date_end: (original as any).date_end,
-          quote_date: now.toISOString().split('T')[0],
+          quote_date: toIsoDate(now),
           deposit_percentage: (original as any).deposit_percentage ?? 80,
           deposit_label: (original as any).deposit_label,
           deposit_days: (original as any).deposit_days,

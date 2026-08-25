@@ -9,6 +9,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { toIsoDate } from '@/lib/dates'
 import { apiClient } from '@/lib/api-client'
 import type { Payment } from '@/lib/supabase/types'
 import { Button } from '@/components/ui/button'
@@ -129,7 +130,7 @@ export function PaymentDialog({
         setPaymentType('virement')
         setPaymentModality('acompte')
         setStatus('pending')
-        setPaidAt(new Date().toISOString().split('T')[0])
+        setPaidAt(toIsoDate(new Date()))
         setNotes('')
         setFile(null)
         setRemoveAttachment(false)

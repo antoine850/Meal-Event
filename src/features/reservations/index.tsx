@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { endOfDay, parseISO, startOfDay } from 'date-fns'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { type SortingState } from '@tanstack/react-table'
@@ -66,8 +67,8 @@ export function Reservations() {
   // l'utilisateur la choisit explicitement.
   const dateRange: DateRange | undefined = search.from
     ? {
-        from: new Date(search.from),
-        to: search.to ? new Date(search.to) : undefined,
+        from: parseISO(search.from),
+        to: search.to ? parseISO(search.to) : undefined,
       }
     : undefined
   const selectedCommercials = useMemo(
@@ -85,7 +86,7 @@ export function Reservations() {
 
   const toDateRange = (from?: string, to?: string) =>
     from
-      ? { from: new Date(from), to: to ? new Date(to) : undefined }
+      ? { from: parseISO(from), to: to ? parseISO(to) : undefined }
       : undefined
   const toIso = (d?: Date) => (d ? toIsoDate(d) : undefined)
 
@@ -233,11 +234,13 @@ export function Reservations() {
         : undefined,
       fromSign: signDateRange?.from ? toIso(signDateRange.from) : undefined,
       toSign: signDateRange?.to ? toIso(signDateRange.to) : undefined,
+      // created_at est un timestamptz : sans ce clamp, les deux bornes
+      // tombaient sur le meme minuit UTC et la liste ne remontait rien.
       fromImport: importDateRange?.from
-        ? importDateRange.from.toISOString()
+        ? startOfDay(importDateRange.from).toISOString()
         : undefined,
       toImport: importDateRange?.to
-        ? importDateRange.to.toISOString()
+        ? endOfDay(importDateRange.to).toISOString()
         : undefined,
       source: search.source || undefined,
       stale: search.stale === '1' || undefined,
