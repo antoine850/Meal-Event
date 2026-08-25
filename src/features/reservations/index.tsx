@@ -10,6 +10,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
+import { toIsoDate } from '@/lib/dates'
 import { matchesSearch } from '@/lib/search'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Badge } from '@/components/ui/badge'
@@ -86,7 +87,7 @@ export function Reservations() {
     from
       ? { from: new Date(from), to: to ? new Date(to) : undefined }
       : undefined
-  const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
+  const toIso = (d?: Date) => (d ? toIsoDate(d) : undefined)
 
   const signDateRange = toDateRange(search.fromSign, search.toSign)
   const importDateRange = toDateRange(search.fromImport, search.toImport)
@@ -569,8 +570,8 @@ export function Reservations() {
             value={dateRange}
             onChange={(range) =>
               setSearch({
-                from: range?.from ? range.from.toISOString() : undefined,
-                to: range?.to ? range.to.toISOString() : undefined,
+                from: toIso(range?.from),
+                to: toIso(range?.to),
               })
             }
             placeholder="Date d'événement"

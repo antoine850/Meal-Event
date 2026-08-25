@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { RotateCcw } from 'lucide-react'
+import { toIsoDate } from '@/lib/dates'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -66,7 +67,7 @@ export function Dashboard() {
     if (!from || !to) return undefined
     return { from: new Date(from), to: new Date(to) }
   }
-  const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
+  const toIso = (d?: Date) => (d ? toIsoDate(d) : undefined)
 
   const eventDateRange = useMemo(
     () => toDateRange(search.fromEvent, search.toEvent),
