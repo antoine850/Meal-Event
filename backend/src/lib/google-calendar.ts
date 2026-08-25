@@ -177,7 +177,13 @@ interface BookingEventData {
   budget_client?: string | null
 }
 
-function buildCalendarEvent(booking: BookingEventData): calendar_v3.Schema$Event {
+export function nextDay(isoDate: string): string {
+  const d = new Date(`${isoDate}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+export function buildCalendarEvent(booking: BookingEventData): calendar_v3.Schema$Event {
   const contactName = booking.contact
     ? `${booking.contact.first_name || ''} ${booking.contact.last_name || ''}`.trim()
     : 'Client inconnu'
@@ -212,9 +218,9 @@ function buildCalendarEvent(booking: BookingEventData): calendar_v3.Schema$Event
     event.start = { dateTime: startDateTime, timeZone: 'Europe/Paris' }
     event.end = { dateTime: endDateTime, timeZone: 'Europe/Paris' }
   } else {
-    // All-day event
+    // All-day : l'API Google exige une fin exclusive (lendemain), sinon 400.
     event.start = { date: booking.event_date }
-    event.end = { date: booking.event_date }
+    event.end = { date: nextDay(booking.event_date) }
   }
 
   return event
