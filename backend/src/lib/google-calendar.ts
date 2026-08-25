@@ -1,5 +1,6 @@
 import { google, calendar_v3 } from 'googleapis'
 import { supabase } from './supabase.js'
+import { parisToday } from './status-promotion.js'
 
 // `calendar` → read/write calendar events
 // `userinfo.email` → required so we can fetch the connected Google account's
@@ -271,6 +272,15 @@ export async function updateCalendarEvent(restaurantId: string, booking: Booking
     return true
   } catch (error) {
     console.error(`[GCal] Error updating event for booking ${booking.id}:`, error)
+    const status = (error as any)?.response?.status ?? (error as any)?.code
+    // Google ne connait plus l'evenement : l'id stocke est perime, on l'oublie
+    // pour que le sweep en recree un propre.
+    if (status === 404 || status === 410) {
+      await supabase
+        .from('bookings')
+        .update({ google_calendar_event_id: null } as never)
+        .eq('id', booking.id)
+    }
     return false
   }
 }
@@ -300,58 +310,94 @@ export async function deleteCalendarEvent(restaurantId: string, googleEventId: s
 // Only bookings in one of these statuses are pushed to Google Calendar.
 // Anything earlier in the pipeline (nouveau, en discussion, proposition…) is ignored.
 // Kept in sync with src/features/dashboard/hooks/use-dashboard-data.ts `CONFIRMED_SLUGS`.
-const SYNCABLE_STATUS_SLUGS = [
+export const SYNCABLE_STATUS_SLUGS = [
   'confirme_fonctionnaire', // Confirmé / Fonction à faire
   'fonction_envoyee',       // Fonction envoyée
   'a_facturer',             // À facturer
   'cloture',                // Clôturé
 ]
 
-// ⏸  TEMPORARY PAUSE  ⏸
-// The OAuth connect flow (auth-url, callback, select-calendar, disconnect) is
-// live so restaurants can link their Google account. But we're deliberately
-// NOT pushing booking events to Google Calendar yet — the sync pipeline below
-// (createCalendarEvent / updateCalendarEvent / deleteCalendarEvent) stays
-// intact but is short-circuited.
-//
-// Flip this to `true` (or make it env-driven) once we're ready to go live.
-const GOOGLE_CALENDAR_SYNC_ENABLED = false
+// Kill switch pilotable depuis Render sans deploy.
+const syncEnabled = () => process.env.GOOGLE_CALENDAR_SYNC_ENABLED === 'true'
 
-export async function syncBookingToCalendar(bookingId: string, action: 'create' | 'update' | 'delete') {
-  // Sync is paused. The connect flow still works (restaurants can link their
-  // calendar in settings) but nothing is pushed to Google Calendar yet.
-  if (!GOOGLE_CALENDAR_SYNC_ENABLED) return
+export interface GcalSyncPayload {
+  action: 'upsert' | 'delete'
+  booking_id: string
+  restaurant_id?: string | null
+  google_calendar_event_id?: string | null
+  prev_restaurant_id?: string | null
+  prev_event_id?: string | null
+}
 
+// Sérialisation par booking : deux écritures rapprochées ne créent qu'un
+// événement, la dernière version est re-synchronisée en fin de vol.
+const inFlight = new Map<string, { rerun: boolean }>()
+
+async function withBookingLock(bookingId: string, fn: () => Promise<void>) {
+  const current = inFlight.get(bookingId)
+  if (current) {
+    current.rerun = true
+    return
+  }
+  const entry = { rerun: false }
+  inFlight.set(bookingId, entry)
   try {
-    if (action === 'delete') {
-      // For delete, we need the booking data before it's deleted
-      const { data: booking } = await supabase
-        .from('bookings')
-        .select('restaurant_id, google_calendar_event_id')
-        .eq('id', bookingId)
-        .single()
+    await fn()
+  } finally {
+    inFlight.delete(bookingId)
+  }
+  if (entry.rerun) await withBookingLock(bookingId, fn)
+}
 
-      if (booking?.google_calendar_event_id && booking.restaurant_id) {
-        await deleteCalendarEvent(booking.restaurant_id, booking.google_calendar_event_id)
+// Point d'entrée du trigger DB (via routes/internal.ts).
+export async function handleGcalSyncRequest(payload: GcalSyncPayload) {
+  if (!syncEnabled()) return
+  try {
+    if (payload.action === 'delete') {
+      // La ligne bookings n'existe plus : tout vient du payload (valeurs OLD).
+      if (payload.restaurant_id && payload.google_calendar_event_id) {
+        await deleteCalendarEvent(payload.restaurant_id, payload.google_calendar_event_id)
       }
       return
     }
+    await withBookingLock(payload.booking_id, async () => {
+      // Booking déplacé vers un autre resto : purger l'ancien calendrier avant
+      // l'upsert, sinon événement fantôme + update 404 dans le nouveau.
+      if (payload.prev_restaurant_id && payload.prev_event_id) {
+        await deleteCalendarEvent(payload.prev_restaurant_id, payload.prev_event_id)
+        await supabase
+          .from('bookings')
+          .update({ google_calendar_event_id: null } as never)
+          .eq('id', payload.booking_id)
+          .eq('google_calendar_event_id', payload.prev_event_id)
+      }
+      await syncBookingToCalendar(payload.booking_id)
+    })
+  } catch (error) {
+    console.error(`[GCal] handleGcalSyncRequest ${payload.booking_id}:`, error)
+  }
+}
 
-    // Fetch full booking with relations (including status slug for gating)
-    const { data: booking } = await supabase
+export async function syncBookingToCalendar(bookingId: string) {
+  if (!syncEnabled()) return
+  try {
+    const { data: booking, error } = await supabase
       .from('bookings')
       .select(`
         id, event_date, start_time, end_time, guests_count, occasion, event_type,
         reservation_type, is_privatif, commentaires, allergies_regimes, budget_client,
-        restaurant_id, google_calendar_event_id,
-        status:booking_statuses (slug),
+        restaurant_id, space_id, google_calendar_event_id,
+        status:statuses (slug),
         contact:contacts (first_name, last_name, email, phone),
-        restaurant:restaurants (name),
-        space:spaces (name)
+        restaurant:restaurants (name)
       `)
       .eq('id', bookingId)
       .single()
 
+    if (error) {
+      console.error(`[GCal] Fetch failed for booking ${bookingId}: ${error.message}`)
+      return
+    }
     if (!booking || !booking.restaurant_id) return
 
     // Unwrap joined relations (Supabase returns arrays for joins)
@@ -375,14 +421,29 @@ export async function syncBookingToCalendar(bookingId: string, action: 'create' 
       return
     }
 
+    // Pas de FK bookings->spaces exposée côté PostgREST prod : l'embed échoue,
+    // on résout à part (même pattern que fiche-fonction-pdf.ts).
+    let space: { name: string } | null = null
+    if (booking.space_id) {
+      const { data: spaceRow } = await supabase
+        .from('spaces')
+        .select('name')
+        .eq('id', booking.space_id)
+        .single()
+      space = spaceRow ?? null
+    }
+
     const bookingData: BookingEventData = {
       ...booking,
       contact: Array.isArray(booking.contact) ? booking.contact[0] : booking.contact,
       restaurant: Array.isArray(booking.restaurant) ? booking.restaurant[0] : booking.restaurant,
-      space: Array.isArray(booking.space) ? booking.space[0] : booking.space,
+      space,
     }
 
-    if (action === 'create' || !booking.google_calendar_event_id) {
+    if (!booking.google_calendar_event_id) {
+      // Pas de création rétroactive : l'historique (à facturer, clôturé)
+      // n'encombre pas les calendriers.
+      if (booking.event_date < parisToday(new Date())) return
       await createCalendarEvent(booking.restaurant_id, bookingData)
     } else {
       await updateCalendarEvent(booking.restaurant_id, bookingData, booking.google_calendar_event_id)
