@@ -6,6 +6,7 @@ import dotenv from 'dotenv'
 import { requireAuth, requireOrgAdmin } from './lib/auth.js'
 import { startGmailPolling } from './lib/gmail-poll.js'
 import { startStatusPromotion } from './lib/status-promotion.js'
+import { startGcalSweep } from './lib/gcal-sweep.js'
 import { organizationsRouter } from './routes/organizations.js'
 import { restaurantsRouter } from './routes/restaurants.js'
 import { contactsRouter } from './routes/contacts.js'
@@ -151,6 +152,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
   startGmailPolling()
   startStatusPromotion()
+  startGcalSweep()
 })
 
 export default app
