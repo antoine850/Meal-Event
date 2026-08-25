@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
+import { parseISO } from 'date-fns'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { RotateCcw } from 'lucide-react'
+import { toIsoDate } from '@/lib/dates'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -64,9 +66,9 @@ export function Dashboard() {
 
   const toDateRange = (from?: string, to?: string) => {
     if (!from || !to) return undefined
-    return { from: new Date(from), to: new Date(to) }
+    return { from: parseISO(from), to: parseISO(to) }
   }
-  const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
+  const toIso = (d?: Date) => (d ? toIsoDate(d) : undefined)
 
   const eventDateRange = useMemo(
     () => toDateRange(search.fromEvent, search.toEvent),

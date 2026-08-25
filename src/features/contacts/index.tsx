@@ -53,8 +53,10 @@ export function Contacts() {
   const setDateRange = useCallback(
     (range: DateRange | undefined) => {
       setSearch({
-        from: range?.from ? range.from.toISOString().split('T')[0] : undefined,
-        to: range?.to ? range.to.toISOString().split('T')[0] : undefined,
+        // created_at est un timestamptz : l'instant doit survivre au passage
+        // par l'URL, une date seule y perdait le fuseau et partait de la veille.
+        from: range?.from ? range.from.toISOString() : undefined,
+        to: range?.to ? range.to.toISOString() : undefined,
       })
     },
     [setSearch]

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
 import { toast } from 'sonner'
+import { toIsoDate } from '@/lib/dates'
 import { supabase } from '@/lib/supabase'
 import { useIsOrgAdmin } from '@/hooks/use-is-org-admin'
 import { Button } from '@/components/ui/button'
@@ -70,10 +71,8 @@ export function ExportEventsDialog({
     setDownloading(true)
     try {
       const params = new URLSearchParams()
-      if (dateRange?.from)
-        params.set('from', dateRange.from.toISOString().slice(0, 10))
-      if (dateRange?.to)
-        params.set('to', dateRange.to.toISOString().slice(0, 10))
+      if (dateRange?.from) params.set('from', toIsoDate(dateRange.from))
+      if (dateRange?.to) params.set('to', toIsoDate(dateRange.to))
       if (statusIds.size) params.set('status', Array.from(statusIds).join(','))
       if (restaurantIds.size)
         params.set('restaurant', Array.from(restaurantIds).join(','))

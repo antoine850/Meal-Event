@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { toIsoDate } from '@/lib/dates'
 import { supabase } from '@/lib/supabase'
 import { type DashboardFilters } from './use-dashboard-data'
 
@@ -119,7 +120,7 @@ export type ResponseTime = { avg_hours: number; count: number } | null
 
 // ─── Conversion filtres dashboard -> arguments RPC ───
 
-const iso = (d?: Date) => (d ? d.toISOString().slice(0, 10) : null)
+const iso = (d?: Date) => (d ? toIsoDate(d) : null)
 const arr = (s: Set<string>) => (s.size > 0 ? [...s] : null)
 
 /** clientType : un seul des deux ('b2b'|'b2c') filtre ; vide ou les deux = pas de filtre. */

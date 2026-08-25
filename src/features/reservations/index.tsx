@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { endOfDay, parseISO, startOfDay } from 'date-fns'
 import { Cross2Icon } from '@radix-ui/react-icons'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { type SortingState } from '@tanstack/react-table'
@@ -10,6 +11,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
+import { toIsoDate } from '@/lib/dates'
 import { matchesSearch } from '@/lib/search'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { Badge } from '@/components/ui/badge'
@@ -65,8 +67,8 @@ export function Reservations() {
   // l'utilisateur la choisit explicitement.
   const dateRange: DateRange | undefined = search.from
     ? {
-        from: new Date(search.from),
-        to: search.to ? new Date(search.to) : undefined,
+        from: parseISO(search.from),
+        to: search.to ? parseISO(search.to) : undefined,
       }
     : undefined
   const selectedCommercials = useMemo(
@@ -84,9 +86,9 @@ export function Reservations() {
 
   const toDateRange = (from?: string, to?: string) =>
     from
-      ? { from: new Date(from), to: to ? new Date(to) : undefined }
+      ? { from: parseISO(from), to: to ? parseISO(to) : undefined }
       : undefined
-  const toIso = (d?: Date) => d?.toISOString().slice(0, 10)
+  const toIso = (d?: Date) => (d ? toIsoDate(d) : undefined)
 
   const signDateRange = toDateRange(search.fromSign, search.toSign)
   const importDateRange = toDateRange(search.fromImport, search.toImport)
@@ -232,11 +234,13 @@ export function Reservations() {
         : undefined,
       fromSign: signDateRange?.from ? toIso(signDateRange.from) : undefined,
       toSign: signDateRange?.to ? toIso(signDateRange.to) : undefined,
+      // created_at est un timestamptz : sans ce clamp, les deux bornes
+      // tombaient sur le meme minuit UTC et la liste ne remontait rien.
       fromImport: importDateRange?.from
-        ? importDateRange.from.toISOString()
+        ? startOfDay(importDateRange.from).toISOString()
         : undefined,
       toImport: importDateRange?.to
-        ? importDateRange.to.toISOString()
+        ? endOfDay(importDateRange.to).toISOString()
         : undefined,
       source: search.source || undefined,
       stale: search.stale === '1' || undefined,
@@ -569,8 +573,8 @@ export function Reservations() {
             value={dateRange}
             onChange={(range) =>
               setSearch({
-                from: range?.from ? range.from.toISOString() : undefined,
-                to: range?.to ? range.to.toISOString() : undefined,
+                from: toIso(range?.from),
+                to: toIso(range?.to),
               })
             }
             placeholder="Date d'événement"
