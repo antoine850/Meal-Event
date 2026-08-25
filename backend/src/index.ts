@@ -21,6 +21,7 @@ import { stripeConnectRouter, stripeConnectPublicRouter } from './routes/stripe-
 import { exportsRouter } from './routes/exports.js'
 import { gmailRouter, gmailPublicRouter } from './routes/gmail.js'
 import { emailsRouter } from './routes/emails.js'
+import { internalRouter } from './routes/internal.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -112,6 +113,9 @@ app.use('/api/webhooks', webhooksRouter)
 app.use('/api/invitations', membersPublicRouter)
 app.use('/api/public', publicRouter)
 app.use('/api/v1', apiV1Router)
+
+// Endpoint interne appelé par le trigger DB (pg_net) — auth par secret partagé
+app.use('/api/internal', internalRouter)
 
 // Google Calendar OAuth callback (no auth — redirect from Google)
 // Must be mounted BEFORE the authenticated router so requireAuth is never hit.
