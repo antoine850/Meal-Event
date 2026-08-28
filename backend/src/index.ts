@@ -6,6 +6,7 @@ import dotenv from 'dotenv'
 import { requireAuth, requireOrgAdmin } from './lib/auth.js'
 import { startGmailPolling } from './lib/gmail-poll.js'
 import { startStatusPromotion } from './lib/status-promotion.js'
+import { startGcalSweep } from './lib/gcal-sweep.js'
 import { organizationsRouter } from './routes/organizations.js'
 import { restaurantsRouter } from './routes/restaurants.js'
 import { contactsRouter } from './routes/contacts.js'
@@ -21,6 +22,7 @@ import { stripeConnectRouter, stripeConnectPublicRouter } from './routes/stripe-
 import { exportsRouter } from './routes/exports.js'
 import { gmailRouter, gmailPublicRouter } from './routes/gmail.js'
 import { emailsRouter } from './routes/emails.js'
+import { internalRouter } from './routes/internal.js'
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' })
@@ -113,6 +115,9 @@ app.use('/api/invitations', membersPublicRouter)
 app.use('/api/public', publicRouter)
 app.use('/api/v1', apiV1Router)
 
+// Endpoint interne appelé par le trigger DB (pg_net) — auth par secret partagé
+app.use('/api/internal', internalRouter)
+
 // Google Calendar OAuth callback (no auth — redirect from Google)
 // Must be mounted BEFORE the authenticated router so requireAuth is never hit.
 app.use('/api/google-calendar', googleCalendarPublicRouter)
@@ -147,6 +152,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
   startGmailPolling()
   startStatusPromotion()
+  startGcalSweep()
 })
 
 export default app

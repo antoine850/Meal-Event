@@ -5,7 +5,6 @@ import {
   uploadPdfDocument,
 } from '../lib/documents.js'
 import { generateFicheFonctionPdf } from '../lib/fiche-fonction-pdf.js'
-import { syncBookingToCalendar } from '../lib/google-calendar.js'
 import { supabase } from '../lib/supabase.js'
 
 export const bookingsRouter = Router()
@@ -100,9 +99,6 @@ bookingsRouter.post('/', async (req: Request, res: Response) => {
 
     if (error) throw error
 
-    // Sync to Google Calendar (fire & forget)
-    if (data?.id) syncBookingToCalendar(data.id, 'create').catch(() => {})
-
     res.status(201).json(data)
   } catch (error) {
     console.error('Error creating booking:', error)
@@ -122,9 +118,6 @@ bookingsRouter.patch('/:id', async (req: Request, res: Response) => {
 
     if (error) throw error
 
-    // Sync to Google Calendar (fire & forget)
-    if (data?.id) syncBookingToCalendar(data.id, 'update').catch(() => {})
-
     res.json(data)
   } catch (error) {
     console.error('Error updating booking:', error)
@@ -135,9 +128,6 @@ bookingsRouter.patch('/:id', async (req: Request, res: Response) => {
 // DELETE /api/bookings/:id
 bookingsRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    // Sync to Google Calendar BEFORE deleting (needs booking data)
-    await syncBookingToCalendar(req.params.id, 'delete').catch(() => {})
-
     // Delete related records first (FK without CASCADE)
     await supabase.from('email_logs').delete().eq('booking_id', req.params.id)
     await supabase
