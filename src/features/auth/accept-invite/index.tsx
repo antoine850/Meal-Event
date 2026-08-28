@@ -296,8 +296,7 @@ export function AcceptInvite() {
           to='/sign-in'
           className='flex items-center gap-2 transition-opacity hover:opacity-80'
         >
-          <Logo className='h-8 w-8' />
-          <span className='text-xl font-bold'>MealEvent</span>
+          <Logo className='h-8' />
         </Link>
       </header>
 

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { Command } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { Logo } from '@/assets/logo'
 import { useLayout } from '@/context/layout-provider'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -13,7 +14,6 @@ import {
 import { sidebarData } from './data/sidebar-data'
 import { NavGroup } from './nav-group'
 import { NavUser } from './nav-user'
-import { TeamSwitcher } from './team-switcher'
 import type { NavItem } from './types'
 
 // Map sidebar URLs to required permissions
@@ -63,16 +63,6 @@ export function AppSidebar() {
   const { data: currentUser } = useCurrentUser()
   const { permissions, isAdmin } = usePermissions()
 
-  const teams = currentUser?.organization
-    ? [
-        {
-          name: currentUser.organization.name,
-          logo: Command,
-          plan: 'Restaurant CRM',
-        },
-      ]
-    : sidebarData.teams
-
   const user = currentUser
     ? {
         name: `${currentUser.first_name} ${currentUser.last_name || ''}`.trim(),
@@ -102,7 +92,13 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
       <SidebarHeader>
-        <TeamSwitcher teams={teams} />
+        {/* replie en mode icone: overflow-hidden recadre sur le pictogramme */}
+        <Link
+          to='/'
+          className='flex h-11 items-center overflow-hidden px-1 transition-opacity group-data-[collapsible=icon]:px-0 hover:opacity-80'
+        >
+          <Logo className='h-7 shrink-0' />
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         {filteredNavGroups.map((props) => (
