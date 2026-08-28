@@ -85,3 +85,128 @@
     height: 0;
   }
 }
+
+/* Animation d'entree du logo, colonne de droite des pages d'authentification */
+.AuthSplash {
+  --splash-icon: #556850;
+  --splash-sheen: rgb(255 255 255 / 0.85);
+  --splash-glow: rgb(85 104 80 / 0.1);
+}
+.dark .AuthSplash {
+  --splash-icon: #6f8767;
+  --splash-sheen: rgb(255 255 255 / 0.35);
+  --splash-glow: rgb(111 135 103 / 0.16);
+}
+
+.AuthSplash::before {
+  content: '';
+  position: absolute;
+  width: min(72vmin, 560px);
+  height: min(72vmin, 560px);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--splash-glow) 0%, transparent 62%);
+  opacity: 0;
+  animation: splash-glow 1.1s ease-out 0.1s forwards;
+}
+
+.AuthSplash-logo {
+  position: relative;
+  display: block;
+  width: clamp(150px, 27vw, 230px);
+  height: auto;
+}
+
+.AuthSplash .icon {
+  fill: var(--splash-icon);
+  opacity: 0;
+  filter: blur(7px);
+  transform: translateY(12px) scale(0.94);
+  transform-origin: 50% 42%;
+  animation: splash-reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.AuthSplash .wordmark {
+  fill: currentColor;
+}
+.AuthSplash .wordmark path {
+  opacity: 0;
+  filter: blur(5px);
+  transform: translateY(7px);
+  animation: splash-reveal 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.AuthSplash .wordmark path:nth-child(1) {
+  animation-delay: 0.16s;
+}
+.AuthSplash .wordmark path:nth-child(2) {
+  animation-delay: 0.19s;
+}
+.AuthSplash .wordmark path:nth-child(3) {
+  animation-delay: 0.22s;
+}
+.AuthSplash .wordmark path:nth-child(4) {
+  animation-delay: 0.25s;
+}
+.AuthSplash .wordmark path:nth-child(5) {
+  animation-delay: 0.28s;
+}
+.AuthSplash .wordmark path:nth-child(6) {
+  animation-delay: 0.31s;
+}
+.AuthSplash .wordmark path:nth-child(7) {
+  animation-delay: 0.34s;
+}
+.AuthSplash .wordmark path:nth-child(8) {
+  animation-delay: 0.37s;
+}
+.AuthSplash .wordmark path:nth-child(9) {
+  animation-delay: 0.4s;
+}
+
+.AuthSplash .sheen-edge {
+  stop-color: var(--splash-sheen);
+  stop-opacity: 0;
+}
+.AuthSplash .sheen-mid {
+  stop-color: var(--splash-sheen);
+}
+.AuthSplash .sheen rect {
+  transform: translateX(-260px);
+  animation: splash-sheen 0.42s cubic-bezier(0.4, 0, 0.2, 1) 0.78s forwards;
+}
+
+@keyframes splash-glow {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes splash-reveal {
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes splash-sheen {
+  to {
+    transform: translateX(560px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .AuthSplash .icon,
+  .AuthSplash .wordmark path {
+    animation: none;
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+  .AuthSplash::before {
+    animation: none;
+    opacity: 1;
+  }
+  .AuthSplash .sheen {
+    display: none;
+  }
+}
