@@ -98,7 +98,11 @@ googleCalendarPublicRouter.get('/callback', async (req: Request, res: Response) 
     console.error('[GCal] OAuth callback error:', error)
     const restaurantId = req.query.state as string
     const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.fr'
-    return res.redirect(`${frontendBase}/settings/restaurant/${restaurantId}?gcal_error=token_exchange_failed`)
+    const reason =
+      error instanceof Error && error.message === 'missing_calendar_scope'
+        ? 'missing_calendar_scope'
+        : 'token_exchange_failed'
+    return res.redirect(`${frontendBase}/settings/restaurant/${restaurantId}?gcal_error=${reason}`)
   }
 })
 
@@ -121,7 +125,14 @@ googleCalendarRouter.get('/calendars', async (req: Request, res: Response) => {
     return res.json({ calendars })
   } catch (error) {
     console.error('[GCal] Error listing calendars:', error)
-    return res.status(500).json({ error: 'Failed to list calendars' })
+    // Sans le motif Google (scope insuffisant, invalid_grant), l'UI ne peut
+    // afficher qu'une liste vide impossible à diagnostiquer.
+    const detail =
+      (error as any)?.response?.data?.error_description ??
+      (error instanceof Error ? error.message : null)
+    return res.status(500).json({
+      error: detail ? `Google: ${detail}` : 'Failed to list calendars',
+    })
   }
 })
 

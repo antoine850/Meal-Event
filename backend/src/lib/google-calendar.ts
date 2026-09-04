@@ -5,10 +5,8 @@ import { parisToday } from './status-promotion.js'
 // `calendar` → read/write calendar events
 // `userinfo.email` → required so we can fetch the connected Google account's
 // email via oauth2.userinfo.get() and display it in the settings UI.
-const SCOPES = [
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/userinfo.email',
-]
+const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar'
+const SCOPES = [CALENDAR_SCOPE, 'https://www.googleapis.com/auth/userinfo.email']
 
 // ============================================
 // OAuth2 Client
@@ -38,6 +36,13 @@ export async function handleOAuthCallback(code: string, restaurantId: string) {
 
   if (!tokens.refresh_token) {
     throw new Error('No refresh token received. User may need to revoke access and reconnect.')
+  }
+
+  // Consentement granulaire : l'utilisateur peut décocher l'agenda et n'accorder
+  // que l'email. Stocker ce token donnerait un resto "connecté" dont la liste de
+  // calendriers échoue à vie, on refuse la connexion à la place.
+  if (!tokens.scope?.split(' ').includes(CALENDAR_SCOPE)) {
+    throw new Error('missing_calendar_scope')
   }
 
   // Try to fetch the connected Google account email. This is a nice-to-have
@@ -214,7 +219,10 @@ export function buildCalendarEvent(booking: BookingEventData): calendar_v3.Schem
     // Timed event
     const startDateTime = `${booking.event_date}T${booking.start_time}:00`
     const endTime = booking.end_time || (booking.start_time === '12:00' ? '15:00' : '23:00')
-    const endDateTime = `${booking.event_date}T${endTime}:00`
+    // Fin avant le début = service qui passe minuit (00:00, 02:00). Sur la même
+    // date, Google renvoie 400 "time range is empty" : ~la moitié des dîners.
+    const endDate = endTime < booking.start_time ? nextDay(booking.event_date) : booking.event_date
+    const endDateTime = `${endDate}T${endTime}:00`
 
     event.start = { dateTime: startDateTime, timeZone: 'Europe/Paris' }
     event.end = { dateTime: endDateTime, timeZone: 'Europe/Paris' }

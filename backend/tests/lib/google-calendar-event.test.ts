@@ -57,6 +57,27 @@ describe('buildCalendarEvent', () => {
     })
   })
 
+  it('horaires : fin avant le debut = service qui passe minuit, fin au lendemain', () => {
+    const minuit = buildCalendarEvent({
+      ...base,
+      start_time: '20:30',
+      end_time: '00:00',
+    })
+    expect(minuit.end).toEqual({
+      dateTime: '2026-06-24T00:00:00',
+      timeZone: 'Europe/Paris',
+    })
+    const deuxHeures = buildCalendarEvent({
+      ...base,
+      start_time: '19:00',
+      end_time: '02:00',
+    })
+    expect(deuxHeures.end).toEqual({
+      dateTime: '2026-06-24T02:00:00',
+      timeZone: 'Europe/Paris',
+    })
+  })
+
   it('summary : occasion + contact + pax', () => {
     const e = buildCalendarEvent({ ...base, occasion: 'Anniversaire' })
     expect(e.summary).toBe('Anniversaire — Jane Doe (12 pers.)')

@@ -46,6 +46,11 @@ type Props = {
   restaurantId: string
 }
 
+const GCAL_ERROR_MESSAGES: Record<string, string> = {
+  missing_calendar_scope:
+    "L'accès à Google Agenda n'a pas été autorisé. Relancez la connexion en laissant la case Agenda cochée.",
+}
+
 export function GoogleCalendarSettings({ restaurantId }: Props) {
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>('')
@@ -54,11 +59,15 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
     useGoogleCalendarStatus(restaurantId)
   const { mutateAsync: getAuthUrl, isPending: authUrlPending } =
     useGoogleCalendarAuthUrl(restaurantId)
-  const { data: calendarsData, isLoading: calendarsLoading } =
-    useGoogleCalendars(
-      restaurantId,
-      !!status?.connected && !status?.calendar_id
-    )
+  const {
+    data: calendarsData,
+    isLoading: calendarsLoading,
+    error: calendarsError,
+    refetch: refetchCalendars,
+  } = useGoogleCalendars(
+    restaurantId,
+    !!status?.connected && !status?.calendar_id
+  )
   const { mutateAsync: selectCalendar, isPending: selectPending } =
     useSelectGoogleCalendar()
   const { mutateAsync: disconnect, isPending: disconnectPending } =
@@ -74,9 +83,11 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
       url.searchParams.delete('gcal_connected')
       window.history.replaceState({}, '', url.toString())
     }
-    if (params.get('gcal_error')) {
+    const gcalError = params.get('gcal_error')
+    if (gcalError) {
       toast.error(
-        `Erreur de connexion Google Calendar: ${params.get('gcal_error')}`
+        GCAL_ERROR_MESSAGES[gcalError] ||
+          `Erreur de connexion Google Calendar: ${gcalError}`
       )
       const url = new URL(window.location.href)
       url.searchParams.delete('gcal_error')
@@ -192,6 +203,26 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
                       Chargement des calendriers...
                     </span>
                   </div>
+                ) : calendarsError ? (
+                  <div className='space-y-2'>
+                    <p className='text-sm text-destructive'>
+                      {calendarsError.message}
+                    </p>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => refetchCalendars()}
+                    >
+                      Réessayer
+                    </Button>
+                  </div>
+                ) : !calendarsData?.calendars?.length ? (
+                  <p className='text-sm text-muted-foreground'>
+                    Aucun calendrier modifiable sur ce compte Google. Le
+                    calendrier du restaurant doit être partagé avec{' '}
+                    <strong>{status.email}</strong> en droit &laquo; Apporter
+                    des modifications aux événements &raquo;.
+                  </p>
                 ) : (
                   <div className='flex gap-2'>
                     <Select
@@ -222,15 +253,29 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
                 )}
               </div>
 
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => setShowDisconnectDialog(true)}
-                className='text-destructive'
-              >
-                <Unplug className='mr-2 h-4 w-4' />
-                Déconnecter
-              </Button>
+              <div className='flex gap-2'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={handleConnect}
+                  disabled={authUrlPending}
+                >
+                  {authUrlPending && (
+                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  )}
+                  <ExternalLink className='mr-2 h-4 w-4' />
+                  Reconnecter le compte Google
+                </Button>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setShowDisconnectDialog(true)}
+                  className='text-destructive'
+                >
+                  <Unplug className='mr-2 h-4 w-4' />
+                  Déconnecter
+                </Button>
+              </div>
             </div>
           )}
 
@@ -285,7 +330,8 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
             <AlertDialogDescription>
               Le lien vers votre calendrier sera retiré de ce restaurant. Les
               événements déjà créés dans Google Calendar ne seront pas
-              supprimés.
+              supprimés. Si ce compte Google est aussi relié à un autre
+              restaurant, sa synchronisation peut être coupée au passage.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
