@@ -63,7 +63,7 @@ gmailRouter.delete('/disconnect', async (req: Request, res: Response) => {
 
 // GET /api/gmail/callback — retour OAuth Google (public, pas d'auth).
 gmailPublicRouter.get('/callback', async (req: Request, res: Response) => {
-  const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.fr'
+  const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.com'
   const settingsUrl = `${frontendBase}/settings/integrations`
   try {
     // Master switch OFF : ne jamais stocker de token (lien OAuth traînant, flag coupe en cours de flux).

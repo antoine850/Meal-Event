@@ -78,7 +78,7 @@ googleCalendarPublicRouter.get('/callback', async (req: Request, res: Response) 
     const error = req.query.error as string
 
     // Frontend URL to redirect back to
-    const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.fr'
+    const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.com'
     const settingsUrl = `${frontendBase}/settings/restaurant/${restaurantId}`
 
     if (error) {
@@ -97,7 +97,7 @@ googleCalendarPublicRouter.get('/callback', async (req: Request, res: Response) 
   } catch (error) {
     console.error('[GCal] OAuth callback error:', error)
     const restaurantId = req.query.state as string
-    const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.fr'
+    const frontendBase = process.env.FRONTEND_URL || 'https://app.mealevent.com'
     const reason =
       error instanceof Error && error.message === 'missing_calendar_scope'
         ? 'missing_calendar_scope'
