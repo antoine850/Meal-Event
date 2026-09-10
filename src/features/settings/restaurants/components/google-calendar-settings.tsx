@@ -112,7 +112,7 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
         calendar_id: selectedCalendarId,
       })
       toast.success(
-        'Calendrier relié. La synchronisation sera activée prochainement.'
+        'Calendrier relié. Les événements confirmés y seront poussés automatiquement.'
       )
     } catch {
       toast.error('Erreur lors de la sélection du calendrier.')
@@ -148,8 +148,8 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
             <div>
               <CardTitle>Google Calendar</CardTitle>
               <CardDescription>
-                Reliez un calendrier Google à ce restaurant. La synchronisation
-                automatique des événements sera activée prochainement.
+                Reliez un calendrier Google à ce restaurant : les événements
+                confirmés y sont poussés automatiquement.
               </CardDescription>
             </div>
           </div>
@@ -164,9 +164,8 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
               <div className='text-center'>
                 <p className='font-medium'>Aucun compte Google connecté</p>
                 <p className='mt-1 text-sm text-muted-foreground'>
-                  Reliez un compte Google et un calendrier à ce restaurant dès
-                  maintenant. La synchronisation automatique des événements sera
-                  activée prochainement.
+                  Reliez un compte Google et un calendrier à ce restaurant pour
+                  y retrouver les événements confirmés.
                 </p>
               </div>
               <Button onClick={handleConnect} disabled={authUrlPending}>
@@ -279,7 +278,7 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
             </div>
           )}
 
-          {/* Fully connected — calendar linked, sync pending go-live */}
+          {/* Fully connected — calendar linked, sync live */}
           {status?.connected && status?.calendar_id && (
             <div className='space-y-4'>
               <div className='flex items-center justify-between'>
@@ -291,18 +290,17 @@ export function GoogleCalendarSettings({ restaurantId }: Props) {
                 </div>
                 <Badge
                   variant='outline'
-                  className='border-amber-300 bg-amber-50 text-amber-700'
+                  className='border-green-300 bg-green-50 text-green-700'
                 >
-                  Synchronisation bientôt disponible
+                  Synchronisation active
                 </Badge>
               </div>
 
               <div className='space-y-1 rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground'>
                 <p>
-                  Votre calendrier est bien relié à ce restaurant. La
-                  synchronisation automatique des événements sera activée
-                  prochainement — aucun événement n'est poussé sur Google
-                  Calendar pour le moment.
+                  Les événements à partir de « Confirmé / Fonction à faire »
+                  sont créés et tenus à jour dans ce calendrier, sans reprise
+                  des dates passées.
                 </p>
               </div>
 

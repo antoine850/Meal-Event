@@ -228,6 +228,14 @@ class Supa:
         self._req("PATCH", f"/rest/v1/{table}?{flt}", body=body,
                   extra={"Prefer": "return=minimal"})
 
+    def insert(self, table, rows):
+        _, raw = self._req("POST", f"/rest/v1/{table}", body=rows,
+                           extra={"Prefer": "return=representation"})
+        return json.loads(raw)
+
+    def delete(self, table, flt):
+        self._req("DELETE", f"/rest/v1/{table}?{flt}", extra={"Prefer": "return=minimal"})
+
     def upsert(self, table, rows, on_conflict, batch=500):
         limits = MAXLEN.get(table, {})
         for r in rows:
