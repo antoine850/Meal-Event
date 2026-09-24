@@ -66,7 +66,7 @@ exportsRouter.get('/events.csv', async (req: Request, res: Response) => {
         contact:contacts (first_name, last_name, email, phone,
           company:companies (name, billing_address, billing_city, billing_postal_code, siret, tva_number)),
         restaurant:restaurants (name),
-        status:statuses (name),
+        status:statuses!bookings_status_id_fkey(name),
         quotes (quote_number, status, total_ht, total_ttc, discount_percentage,
           deposit_amount_override, deposit_percentage, quote_sent_at, quote_signed_at, primary_quote)
       `

@@ -395,7 +395,7 @@ export async function syncBookingToCalendar(bookingId: string) {
         id, event_date, start_time, end_time, guests_count, occasion, event_type,
         reservation_type, is_privatif, commentaires, allergies_regimes, budget_client,
         restaurant_id, space_id, google_calendar_event_id,
-        status:statuses (slug),
+        status:statuses!bookings_status_id_fkey(slug),
         contact:contacts (first_name, last_name, email, phone),
         restaurant:restaurants (name)
       `)

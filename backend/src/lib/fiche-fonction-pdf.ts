@@ -110,7 +110,7 @@ export async function fetchBookingFullData(bookingId: string): Promise<{
       *,
       contact:contacts(id, first_name, last_name, email, phone, company:companies(name)),
       restaurant:restaurants(id, name, color, logo_url, address, postal_code, city),
-      status:statuses(name, color),
+      status:statuses!bookings_status_id_fkey(name, color),
       quotes(*, quote_items(*)),
       payments(*)
     `

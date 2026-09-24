@@ -121,7 +121,7 @@ const BOOKING_SELECT = `
   *,
   restaurant:restaurants(id, name, color),
   contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
-  status:statuses(id, name, color, slug),
+  status:statuses!bookings_status_id_fkey(id, name, color, slug),
   payments(id, amount, status, payment_modality, paid_at),
   quotes(id, total_ht, total_ttc, status, primary_quote, quote_number, quote_sent_at, signature_requested_at, quote_signed_at)
 `
@@ -526,7 +526,7 @@ export function useBooking(id: string) {
           *,
           restaurant:restaurants(id, name, color),
           contact:contacts(id, first_name, last_name, email, phone, source, created_at, company:companies(id, name)),
-          status:statuses(id, name, color, slug)
+          status:statuses!bookings_status_id_fkey(id, name, color, slug)
         `
         )
         .eq('id', id)
@@ -555,7 +555,7 @@ export function useBookingsByContact(contactId: string | null | undefined) {
           `
           *,
           restaurant:restaurants(id, name, color),
-          status:statuses(id, name, color, slug)
+          status:statuses!bookings_status_id_fkey(id, name, color, slug)
         `
         )
         .eq('contact_id', contactId)

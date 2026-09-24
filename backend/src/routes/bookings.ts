@@ -26,7 +26,7 @@ bookingsRouter.get('/', async (req: Request, res: Response) => {
         *,
         contact:contacts (id, first_name, last_name, email, phone),
         restaurant:restaurants (id, name, color),
-        status:statuses (*),
+        status:statuses!bookings_status_id_fkey(*),
         space:spaces (id, name),
         time_slot:time_slots (id, name, start_time, end_time)
       `
@@ -60,7 +60,7 @@ bookingsRouter.get('/:id', async (req: Request, res: Response) => {
         *,
         contact:contacts (*),
         restaurant:restaurants (*),
-        status:statuses (*),
+        status:statuses!bookings_status_id_fkey(*),
         space:spaces (*),
         time_slot:time_slots (*),
         booking_products_services (*),

@@ -294,7 +294,7 @@ apiV1Router.get('/bookings', async (req: Request, res: Response) => {
         created_at, updated_at,
         contact:contacts(id, first_name, last_name, email, phone),
         restaurant:restaurants(id, name),
-        status:statuses(id, name, slug, color)
+        status:statuses!bookings_status_id_fkey(id, name, slug, color)
       `, { count: 'exact' })
       .eq('organization_id', orgId)
 
@@ -327,7 +327,7 @@ apiV1Router.get('/bookings/:id', async (req: Request, res: Response) => {
         *,
         contact:contacts(id, first_name, last_name, email, phone, client_type),
         restaurant:restaurants(id, name, slug),
-        status:statuses(id, name, slug, color)
+        status:statuses!bookings_status_id_fkey(id, name, slug, color)
       `)
       .eq('organization_id', orgId)
       .eq('id', req.params.id)
