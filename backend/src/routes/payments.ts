@@ -504,7 +504,8 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
       }
     }
 
-    // Auto-update booking status -> Relance paiement
+    // Auto-update booking status -> Relance paiement, only from Attente paiement
+    // (a deposit reminder on an upcoming event must not change its status)
     if (payment.booking_id) {
       const { data: booking } = await supabase
         .from('bookings')
@@ -512,18 +513,20 @@ paymentsRouter.post('/:id/remind', async (req: Request, res: Response) => {
         .eq('id', payment.booking_id)
         .single()
       if (booking?.organization_id) {
-        const { data: statusData } = await supabase
+        const { data: statuses } = await supabase
           .from('statuses')
-          .select('id')
+          .select('id, slug')
           .eq('organization_id', booking.organization_id)
-          .eq('slug', 'relance_paiement')
           .eq('type', 'booking')
-          .single()
-        if (statusData) {
+          .in('slug', ['relance_paiement', 'attente_paiement'])
+        const target = statuses?.find((s) => s.slug === 'relance_paiement')
+        const from = statuses?.find((s) => s.slug === 'attente_paiement')
+        if (target && from) {
           await supabase
             .from('bookings')
-            .update({ status_id: statusData.id })
+            .update({ status_id: target.id })
             .eq('id', payment.booking_id)
+            .eq('status_id', from.id)
         }
       }
     }

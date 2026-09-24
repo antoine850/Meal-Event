@@ -991,23 +991,37 @@ async function handleSignNowDocumentComplete(signnowDocumentId: string) {
       })
       .eq('id', quote.id)
 
-    // Auto-update booking status → Attente paiement
+    // Auto-update booking status → Attente paiement, only before confirmation
+    // (a second quote signed on a confirmed booking must not move it backwards)
     if (quote.booking_id && quote.organization_id) {
-      const { data: statusData } = await supabase
+      const { data: statuses } = await supabase
         .from('statuses')
-        .select('id')
+        .select('id, slug')
         .eq('organization_id', quote.organization_id)
-        .eq('slug', 'attente_paiement')
         .eq('type', 'booking')
-        .single()
-      if (statusData) {
-        await supabase
+        .in('slug', [
+          'attente_paiement',
+          'nouveau',
+          'qualification',
+          'proposition',
+          'negociation',
+        ])
+      const target = statuses?.find((s) => s.slug === 'attente_paiement')
+      if (target) {
+        const fromIds = statuses!
+          .filter((s) => s.slug !== 'attente_paiement')
+          .map((s) => s.id)
+        const { data: updated } = await supabase
           .from('bookings')
-          .update({ status_id: statusData.id })
+          .update({ status_id: target.id })
           .eq('id', quote.booking_id)
-        console.log(
-          `[SignNow] ✅ Booking ${quote.booking_id} status → attente_paiement`
-        )
+          .in('status_id', fromIds)
+          .select('id')
+        if (updated?.length) {
+          console.log(
+            `[SignNow] ✅ Booking ${quote.booking_id} status → attente_paiement`
+          )
+        }
       }
     }
 

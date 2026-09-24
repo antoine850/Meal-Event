@@ -52,30 +52,35 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 export const quotesRouter = Router()
 
-// Helper: update booking status by slug
+// Helper: update booking status by slug, only from the listed source statuses
+// (a re-sent quote or invoice must never move a booking backwards)
 async function updateBookingStatusBySlug(
   bookingId: string | undefined | null,
   organizationId: string | undefined | null,
-  slug: string
+  slug: string,
+  fromSlugs: string[]
 ) {
   if (!bookingId || !organizationId) return
-  const { data: statusData } = await supabase
+  const { data: statuses } = await supabase
     .from('statuses')
-    .select('id')
+    .select('id, slug')
     .eq('organization_id', organizationId)
-    .eq('slug', slug)
     .eq('type', 'booking')
-    .single()
+    .in('slug', [slug, ...fromSlugs])
 
-  if (statusData) {
-    await supabase
-      .from('bookings')
-      .update({ status_id: statusData.id })
-      .eq('id', bookingId)
-    console.log(`[Status] ✅ Booking ${bookingId} → ${slug}`)
-  } else {
+  const target = statuses?.find((s) => s.slug === slug)
+  if (!target) {
     console.warn(`[Status] Slug '${slug}' not found for org ${organizationId}`)
+    return
   }
+  const fromIds = statuses!.filter((s) => s.slug !== slug).map((s) => s.id)
+  const { data: updated } = await supabase
+    .from('bookings')
+    .update({ status_id: target.id })
+    .eq('id', bookingId)
+    .in('status_id', fromIds)
+    .select('id')
+  if (updated?.length) console.log(`[Status] ✅ Booking ${bookingId} → ${slug}`)
 }
 
 // GET /api/quotes
@@ -367,7 +372,8 @@ quotesRouter.post('/:id/send-email', async (req: Request, res: Response) => {
     await updateBookingStatusBySlug(
       booking?.id,
       quoteData.organization_id,
-      'proposition'
+      'proposition',
+      ['nouveau', 'qualification']
     )
 
     console.log(
@@ -938,7 +944,16 @@ quotesRouter.post('/:id/send-balance', async (req: Request, res: Response) => {
     await updateBookingStatusBySlug(
       booking?.id,
       quoteData.organization_id,
-      'attente_paiement'
+      'attente_paiement',
+      [
+        'nouveau',
+        'qualification',
+        'proposition',
+        'negociation',
+        'confirme_fonctionnaire',
+        'fonction_envoyee',
+        'a_facturer',
+      ]
     )
 
     if (isStripeEnabled) {

@@ -880,27 +880,12 @@ export function useCreatePayment() {
 
       if (error) throw error
 
-      // When a payment is created as "paid", update booking and quote status
+      // When a payment is created as "paid", update quote status
       if (status === 'paid') {
         const modality = paymentModality || 'autre'
 
         if (modality === 'acompte' || paymentType === 'deposit') {
-          // Deposit paid → booking status "acompte-paye"
-          const { data: statusData } = await supabase
-            .from('statuses')
-            .select('id')
-            .eq('organization_id', orgId)
-            .eq('slug', 'confirme_fonctionnaire')
-            .eq('type', 'booking')
-            .single()
-
-          if (statusData) {
-            await supabase
-              .from('bookings')
-              .update({ status_id: statusData.id })
-              .eq('id', bookingId)
-          }
-
+          // Saisie manuelle : le statut du dossier ne bouge pas (décision du 24/09)
           if (quoteId) {
             await supabase
               .from('quotes')
@@ -1042,34 +1027,18 @@ export function useUpdatePayment() {
 
       const payment = data as Payment & { quote_id?: string }
 
-      // When a payment is marked as "paid", update booking status and quote status
+      // When a payment is marked as "paid", update quote status
       // This handles the bank transfer flow where there's no Stripe webhook
       if (status === 'paid' && payment) {
         const paymentModality_ =
           paymentModality || (payment as any).payment_modality
         const resolvedQuoteId = payment.quote_id || quoteId
 
-        // Update booking status based on payment modality
         if (
           paymentModality_ === 'acompte' ||
           (payment as any).payment_type === 'deposit'
         ) {
-          // Deposit paid → update booking status to "acompte-paye"
-          const { data: statusData } = await supabase
-            .from('statuses')
-            .select('id')
-            .eq('organization_id', orgId)
-            .eq('slug', 'confirme_fonctionnaire')
-            .eq('type', 'booking')
-            .single()
-
-          if (statusData) {
-            await supabase
-              .from('bookings')
-              .update({ status_id: statusData.id })
-              .eq('id', bookingId)
-          }
-
+          // Saisie manuelle : le statut du dossier ne bouge pas (décision du 24/09)
           // Update quote status to deposit_paid
           if (resolvedQuoteId) {
             await supabase
